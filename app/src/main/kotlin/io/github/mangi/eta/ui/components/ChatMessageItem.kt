@@ -813,6 +813,15 @@ private fun UserMessageBubble(
 
 // ── Agent 结果 ───────────────────────────────────────────────────────
 
+/** A pause belongs to the live run. A finished answer whose exact content has already
+ * revealed must not reparse its terminal document as streaming while another row pauses. */
+internal fun answerFollowsRunPause(
+    runPaused: Boolean,
+    messageStreaming: Boolean,
+    revealedContent: String?,
+    content: String,
+): Boolean = runPaused && (messageStreaming || revealedContent != content)
+
 @Composable
 private fun AgentMessageBlock(
     message: AgentMessageUi,
@@ -880,7 +889,8 @@ private fun AgentMessageBlock(
                                 displayContent.isNotEmpty() &&
                                 streamingState.documentState.snapshot == null &&
                                 streamingState.revealedContent == null,
-                            isPaused = isPaused,
+                            isPaused = answerFollowsRunPause(isPaused, message.isStreaming,
+                                retainedStreamingState?.revealedContent, message.content),
                             onRevealCompleteChange = { streamingRevealComplete = it },
                             modifier = Modifier.fillMaxWidth(),
                         )

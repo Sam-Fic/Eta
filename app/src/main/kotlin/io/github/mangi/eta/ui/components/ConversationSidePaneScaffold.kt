@@ -416,17 +416,18 @@ private fun ConversationPanePanel(
                 overscrollEffect = null,
             ) {
                 if (visibleConversations.isEmpty()) {
-                    item {
+                    item(contentType = "drawer-empty") {
                         EmptyConversations(isSearching = query.isNotBlank())
                     }
                 } else {
                     groups.forEach { group ->
-                        item(key = group.key) {
+                        item(key = group.key, contentType = "drawer-section") {
                             ConversationSectionHeader(group = group)
                         }
                         items(
                             items = group.items,
                             key = { it.id },
+                            contentType = { "drawer-conversation" },
                         ) { conversation ->
                             ConversationTextRow(
                                 conversation = conversation,

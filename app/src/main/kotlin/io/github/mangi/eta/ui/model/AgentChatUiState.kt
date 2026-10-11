@@ -261,6 +261,33 @@ fun conversationTokenUsage(messages: List<AgentChatMessageUi>): ConversationToke
     )
 }
 
+/**
+ * Streaming deltas replace one message per snapshot. When that exact certificate holds and
+ * the replaced slot contributes the same usage, the total cannot change; anything else
+ * falls back to the full [conversationTokenUsage] scan.
+ */
+internal class ConversationTokenUsageProjection {
+    private var previous: List<AgentChatMessageUi>? = null
+    private var total = ConversationTokenUsageUi()
+
+    fun project(messages: List<AgentChatMessageUi>): ConversationTokenUsageUi {
+        val old = previous
+        if (messages === old) return total
+        val index = if (old == null) null else (messages as? AgentIncrementalList<*>)?.singleReplacementFrom(old)
+        if (old == null || index == null || !sameUsageContribution(old[index], messages[index])) {
+            total = conversationTokenUsage(messages)
+        }
+        previous = messages
+        return total
+    }
+
+    private fun sameUsageContribution(old: AgentChatMessageUi, new: AgentChatMessageUi): Boolean = when (old) {
+        is AgentMessageUi -> new is AgentMessageUi && old.usage == new.usage
+        is ContextCompactedMessageUi -> new is ContextCompactedMessageUi && old.preservedUsage == new.preservedUsage
+        else -> new !is AgentMessageUi && new !is ContextCompactedMessageUi
+    }
+}
+
 @Immutable
 data class ThinkingMessageUi(
     override val id: String,

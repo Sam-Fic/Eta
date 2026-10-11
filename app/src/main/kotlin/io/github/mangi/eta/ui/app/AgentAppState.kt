@@ -315,7 +315,18 @@ internal class AgentAppState(
     private var skillNoticeSequence = 0L
     private var pendingSkillZipUri: Uri? = null
     private var pendingSkillZipSha256: String? = null
-    private var selectionProviders: List<io.github.mangi.eta.data.model.ProviderSetting> = emptyList()
+    @Volatile private var selectionProviders: List<io.github.mangi.eta.data.model.ProviderSetting> = emptyList()
+
+    /** In-memory memo keyed by the provider snapshot identity plus binding ids.
+     * Not a data class so no generated toString can expose provider credentials. */
+    private class ContextRouteSignatureEntry(
+        val providers: List<io.github.mangi.eta.data.model.ProviderSetting>,
+        val providerId: String,
+        val modelId: String,
+        val signature: String?,
+    )
+
+    @Volatile private var contextRouteSignatureEntry: ContextRouteSignatureEntry? = null
     private var defaultProviderId: String? = null
     private var defaultModelId: String? = null
     private var modelBindingGeneration = 0L
@@ -577,18 +588,22 @@ internal class AgentAppState(
 
     /** 严格路由签名：customHeaders/customBody/sessionGatewayJson 一律 fail closed，
      * 凭据内容从不参与任何持久化比较。 */
-    private fun strictRouteSignature(state: AgentChatHomeUiState): String? {
-        val provider = selectionProviders.firstOrNull { it.id == state.providerId && it.isEnabled } ?: return null
-        val model = provider.models.firstOrNull { it.id == state.modelId && it.isEnabled } ?: return null
-        return RequestOverheadCalibration.routeSignature(provider, model).takeIf { it.isNotBlank() }
-    }
+    private fun strictRouteSignature(
+        provider: io.github.mangi.eta.data.model.ProviderSetting,
+        model: io.github.mangi.eta.data.model.Model,
+    ): String? = RequestOverheadCalibration.routeSignature(provider, model).takeIf { it.isNotBlank() }
 
     /** Actual receipts need a verifiable local scope even when custom routing forbids learning.
-     * Only a digest is checkpointed; custom configuration is never a calibration scope. */
-    private fun contextRouteSignature(state: AgentChatHomeUiState): String? {
-        val provider = selectionProviders.firstOrNull { it.id == state.providerId && it.isEnabled } ?: return null
-        val model = provider.models.firstOrNull { it.id == state.modelId && it.isEnabled } ?: return null
-        strictRouteSignature(state)?.let { return it }
+     * Only a digest is checkpointed; custom configuration is never a calibration scope.
+     * Uncached: computed from one captured provider snapshot. */
+    private fun contextRouteSignature(
+        providers: List<io.github.mangi.eta.data.model.ProviderSetting>,
+        providerId: String,
+        modelId: String,
+    ): String? {
+        val provider = providers.firstOrNull { it.id == providerId && it.isEnabled } ?: return null
+        val model = provider.models.firstOrNull { it.id == modelId && it.isEnabled } ?: return null
+        strictRouteSignature(provider, model)?.let { return it }
         val endpoint = when (provider) {
             is io.github.mangi.eta.data.model.OpenAiCompatibleProviderSetting -> provider.endpointMode
             is io.github.mangi.eta.data.model.CustomProviderSetting -> provider.endpointMode
@@ -604,6 +619,20 @@ internal class AgentAppState(
                 model.copy(createdAt = 0, displayName = "", sortOrder = 0)))
         return "actual-local-v1:" + java.security.MessageDigest.getInstance("SHA-256")
             .digest(fields.toString().toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+    }
+
+    /** Memoized [contextRouteSignature] for the current snapshot and binding. */
+    private fun contextRouteSignature(state: AgentChatHomeUiState): String? {
+        // Streaming deltas re-check the route on every publish; the inputs are only the
+        // provider snapshot (replaced, never mutated) and the two binding ids.
+        val providers = selectionProviders
+        contextRouteSignatureEntry?.let { cached ->
+            if (cached.providers === providers && cached.providerId == state.providerId &&
+                cached.modelId == state.modelId) return cached.signature
+        }
+        val signature = contextRouteSignature(providers, state.providerId, state.modelId)
+        contextRouteSignatureEntry = ContextRouteSignatureEntry(providers, state.providerId, state.modelId, signature)
+        return signature
     }
 
     /** UI 侧同一个“有效实测”：InputBar 只有在它为 null（真未知）时才因为本地估算解除发送禁用，

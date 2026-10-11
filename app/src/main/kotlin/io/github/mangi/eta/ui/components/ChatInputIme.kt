@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -37,7 +38,8 @@ import kotlinx.coroutines.delay
 
 internal val LocalChatInputFocusRequester = staticCompositionLocalOf<FocusRequester?> { null }
 
-internal val LocalConversationDrawerBlocksIme = staticCompositionLocalOf { false }
+// Dynamic: only IME readers recompose when the drawer opens or closes, not the whole page.
+internal val LocalConversationDrawerBlocksIme = compositionLocalOf { false }
 
 internal fun hideChatInputIme(
     focusManager: FocusManager,

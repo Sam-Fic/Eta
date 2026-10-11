@@ -20,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
@@ -152,7 +153,8 @@ internal fun AgentAppShell(
     val topBarColor = topBarContainerColor(backdrop)
     val pageContent: @Composable () -> Unit = {
         Scaffold(
-            modifier = Modifier.fillMaxSize(),
+            // Own render node: drawer offset and scrim redraws must not re-record the page.
+            modifier = Modifier.fillMaxSize().graphicsLayer {},
             contentWindowInsets = WindowInsets.safeDrawing.only(
                 WindowInsetsSides.Top + WindowInsetsSides.Horizontal,
             ),

@@ -75,7 +75,6 @@ import io.github.mangi.eta.ui.model.AgentSkillsAction
 import io.github.mangi.eta.ui.model.AgentSystemEnhanceAction
 import io.github.mangi.eta.ui.model.AgentToolsAction
 import io.github.mangi.eta.ui.model.ConversationSummaryUi
-import io.github.mangi.eta.ui.model.conversationTokenUsage
 import io.github.mangi.eta.ui.model.PermissionHealthAction
 import io.github.mangi.eta.ui.navigation.AgentNavigator
 import io.github.mangi.eta.ui.navigation.AppRoute
@@ -151,6 +150,7 @@ fun AgentAppRoot(
     val recordedUsage = recordedUsageState?.takeIf { it.first == usageConversationId }?.second
     // 输出中每条增量都会换成新的 homeState。侧边栏只需要压缩状态、子任务和累计用量，
     // 这些没变时不能跟着消息重组。
+    val shellTokenUsage = remember { io.github.mangi.eta.ui.model.ConversationTokenUsageProjection() }
     val shellHomeState by remember {
         derivedStateOf {
             val state = agentState.homeState
@@ -164,7 +164,7 @@ fun AgentAppRoot(
                 modelId = state.modelId,
                 assistantId = state.assistantId,
                 pendingConversationMentions = state.pendingConversationMentions,
-                tokenUsage = conversationTokenUsage(state.messages),
+                tokenUsage = shellTokenUsage.project(state.messages),
             )
         }
     }
