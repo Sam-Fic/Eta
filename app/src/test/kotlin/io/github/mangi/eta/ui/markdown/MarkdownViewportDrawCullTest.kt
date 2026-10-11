@@ -58,7 +58,8 @@ class MarkdownViewportDrawCullTest {
         val enabled = mutableStateOf(true)
         var draws = 0
         compose.setContent {
-            SideEffect { viewport.updateEnabled(enabled.value) }
+            val enabledNow = enabled.value
+            SideEffect { viewport.updateEnabled(enabledNow) }
             // No clipping at the logical viewport: only the guard can hide the red leaf.
             Box(Modifier.size(100.dp, 400.dp).background(Color.White).testTag("root")) {
                 Box(Modifier.size(100.dp, height.value).onGloballyPositioned(viewport::updateCoordinates)) {
