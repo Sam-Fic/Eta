@@ -161,7 +161,7 @@ private class SortPaths {
             }
         }
         val loader = object : ClassLoader(parent) {
-            override fun loadClass(name: String, resolve: Boolean): Class<*> = synchronized(getClassLoadingLock(name)) {
+            override fun loadClass(name: String, resolve: Boolean): Class<*> = synchronized(this) {
                 val c = findLoadedClass(name) ?: classes[name]?.let { defineClass(name, it, 0, it.size) } ?: super.loadClass(name, false)
                 if (resolve) resolveClass(c)
                 c
