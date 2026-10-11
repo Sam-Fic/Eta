@@ -1402,7 +1402,6 @@ internal fun AgentConversationMessages(
             // Commit count only (ns=0): proves this content lambda was applied, not its cost.
             StreamPerformanceDiagnostics.record("chat.content.commit", value = 1)
         }
-        io.github.mangi.eta.ui.markdown.MarkdownAccessibilityProvider {
         androidx.compose.runtime.CompositionLocalProvider(
             io.github.mangi.eta.ui.markdown.LocalMarkdownDrawViewport provides markdownViewport,
         ) {
@@ -1753,7 +1752,6 @@ internal fun AgentConversationMessages(
             }
         }
 
-        }
         }
 
         fun navigateUserMessage(toEdge: Boolean) {

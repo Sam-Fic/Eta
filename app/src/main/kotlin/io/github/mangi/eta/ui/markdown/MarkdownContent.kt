@@ -88,7 +88,7 @@ internal fun MarkdownContent(
     reveal: SmoothTextRevealCoordinator? = null,
 ) {
     val scope = remember(style, reveal) { MarkdownRenderScope(style, reveal) }
-    MarkdownBlockColumn(blocks = document.blocks, scope = scope, compact = false, modifier = modifier, viewportLayout = style.tone == MarkdownTone.Answer)
+    MarkdownBlockColumn(blocks = document.blocks, scope = scope, compact = false, modifier = modifier)
 }
 
 @Immutable
@@ -108,10 +108,9 @@ private fun MarkdownBlockColumn(
     scope: MarkdownRenderScope,
     compact: Boolean,
     modifier: Modifier = Modifier,
-    viewportLayout: Boolean = false,
 ) {
     val density = LocalDensity.current
-    val children: @Composable () -> Unit = {
+    Column(modifier) {
         blocks.forEachIndexed { index, block ->
             key(block.offset) {
                 val previous = blocks.getOrNull(index - 1)
@@ -120,18 +119,11 @@ private fun MarkdownBlockColumn(
                 } else {
                     markdownBlockGap(previous, block, scope.style.tone)
                 }
-                if (viewportLayout) Column {
-                    if (gap.value > 0f) Spacer(Modifier.height(with(density) { gap.toDp() }))
-                    MarkdownBlockView(block, scope)
-                } else {
-                    if (gap.value > 0f) Spacer(Modifier.height(with(density) { gap.toDp() }))
-                    MarkdownBlockView(block, scope)
-                }
+                if (gap.value > 0f) Spacer(Modifier.height(with(density) { gap.toDp() }))
+                MarkdownBlockView(block, scope)
             }
         }
     }
-    if (viewportLayout) MarkdownViewportLayout(modifier, children)
-    else Column(modifier) { children() }
 }
 
 @Composable

@@ -79,6 +79,8 @@ class MarkdownViewportSelectionRegressionTest {
                 }
             }
         }
+        compose.onNodeWithText("全文选择").assertDoesNotExist()
+        compose.onNodeWithText("返回浏览").assertDoesNotExist()
         compose.onNodeWithText(paragraphs.first(), useUnmergedTree = true).performTouchInput { longClick() }
         compose.runOnIdle {
             assertNotNull("platform selection offers Select all", selectAll)

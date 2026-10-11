@@ -867,10 +867,7 @@ private fun AgentMessageBlock(
                 modifier = Modifier.padding(top = 4.dp)
             )
         } else {
-            io.github.mangi.eta.ui.markdown.MarkdownSelectionContainer(
-                eagerOnly = message.isStreaming || !streamingRevealComplete ||
-                    (streamingState == null && !message.renderMarkdown),
-            ) {
+            HapticSelectionContainer {
                 when {
                     // 流式会话一旦建立就不要切到 StableMarkdown：暂停继续和生成结束
                     // 都会让 isStreaming 翻转，整棵 Markdown 重挂会闪一帧。
