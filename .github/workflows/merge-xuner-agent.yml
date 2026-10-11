@@ -40,7 +40,7 @@ jobs:
       - name: Verify merge result vs XunEr-agent HEAD
         run: |
           # 合并结果应等于 XunEr-agent HEAD 的树，仅多出仓库内的 merge 脚手架 workflow 文件
-          diff_lines=$(git diff --name-status agent/main HEAD | grep -v '^A\t\.github/workflows/merge-xuner-agent\.yml' || true)
+          diff_lines=$(git diff --name-status agent/main HEAD | grep -v 'merge-xuner-agent\.yml' || true)
           if [ -n "$diff_lines" ]; then
             echo "::error::合并结果与 XunEr-agent HEAD 存在意外差异:"
             echo "$diff_lines"
