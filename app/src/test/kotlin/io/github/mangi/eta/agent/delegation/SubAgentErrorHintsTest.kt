@@ -44,6 +44,22 @@ class SubAgentErrorHintsTest {
         }
     }
 
+    @Test fun liveResultPagingErrorsGiveTheSameCorrectionAsArchivedResults() {
+        SubAgentCoordinator(listOf(model)) { _, _, _ -> "report" }.use { c ->
+            val id = JSONObject(c.execute(call("delegate_task", JSONObject().put("task", "inspect"))).content).getString("task_id")
+            awaitStatus(c, id, "completed")
+            val invalid = JSONObject(c.execute(call("get_task_result",
+                JSONObject().put("task_id", id).put("text_limit", 10))).content)
+            assertEquals("INVALID_TASK_ARGUMENTS", invalid.getString("code"))
+            assertTrue(invalid.getString("detail").contains("require text_field"))
+            assertTrue(invalid.getString("message").contains("不是子代理模型"))
+            val valid = JSONObject(c.execute(call("get_task_result", JSONObject().put("task_id", id)
+                .put("text_field", "result").put("text_limit", 10))).content)
+            assertTrue(valid.getBoolean("ok"))
+            assertEquals("report", valid.getString("result"))
+        }
+    }
+
     @Test fun implementationWithoutWorkspaceBackendSaysSo() {
         SubAgentCoordinator(listOf(model), roles = listOf("implementation")) { _, _, _ -> "done" }.use { c ->
             val result = JSONObject(c.execute(call("delegate_task", JSONObject().put("task", "edit").put("role", "implementation")
@@ -88,6 +104,8 @@ class SubAgentErrorHintsTest {
         assertTrue(delegate.contains("execution_stopped=true"))
         assertTrue(delegate.contains("different agent_id"))
         assertTrue(delegate.contains("missing shell is not a reason for the parent to read that source itself"))
+        assertTrue(description("get_task_result").contains("text_offset and text_limit always require text_field"))
+        assertTrue(description("get_task_result").contains("not a worker/provider failure"))
         assertTrue(description("supervise_task").contains("need status exactly running"))
         assertTrue(description("supervise_task").contains("allowed_actions"))
         assertTrue(description("manage_agent_workspace").contains("WORKSPACE_IN_USE"))

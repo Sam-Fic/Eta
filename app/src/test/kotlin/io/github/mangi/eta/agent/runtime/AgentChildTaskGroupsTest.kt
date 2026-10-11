@@ -72,6 +72,59 @@ class AgentChildTaskGroupsTest {
     }
 
     @Test
+    fun archivedPagingErrorsExplainTheCorrectionAndDoNotChangeTheTask() {
+        val ownerId = "paging-owner-${UUID.randomUUID()}"
+        val (generation, group) = install(ownerId)
+        val id = "paging-task"
+        val snapshot = JSONObject().put("ok", true).put("task_id", id)
+            .put("status", "completed").put("role", "review").put("result", "A🙂BC").toString()
+        fun read(args: JSONObject) = JSONObject(owner.execute(ownerId, null,
+            AgentModelClient.ToolCall("query", "get_task_result", args.put("task_id", id).toString())).content)
+        try {
+            synchronized(owner) { set(group, "snapshots", mapOf(id to snapshot)) }
+            val cases = listOf(
+                JSONObject().put("text_limit", 10) to "require text_field",
+                JSONObject().put("text_offset", 0) to "require text_field",
+                JSONObject().put("text_field", "wrong") to "text_field must be",
+                JSONObject().put("text_field", "result").put("text_limit", 16001) to "out of range",
+                JSONObject().put("text_field", "result").put("text_offset", "1") to "must be an integer",
+                JSONObject().put("text_field", "result").put("text_offset", 2) to "surrogate pair",
+            )
+            for ((args, detail) in cases) {
+                val rejected = read(args)
+                assertFalse(rejected.getBoolean("ok"))
+                assertEquals("INVALID_TASK_ARGUMENTS", rejected.getString("code"))
+                assertTrue(rejected.getString("detail").contains(detail))
+                assertTrue(rejected.getString("message").contains("不是子代理模型"))
+                assertTrue(rejected.getString("message").contains("不要因此重派"))
+            }
+            val corrected = read(JSONObject().put("text_field", "result").put("text_limit", 1))
+            assertTrue(corrected.getBoolean("ok"))
+            assertEquals("completed", corrected.getString("status"))
+            assertEquals("A", corrected.getString("result"))
+            assertEquals(1, corrected.getJSONObject("text_page").getInt("next_offset"))
+            assertEquals("A🙂BC", read(JSONObject()).getString("result"))
+            assertEquals("TASK_NOT_FOUND", JSONObject(owner.execute("different-owner", null,
+                AgentModelClient.ToolCall("other", "get_task_result", JSONObject().put("task_id", id).toString()))
+                .content).getString("code"))
+        } finally { synchronized(owner) { groups().remove(generation) } }
+    }
+
+    @Test
+    fun malformedArchivedRecordIsNotBlamedOnQueryArguments() {
+        val ownerId = "broken-archive-${UUID.randomUUID()}"
+        val (generation, group) = install(ownerId)
+        val id = "broken-task"
+        try {
+            synchronized(owner) { set(group, "snapshots", mapOf(id to "not-json-private-report")) }
+            val result = JSONObject(owner.execute(ownerId, null, AgentModelClient.ToolCall("query", "get_task_result",
+                JSONObject().put("task_id", id).toString())).content)
+            assertEquals("TASK_RESULT_UNAVAILABLE", result.getString("code"))
+            assertFalse(result.toString().contains("not-json-private-report"))
+        } finally { synchronized(owner) { groups().remove(generation) } }
+    }
+
+    @Test
     fun generationCleanupRemovesClaimsEvenWithoutArchivedSnapshotKeys() {
         val (generation, group) = install("claim-owner")
         val claimClass = owner.javaClass.declaredClasses.single { it.simpleName == "Claim" }

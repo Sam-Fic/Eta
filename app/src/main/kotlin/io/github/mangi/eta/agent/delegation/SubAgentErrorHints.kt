@@ -8,10 +8,11 @@ import org.json.JSONObject
  */
 internal object SubAgentErrorHints {
     private val hints = mapOf(
-        "INVALID_TASK_ARGUMENTS" to "参数不合法，没有创建或改动任务。按提示修正这一次调用，不要重放已经成功的调用。",
+        "INVALID_TASK_ARGUMENTS" to "调用参数不合法，不是子代理模型或供应商故障。先看 detail 修正本次调用；get_task_result 的 text_offset/text_limit 必须同时指定 text_field（result、partial_result 或 model_report_unverified），也可去掉这些分页参数读取默认页。不要因此重派、替换任务或重放已经成功的操作。",
         "TASK_NOT_FOUND" to "本会话没有这个 task_id。从 known_task_ids 里选，或用不带 task_id 的 get_task_result 列出任务。不要自己拼 ID。",
         "UNKNOWN_REPLACED_TASK" to "replace_task_id 不属于本会话。先用不带 task_id 的 get_task_result 列出任务，确认要替换的 ID。",
         "TASK_FINISHED" to "这个任务所在的任务组已经归档，只能用 get_task_result 读取结果，不能再控制、继续或在这里新建任务。",
+        "TASK_RESULT_UNAVAILABLE" to "归档结果数据无法解析，不是调用参数错误，也不表示子代理模型故障。保留 task_id 并检查本地归档读取路径；不要重派、替换或重放任务。",
         "TASK_RESULT_PENDING" to "任务组正在收尾，结果还没归档。稍后用 get_task_result 再读一次。",
         "RUN_CLOSED" to "本轮子任务组已关闭，不能再委派或控制子任务。需要的话由主代理自己完成。",
         "TASK_GROUP_PAUSED" to "子任务组已暂停（主代理暂停、停止或正在收尾）。本轮不要重试 delegate_task；可以用 get_task_result 读旧任务，剩下的工作由主代理自己完成。",

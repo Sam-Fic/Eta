@@ -313,8 +313,11 @@ internal object AgentChildTaskGroups {
     }
     private fun archivedResult(raw: String, call: AgentModelClient.ToolCall): AgentModelClient.ToolResult = try {
         AgentModelClient.ToolResult(SubAgentResultPage.project(JSONObject(raw), JSONObject(call.argumentsJson)).toString(), sensitive = true)
-    } catch (_: IllegalArgumentException) { error("INVALID_TASK_ARGUMENTS") }
-      catch (_: org.json.JSONException) { error("INVALID_TASK_ARGUMENTS") }
+    } catch (failure: IllegalArgumentException) {
+        error("INVALID_TASK_ARGUMENTS") {
+            failure.message?.takeIf { it.isNotBlank() }?.let { put("detail", it.take(300)) }
+        }
+    } catch (_: org.json.JSONException) { error("TASK_RESULT_UNAVAILABLE") }
 
     private fun result(group: Group, id: String, call: AgentModelClient.ToolCall): AgentModelClient.ToolResult {
         val deadline = System.nanoTime() + HANDOFF_WAIT_MS * 1_000_000

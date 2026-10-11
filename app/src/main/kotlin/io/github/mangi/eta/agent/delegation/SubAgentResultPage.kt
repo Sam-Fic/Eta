@@ -41,7 +41,7 @@ internal object SubAgentResultPage {
     fun addProperties(properties: JSONObject): JSONObject = properties
         .put("text_field", JSONObject().put("type", "string").put("enum", JSONArray(fields)))
         .put("text_offset", JSONObject().put("type", "integer").put("minimum", 0)
-            .put("description", "UTF-16 character offset in text_field, independent of after_seq."))
+            .put("description", "Requires text_field, including for result. UTF-16 character offset, independent of after_seq."))
         .put("text_limit", JSONObject().put("type", "integer").put("minimum", 1).put("maximum", MAX_LIMIT)
             .put("description", "Requires text_field. Default 4000; maximum 16000 UTF-16 units. A limit of 1 may return a complete 2-unit surrogate pair for progress."))
 
