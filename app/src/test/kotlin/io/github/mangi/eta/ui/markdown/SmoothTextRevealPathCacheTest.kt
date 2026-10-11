@@ -78,7 +78,7 @@ class SmoothTextRevealPathCacheTest {
         return actual
     }
 
-    @Test fun multiGraphemeCatchUpMatchesFullPrefixPixelsAndKeepsAccumulatedPath() {
+    @Test fun multiGraphemeCatchUpMatchesCanonicalPrefixPixels() {
         val samples = listOf(
             "A long paragraph with several words and wrapped lines. More text to reveal.",
             "跨行中文，追赶一次推进多个字素。保留已经显现的文字。\n第二行继续。",
@@ -90,9 +90,30 @@ class SmoothTextRevealPathCacheTest {
             val node = node()
             val last = graphemeBoundaries(text).lastIndex
             assertPrefix(node, layout, 0)
-            val first = assertPrefix(node, layout, 1)
+            var previous = assertPrefix(node, layout, 1)
             for (count in listOf(5, 11, last / 2, last - 1, last).filter { it in 2..last }.distinct().sorted()) {
-                assertSame("forward progress must extend, not replace prefix", first, assertPrefix(node, layout, count))
+                val actual = assertPrefix(node, layout, count)
+                assertNotSame(previous, actual)
+                assertSame(actual, assertPrefix(node, layout, count))
+                previous = actual
+            }
+        }
+    }
+
+    @Test fun singleGraphemeStepsAcrossLinesMatchCanonicalPrefix() {
+        for (text in listOf(
+            "A long paragraph with enough text to wrap across multiple lines.",
+            "abc אבגדה مرحبا xyz mixed direction text followed by another line",
+            "跨行中文，逐字检查换行边界。\n第二行继续。",
+        )) {
+            for (width in listOf(90, 160)) {
+                val layout = layout(text, width = width)
+                assertTrue(layout.lineCount > 1)
+                val node = node()
+                for (count in 0..graphemeBoundaries(text).lastIndex) {
+                    val path = assertPrefix(node, layout, count)
+                    assertSame(path, assertPrefix(node, layout, count))
+                }
             }
         }
     }

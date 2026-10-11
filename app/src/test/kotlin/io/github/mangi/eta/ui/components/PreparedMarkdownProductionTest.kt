@@ -113,7 +113,7 @@ class PreparedMarkdownProductionTest {
         compose.runOnIdle { message.value = message.value.copy(isStreaming = false); paused.value = false }
         await(message.value.content, terminal = true)
         val final = requireNotNull(retained.documentState.snapshot)
-        assertNotSame(pending.document.blocks.first(), final.document.blocks.first())
+        assertSame(pending.document.blocks.first(), final.document.blocks.first())
         assertEquals(message.value.content, final.renderedSource)
         compose.onNodeWithText("New tail", useUnmergedTree = true).assertExists()
     }

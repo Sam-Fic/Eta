@@ -18,6 +18,30 @@ class DocumentStreamingStateTest {
             error("unreachable")
         }
 
+    @Test fun reusedTerminalPrefixStillRequiresNewSnapshotLayout() = runBlocking {
+        val state = DocumentStreamingState()
+        val style = MarkdownInlineStyle.Default
+        val source = "Stable **prefix**.\n\nTail"
+        val worker = launch(start = CoroutineStart.UNDISPATCHED) { state.parseUpdates() }
+        try {
+            state.submit(source, false, style)
+            val first = awaitSnapshot(state, source)
+            state.acknowledgeLayout(first)
+            assertTrue(state.markComplete(first))
+            val nextSource = source + " grows"
+            state.submit(nextSource, false, style)
+            val next = awaitSnapshot(state, nextSource, first)
+            assertNotSame(first, next)
+            assertSame(first.document.blocks.first(), next.document.blocks.first())
+            assertFalse(state.markComplete(first))
+            assertFalse(state.markComplete(next))
+            assertNull(state.completedSourceFor(nextSource, false, style))
+            state.acknowledgeLayout(next)
+            assertTrue(state.markComplete(next))
+            assertEquals(nextSource, state.completedSourceFor(nextSource, false, style))
+        } finally { worker.cancelAndJoin() }
+    }
+
     @Test fun oldCompletionCannotReleaseReopenedSameSourceOrCorrection() = runBlocking {
         val state = DocumentStreamingState()
         val style = MarkdownInlineStyle.Default

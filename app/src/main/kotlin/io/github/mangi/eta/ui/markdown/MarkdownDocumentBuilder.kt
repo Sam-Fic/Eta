@@ -13,7 +13,7 @@ import org.intellij.markdown.parser.LinkMap
  *
  * 同一会话内连续构建时，源码切片未变的顶层块直接复用上一次的实例：流式输出只改动
  * 尾部块，前面的段落、表格与代码块既不重新生成 AnnotatedString，组合期也因实例相同
- * 而跳过。行内样式或链接表变化（主题切换、终态补齐引用链接）时缓存整体失效。
+ * 而跳过。行内样式变化时缓存整体失效；链接表变化仅保守失效含方括号的块。
  */
 internal class MarkdownDocumentBuilder {
     private var cache = emptyMap<Int, CachedBlock>()
@@ -26,16 +26,17 @@ internal class MarkdownDocumentBuilder {
         links: LinkMap?,
         style: MarkdownInlineStyle,
     ): MarkdownDocument {
-        if (style != cacheStyle || links !== cacheLinks) {
+        val linksChanged = links !== cacheLinks
+        if (style != cacheStyle) {
             cache = emptyMap()
             cacheStyle = style
-            cacheLinks = links
         }
+        cacheLinks = links
         val converter = BlockConverter(source, links, style)
         val nextCache = HashMap<Int, CachedBlock>()
         val blocks = root.children.mapNotNull { node ->
             val slice = source.substring(node.startOffset, node.endOffset)
-            val reused = cache[node.startOffset]?.takeIf { it.source == slice }?.block
+            val reused = cache[node.startOffset]?.takeIf { it.source == slice && (!linksChanged || !it.dependsOnLinkMap) }?.block
             val block = reused ?: converter.convert(node) ?: return@mapNotNull null
             nextCache[node.startOffset] = CachedBlock(slice, block)
             block
@@ -44,7 +45,11 @@ internal class MarkdownDocumentBuilder {
         return MarkdownDocument(blocks = blocks, revealKeys = blocks.revealKeys(), inlineStyle = style)
     }
 
-    private class CachedBlock(val source: String, val block: MarkdownBlock)
+    private class CachedBlock(val source: String, val block: MarkdownBlock) {
+        // Reference links and images require '['. Conservatively refresh every
+        // bracket-bearing block, including literal brackets and inline links.
+        val dependsOnLinkMap: Boolean = '[' in source
+    }
 }
 
 private class BlockConverter(

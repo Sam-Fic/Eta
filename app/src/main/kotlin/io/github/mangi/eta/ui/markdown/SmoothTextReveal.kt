@@ -412,44 +412,18 @@ internal class SmoothTextRevealNode(
     }
 
     private fun ensurePaths(snapshot: RevealDrawSnapshot, fullCount: Int) {
-        val sameLayout = cachedLayoutResult === snapshot.layoutResult
-        if (sameLayout && cachedFullCount == fullCount) return
+        val layout = snapshot.layoutResult
+        if (cachedLayoutResult === layout && cachedFullCount == fullCount) return
 
-        // Catch-up can reveal several graphemes in one frame. Keep the already
-        // revealed prefix and query only the newly completed range, just as the
-        // single-grapheme fast path does. Layout changes and backwards progress
-        // still rebuild below; no reveal timing or layout policy changes here.
-        if (sameLayout && cachedFullCount >= 0 && fullCount > cachedFullCount) {
-            val textLength = snapshot.layoutResult.layoutInput.text.length
-            val start = snapshot.boundaries[cachedFullCount].coerceIn(0, textLength)
-            val end = snapshot.boundaries[fullCount].coerceIn(start, textLength)
-            val completedPath = if (fullCount == cachedFullCount + 1) {
-                cachedNextPath
-            } else if (end > start) {
-                snapshot.layoutResult.getPathForRange(start, end)
-            } else {
-                null
-            }
-            if (completedPath != null) {
-                val accumulatedPath = cachedFullPath ?: Path()
-                accumulatedPath.addPath(completedPath)
-                cachedFullPath = accumulatedPath
-            }
-            cachedFullCount = fullCount
-            cachedNextPath = nextGraphemePath(snapshot, fullCount)
-            return
-        }
-
-        cachedLayoutResult = snapshot.layoutResult
-        cachedFullCount = fullCount
-        val textLength = snapshot.layoutResult.layoutInput.text.length
+        // Selection paths are not additive across wrapped lines or Bidi runs:
+        // a former end line can become an intermediate line with different bounds.
+        // Keep fractional-frame hits, but rebuild every changed integer prefix.
+        val textLength = layout.layoutInput.text.length
         val fullEnd = snapshot.boundaries[fullCount].coerceIn(0, textLength)
-        cachedFullPath = if (fullEnd > 0) {
-            snapshot.layoutResult.getPathForRange(0, fullEnd)
-        } else {
-            null
-        }
+        cachedFullPath = if (fullEnd > 0) layout.getPathForRange(0, fullEnd) else null
         cachedNextPath = nextGraphemePath(snapshot, fullCount)
+        cachedLayoutResult = layout
+        cachedFullCount = fullCount
     }
 
     private fun nextGraphemePath(
