@@ -34,4 +34,23 @@ public class ComposeSemanticsPluginTest {
                 ComposeSemanticsPlugin.verifyClassEntries(EXPECTED, actual, "extra"));
         }
     }
+
+    @Test public void acceptsIdenticalConsumerCopiesWithGeneratedResources() {
+        ComposeSemanticsPlugin.verifyConsumerCopies(EXPECTED, EXPECTED, "identical");
+        Map<String, byte[]> compile = new LinkedHashMap<>(EXPECTED);
+        compile.put("androidx/compose/ui/R$string.class", new byte[]{3});
+        ComposeSemanticsPlugin.verifyConsumerCopies(compile, EXPECTED, "compile-runtime");
+        ComposeSemanticsPlugin.verifyConsumerCopies(EXPECTED, compile, "runtime-compile");
+    }
+
+    @Test public void rejectsConflictingConsumerCopiesInEitherOrder() {
+        for (Map<String, byte[]> other : java.util.List.of(
+                Map.of(SORT, new byte[]{9}),
+                Map.of(SORT, new byte[]{1, 2}, "unexpected/Injected.class", new byte[]{4}))) {
+            assertThrows(GradleException.class, () ->
+                    ComposeSemanticsPlugin.verifyConsumerCopies(EXPECTED, other, "conflict"));
+            assertThrows(GradleException.class, () ->
+                    ComposeSemanticsPlugin.verifyConsumerCopies(other, EXPECTED, "conflict-reversed"));
+        }
+    }
 }

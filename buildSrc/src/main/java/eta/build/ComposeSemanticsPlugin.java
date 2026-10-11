@@ -147,18 +147,36 @@ public final class ComposeSemanticsPlugin implements Plugin<Project> {
     private static void assertClasses(byte[] jar) {
         ComposeSemanticsAarTransform.assertConsumerClasses(jar);
     }
+    static void verifyConsumerCopies(Map<String, byte[]> first, Map<String, byte[]> second, String label) {
+        // AGP may expose both compile and runtime jars; only generated R classes may differ.
+        Map<String, byte[]> a = new LinkedHashMap<>(first), b = new LinkedHashMap<>(second);
+        a.keySet().removeIf(ComposeSemanticsPlugin::isResourceClass);
+        b.keySet().removeIf(ComposeSemanticsPlugin::isResourceClass);
+        verifyClassEntries(a, b, label);
+        verifyClassEntries(b, a, label);
+    }
+    private static boolean isResourceClass(String name) {
+        return name.equals("androidx/compose/ui/R.class")
+                || name.matches("androidx/compose/ui/R\\$[A-Za-z_][A-Za-z_0-9]*\\.class");
+    }
     private static void checkConsumer(FileCollection files, String label) {
-        int owners = 0;
+        Map<String, byte[]> owner = null;
         try {
             for (File f : files) {
                 if (f.isDirectory() && Files.isRegularFile(f.toPath().resolve(ANCHOR)))
                     throw new GradleException("Unexpected directory Compose dependency: " + label);
                 if (!f.isFile() || !f.getName().endsWith(".jar")) continue;
                 try (ZipFile zip = new ZipFile(f)) {
-                    if (zip.getEntry(ANCHOR) != null) { owners++; assertClasses(Files.readAllBytes(f.toPath())); }
+                    if (zip.getEntry(ANCHOR) != null) {
+                        byte[] bytes = Files.readAllBytes(f.toPath());
+                        assertClasses(bytes);
+                        Map<String, byte[]> candidate = classEntries(bytes);
+                        if (owner == null) owner = candidate;
+                        else verifyConsumerCopies(owner, candidate, label + ": " + f);
+                    }
                 }
             }
-            if (owners != 1) throw new GradleException(label + " loaded " + owners + " Compose owners");
+            if (owner == null) throw new GradleException(label + " loaded no Compose owner");
         } catch (IOException e) { throw new GradleException("Cannot verify consumer " + label, e); }
     }
 }
