@@ -18,6 +18,43 @@ class DocumentStreamingStateTest {
             error("unreachable")
         }
 
+    @Test fun terminalLinkResolutionRequiresExactPublicationLayout() = runBlocking {
+        val state = DocumentStreamingState()
+        val style = MarkdownInlineStyle.Default
+        val source = "Stable prefix.\n\n[אבגדה][r]\n\n[r]: https://example.com/a"
+        val worker = launch(start = CoroutineStart.UNDISPATCHED) { state.parseUpdates() }
+        try {
+            state.submit(source, true, style)
+            val streaming = awaitSnapshot(state, source)
+            assertFalse(streaming.isComplete)
+            assertTrue(streaming.document.revealKeys.isNotEmpty())
+            state.acknowledgeLayout(streaming)
+            assertFalse(state.markComplete(streaming))
+            state.submit(source, false, style)
+            val terminal = awaitSnapshot(state, source, streaming)
+            assertTrue(terminal.isComplete)
+            val linked = terminal.document.blocks.filterIsInstance<MarkdownParagraph>()
+                .single { it.text.text == "אבגדה" }
+            assertEquals(1, linked.text.getLinkAnnotations(0, linked.text.length).size)
+            state.acknowledgeLayout(streaming)
+            assertNull(state.laidOutSnapshot)
+            assertFalse(state.markComplete(terminal))
+            assertNull(state.completedSourceFor(source, false, style))
+            state.acknowledgeLayout(terminal)
+            assertTrue(state.markComplete(terminal))
+            val correctedSource = source.replace("example.com/a", "example.com/b")
+            state.submit(correctedSource, false, style)
+            assertFalse(state.markComplete(terminal))
+            val corrected = awaitSnapshot(state, correctedSource, terminal)
+            state.acknowledgeLayout(terminal)
+            assertNull(state.laidOutSnapshot)
+            assertFalse(state.markComplete(corrected))
+            state.acknowledgeLayout(corrected)
+            assertTrue(state.markComplete(corrected))
+            assertEquals(correctedSource, state.completedSourceFor(correctedSource, false, style))
+        } finally { worker.cancelAndJoin() }
+    }
+
     @Test fun reusedTerminalPrefixStillRequiresNewSnapshotLayout() = runBlocking {
         val state = DocumentStreamingState()
         val style = MarkdownInlineStyle.Default

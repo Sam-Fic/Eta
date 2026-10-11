@@ -6,9 +6,12 @@
 /.idea/
 
 # Gradle / Kotlin 构建缓存
-/.gradle/
+**/.gradle/
 /.kotlin/
 **/build/
+# The build-logic Java package is source, not generated build output.
+!buildSrc/src/main/java/eta/build/
+!buildSrc/src/test/java/eta/build/
 
 # Android 构建产物
 .cxx/

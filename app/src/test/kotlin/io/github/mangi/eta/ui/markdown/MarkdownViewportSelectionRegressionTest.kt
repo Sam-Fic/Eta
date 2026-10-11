@@ -1,6 +1,8 @@
 package io.github.mangi.eta.ui.markdown
 
 import android.app.Application
+import android.content.ClipboardManager
+import org.robolectric.RuntimeEnvironment
 import androidx.compose.foundation.ComposeFoundationFlags
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
@@ -88,5 +90,15 @@ class MarkdownViewportSelectionRegressionTest {
             assertNotNull("full selection retains platform Copy", copy)
         }
         compose.onNodeWithText(paragraphs.last(), useUnmergedTree = true).assertExists()
+        val clipboard = RuntimeEnvironment.getApplication().getSystemService(ClipboardManager::class.java)
+        compose.runOnIdle {
+            clipboard.clearPrimaryClip()
+            copy!!.invoke()
+        }
+        compose.waitUntil(5_000) { clipboard.primaryClip != null }
+        compose.runOnIdle {
+            assertEquals(paragraphs.joinToString("\n"),
+                clipboard.primaryClip!!.getItemAt(0).text.toString())
+        }
     }
 }

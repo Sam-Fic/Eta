@@ -65,6 +65,13 @@ jobs:
       - name: 验证子代理工作区
         run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s app/src/test/python -v
 
+      - name: 验证 Compose 语义构建补丁
+        run: |
+          set -euo pipefail
+          fixture="$RUNNER_TEMP/compose-ui-original.aar"
+          curl --fail --location --retry 3 'https://dl.google.com/dl/android/maven2/androidx/compose/ui/ui-android/1.12.0-rc01/ui-android-1.12.0-rc01.aar' -o "$fixture"
+          ./gradlew --no-daemon --no-configuration-cache -p buildSrc test -Deta.compose.semantics.originalAar="$fixture"
+
       - name: 运行单元测试
         timeout-minutes: 12
         run: python3 -u .github/scripts/run_unit_tests.py
