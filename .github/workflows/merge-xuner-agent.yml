@@ -1,0 +1,27 @@
+name: merge-xuner-agent
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Fetch and merge XunEr-agent
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add agent https://github.com/wzcawzc123/XunEr-agent.git
+          git fetch agent main
+          git merge --no-ff agent/main -m "merge: 合入 XunEr-agent 改进（来自 wzcawzc123/XunEr-agent）"
+          git push origin main
