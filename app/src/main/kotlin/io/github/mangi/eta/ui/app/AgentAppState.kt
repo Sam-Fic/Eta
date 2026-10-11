@@ -2,6 +2,7 @@ package io.github.mangi.eta.ui.app
 
 import io.github.mangi.eta.agent.model.AgentContextBudget
 import io.github.mangi.eta.agent.model.AgentConversationCodec
+import io.github.mangi.eta.agent.model.AgentHistoryTrimmer
 import org.json.JSONArray
 import io.github.mangi.eta.agent.model.AgentContextSnapshot
 
@@ -920,14 +921,15 @@ internal class AgentAppState(
         }
 
         // R2 守卫：编辑重发携带前缀历史是已知高风险入口（长会话下估算可能低估）。
-        // 用未乘校准的 raw 口径做发送前容量检查，超窗则在发出前阻止，避免被服务商 CONTEXT_OVERFLOW 拒绝。
+        // 用未乘校准的 raw 口径 + system/schema 固定开销做发送前容量检查，
+        // 超窗则在发出前阻止，避免被服务商 CONTEXT_OVERFLOW 拒绝。
         if (editBoundary != null && editBoundary.historyPrefix.isNotEmpty()) {
             val window = AgentModelClient.loadConfig().contextWindow
             val estimate = AgentContextBudget.rawEstimate(
                 JSONArray().also { arr ->
                     editBoundary.historyPrefix.forEach { arr.put(AgentConversationCodec.toJsonObject(it)) }
                 },
-            )
+            ) + AgentHistoryTrimmer.TOOL_SCHEMA_RESERVE_TOKENS
             if (window != null && window > 0 && estimate >= window) {
                 Toast.makeText(
                     appContext,

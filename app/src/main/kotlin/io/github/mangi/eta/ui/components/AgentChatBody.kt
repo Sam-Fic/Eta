@@ -974,7 +974,7 @@ private fun AgentChatBottomBar(
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "任务被系统中断，进度已保留。点击继续任务",
+                        text = "任务被系统中断，进度已保留。点击继续任务（若已涉及发送、修改或 GUI 操作，请先确认当前状态再继续）",
                         modifier = Modifier.weight(1f),
                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     )
