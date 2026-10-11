@@ -63,6 +63,9 @@ internal class DocumentStreamingState {
         if (publishedTarget != submittedTarget || snapshot !== value || !value.isComplete ||
             submittedTarget?.content != value.originalSource || submittedTarget?.streaming != false ||
             submittedTarget?.style != value.document.inlineStyle || laidOutSnapshot !== value) return false
+        if (completedSnapshot !== value) {
+            DocumentCache.put(value.originalSource, value.document.inlineStyle, value.document)
+        }
         completedSnapshot = value
         completedRevealSource = value.originalSource
         return true
@@ -219,11 +222,7 @@ internal fun DocumentStaticMarkdown(content: String, modifier: Modifier = Modifi
                                     tone: MarkdownTone = MarkdownTone.Answer) {
     val style = rememberMarkdownStyle(tone)
     val handler = LocalUriHandler.current
-    val document by produceState(DocumentCache.get(content, style.inline), content, style.inline) {
-        value = DocumentCache.get(content, style.inline) ?: withContext(Dispatchers.Default) {
-            DocumentGfmParserSession().parse(content, true, style.inline).document
-        }.also { DocumentCache.put(content, style.inline, it) }
-    }
+    val document by rememberStaticMarkdownDocument(content, style.inline)
     val traceMount = remember { io.github.mangi.eta.ui.components.nextChatBodyTraceMount() }
     SideEffect { io.github.mangi.eta.ui.components.traceChatBodyRun(
         if (document == null) "md.phase.loading" else "md.phase.success", traceMount) }
@@ -232,8 +231,25 @@ internal fun DocumentStaticMarkdown(content: String, modifier: Modifier = Modifi
         else MarkdownContent(checkNotNull(document), style, modifier)
     }
 }
-private object DocumentCache {
-    private val cache = android.util.LruCache<Pair<String, MarkdownInlineStyle>, MarkdownDocument>(96)
+@Composable
+internal fun rememberStaticMarkdownDocument(
+    content: String, style: MarkdownInlineStyle,
+): State<MarkdownDocument?> {
+    val source = remember(content) { NumericCitationMarkup.strip(content) }
+    // New targets must not keep the previous producer's document for a frame.
+    val document = remember(source, style) { mutableStateOf(DocumentCache.get(source, style)) }
+    LaunchedEffect(source, style) {
+        if (document.value == null) {
+            document.value = DocumentCache.get(source, style) ?: withContext(Dispatchers.Default) {
+                DocumentGfmParserSession().parse(source, true, style).document
+            }.also { DocumentCache.put(source, style, it) }
+        }
+    }
+    return document
+}
+
+internal object DocumentCache {
+    private val cache = androidx.collection.LruCache<Pair<String, MarkdownInlineStyle>, MarkdownDocument>(96)
     fun get(content: String, style: MarkdownInlineStyle): MarkdownDocument? = cache.get(content to style)
     fun put(content: String, style: MarkdownInlineStyle, document: MarkdownDocument) {
         cache.put(content to style, document)

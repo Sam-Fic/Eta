@@ -422,20 +422,38 @@ internal class MainThreadMessageLog(private val capacity: Int = MAIN_LOG_CAPACIT
     }
 
     /** 与 [fromNs, toNs] 有重叠的慢消息，时间相对 originNs。 */
-    @Synchronized fun between(fromNs: Long, toNs: Long, originNs: Long, limit: Int): List<String> {
-        val out = ArrayList<String>()
-        val first = (next - size + capacity) % capacity
-        for (i in 0 until size) {
-            val slot = (first + i) % capacity
-            if (ends[slot] < fromNs || starts[slot] > toNs) continue
-            if (out.size >= limit) { outputTruncated++; continue }
-            var line = "atMs=${(starts[slot] - originNs) / 1_000_000} durUs=${(ends[slot] - starts[slot]) / 1000} " +
-                "msg=${toggleProbeMessageName(names[slot].orEmpty())}"
-            // 有打点覆盖时才追加：看这条长消息里有多少时间落在已知阶段，剩下的是 Compose 内部或未打点的协程。
-            if (covered[slot] > 0) line += " coveredUs=${covered[slot] / 1000} top=${tops[slot]}"
-            out += line
+    fun between(fromNs: Long, toNs: Long, originNs: Long, limit: Int): List<String> {
+        val retained = limit.coerceIn(0, capacity)
+        val snapshotStarts = LongArray(retained)
+        val snapshotEnds = LongArray(retained)
+        val snapshotCovered = LongArray(retained)
+        val snapshotNames = arrayOfNulls<String>(retained)
+        val snapshotTops = arrayOfNulls<String>(retained)
+        var count = 0
+        synchronized(this) {
+            val first = (next - size + capacity) % capacity
+            for (i in 0 until size) {
+                val slot = (first + i) % capacity
+                if (ends[slot] < fromNs || starts[slot] > toNs) continue
+                if (count >= retained) { outputTruncated++; continue }
+                snapshotStarts[count] = starts[slot]
+                snapshotEnds[count] = ends[slot]
+                snapshotCovered[count] = covered[slot]
+                snapshotNames[count] = names[slot]
+                snapshotTops[count] = tops[slot]
+                count++
+            }
         }
-        return out
+        // Formatting must not hold the ring lock needed by the main Looper writer.
+        return List(count) { i ->
+            var line = "atMs=${(snapshotStarts[i] - originNs) / 1_000_000} " +
+                "durUs=${(snapshotEnds[i] - snapshotStarts[i]) / 1000} " +
+                "msg=${toggleProbeMessageName(snapshotNames[i].orEmpty())}"
+            if (snapshotCovered[i] > 0) {
+                line += " coveredUs=${snapshotCovered[i] / 1000} top=${snapshotTops[i]}"
+            }
+            line
+        }
     }
 }
 

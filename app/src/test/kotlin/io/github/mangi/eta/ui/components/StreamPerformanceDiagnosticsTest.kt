@@ -420,6 +420,28 @@ class StreamPerformanceDiagnosticsTest {
         assertTrue(ranged.single().contains("Job3"))
     }
 
+    @Test fun formattedSnapshotPreservesInclusiveEdgesAndTruncationAccounting() {
+        val log = MainThreadMessageLog(capacity = 3)
+        repeat(4) { i ->
+            val start = i * 10_000_000L
+            log.onLine(">>>>> Dispatching to Handler (android.os.Handler) {1} Job$i@1: 0", start)
+            log.onLine("<<<<< Finished", start + 5_000_000)
+        }
+        assertEquals(1L, log.overwritten)
+        val first = log.between(15_000_000, 30_000_000, 0, 2)
+        assertEquals(listOf("atMs=10 durUs=5000 msg=android.os.Handler/Job1",
+            "atMs=20 durUs=5000 msg=android.os.Handler/Job2"), first)
+        assertEquals(1L, log.outputTruncated)
+        assertTrue(log.between(15_000_000, 30_000_000, 0, 0).isEmpty())
+        assertEquals(4L, log.outputTruncated)
+        assertEquals(3, log.between(15_000_000, 30_000_000, 0, Int.MAX_VALUE).size)
+        assertEquals(4L, log.outputTruncated)
+        log.onLine(">>>>> Dispatching to Handler (android.os.Handler) {1} New@1: 0", 40_000_000)
+        log.onLine("<<<<< Finished", 45_000_000)
+        assertTrue(first.first().endsWith("Job1"))
+        assertTrue(log.between(0, Long.MAX_VALUE, 0, 3).last().endsWith("New"))
+    }
+
     @Test fun customRunnableToStringCannotLeakFieldValues() {
         val name = toggleProbeMessageName(
             ">>>>> Dispatching to Handler (android.os.Handler) {1a2b} Job(text=secret message, id=42): 0",

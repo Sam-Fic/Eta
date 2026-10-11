@@ -15,10 +15,20 @@ internal class DiagnosticObserverCosts(private val clock: () -> Long = System::n
         val start = clock()
         try { return block() } finally { add(phase, clock() - start) }
     }
-    @Synchronized fun summary(): List<String> = Phase.entries.map { phase ->
-        val i = phase.ordinal
-        "observerPhase=${phase.name} count=${count[i]} totalNs=${total[i]} maxNs=${max[i]} " +
-            "accounting=observerWallNotCpu includesLockWait=true recursiveMeasurement=false scope=sessionCumulative"
+    fun summary(): List<String> {
+        val counts = LongArray(count.size)
+        val totals = LongArray(total.size)
+        val maxima = LongArray(max.size)
+        synchronized(this) {
+            count.copyInto(counts)
+            total.copyInto(totals)
+            max.copyInto(maxima)
+        }
+        return Phase.entries.map { phase ->
+            val i = phase.ordinal
+            "observerPhase=${phase.name} count=${counts[i]} totalNs=${totals[i]} maxNs=${maxima[i]} " +
+                "accounting=observerWallNotCpu includesLockWait=true recursiveMeasurement=false scope=sessionCumulative"
+        }
     }
 }
 

@@ -178,6 +178,38 @@ class DocumentStreamingStateTest {
         } finally { worker.cancelAndJoin() }
     }
 
+    @Test fun onlyExactCompletedDocumentSeedsStaticCache() = runBlocking {
+        val state = DocumentStreamingState()
+        val source = "Cache handoff **answer** [link][r]\n\n[r]: https://example.com/cache-handoff"
+        val style = MarkdownInlineStyle.Default
+        val changedStyle = style.copy(linkColor = androidx.compose.ui.graphics.Color.Red)
+        val worker = launch(start = CoroutineStart.UNDISPATCHED) { state.parseUpdates() }
+        try {
+            assertNull(DocumentCache.get(source, style))
+            state.submit(source, true, style)
+            val streaming = awaitSnapshot(state, source)
+            state.acknowledgeLayout(streaming)
+            assertFalse(state.markComplete(streaming))
+            assertNull(DocumentCache.get(source, style))
+            state.submit(source, false, style)
+            val complete = awaitSnapshot(state, source, streaming)
+            assertFalse(state.markComplete(complete))
+            assertNull(DocumentCache.get(source, style))
+            state.acknowledgeLayout(complete)
+            assertTrue(state.markComplete(complete))
+            assertSame(complete.document, DocumentCache.get(source, style))
+            assertNull(DocumentCache.get(source, changedStyle))
+            state.submit(source, false, changedStyle)
+            assertFalse(state.markComplete(complete))
+            assertNull(DocumentCache.get(source, changedStyle))
+            val themed = awaitSnapshot(state, source, complete)
+            state.acknowledgeLayout(themed)
+            assertTrue(state.markComplete(themed))
+            assertSame(themed.document, DocumentCache.get(source, changedStyle))
+            assertSame(complete.document, DocumentCache.get(source, style))
+        } finally { worker.cancelAndJoin() }
+    }
+
     @Test fun imagesRetainPreviewButAreNotPendingRevealRecords() {
         val document = DocumentGfmParserSession().parse("- ![a](https://example.com/a.png)", true).document
         val item = (document.blocks.single() as MarkdownList).items.single()
