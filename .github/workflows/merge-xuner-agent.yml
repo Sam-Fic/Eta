@@ -37,17 +37,16 @@ jobs:
           git add .
           git commit -m "merge: 合入 XunEr-agent 改进（来自 wzcawzc123/XunEr-agent）"
 
-      - name: Verify merge tree equals XunEr-agent HEAD tree
+      - name: Verify merge result vs XunEr-agent HEAD
         run: |
-          ours_tree=$(git rev-parse HEAD^{tree})
-          agent_tree=$(git rev-parse agent/main^{tree})
-          echo "merge result tree: $ours_tree"
-          echo "agent HEAD tree:   $agent_tree"
-          if [ "$ours_tree" != "$agent_tree" ]; then
-            echo "::error::合并结果树与 XunEr-agent HEAD 不一致"
+          # 合并结果应等于 XunEr-agent HEAD 的树，仅多出仓库内的 merge 脚手架 workflow 文件
+          diff_lines=$(git diff --name-status agent/main HEAD | grep -v '^A\t\.github/workflows/merge-xuner-agent\.yml' || true)
+          if [ -n "$diff_lines" ]; then
+            echo "::error::合并结果与 XunEr-agent HEAD 存在意外差异:"
+            echo "$diff_lines"
             exit 1
           fi
-          echo "::notice::树一致性验证通过"
+          echo "::notice::树一致性验证通过（仅多出 merge 脚手架 workflow 文件）"
 
       - name: Push to main (only when confirmed)
         if: ${{ inputs.confirm_push == true }}
