@@ -27,8 +27,8 @@ public abstract class ComposeSemanticsAarTransform implements TransformAction<Tr
     private static final String DESC = "(L" + NODE + ";Ljava/util/List;Lkotlin/jvm/functions/Function1;Landroidx/collection/IntObjectMap;)Ljava/util/List;";
     private static final String BODY = "eta$sortByGeometryGroupings$body", BOUNDS = "eta$boundsInWindow";
     public static final String MARKER = "META-INF/eta-compose-semantics-cache.properties";
-    private static final byte[] MARK = ("scheme=1\nversion=" + VERSION + "\noriginalAarSha256=" + AAR_SHA
-            + "\noriginalClassesSha256=" + JAR_SHA + "\nreplacedGetterSites=7\n").getBytes(StandardCharsets.UTF_8);
+    private static final byte[] MARK = ("scheme=2\nversion=" + VERSION + "\noriginalAarSha256=" + AAR_SHA
+            + "\noriginalClassesSha256=" + JAR_SHA + "\nreplacedGetterSites=7\ntransparencyWriteSites=5\n").getBytes(StandardCharsets.UTF_8);
 
     @InputArtifact @PathSensitive(PathSensitivity.NONE)
     public abstract Provider<FileSystemLocation> getInputArtifact();
@@ -59,11 +59,13 @@ public abstract class ComposeSemanticsAarTransform implements TransformAction<Tr
     }
     public static byte[] patchExact(byte[] aar) {
         Map<String, byte[]> outer = unzip(aar), classes = unzip(originalClasses(aar));
+        for (String target : List.of(ComposeTransparencyPatch.COORD, ComposeTransparencyPatch.NODE,
+                ComposeTransparencyPatch.OWNER, SORT))
+            classes.put(target + ".class", ComposeTransparencyPatch.patch(required(classes, target + ".class"), target));
         classes.put(SORT + ".class", patch(required(classes, SORT + ".class"), true));
         for (String name : new String[]{"LtrBoundsComparator", "RtlBoundsComparator"})
             classes.put(P + name + ".class", patch(required(classes, P + name + ".class"), false));
-        for (String suffix : new String[]{"", "$Scope", "$Probe"}) {
-            String name = CACHE + suffix + ".class";
+        for (String name : helperNames()) {
             try (InputStream in = ComposeSemanticsAarTransform.class.getClassLoader().getResourceAsStream(name)) {
                 if (in == null) throw new GradleException("Missing helper " + name);
                 byte[] helper = in.readAllBytes();
@@ -71,24 +73,26 @@ public abstract class ComposeSemanticsAarTransform implements TransformAction<Tr
                 classes.put(name, helper);
             } catch (IOException e) { throw new GradleException("Cannot read helper", e); }
         }
+        ComposeTransparencyPatch.verify(classes);
         classes.put(MARKER, MARK); outer.put("classes.jar", zip(classes));
         byte[] result = zip(outer); assertPatched(result); return result;
     }
     public static void assertPatched(byte[] aar) {
         Map<String, byte[]> classes = unzip(required(unzip(aar), "classes.jar"));
         if (!Arrays.equals(MARK, classes.get(MARKER))) throw new GradleException("Compose patch marker mismatch");
-        required(classes, CACHE + ".class"); required(classes, CACHE + "$Scope.class"); required(classes, CACHE + "$Probe.class");
+        ComposeTransparencyPatch.verify(classes);
+        for (String name : helperNames()) required(classes, name);
     }
     static void assertConsumerClasses(byte[] jar) {
         Map<String, byte[]> classes = unzip(jar);
         // AGP strips META-INF resources from runtime jars; check executable classes instead.
-        for (String suffix : new String[]{"", "$Scope", "$Probe"}) {
-            String name = CACHE + suffix + ".class";
+        for (String name : helperNames()) {
             try (InputStream in = ComposeSemanticsAarTransform.class.getClassLoader().getResourceAsStream(name)) {
                 if (in == null || !Arrays.equals(in.readAllBytes(), required(classes, name)))
                     throw new GradleException("Compose helper bytes mismatch: " + name);
             } catch (IOException e) { throw new GradleException("Cannot verify helper", e); }
         }
+        ComposeTransparencyPatch.verify(classes);
         int calls = 0, bodies = 0, wrappers = 0, bridges = 0;
         for (String name : new String[]{SORT, P + "LtrBoundsComparator", P + "RtlBoundsComparator"}) {
             ClassNode c = new ClassNode(ASM9);
@@ -107,6 +111,10 @@ public abstract class ComposeSemanticsAarTransform implements TransformAction<Tr
         }
         if (calls != 7 || bodies != 1 || wrappers != 1 || bridges != 1)
             throw new GradleException("Compose consumer patch shape mismatch");
+    }
+    private static List<String> helperNames() {
+        return List.of(CACHE + ".class", CACHE + "$Scope.class", CACHE + "$Probe.class",
+                ComposeTransparencyPatch.CACHE + ".class", ComposeTransparencyPatch.CACHE + "$Scope.class");
     }
     private static byte[] patch(byte[] original, boolean sortClass) {
         ClassNode c = new ClassNode(ASM9); new ClassReader(original).accept(c, 0);

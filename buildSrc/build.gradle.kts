@@ -13,7 +13,7 @@ tasks.named<JavaCompile>(semanticsRuntime.compileJavaTaskName) {
     options.release.set(8)
 }
 tasks.named<ProcessResources>("processResources") {
-    from(semanticsRuntime.output) { include("androidx/compose/ui/semantics/EtaSemanticsBoundsCache*.class") }
+    from(semanticsRuntime.output) { include("androidx/compose/ui/semantics/EtaSemantics*Cache*.class") }
 }
 dependencies {
     implementation("org.ow2.asm:asm:9.8")

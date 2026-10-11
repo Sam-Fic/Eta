@@ -21,7 +21,7 @@ public class ComposeSemanticsAarTransformTest {
         byte[] patched = ComposeSemanticsAarTransform.patchExact(source);
         ComposeSemanticsAarTransform.assertPatched(patched);
         Map<String, byte[]> after = unzip(unzip(patched).get("classes.jar"));
-        Set<String> targets = Set.of("SemanticsSortKt.class", "LtrBoundsComparator.class", "RtlBoundsComparator.class");
+        Set<String> targets = Set.of("SemanticsSortKt.class", "LtrBoundsComparator.class", "RtlBoundsComparator.class", "SemanticsNode.class", "SemanticsOwnerKt.class", "NodeCoordinator.class");
         int calls = 0, bodies = 0, wrappers = 0;
         for (Map.Entry<String, byte[]> e : before.entrySet()) {
             if (!targets.contains(e.getKey().substring(e.getKey().lastIndexOf('/') + 1))) {
@@ -40,7 +40,7 @@ public class ComposeSemanticsAarTransformTest {
             }
         }
         assertEquals(7, calls); assertEquals(1, bodies); assertEquals(1, wrappers);
-        assertEquals(before.size() + 4, after.size());
+        assertEquals(before.size() + 6, after.size());
         assertArrayEquals(patched, ComposeSemanticsAarTransform.patchExact(source));
     }
     @Test public void runtimeClassesMayOmitResourcesButMustRetainThePatch() throws Exception {
@@ -53,6 +53,17 @@ public class ComposeSemanticsAarTransformTest {
         patched.put(sort, original.get(sort));
         assertThrows(org.gradle.api.GradleException.class,
             () -> ComposeSemanticsAarTransform.assertConsumerClasses(zip(patched)));
+    }
+    @Test public void everyTransparencyConsumerTargetMustRetainItsPatch() throws Exception {
+        byte[] source = official();
+        Map<String, byte[]> original = unzip(ComposeSemanticsAarTransform.originalClasses(source));
+        Map<String, byte[]> patched = unzip(unzip(ComposeSemanticsAarTransform.patchExact(source)).get("classes.jar"));
+        for (String target : List.of(ComposeTransparencyPatch.COORD, ComposeTransparencyPatch.NODE, ComposeTransparencyPatch.OWNER)) {
+            Map<String, byte[]> broken = new LinkedHashMap<>(patched);
+            broken.put(target + ".class", original.get(target + ".class"));
+            assertThrows(org.gradle.api.GradleException.class,
+                    () -> ComposeSemanticsAarTransform.assertConsumerClasses(zip(broken)));
+        }
     }
     private static byte[] zip(Map<String, byte[]> entries) throws IOException {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
