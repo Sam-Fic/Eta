@@ -415,8 +415,21 @@ internal class SmoothTextRevealNode(
         val sameLayout = cachedLayoutResult === snapshot.layoutResult
         if (sameLayout && cachedFullCount == fullCount) return
 
-        if (sameLayout && fullCount == cachedFullCount + 1) {
-            val completedPath = cachedNextPath
+        // Catch-up can reveal several graphemes in one frame. Keep the already
+        // revealed prefix and query only the newly completed range, just as the
+        // single-grapheme fast path does. Layout changes and backwards progress
+        // still rebuild below; no reveal timing or layout policy changes here.
+        if (sameLayout && cachedFullCount >= 0 && fullCount > cachedFullCount) {
+            val textLength = snapshot.layoutResult.layoutInput.text.length
+            val start = snapshot.boundaries[cachedFullCount].coerceIn(0, textLength)
+            val end = snapshot.boundaries[fullCount].coerceIn(start, textLength)
+            val completedPath = if (fullCount == cachedFullCount + 1) {
+                cachedNextPath
+            } else if (end > start) {
+                snapshot.layoutResult.getPathForRange(start, end)
+            } else {
+                null
+            }
             if (completedPath != null) {
                 val accumulatedPath = cachedFullPath ?: Path()
                 accumulatedPath.addPath(completedPath)
