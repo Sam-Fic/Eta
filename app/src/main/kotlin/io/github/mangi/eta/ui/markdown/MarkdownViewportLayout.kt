@@ -3,7 +3,10 @@ package io.github.mangi.eta.ui.markdown
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.constrainWidth
 import androidx.compose.ui.unit.constrainHeight
@@ -44,7 +47,10 @@ internal fun MarkdownViewportLayout(
     val viewport = LocalMarkdownDrawViewport.current
     val admission = LocalMarkdownLayoutAdmission.current
     val revision = admission?.revision ?: 0
-    Layout(content = content, modifier = modifier) { measurables, constraints ->
+    var documentOrigin by remember(viewport) { mutableStateOf<Offset?>(null) }
+    Layout(content = content, modifier = modifier.onGloballyPositioned {
+        documentOrigin = it.positionInRoot()
+    }) { measurables, constraints ->
         var remainingHeight = constraints.maxHeight
         val children = measurables.map { measurable ->
             measurable.measure(constraints.copy(minWidth = 0, minHeight = 0, maxHeight = remainingHeight)).also {
@@ -54,8 +60,9 @@ internal fun MarkdownViewportLayout(
         val width = constraints.constrainWidth(children.maxOfOrNull { it.width } ?: 0)
         val height = constraints.constrainHeight(children.sumOf { it.height })
         layout(width, height) {
-            // Reading the current placement coordinates makes ancestor scrolling rerun this block.
-            val window = viewport?.layoutWindow(coordinates)
+            // Layer-backed ancestor offsets can move coordinates without running child placement.
+            // The published origin invalidates placement; bounds are still read fresh here.
+            val window = if (documentOrigin == null) null else viewport?.layoutWindow(coordinates)
             val eager = admission?.eager != false || window == null
             var y = 0
             children.forEach { child ->

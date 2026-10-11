@@ -57,7 +57,7 @@ class ComposeSemanticsSortEquivalenceTest {
             compose.waitForIdle(); val r = root()
             compose.runOnIdle { eq(r, if (rtl) listOf("n:TR", "n:TL", "n:BR", "n:BL") else listOf("n:TL", "n:TR", "n:BL", "n:BR")) }
         }
-        compose.runOnIdle { state.value = tree(N("n:late", index = 3f), N("n:default", 120), N("n:zero", 60, index = 0f), N("n:early", 180, 80, index = -2f)) }
+        compose.runOnIdle { direction.value = LayoutDirection.Ltr; state.value = tree(N("n:late", index = 3f), N("n:default", 120), N("n:zero", 60, index = 0f), N("n:early", 180, 80, index = -2f)) }
         compose.waitForIdle(); val r = root()
         compose.runOnIdle { eq(r, listOf("n:early", "n:zero", "n:default", "n:late")) }
     }
