@@ -32,5 +32,8 @@ google-services.json
 /.analysis/
 /.tmp/
 
+# AI 助手的工作记忆与本地数据，仅存在于工作区
+/.codebuddy/
+
 # 外部源码参考，仅供阅读，不参与当前仓库版本管理
 /reference/
