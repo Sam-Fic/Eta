@@ -251,8 +251,10 @@ internal fun AgentChatBody(
     val context = LocalContext.current
     val voiceState by voiceController.state.collectAsState()
     val density = LocalDensity.current
-    val imeBottomPx = WindowInsets.ime.getBottom(density)
-    val isKeyboardVisible = imeBottomPx > 0
+    val imeInsets = WindowInsets.ime
+    val isKeyboardVisible by remember(imeInsets, density) {
+        derivedStateOf { imeInsets.getBottom(density) > 0 }
+    }
     val browserShortcut by remember {
         AgentBrowserSession.snapshots
             .map { snapshot ->
@@ -796,11 +798,10 @@ internal fun AgentConversationMessages(
     val streamingMarkdownStates = LocalStreamingMarkdownStates.current ?: fallbackStreamingStates
     // Messages already on screen before this live run must not replay. A text block that
     // arrives and ends in one snapshot is absent from this set, so it still gets a typewriter.
-    val settledMessageIds = remember { mutableSetOf<String>() }
-    var seededSettledMessages by remember { mutableStateOf(false) }
-    if (!seededSettledMessages) {
-        seededSettledMessages = true
-        if (isStreaming || isPaused) visibleMessages.forEach { settledMessageIds.add(it.id) }
+    val settledMessageIds = remember {
+        mutableSetOf<String>().apply {
+            if (isStreaming || isPaused) visibleMessages.forEach { add(it.id) }
+        }
     }
     SideEffect {
         if (!isStreaming && !isPaused) {
@@ -832,7 +833,7 @@ internal fun AgentConversationMessages(
     // Observe user motion synchronously, before the asynchronous drag collector
     // and before another scheduled follow frame can mutate the list position.
     // 手指是否按在列表上。只观察、不消费事件。
-    val pointerDown = remember { BooleanArray(1) }
+    val pointerDown = remember { mutableStateOf(false) }
     var programmaticUserScrolls by remember { mutableIntStateOf(0) }
     val userScrollConnection = remember(scrollState, directionTracker) {
         object : NestedScrollConnection {
@@ -841,7 +842,7 @@ internal fun AgentConversationMessages(
                     // 有些滚动也用 UserInput 来源，但手指根本没按下：把某块内容带进可视区
                     // （BringIntoView，例如取得焦点的选区）、无障碍滚动。它们不算用户滑动，
                     // 不能关掉跟底；否则快速输出时跟底一断，已经落后的那截一帧画进输入框。
-                    if (!isUserScrollGesture(pointerDown[0])) {
+                    if (!isUserScrollGesture(pointerDown.value)) {
                         if (StreamPerformanceDiagnostics.enabled && programmaticUserScrolls < 6) {
                             programmaticUserScrolls++
                             val frames = Throwable().stackTrace
@@ -973,7 +974,7 @@ internal fun AgentConversationMessages(
     // 静态时没有跟底控制器接手；只在仍锚定且视口静止线确实变化时重新停靠。
     AnchorChatTailOnViewportChange(scrollState, bottomItemIndex) {
         currentAnchor.value && !currentStreaming.value && !isBottomSettling &&
-            !initialBottomPositionPending && !pointerDown[0] && !currentDragging.value &&
+            !initialBottomPositionPending && !pointerDown.value && !currentDragging.value &&
             !isUserScrolling && messageNavigationJob == null && currentScrollTarget == null
     }
     SideEffect {
@@ -1136,7 +1137,7 @@ internal fun AgentConversationMessages(
             resolveWorkExpansionViewportOwnership(
                 keepBottomAnchored = currentAnchor.value,
                 initialBottomPositionPending = initialBottomPositionPending,
-                pointerDown = pointerDown[0],
+                pointerDown = pointerDown.value,
                 isUserDragging = currentDragging.value,
                 isUserScrolling = isUserScrolling,
                 navigationActive = messageNavigationJob != null || currentScrollTarget != null,
@@ -1178,7 +1179,7 @@ internal fun AgentConversationMessages(
     LaunchedEffect(scrollState) {
         snapshotFlow {
             // Preserve the existing gate; disabling must still send a zero target.
-            if (!shouldFollowBottom) return@snapshotFlow InactiveBottomFollowLayout
+            if (!shouldFollowBottom || pointerDown.value) return@snapshotFlow InactiveBottomFollowLayout
             val layoutInfo = scrollState.layoutInfo
             val sentinel = layoutInfo.visibleItemsInfo.firstOrNull { item ->
                 item.key == ChatBottomSentinelKey
@@ -1241,7 +1242,7 @@ internal fun AgentConversationMessages(
             while (true) {
                 accept(bottomFollowDecisions.tryReceive().getOrNull() ?: break)
             }
-            if (!shouldFollowBottom || isUserScrolling || messageNavigationJob != null) {
+            if (!shouldFollowBottom || pointerDown.value || isUserScrolling || messageNavigationJob != null) {
                 reset()
                 continue
             }
@@ -1254,7 +1255,7 @@ internal fun AgentConversationMessages(
             while (true) {
                 accept(bottomFollowDecisions.tryReceive().getOrNull() ?: break)
             }
-            if (!shouldFollowBottom || isUserScrolling || messageNavigationJob != null) {
+            if (!shouldFollowBottom || pointerDown.value || isUserScrolling || messageNavigationJob != null) {
                 reset()
                 continue
             }
@@ -1294,7 +1295,7 @@ internal fun AgentConversationMessages(
             var consumedStep = 0f
             try {
                 scrollState.scroll {
-                    if (!isUserScrolling && messageNavigationJob == null && shouldFollowBottom) {
+                    if (!pointerDown.value && !isUserScrolling && messageNavigationJob == null && shouldFollowBottom) {
                         // Post-layout expansion recovery may already have consumed this target.
                         // Recheck fresh geometry inside the scroll owner, not the queued decision.
                         val currentStep = resolveFollowScrollStepAfterRecovery(
@@ -1425,6 +1426,7 @@ internal fun AgentConversationMessages(
                             shouldLift = true,
                             overflowPx = overflow,
                             heldPx = heldTailLift[0],
+                            pointerDown = pointerDown.value,
                         ).also { heldTailLift[0] = it }.toFloat()
                     }
                 } else {
@@ -1447,11 +1449,16 @@ internal fun AgentConversationMessages(
                     }
                 }
                 .pointerInput(Unit) {
-                    awaitPointerEventScope {
-                        while (true) {
-                            val event = awaitPointerEvent(PointerEventPass.Initial)
-                            pointerDown[0] = event.changes.any { it.pressed }
+                    try {
+                        awaitPointerEventScope {
+                            while (true) {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                                val pressed = event.changes.any { it.pressed }
+                                if (pointerDown.value != pressed) pointerDown.value = pressed
+                            }
                         }
+                    } finally {
+                        pointerDown.value = false
                     }
                 }
                 .nestedScroll(userScrollConnection)
@@ -1532,7 +1539,7 @@ internal fun AgentConversationMessages(
                         val message = entry.message
                         ChatMessageItem(
                             message = message,
-                            speechPreface = (message as? AgentMessageUi)?.let { speechPrefaces[it.id] }.orEmpty(),
+                            speechPreface = "",
                             retainedStreamingState = (message as? AgentMessageUi)
                                 ?.takeIf { agentMessage ->
                                     agentMessage.isStreaming ||
@@ -1552,13 +1559,13 @@ internal fun AgentConversationMessages(
                             showBrowserShortcut = message is ToolActivityMessageUi &&
                                 message.toolName == "browser_use" &&
                                 message.id == currentBrowserMessageId,
-                            enableLivePreview = !isStreaming,
+                            enableLivePreview = message is ToolActivityMessageUi && !isStreaming,
                             // UserMessageBubble ignores these switches; its toolbar is unchanged.
                             showCopyAction = false,
                             showMessageActions = false,
-                            messageActionsEnabled = messageActionsEnabled && !isStreaming && !isPaused,
-                            branchEnabled = branchEnabled,
-                            isEditing = message.id == editTargetMessageId,
+                            messageActionsEnabled = message is UserMessageUi && messageActionsEnabled && !isStreaming && !isPaused,
+                            branchEnabled = message is UserMessageUi && branchEnabled,
+                            isEditing = message is UserMessageUi && message.id == editTargetMessageId,
                             isPaused = isPaused,
                             onThinkingToggle = if (message is ThinkingMessageUi) {
                                 { _, willExpand -> onThinkingRowToggle(entry.key, willExpand) }
@@ -1687,7 +1694,7 @@ internal fun AgentConversationMessages(
                                 retainedStreamingState = retainedState,
                                 showBrowserShortcut = message is ToolActivityMessageUi &&
                                     message.id == currentBrowserMessageId,
-                                enableLivePreview = !isStreaming,
+                                enableLivePreview = message is ToolActivityMessageUi && !isStreaming,
                                 compact = true,
                                 isPaused = isPaused,
                                 onThinkingToggle = if (message is ThinkingMessageUi) {
@@ -2347,8 +2354,9 @@ internal fun resolveFollowTailLag(following: Boolean, tailOverflowPx: Int?): Fol
 }
 
 /** 测量暂时缺失时保留上一帧上提，避免卡片底边在输入框附近来回跳。 */
-internal fun nextHeldTailLift(shouldLift: Boolean, overflowPx: Int?, heldPx: Int): Int = when {
+internal fun nextHeldTailLift(shouldLift: Boolean, overflowPx: Int?, heldPx: Int, pointerDown: Boolean = false): Int = when {
     !shouldLift -> 0
+    pointerDown -> heldPx.coerceAtLeast(0)
     overflowPx == null -> heldPx.coerceAtLeast(0)
     else -> overflowPx.coerceAtLeast(0)
 }

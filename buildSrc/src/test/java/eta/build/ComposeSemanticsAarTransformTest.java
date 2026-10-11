@@ -21,7 +21,7 @@ public class ComposeSemanticsAarTransformTest {
         byte[] patched = ComposeSemanticsAarTransform.patchExact(source);
         ComposeSemanticsAarTransform.assertPatched(patched);
         Map<String, byte[]> after = unzip(unzip(patched).get("classes.jar"));
-        Set<String> targets = Set.of("SemanticsSortKt.class", "LtrBoundsComparator.class", "RtlBoundsComparator.class", "SemanticsNode.class", "SemanticsOwnerKt.class", "NodeCoordinator.class");
+        Set<String> targets = Set.of("SemanticsSortKt.class", "LtrBoundsComparator.class", "RtlBoundsComparator.class", "SemanticsNode.class", "SemanticsOwnerKt.class", "NodeCoordinator.class", "AndroidComposeViewAccessibilityDelegateCompat_androidKt.class");
         int calls = 0, bodies = 0, wrappers = 0;
         for (Map.Entry<String, byte[]> e : before.entrySet()) {
             if (!targets.contains(e.getKey().substring(e.getKey().lastIndexOf('/') + 1))) {
@@ -58,7 +58,7 @@ public class ComposeSemanticsAarTransformTest {
         byte[] source = official();
         Map<String, byte[]> original = unzip(ComposeSemanticsAarTransform.originalClasses(source));
         Map<String, byte[]> patched = unzip(unzip(ComposeSemanticsAarTransform.patchExact(source)).get("classes.jar"));
-        for (String target : List.of(ComposeTransparencyPatch.COORD, ComposeTransparencyPatch.NODE, ComposeTransparencyPatch.OWNER)) {
+        for (String target : List.of(ComposeTransparencyPatch.COORD, ComposeTransparencyPatch.NODE, ComposeTransparencyPatch.OWNER, ComposeTraversalFocusPatch.TARGET)) {
             Map<String, byte[]> broken = new LinkedHashMap<>(patched);
             broken.put(target + ".class", original.get(target + ".class"));
             assertThrows(org.gradle.api.GradleException.class,

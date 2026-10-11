@@ -53,13 +53,14 @@ internal class DocumentStreamingState {
         private set
     private var completedSnapshot: DocumentSnapshot? = null
     private var submittedTarget: DocumentTarget? = null
+    private var publishedTarget: DocumentTarget? = null
     fun completedSourceFor(content: String, streaming: Boolean, style: MarkdownInlineStyle): String? =
         completedRevealSource.takeIf {
             !streaming && submittedTarget == DocumentTarget(content, streaming, style) &&
                 completedSnapshot != null && completedSnapshot === snapshot
         }
     fun markComplete(value: DocumentSnapshot): Boolean {
-        if (snapshot !== value || !value.isComplete ||
+        if (publishedTarget != submittedTarget || snapshot !== value || !value.isComplete ||
             submittedTarget?.content != value.originalSource || submittedTarget?.streaming != false ||
             submittedTarget?.style != value.document.inlineStyle || laidOutSnapshot !== value) return false
         completedSnapshot = value
@@ -76,7 +77,11 @@ internal class DocumentStreamingState {
         private set
     fun submit(content: String, streaming: Boolean, style: MarkdownInlineStyle) {
         val target = DocumentTarget(content, streaming, style)
-        if (submittedTarget != target) invalidateCompletion()
+        if (submittedTarget == target && publishedTarget == target && snapshot != null) return
+        if (submittedTarget != target) {
+            publishedTarget = null
+            invalidateCompletion()
+        }
         submittedTarget = target
         targets.trySend(target)
     }
@@ -92,7 +97,7 @@ internal class DocumentStreamingState {
             val parsed = withContext(Dispatchers.Default) {
                 parser.parse(target.content, !target.streaming, target.style)
             }
-            val newer = targets.tryReceive().getOrNull()
+            val newer = targets.tryReceive().getOrNull()?.takeUnless { it == target }
             // Follow upstream: a newer append does not invalidate this usable prefix.
             if (newer == null || (newer.content.startsWith(parsed.originalSource) &&
                     (!parsed.isComplete || newer == target))) {
@@ -100,6 +105,7 @@ internal class DocumentStreamingState {
                 composedSource = null
                 laidOutSnapshot = null
                 snapshot = parsed
+                publishedTarget = target.takeIf { it == submittedTarget }
             }
             target = newer ?: targets.receive()
         }

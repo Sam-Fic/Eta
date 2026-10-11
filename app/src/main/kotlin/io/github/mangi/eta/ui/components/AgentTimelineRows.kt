@@ -214,7 +214,13 @@ internal class AgentTimelineRowsCache(
         if (next.size != oldCount) return null
         var updated = rows.incrementalSnapshot()
         next.forEachIndexed { offset, row ->
-            if (row.key != updated[start + offset].key) return null
+            val previousRow = updated[start + offset]
+            if (row.key != previousRow.key) return null
+            if (row is AgentTimelineRow.WorkStep && previousRow is AgentTimelineRow.WorkStep &&
+                row.message === previousRow.message && row.groupKey == previousRow.groupKey &&
+                row.isFirst == previousRow.isFirst && row.isLast == previousRow.isLast &&
+                row.expanded == previousRow.expanded
+            ) return@forEachIndexed
             updated = updated.replacing(start + offset, row)
         }
         return updated.withoutReplacementHint()

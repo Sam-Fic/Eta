@@ -46,6 +46,25 @@ class AgentTimelineRowsCacheTest {
         AgentMessageUi("assistant-run-1", "answer", true),
     )
 
+    @Test fun workPayloadUpdatePreservesUnchangedSiblingRows() {
+        for (expanded in listOf(false, true)) {
+            val fixture = Fixture()
+            val first = ThinkingMessageUi("first", "stable", false)
+            val second = ThinkingMessageUi("second", "growing", true)
+            val group = AgentTimelineEntry.WorkProcess("work-first", listOf(first, second))
+            val entries = listOf<AgentTimelineEntry>(group).incrementalSnapshot()
+            val overrides = mapOf(group.key to expanded)
+            val retained = mapOf(group.key to setOf("work-step:first", "work-step:second"))
+            val before = fixture.project(entries, overrides, true, retained)
+            val changed = second.copy(content = "growing more")
+            val after = fixture.project(entries.replacing(0, group.copy(messages = listOf(first, changed))), overrides, true, retained)
+            assertSame(before[1], after[1])
+            assertNotSame(before[2], after[2])
+            assertSame(changed, (after[2] as AgentTimelineRow.WorkStep).message)
+            assertEquals(1, fixture.builds)
+        }
+    }
+
     @Test fun sameSlotAssistantDeltaPatchesOnlyItsRowAndKeepsLatestFooterOwner() {
         for (expanded in listOf(false, true)) {
             val fixture = Fixture()

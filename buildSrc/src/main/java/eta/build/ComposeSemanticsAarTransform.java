@@ -27,8 +27,8 @@ public abstract class ComposeSemanticsAarTransform implements TransformAction<Tr
     private static final String DESC = "(L" + NODE + ";Ljava/util/List;Lkotlin/jvm/functions/Function1;Landroidx/collection/IntObjectMap;)Ljava/util/List;";
     private static final String BODY = "eta$sortByGeometryGroupings$body", BOUNDS = "eta$boundsInWindow";
     public static final String MARKER = "META-INF/eta-compose-semantics-cache.properties";
-    private static final byte[] MARK = ("scheme=2\nversion=" + VERSION + "\noriginalAarSha256=" + AAR_SHA
-            + "\noriginalClassesSha256=" + JAR_SHA + "\nreplacedGetterSites=7\ntransparencyWriteSites=5\n").getBytes(StandardCharsets.UTF_8);
+    private static final byte[] MARK = ("scheme=3\nversion=" + VERSION + "\noriginalAarSha256=" + AAR_SHA
+            + "\noriginalClassesSha256=" + JAR_SHA + "\nreplacedGetterSites=7\ntransparencyWriteSites=5\nvisibleFocusSites=1\n").getBytes(StandardCharsets.UTF_8);
 
     @InputArtifact @PathSensitive(PathSensitivity.NONE)
     public abstract Provider<FileSystemLocation> getInputArtifact();
@@ -65,6 +65,8 @@ public abstract class ComposeSemanticsAarTransform implements TransformAction<Tr
         classes.put(SORT + ".class", patch(required(classes, SORT + ".class"), true));
         for (String name : new String[]{"LtrBoundsComparator", "RtlBoundsComparator"})
             classes.put(P + name + ".class", patch(required(classes, P + name + ".class"), false));
+        classes.put(ComposeTraversalFocusPatch.TARGET + ".class", ComposeTraversalFocusPatch.patch(
+                required(classes, ComposeTraversalFocusPatch.TARGET + ".class")));
         for (String name : helperNames()) {
             try (InputStream in = ComposeSemanticsAarTransform.class.getClassLoader().getResourceAsStream(name)) {
                 if (in == null) throw new GradleException("Missing helper " + name);
@@ -74,6 +76,7 @@ public abstract class ComposeSemanticsAarTransform implements TransformAction<Tr
             } catch (IOException e) { throw new GradleException("Cannot read helper", e); }
         }
         ComposeTransparencyPatch.verify(classes);
+        ComposeTraversalFocusPatch.verify(classes);
         classes.put(MARKER, MARK); outer.put("classes.jar", zip(classes));
         byte[] result = zip(outer); assertPatched(result); return result;
     }
@@ -81,6 +84,7 @@ public abstract class ComposeSemanticsAarTransform implements TransformAction<Tr
         Map<String, byte[]> classes = unzip(required(unzip(aar), "classes.jar"));
         if (!Arrays.equals(MARK, classes.get(MARKER))) throw new GradleException("Compose patch marker mismatch");
         ComposeTransparencyPatch.verify(classes);
+        ComposeTraversalFocusPatch.verify(classes);
         for (String name : helperNames()) required(classes, name);
     }
     static void assertConsumerClasses(byte[] jar) {
@@ -93,6 +97,7 @@ public abstract class ComposeSemanticsAarTransform implements TransformAction<Tr
             } catch (IOException e) { throw new GradleException("Cannot verify helper", e); }
         }
         ComposeTransparencyPatch.verify(classes);
+        ComposeTraversalFocusPatch.verify(classes);
         int calls = 0, bodies = 0, wrappers = 0, bridges = 0;
         for (String name : new String[]{SORT, P + "LtrBoundsComparator", P + "RtlBoundsComparator"}) {
             ClassNode c = new ClassNode(ASM9);

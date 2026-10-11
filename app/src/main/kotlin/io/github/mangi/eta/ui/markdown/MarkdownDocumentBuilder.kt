@@ -36,13 +36,47 @@ internal class MarkdownDocumentBuilder {
         val nextCache = HashMap<Int, CachedBlock>()
         val blocks = root.children.mapNotNull { node ->
             val slice = source.substring(node.startOffset, node.endOffset)
-            val reused = cache[node.startOffset]?.takeIf { it.source == slice && (!linksChanged || !it.dependsOnLinkMap) }?.block
-            val block = reused ?: converter.convert(node) ?: return@mapNotNull null
+            val previous = cache[node.startOffset]
+            val reused = previous?.takeIf { it.source == slice && (!linksChanged || !it.dependsOnLinkMap) }?.block
+            val fresh = reused ?: converter.convert(node) ?: return@mapNotNull null
+            val block = if (reused == null && !linksChanged && previous != null) {
+                reuseUnchanged(previous.block, fresh)
+            } else fresh
             nextCache[node.startOffset] = CachedBlock(slice, block)
             block
         }
         cache = nextCache
         return MarkdownDocument(blocks = blocks, revealKeys = blocks.revealKeys(), inlineStyle = style)
+    }
+
+    // Preserve nested identities within their parent; offsets alone are not global keys.
+    private fun reuseBlocks(old: List<MarkdownBlock>, fresh: List<MarkdownBlock>): List<MarkdownBlock> {
+        val byKey = old.associateBy { it.offset to it::class }
+        val merged = fresh.map { block ->
+            byKey[block.offset to block::class]?.let { reuseUnchanged(it, block) } ?: block
+        }
+        return if (old.size == merged.size && merged.indices.all { merged[it] === old[it] }) old else merged
+    }
+
+    private fun reuseUnchanged(old: MarkdownBlock, fresh: MarkdownBlock): MarkdownBlock {
+        if (old.offset != fresh.offset || old::class != fresh::class) return fresh
+        if (old == fresh) return old
+        return when {
+            old is MarkdownList && fresh is MarkdownList -> {
+                val oldItems = old.items.associateBy { it.offset }
+                fresh.copy(items = fresh.items.map { item ->
+                    val previous = oldItems[item.offset]
+                    when {
+                        previous == null -> item
+                        previous == item -> previous
+                        else -> item.copy(blocks = reuseBlocks(previous.blocks, item.blocks))
+                    }
+                })
+            }
+            old is MarkdownQuote && fresh is MarkdownQuote -> fresh.copy(blocks = reuseBlocks(old.blocks, fresh.blocks))
+            old is MarkdownAlert && fresh is MarkdownAlert -> fresh.copy(blocks = reuseBlocks(old.blocks, fresh.blocks))
+            else -> fresh
+        }
     }
 
     private class CachedBlock(val source: String, val block: MarkdownBlock) {

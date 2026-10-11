@@ -164,7 +164,7 @@ class AgentChatViewportContractTest(unittest.TestCase):
         callback = self.messages[callback_start + 1:callback_end]
         for guard in (
             "currentAnchor.value", "!currentStreaming.value", "!isBottomSettling",
-            "!initialBottomPositionPending", "!pointerDown[0]", "!currentDragging.value",
+            "!initialBottomPositionPending", "!pointerDown.value", "!currentDragging.value",
             "!isUserScrolling", "messageNavigationJob == null", "currentScrollTarget == null",
         ):
             self.assertIn(guard, callback)

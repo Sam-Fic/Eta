@@ -64,7 +64,7 @@ class WorkExpansionViewportContractTest(unittest.TestCase):
         owners = BODY.split('val canOwnWorkExpansionViewport:', 1)[1].split('    Box(', 1)[0]
         for argument in ('keepBottomAnchored = currentAnchor.value',
                          'initialBottomPositionPending = initialBottomPositionPending',
-                         'pointerDown = pointerDown[0]', 'isUserDragging = currentDragging.value',
+                         'pointerDown = pointerDown.value', 'isUserDragging = currentDragging.value',
                          'isUserScrolling = isUserScrolling',
                          'navigationActive = messageNavigationJob != null || currentScrollTarget != null'):
             self.assertIn(argument, owners)

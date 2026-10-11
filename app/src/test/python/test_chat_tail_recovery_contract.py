@@ -28,11 +28,18 @@ class ChatTailRecoveryContractTest(unittest.TestCase):
     def test_recovery_keeps_user_and_navigation_interrupt_guards(self):
         code = self.controller
         self.assertEqual(2, code.count(
-            'if (!shouldFollowBottom || isUserScrolling || messageNavigationJob != null)'))
+            'if (!shouldFollowBottom || pointerDown.value || isUserScrolling || messageNavigationJob != null)'))
         scroll = code.split('scrollState.scroll {', 1)[1]
         self.assertLess(scroll.index(
-            'if (!isUserScrolling && messageNavigationJob == null && shouldFollowBottom)'),
+            'if (!pointerDown.value && !isUserScrolling && messageNavigationJob == null && shouldFollowBottom)'),
             scroll.index('scrollBy(currentStep)'))
+
+    def test_touch_hold_is_observable_and_freezes_only_follow_motion(self):
+        self.assertIn('val pointerDown = remember { mutableStateOf(false) }', self.body)
+        self.assertIn('if (!shouldFollowBottom || pointerDown.value) return@snapshotFlow InactiveBottomFollowLayout', self.body)
+        self.assertIn('pointerDown = pointerDown.value,', self.body)
+        self.assertIn('pointerDown -> heldPx.coerceAtLeast(0)', self.body)
+        self.assertIn('finally {\n                        pointerDown.value = false', self.body)
 
     def test_drawing_stays_capped_but_recovery_measurement_does_not(self):
         drawing = self.body.split('private fun LazyListState.followTailOverflow(): Int? {', 1)[1]

@@ -400,20 +400,30 @@ private fun MarkdownListBlock(block: MarkdownList, scope: MarkdownRenderScope) {
         block.items.forEachIndexed { index, item ->
             key(item.offset) {
                 if (index > 0) Spacer(Modifier.height(itemGap))
-                Row(Modifier.fillMaxWidth()) {
-                    ListMarker(item = item, ordered = block.ordered, depth = depth, width = markerWidth, scope = scope)
-                    CompositionLocalProvider(LocalListDepth provides depth + 1) {
-                        MarkdownBlockColumn(
-                            blocks = item.blocks,
-                            scope = scope,
-                            compact = !block.loose,
-                            modifier = Modifier
-                                .weight(1f)
-                                .alignByBaseline(),
-                        )
-                    }
-                }
+                MarkdownListItemRow(item, block.ordered, !block.loose, depth, markerWidth, scope)
             }
+        }
+    }
+}
+
+@Composable
+private fun MarkdownListItemRow(
+    item: MarkdownListItem,
+    ordered: Boolean,
+    compact: Boolean,
+    depth: Int,
+    markerWidth: Dp,
+    scope: MarkdownRenderScope,
+) {
+    Row(Modifier.fillMaxWidth()) {
+        ListMarker(item = item, ordered = ordered, depth = depth, width = markerWidth, scope = scope)
+        CompositionLocalProvider(LocalListDepth provides depth + 1) {
+            MarkdownBlockColumn(
+                blocks = item.blocks,
+                scope = scope,
+                compact = compact,
+                modifier = Modifier.weight(1f).alignByBaseline(),
+            )
         }
     }
 }

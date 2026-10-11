@@ -193,4 +193,12 @@ class BottomFollowViewportStepTest {
         assertEquals(0, nextHeldTailLift(shouldLift = true, overflowPx = 0, heldPx = 47))
         assertEquals(0, nextHeldTailLift(shouldLift = false, overflowPx = null, heldPx = 47))
     }
+    @Test fun heldFingerFreezesLiftUntilReleaseWithoutDroppingExistingTranslation() {
+        assertEquals(47, nextHeldTailLift(true, 100, 47, pointerDown = true))
+        assertEquals(47, nextHeldTailLift(true, 0, 47, pointerDown = true))
+        assertEquals(47, nextHeldTailLift(true, null, 47, pointerDown = true))
+        assertEquals(100, nextHeldTailLift(true, 100, 47, pointerDown = false))
+        assertEquals(0, nextHeldTailLift(false, 100, 47, pointerDown = true))
+    }
+
 }

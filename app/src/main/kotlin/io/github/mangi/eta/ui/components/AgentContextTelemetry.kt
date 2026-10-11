@@ -1,6 +1,6 @@
 package io.github.mangi.eta.ui.components
 
-import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.compositionLocalOf
 import io.github.mangi.eta.agent.delegation.SubAgentContextStats
 import io.github.mangi.eta.ui.model.AgentContextUsageUi
 import io.github.mangi.eta.ui.model.formatContextUsage
@@ -13,7 +13,7 @@ internal data class AgentContextTelemetry(
     val selectedTaskId: String? = null,
     val onTaskSelected: ((String?) -> Unit)? = null,
 )
-internal val LocalAgentContextTelemetry = staticCompositionLocalOf { AgentContextTelemetry() }
+internal val LocalAgentContextTelemetry = compositionLocalOf { AgentContextTelemetry() }
 
 /** Legacy telemetry can still be replayed after upgrading. Its projection and
  * compaction estimates must never be presented as cloud-measured occupancy. */

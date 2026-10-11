@@ -18,6 +18,49 @@ class DocumentStreamingStateTest {
             error("unreachable")
         }
 
+    @Test fun publishedTargetSurvivesDuplicateSubmitAndWorkerRemount() = runBlocking {
+        val state = DocumentStreamingState()
+        val source = "Stable **answer**"
+        val style = MarkdownInlineStyle.Default
+        var worker = launch(start = CoroutineStart.UNDISPATCHED) { state.parseUpdates() }
+        try {
+            state.submit(source, false, style)
+            val first = awaitSnapshot(state, source)
+            state.acknowledgeLayout(first)
+            assertTrue(state.markComplete(first))
+            worker.cancelAndJoin()
+            repeat(3) { state.submit(source, false, style) }
+            worker = launch(start = CoroutineStart.UNDISPATCHED) { state.parseUpdates() }
+            delay(100)
+            assertSame(first, state.snapshot)
+            assertSame(first, state.laidOutSnapshot)
+            assertEquals(source, state.completedSourceFor(source, false, style))
+            state.submit(source + " changed", false, style)
+            state.submit(source, false, style)
+            assertNull(state.completedSourceFor(source, false, style))
+            assertFalse("Old layout must not complete a reopened target", state.markComplete(first))
+            val reopened = awaitSnapshot(state, source, first)
+            assertFalse(state.markComplete(reopened))
+            state.acknowledgeLayout(reopened)
+            assertTrue(state.markComplete(reopened))
+        } finally { worker.cancelAndJoin() }
+    }
+
+    @Test fun unpublishedIdenticalTargetCanBeSubmittedAgainAfterCancellation() = runBlocking {
+        val state = DocumentStreamingState()
+        val source = "Still waiting for the parser"
+        val style = MarkdownInlineStyle.Default
+        state.submit(source, false, style)
+        val cancelled = launch(start = CoroutineStart.UNDISPATCHED) { state.parseUpdates() }
+        cancelled.cancelAndJoin()
+        assertNull("Worker consumed the target but did not publish", state.snapshot)
+        state.submit(source, false, style)
+        val worker = launch(start = CoroutineStart.UNDISPATCHED) { state.parseUpdates() }
+        try {
+            assertEquals(source, awaitSnapshot(state, source).originalSource)
+        } finally { worker.cancelAndJoin() }
+    }
+
     @Test fun terminalLinkResolutionRequiresExactPublicationLayout() = runBlocking {
         val state = DocumentStreamingState()
         val style = MarkdownInlineStyle.Default
