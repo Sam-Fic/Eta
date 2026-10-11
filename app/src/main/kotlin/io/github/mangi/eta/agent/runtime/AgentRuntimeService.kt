@@ -38,6 +38,7 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.agent.accessibility.AgentAccessibilityService
 import io.github.mangi.eta.agent.device.RootAccess
+import io.github.mangi.eta.agent.island.IslandNotificationHelper
 import io.github.mangi.eta.agent.media.AgentImageCodec
 import io.github.mangi.eta.agent.model.AgentModelClient
 import io.github.mangi.eta.agent.overlay.AgentHapticFeedback
@@ -100,7 +101,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
     private var resultCardParams: WindowManager.LayoutParams? = null
     private var resultCardBack: Pair<OnBackInvokedDispatcher, OnBackInvokedCallback>? = null
 
-    /** 浮层与执行通知共用同一份运行状态；写入只发生在主线程。 */
+    /** 浮层、执行通知与超级岛共用同一份运行状态；写入只发生在主线程。 */
     private val state = object {
         private val holder = mutableStateOf(AgentOverlayState.Initial)
         var value: AgentOverlayState
@@ -111,6 +112,9 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
                     this@AgentRuntimeService,
                     next.status.takeIf { activeSession?.isTerminal == false },
                 )
+                // 超级岛发布与执行通知同源同节流点：非终端态展示状态胶囊，
+                // 终端态发布完成/失败胶囊，并由 dismiss 统一清理。
+                IslandNotificationHelper.onRunStateChanged(this@AgentRuntimeService, next)
             }
     }
     private val capsuleExpanded = mutableStateOf(false)
@@ -154,6 +158,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
     }
 
     override fun onDestroy() {
+        IslandNotificationHelper.dismiss(this)
         startRequestGeneration++
         pendingStartRequest?.let { pending ->
             pending.incoming.close()
@@ -1154,6 +1159,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
     }
 
     private fun dismissAndStop() {
+        IslandNotificationHelper.dismiss(this)
         unregisterResultCardBack()
         resultCardView?.let { view -> runCatching { windowManager?.removeView(view) } }
         capsuleView?.let { view -> runCatching { windowManager?.removeView(view) } }

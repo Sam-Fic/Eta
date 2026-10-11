@@ -123,6 +123,10 @@
   <string name="route_provider_details">Provider details</string>
   <string name="route_new_provider">New provider</string>
   <string name="settings_general">General</string>
+  <string name="island_enabled_title">Super Island</string>
+  <string name="island_enabled_summary">Show agent status on the MIUI / HyperOS Super Island when supported</string>
+  <string name="island_channel_name">Eta Super Island</string>
+  <string name="island_channel_description">Shows the running status of Eta agent on the Super Island</string>
   <string name="appearance_title">Appearance &amp; Theme</string>
   <string name="appearance_group_color">Colors &amp; Theme</string>
   <string name="appearance_group_interface">Interface &amp; Effects</string>

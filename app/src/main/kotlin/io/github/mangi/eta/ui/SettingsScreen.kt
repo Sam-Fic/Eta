@@ -27,6 +27,7 @@ import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PowerSettingsNew
 import androidx.compose.material.icons.rounded.Psychology
@@ -642,6 +643,17 @@ private fun SettingsPageContent(
                             )
                         },
                         onClick = { onNavigate(AppRoute.DataBackup) },
+                    )
+
+                    EtaPreferenceDivider()
+                    SwitchPref(
+                        context = context,
+                        prefs = agentPrefs,
+                        title = stringResource(R.string.island_enabled_title),
+                        summary = stringResource(R.string.island_enabled_summary),
+                        key = Prefs.Keys.ISLAND_ENABLED,
+                        icon = Icons.Rounded.Notifications,
+                        iconTint = EtaPreferenceColors.Blue,
                     )
                 }
             }
