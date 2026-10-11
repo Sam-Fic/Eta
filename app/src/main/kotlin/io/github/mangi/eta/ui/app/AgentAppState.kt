@@ -101,6 +101,9 @@ internal class AgentAppState(
     private val runEventFlushJobs = mutableMapOf<String, Job>()
     private var currentRunId: String? = null
     private var currentRunJob: Job? = null
+
+    /** 恢复后待用户确认续跑的被中断 run（系统回收中断，进度已折叠进会话）。 */
+    private var resumableInterruptedRun: ResumableInterruptedRun? = null
     private val persistenceLock = Any()
     private var persistenceJob: Job? = null
     // 导入期间暂停保存：旧状态的增量保存会删除刚导入的会话；导入成功后整体重载，失败时数据库已回滚。
@@ -400,6 +403,13 @@ internal class AgentAppState(
                     checkpoint = checkpoint,
                     interrupted = true,
                 ) || stateChanged
+                // 中断前有实际进度（transcript 或快照）→ 提供续跑入口；forEach 按创建序，最后保留最新的。
+                if (checkpoint.transcript.isNotEmpty() || checkpoint.contextSnapshot != null) {
+                    resumableInterruptedRun = ResumableInterruptedRun(
+                        runId = checkpoint.runId,
+                        conversationId = AgentUiHandoffPayload.from(checkpoint.handoff.payload).conversationId,
+                    )
+                }
             }
             orphanRewrites.forEach { (conversationId, runId) ->
                 conversationsById[conversationId]?.let { state ->
@@ -1130,6 +1140,38 @@ internal class AgentAppState(
         )
     }
 
+    /** 恢复后被系统中断且可续跑的 run（供 UI 展示"继续"入口）。 */
+    val resumableInterrupted: ResumableInterruptedRun?
+        get() = resumableInterruptedRun
+
+    /**
+     * 续跑被系统中断的任务：进度已由恢复折叠进会话 history，这里以其为基发起新 run，
+     * 并带防重复副作用引导（GUI 动作/写操作不得重复执行）。
+     */
+    fun resumeInterruptedRun() {
+        val pending = resumableInterruptedRun ?: return
+        if (currentRunId != null) return
+        val state = conversationsById[pending.conversationId] ?: return
+        launchConversationRun(
+            conversationId = pending.conversationId,
+            runId = java.util.UUID.randomUUID().toString(),
+            prompt = RESUME_INTERRUPTED_PROMPT,
+            images = emptyList(),
+            history = state.history,
+            userHistoryMessage = null,
+            messages = state.messages,
+            state = state,
+            reasoningEffort = state.reasoningEffort,
+        )
+        resumableInterruptedRun = null
+    }
+
+    /** 可续跑的被中断 run 标识（进度已折叠进会话 history，续跑以会话 history 为基）。 */
+    data class ResumableInterruptedRun(
+        val runId: String,
+        val conversationId: String,
+    )
+
     private fun launchConversationRun(
         conversationId: String,
         runId: String,
@@ -1722,6 +1764,7 @@ internal class AgentAppState(
                 val notice = when {
                     result.ok && result.content.isNotBlank() -> null
                     result.ok -> SystemNoticeCode.EmptyResult
+                    result.error == AgentRuntimeWire.SYSTEM_INTERRUPTED -> SystemNoticeCode.Interrupted
                     result.error == LEGACY_STOPPED_ERROR || result.error == SYNTHETIC_STATUS_STOPPED ->
                         SystemNoticeCode.Stopped
                     else -> SystemNoticeCode.RuntimeFailed
@@ -1978,6 +2021,11 @@ internal class AgentAppState(
         const val MAX_PREVIEW_CHARS = 48
         const val LEGACY_STOPPED_ERROR = "已停止"
         const val SYNTHETIC_STATUS_STOPPED = "eta_status:stopped"
+
+        /** 续跑被系统中断任务的引导（引导层，防重复副作用；GUI/写操作不得重复执行）。 */
+        const val RESUME_INTERRUPTED_PROMPT =
+            "上次任务被系统中断（Eta 后台服务被系统回收），中断前已完成并保存的进度见下方历史。" +
+                "请基于这些进度继续完成原任务；已完成并验证过的步骤不要重复执行，尤其不要重复已生效的 GUI 动作与写操作。"
         // 数据状态以较粗粒度发布，文字显现由独立的帧时钟连续推进。
         const val STREAM_UI_UPDATE_INTERVAL_MS = 80L
 

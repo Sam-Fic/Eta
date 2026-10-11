@@ -386,12 +386,15 @@ fun AgentAppRoot(
                         state = agentState.homeState,
                         modelPickerState = agentState.modelPickerState,
                         conversationKey = agentState.conversationPaneState.selectedConversationId,
+                        resumableInterrupted = agentState.resumableInterrupted != null,
+                        onResumeInterrupted = { agentState.resumeInterruptedRun() },
                         onAction = { action ->
                             when (action) {
                                 AgentChatAction.NavigateBack -> popRoute()
                                 is AgentChatAction.ReasoningEffortChanged ->
                                     agentState.updateReasoningEffort(action.effort)
                                 AgentChatAction.CompactContext -> agentState.compactCurrentContext()
+                                AgentChatAction.ResumeInterruptedRun -> agentState.resumeInterruptedRun()
                                 is AgentChatAction.ModelSelected -> agentState.selectModel(action.modelId)
                                 is AgentChatAction.VisionToggled ->
                                     agentState.setModelVision(action.providerId, action.modelId, action.vision)

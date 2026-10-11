@@ -316,4 +316,30 @@ class AgentPendingResultRecoveryTest {
         assertEquals(listOf("user", "assistant"), recovered.state.history.map { it.role })
         assertEquals("继续检查", recovered.state.history.first().content)
     }
+
+    @Test
+    fun systemInterruptedRecoveryShowsInterruptedNoticeInsteadOfRuntimeFailed() {
+        // 系统回收中断（onDestroy → cancel(SYSTEM_INTERRUPTED)）不是失败：通知语义区分。
+        val state = AgentChatUiState(
+            messages = emptyList(),
+            history = listOf(AgentModelClient.ConversationMessage("user", "任务")),
+            input = "", isStreaming = false, thinkingEnabled = false,
+        )
+        val result = AgentRuntimeWire.RunResult(
+            runId = "run-interrupted",
+            ok = false,
+            content = "",
+            error = AgentRuntimeWire.SYSTEM_INTERRUPTED,
+        )
+        val outcome = AgentPendingResultRecovery.apply(
+            state = state,
+            runId = "run-interrupted",
+            result = result,
+            supplements = emptyList(),
+        )
+        assertFalse(outcome.alreadyApplied)
+        val notice = outcome.state.messages.filterIsInstance<SystemNoticeMessageUi>().last()
+        assertEquals(SystemNoticeCode.Interrupted, notice.code)
+        assertTrue(notice.detail.orEmpty().contains("进度已保留"))
+    }
 }

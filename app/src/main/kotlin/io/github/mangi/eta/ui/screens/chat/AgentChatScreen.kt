@@ -18,6 +18,8 @@ internal fun AgentChatScreen(
     state: AgentChatUiState,
     modelPickerState: AgentModelPickerUiState,
     conversationKey: String?,
+    resumableInterrupted: Boolean = false,
+    onResumeInterrupted: () -> Unit = {},
     onAction: (AgentChatAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -26,6 +28,8 @@ internal fun AgentChatScreen(
             messages = state.messages,
             modelPickerState = modelPickerState,
             isCompacting = state.isCompacting,
+            resumableInterrupted = resumableInterrupted,
+            onResumeInterrupted = onResumeInterrupted,
             input = state.input,
             isStreaming = state.isStreaming,
             reasoningEffort = state.reasoningEffort,

@@ -128,6 +128,8 @@ internal fun AgentChatBody(
     messages: List<AgentChatMessageUi>,
     modelPickerState: AgentModelPickerUiState,
     isCompacting: Boolean,
+    resumableInterrupted: Boolean = false,
+    onResumeInterrupted: () -> Unit = {},
     input: String,
     isStreaming: Boolean,
     reasoningEffort: ReasoningEffort,
@@ -221,6 +223,8 @@ internal fun AgentChatBody(
             input = input,
             modelPickerState = modelPickerState,
             isCompacting = isCompacting,
+            resumableInterrupted = resumableInterrupted,
+            onResumeInterrupted = onResumeInterrupted,
             contextUsage = contextUsage,
             isStreaming = isStreaming,
             reasoningEffort = reasoningEffort,
@@ -274,6 +278,8 @@ private fun AgentChatScaffold(
     input: String,
     modelPickerState: AgentModelPickerUiState,
     isCompacting: Boolean,
+    resumableInterrupted: Boolean,
+    onResumeInterrupted: () -> Unit,
     contextUsage: AgentContextUsageUi,
     isStreaming: Boolean,
     reasoningEffort: ReasoningEffort,
@@ -332,6 +338,8 @@ private fun AgentChatScaffold(
                 input = input,
                 modelPickerState = modelPickerState,
                 isCompacting = isCompacting,
+                resumableInterrupted = resumableInterrupted,
+                onResumeInterrupted = onResumeInterrupted,
                 contextUsage = contextUsage,
                 showContextUsage = hasMessages,
                 isStreaming = isStreaming,
@@ -874,6 +882,8 @@ private fun AgentChatBottomBar(
     input: String,
     modelPickerState: AgentModelPickerUiState,
     isCompacting: Boolean,
+    resumableInterrupted: Boolean,
+    onResumeInterrupted: () -> Unit,
     contextUsage: AgentContextUsageUi,
     showContextUsage: Boolean,
     isStreaming: Boolean,
@@ -955,6 +965,26 @@ private fun AgentChatBottomBar(
                 .navigationBarsPadding()
                 .padding(start = 14.dp, end = 14.dp, bottom = 12.dp),
         ) {
+            if (resumableInterrupted) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp)
+                        .clickable(onClick = onResumeInterrupted),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "任务被系统中断，进度已保留。点击继续任务",
+                        modifier = Modifier.weight(1f),
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    )
+                    Text(
+                        text = "继续",
+                        modifier = Modifier.padding(start = 8.dp),
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    )
+                }
+            }
             AgentChatInputBar(
                 input = input,
                 modelPickerState = modelPickerState,

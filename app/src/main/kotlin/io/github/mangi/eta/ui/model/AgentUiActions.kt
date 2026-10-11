@@ -37,6 +37,7 @@ sealed interface PermissionHealthAction {
 
 sealed interface AgentChatAction {
     data object CompactContext : AgentChatAction
+    data object ResumeInterruptedRun : AgentChatAction
     data object NavigateBack : AgentChatAction
     data class ReasoningEffortChanged(val effort: ReasoningEffort) : AgentChatAction
     data class ModelSelected(val modelId: String) : AgentChatAction

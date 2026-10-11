@@ -205,7 +205,8 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
             )
         }
         pendingStartRequest = null
-        activeSession?.cancel("Agent Runtime 服务已停止")
+        // 系统回收导致的中断：用可识别标记而非"失败"文案，恢复层据此区分并保留续跑路径。
+        activeSession?.cancel(AgentRuntimeWire.SYSTEM_INTERRUPTED)
         activeSession = null
         resultIo.shutdownNow()
         mainHandler.removeCallbacksAndMessages(null)

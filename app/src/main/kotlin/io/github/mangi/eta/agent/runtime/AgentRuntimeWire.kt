@@ -36,6 +36,9 @@ internal object AgentRuntimeWire {
     const val OP_COMPACT = "compact"
     const val OP_REWRITE_REPLY = "rewrite_reply"
 
+    /** onDestroy 因系统回收而中断进行中 run 的 error 标记（UI/恢复层据此区分"中断"与"失败"）。 */
+    const val SYSTEM_INTERRUPTED = "SYSTEM_INTERRUPTED"
+
     const val AGENT_UI_HANDOFF_SOURCE = "agent_ui"
     const val ETA_VOICE_HANDOFF_SOURCE = "eta_voice"
 
