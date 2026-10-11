@@ -82,9 +82,13 @@ class DocumentStaticCacheTest {
         compose.runOnIdle {
             assertSame(themed, seen.first())
             assertTrue(seen.all { it === themed })
+            assertNull(DocumentCache.get(coldSource, changedStyle))
             seen.clear(); target.value = coldSource to changedStyle
         }
-        compose.waitUntil(5_000) { seen.any { it != null } }
+        compose.waitUntil(5_000) {
+            compose.waitForIdle()
+            seen.any { it != null }
+        }
         compose.runOnIdle {
             assertTrue(seen.none { it === first || it === second || it === themed })
             val parsed = checkNotNull(seen.last())
