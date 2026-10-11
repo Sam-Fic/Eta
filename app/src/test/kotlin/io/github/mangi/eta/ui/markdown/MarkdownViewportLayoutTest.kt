@@ -9,9 +9,9 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.dp
 import org.junit.Assert.*
 import org.junit.Rule
@@ -34,6 +34,7 @@ class MarkdownViewportLayoutTest {
         val viewportHeight = mutableIntStateOf(100)
         val blockHeight = mutableIntStateOf(40)
         val enabled = mutableStateOf(true)
+        var documentHeight = 0
         val placed = IntArray(20)
         val mounts = IntArray(20)
         compose.setContent {
@@ -43,7 +44,8 @@ class MarkdownViewportLayoutTest {
                 LocalMarkdownLayoutAdmission provides admission) {
                 Box(Modifier.size(200.dp, viewportHeight.intValue.dp).onGloballyPositioned(viewport::updateCoordinates)) {
                     MarkdownViewportLayout(Modifier.offset { androidx.compose.ui.unit.IntOffset(0, y.intValue) }
-                        .wrapContentHeight(Alignment.Top, unbounded = true).testTag("document")) {
+                        .wrapContentHeight(Alignment.Top, unbounded = true)
+                        .onSizeChanged { documentHeight = it.height }.testTag("document")) {
                         repeat(20) { index ->
                             DisposableEffect(Unit) { mounts[index]++; onDispose { mounts[index]-- } }
                             Layout(content = {}, modifier = Modifier.testTag("block-$index").onPlaced { placed[index]++ }) { _, _ ->
@@ -55,7 +57,8 @@ class MarkdownViewportLayoutTest {
             }
         }
         compose.waitForIdle()
-        val initialHeight = compose.onNodeWithTag("document").fetchSemanticsNode().layoutInfo.height
+        val initialHeight = documentHeight
+        assertEquals(800, initialHeight)
         compose.runOnIdle { placed.fill(0); y.intValue = -400 }
         compose.waitForIdle()
         compose.runOnIdle {
@@ -76,7 +79,7 @@ class MarkdownViewportLayoutTest {
         compose.runOnIdle { placed.fill(0); enabled.value = false }
         compose.waitForIdle()
         compose.runOnIdle { assertTrue("transition gate restores all", placed[0] > 0) }
-        assertEquals(initialHeight, compose.onNodeWithTag("document").fetchSemanticsNode().layoutInfo.height)
+        assertEquals(initialHeight, documentHeight)
         compose.runOnIdle { enabled.value = true }
         compose.waitForIdle()
         compose.runOnIdle { placed.fill(0); viewportHeight.intValue = 300 }
@@ -84,7 +87,7 @@ class MarkdownViewportLayoutTest {
         compose.runOnIdle { assertTrue("resized viewport places newly visible blocks", placed[15] > 0) }
         compose.runOnIdle { blockHeight.intValue = 50 }
         compose.waitForIdle()
-        assertEquals(1000, compose.onNodeWithTag("document").fetchSemanticsNode().layoutInfo.height)
+        assertEquals(1000, documentHeight)
     }
 
     @Test fun boundariesIncludeTouchingAndZeroHeightBlocks() {
