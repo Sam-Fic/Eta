@@ -210,7 +210,9 @@ internal class AgentMemoryStore(
         ) {
             throw AgentMemoryException(
                 code = "MEMORY_RANGE_INVALID",
-                message = "替换行范围无效；请重新读取记忆后再试",
+                message = "替换行范围无效（start/end 需 1 ≤ start ≤ end ≤ ${lines.size}）。" +
+                    "请先用 memory_get(section=…) 或 memory_get(start_line=1, max_chars=32000) 预览实际行号后再试；" +
+                    "若只想改整块内容，改用 mode=\"replace_section\" + section 更稳，不必手算行号。",
             )
         }
         val replacement = mutation.content.memoryLines()

@@ -194,6 +194,7 @@ internal object AgentPromptBuilder {
             appendLine("只保存跨对话仍有价值的稳定事实、偏好、关系和持续项目；不要保存密钥、验证码、凭据或一次性请求。")
             if (writable) {
                 appendLine("需要更新时调用 memory_write。优先用 mode=\"replace_section\" + section 替换已有章节（不要再追加同名标题）；只改几行用 replace_range；只有需要详细背景或发生 revision 冲突时才调用 memory_get。")
+                appendLine("memory_write 报错时按提示自救：先 memory_get 预览实际标题/行号再重试（可用错误里列出的可用标题），不要在原样重发同一套参数；删除整节用空 content，清空全部用 mode=\"clear\"+\\\"DELETE_ALL\\\"。")
             } else {
                 appendLine("这是用户的现实记忆，在角色会话中只读；按需调用 memory_get，禁止把虚构人设或剧情写入此文件。剧情记忆使用 character_memory_get/character_memory_write。")
             }
