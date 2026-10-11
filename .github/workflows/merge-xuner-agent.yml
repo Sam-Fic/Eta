@@ -2,6 +2,12 @@ name: merge-xuner-agent
 
 on:
   workflow_dispatch:
+    inputs:
+      confirm_push:
+        description: "确认将合并结果推送到 main（true 推送 / false 仅试跑验证）"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -16,12 +22,34 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Fetch and merge XunEr-agent
+      - name: Merge XunEr-agent with conflict resolution
         run: |
           set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote add agent https://github.com/wzcawzc123/XunEr-agent.git
           git fetch agent main
-          git merge --no-ff agent/main -m "merge: 合入 XunEr-agent 改进（来自 wzcawzc123/XunEr-agent）"
+          git merge --no-commit --no-ff agent/main || true
+          # 唯一冲突文件 .github/workflows/android-release.yml 取 agent 侧：
+          # 主线增量 9de3a3f7 针对 agent 已重构掉的旧 job 结构，agent 版本已等效实现
+          # "由标签推导 APK 文件名"，且不再跨 job 传递文件名，主线修复的问题已不存在。
+          git checkout --theirs -- .github/workflows/android-release.yml 2>/dev/null || true
+          git add .
+          git commit -m "merge: 合入 XunEr-agent 改进（来自 wzcawzc123/XunEr-agent）"
+
+      - name: Verify merge tree equals XunEr-agent HEAD tree
+        run: |
+          ours_tree=$(git rev-parse HEAD^{tree})
+          agent_tree=$(git rev-parse agent/main^{tree})
+          echo "merge result tree: $ours_tree"
+          echo "agent HEAD tree:   $agent_tree"
+          if [ "$ours_tree" != "$agent_tree" ]; then
+            echo "::error::合并结果树与 XunEr-agent HEAD 不一致"
+            exit 1
+          fi
+          echo "::notice::树一致性验证通过"
+
+      - name: Push to main (only when confirmed)
+        if: ${{ inputs.confirm_push == true }}
+        run: |
           git push origin main
