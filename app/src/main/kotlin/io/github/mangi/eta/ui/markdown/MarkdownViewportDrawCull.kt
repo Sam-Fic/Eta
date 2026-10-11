@@ -1,5 +1,8 @@
 package io.github.mangi.eta.ui.markdown
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
@@ -15,11 +18,11 @@ import androidx.compose.ui.platform.InspectorInfo
 
 internal val LocalMarkdownDrawViewport = staticCompositionLocalOf<MarkdownDrawViewport?> { null }
 
-/** Drawing only: all text stays measured, placed, selectable and exposed to accessibility. */
+/** Shared viewport for draw culling and the explicitly admitted top-level placement layout. */
 internal class MarkdownDrawViewport {
-    private var coordinates: LayoutCoordinates? = null
-    private var lastBounds: Rect? = null
-    private var enabled = false
+    private var coordinates by mutableStateOf<LayoutCoordinates?>(null)
+    private var lastBounds by mutableStateOf<Rect?>(null)
+    private var enabled by mutableStateOf(false)
     private val nodes = mutableSetOf<MarkdownViewportCullNode>()
 
     fun updateEnabled(value: Boolean) {
@@ -35,6 +38,21 @@ internal class MarkdownDrawViewport {
         lastBounds = bounds
         // Coordinates mutate in place. Compare value snapshots, not just their identity.
         if (changed) nodes.forEach { it.refresh() }
+    }
+
+    /** Exact viewport in document-local coordinates, read only during placement. */
+    internal fun layoutWindow(document: LayoutCoordinates?): Rect? {
+        val viewport = coordinates ?: return null
+        // Snapshot reads invalidate placement when the viewport gate or size changes.
+        val bounds = lastBounds
+        if (!enabled || bounds == null || !viewport.isAttached || document?.isAttached != true ||
+            viewport.size.width <= 0 || viewport.size.height <= 0) return null
+        return try {
+            document.localBoundingBoxOf(viewport, clipBounds = false).takeIf {
+                it.top.isFinite() && it.bottom.isFinite() && it.bottom > it.top
+            }
+        } catch (_: IllegalArgumentException) { null }
+          catch (_: IllegalStateException) { null }
     }
 
     internal fun register(node: MarkdownViewportCullNode) { nodes.add(node) }
