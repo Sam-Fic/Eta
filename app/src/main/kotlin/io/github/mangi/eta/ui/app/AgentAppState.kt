@@ -921,15 +921,28 @@ internal class AgentAppState(
         }
 
         // R2 守卫：编辑重发携带前缀历史是已知高风险入口（长会话下估算可能低估）。
-        // 用未乘校准的 raw 口径 + system/schema 固定开销做发送前容量检查，
-        // 超窗则在发出前阻止，避免被服务商 CONTEXT_OVERFLOW 拒绝。
+        // 用未乘校准的 raw 口径 + 实测固定开销（system/memory/skills/工具 schema）做发送前容量检查。
+        // 固定开销 = 上一轮成功请求 input_tokens − rawEstimate(该轮历史)，随工具/记忆开关自动跟随；
+        // 常量 24K 作下限防异常，冷启动（无上一轮）时回退下限，不退化。
         if (editBoundary != null && editBoundary.historyPrefix.isNotEmpty()) {
             val window = AgentModelClient.loadConfig().contextWindow
+            val lastInput = homeState.messages.asReversed()
+                .filterIsInstance<AgentMessageUi>()
+                .mapNotNull { it.usage?.inputTokens }
+                .firstOrNull()
+            val measuredOverhead = lastInput?.let { real ->
+                (real - AgentContextBudget.rawEstimate(
+                    JSONArray().also { h ->
+                        homeState.history.forEach { h.put(AgentConversationCodec.toJsonObject(it)) }
+                    },
+                )).coerceAtLeast(0)
+            }
+            val guardOverhead = measuredOverhead ?: AgentHistoryTrimmer.TOOL_SCHEMA_RESERVE_TOKENS
             val estimate = AgentContextBudget.rawEstimate(
                 JSONArray().also { arr ->
                     editBoundary.historyPrefix.forEach { arr.put(AgentConversationCodec.toJsonObject(it)) }
                 },
-            ) + AgentHistoryTrimmer.TOOL_SCHEMA_RESERVE_TOKENS
+            ) + guardOverhead
             if (window != null && window > 0 && estimate >= window) {
                 Toast.makeText(
                     appContext,
