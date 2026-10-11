@@ -34,7 +34,7 @@ class DocumentStaticCacheTest {
             val seen = mutableListOf<MarkdownDocument?>()
             compose.setContent {
                 if (mounted.value) {
-                    val document by rememberStaticMarkdownDocument(source, style)
+                    val document = rememberStaticMarkdownDocument(source, style).value
                     SideEffect { seen += document }
                 }
             }
@@ -67,7 +67,7 @@ class DocumentStaticCacheTest {
         val seen = mutableListOf<MarkdownDocument?>()
         compose.setContent {
             val (source, inline) = target.value
-            val document by rememberStaticMarkdownDocument(source, inline)
+            val document = rememberStaticMarkdownDocument(source, inline).value
             SideEffect { seen += document }
         }
         compose.runOnIdle {
@@ -107,7 +107,7 @@ class DocumentStaticCacheTest {
         DocumentCache.put(clean, style, prepared)
         val seen = mutableListOf<MarkdownDocument?>()
         compose.setContent {
-            val document by rememberStaticMarkdownDocument(raw, style)
+            val document = rememberStaticMarkdownDocument(raw, style).value
             SideEffect { seen += document }
         }
         compose.runOnIdle {
