@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -45,8 +46,8 @@ class MarkdownViewportLayoutTest {
                         .wrapContentHeight(Alignment.Top, unbounded = true).testTag("document")) {
                         repeat(20) { index ->
                             DisposableEffect(Unit) { mounts[index]++; onDispose { mounts[index]-- } }
-                            Layout(content = {}, modifier = Modifier.testTag("block-$index")) { _, _ ->
-                                layout(200, blockHeight.intValue) { placed[index]++ }
+                            Layout(content = {}, modifier = Modifier.testTag("block-$index").onPlaced { placed[index]++ }) { _, _ ->
+                                layout(200, blockHeight.intValue) {}
                             }
                         }
                     }
