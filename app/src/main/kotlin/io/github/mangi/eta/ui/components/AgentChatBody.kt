@@ -951,6 +951,8 @@ internal fun AgentConversationMessages(
     // 标签会先不动、再被推上去，看起来像折了两次。现在展开从下沿长出（见 tailDetailsEnter），
     // 上提照常，标签随动画一帧一帧往上让开。
     val shouldLiftTail = shouldFollowBottom
+    val markdownViewport = remember { io.github.mangi.eta.ui.markdown.MarkdownDrawViewport() }
+    val markdownTransitionActive = LocalChatTransitionActive.current
     // 被盖住但仍露在屏幕上时不走整列离屏裁剪。完全打开时仍按原来的条件。
     val routeCovered = LocalChatRouteCovered.current
     val shouldClipTail = shouldClipChatTail(
@@ -962,6 +964,11 @@ internal fun AgentConversationMessages(
         navigationActive = messageNavigationJob != null || scrollToMessageId != null,
         routeCovered = routeCovered,
     )
+    SideEffect {
+        markdownViewport.updateEnabled(
+            !shouldLiftTail && !shouldClipTail && !routeCovered && !markdownTransitionActive,
+        )
+    }
     // 附件、输入框换行和 IME 改的是实际尾部留白，不是新消息增长。
     // 静态时没有跟底控制器接手；只在仍锚定且视口静止线确实变化时重新停靠。
     AnchorChatTailOnViewportChange(scrollState, bottomItemIndex) {
@@ -1348,6 +1355,7 @@ internal fun AgentConversationMessages(
     }
     Box(
         modifier = modifier
+            .onGloballyPositioned(markdownViewport::updateCoordinates)
             .clipToBounds()
             // clipRect 和普通 clip 都裁不到子级 graphicsLayer（跟底上提、思考卡片的离屏纹理）。
             // 先把整列画进一张按静止线裁切的离屏纹理，文字才不会露进输入框。
@@ -1394,6 +1402,9 @@ internal fun AgentConversationMessages(
             // Commit count only (ns=0): proves this content lambda was applied, not its cost.
             StreamPerformanceDiagnostics.record("chat.content.commit", value = 1)
         }
+        androidx.compose.runtime.CompositionLocalProvider(
+            io.github.mangi.eta.ui.markdown.LocalMarkdownDrawViewport provides markdownViewport,
+        ) {
         LazyColumn(
             state = scrollState,
             verticalArrangement = if (shouldPinConversationToBottom(isStreaming, streamFilledViewport)) {
@@ -1739,6 +1750,8 @@ internal fun AgentConversationMessages(
                         .height(1.dp),
                 )
             }
+        }
+
         }
 
         fun navigateUserMessage(toEdge: Boolean) {

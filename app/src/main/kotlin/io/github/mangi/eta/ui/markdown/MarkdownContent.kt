@@ -187,9 +187,10 @@ private fun MarkdownText(
         }
         return
     }
+    val drawModifier = modifier.markdownViewportDrawCull(scope.style.tone == MarkdownTone.Answer)
     // 空单元格没有可显现的文字，也不占用显现协调器的 key。
     if (reveal == null || block.text.isEmpty()) {
-        DocumentText(text = block.text, style = style, softWrap = softWrap, modifier = modifier)
+        DocumentText(text = block.text, style = style, softWrap = softWrap, modifier = drawModifier)
         return
     }
     val revealState = rememberSmoothTextRevealState(block.revealKey, reveal)
@@ -199,7 +200,7 @@ private fun MarkdownText(
         text = block.text,
         style = animatedStyle,
         softWrap = softWrap,
-        modifier = modifier.smoothTextReveal(revealState),
+        modifier = drawModifier.smoothTextReveal(revealState),
         onTextLayout = { layout -> revealState.onTextLayout(block.text.text, layout) },
     )
 }
