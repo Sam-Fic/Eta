@@ -1,5 +1,8 @@
 package io.github.mangi.eta.ui.app
 
+import io.github.mangi.eta.agent.model.AgentContextBudget
+import io.github.mangi.eta.agent.model.AgentConversationCodec
+import org.json.JSONArray
 import io.github.mangi.eta.agent.model.AgentContextSnapshot
 
 import android.content.ContentResolver
@@ -916,6 +919,26 @@ internal class AgentAppState(
             return
         }
 
+        // R2 守卫：编辑重发携带前缀历史是已知高风险入口（长会话下估算可能低估）。
+        // 用未乘校准的 raw 口径做发送前容量检查，超窗则在发出前阻止，避免被服务商 CONTEXT_OVERFLOW 拒绝。
+        if (editBoundary != null && editBoundary.historyPrefix.isNotEmpty()) {
+            val window = AgentModelClient.loadConfig().contextWindow
+            val estimate = AgentContextBudget.rawEstimate(
+                JSONArray().also { arr ->
+                    editBoundary.historyPrefix.forEach { arr.put(AgentConversationCodec.toJsonObject(it)) }
+                },
+            )
+            if (window != null && window > 0 && estimate >= window) {
+                Toast.makeText(
+                    appContext,
+                    "编辑重发的前缀历史接近上下文上限，建议先手动压缩历史或新建会话；本次未发送",
+                    Toast.LENGTH_LONG,
+                ).show()
+                cancelMessageEdit()
+                return
+            }
+        }
+
         val conversationId = selectedConversationId ?: newConversationId().also {
             selectedConversationId = it
         }
@@ -964,7 +987,7 @@ internal class AgentAppState(
             userHistoryMessage = userHistoryMessage,
             messages = messages,
             state = homeState.copy(
-                journal = editBoundary?.journalPrefix ?: homeState.journal,
+                journal = editBoundary?.journalPrefix?.takeIf { it.isNotEmpty() } ?: homeState.journal,
                 input = "",
                 pendingImages = emptyList(),
                 pendingFileReferences = emptyList(),

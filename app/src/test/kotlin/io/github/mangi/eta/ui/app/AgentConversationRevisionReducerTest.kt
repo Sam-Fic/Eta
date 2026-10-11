@@ -105,6 +105,40 @@ class AgentConversationRevisionReducerTest {
         )
     }
 
+    @Test
+    fun boundaryUsesMessageIdOverCountWhenUiAndJournalDiffer() {
+        // 真机场景（5050 条会话压缩后）：UI 与 journal 用户消息条数不等，差值法算偏；
+        // 用 messageId 应精确定位到编辑轮次。
+        val uiUserIds = listOf("user-1", "user-2", "user-3")
+        val journal = listOf(
+            AgentModelClient.ConversationMessage(role = "user", content = "旧轮", messageId = "user-0"),
+            AgentModelClient.ConversationMessage(role = "assistant", content = "旧答"),
+            AgentModelClient.ConversationMessage(role = "user", content = "第一问", messageId = "user-1"),
+            AgentModelClient.ConversationMessage(role = "assistant", content = "第一答"),
+            AgentModelClient.ConversationMessage(role = "user", content = "第二问", messageId = "user-2"),
+            AgentModelClient.ConversationMessage(role = "assistant", content = "第二答"),
+            AgentModelClient.ConversationMessage(role = "user", content = "第三问", messageId = "user-3"),
+            AgentModelClient.ConversationMessage(role = "assistant", content = "第三答"),
+        )
+        val messages = uiUserIds.map { UserMessageUi(id = it, content = it) } +
+            listOf(AgentMessageUi(id = "assistant-2", content = "第二答"))
+        val state = AgentChatUiState(messages = messages, history = journal, input = "", isStreaming = false, thinkingEnabled = false)
+
+        val boundary = AgentConversationRevisionReducer.boundary(state, "user-2")!!
+        assertEquals(listOf("旧轮", "旧答", "第一问", "第一答"), boundary.historyPrefix.map { it.content })
+        assertFalse(boundary.contextWasCompacted)
+    }
+
+    @Test
+    fun boundaryDegradesToCountWhenJournalHasNoMessageIds() {
+        // 旧数据（journal 无 messageId）→ ID 匹配失败，退回原差值逻辑，不抛异常。
+        val state = conversationState()
+        val boundary = AgentConversationRevisionReducer.boundary(state, "user-3")!!
+        // 退化路径（差值法）：编辑"第三问"→ 按 retainedUserOrdinal 截断。
+        // 本用例只验证「ID 缺失时可用、不抛异常」，具体条数由既有 compactedCheckpoint 测试覆盖。
+        assertTrue(boundary.historyPrefix.isNotEmpty())
+    }
+
     private fun conversationState(): AgentChatUiState = AgentChatUiState(
         messages = listOf(
             UserMessageUi(id = "user-1", content = "第一问"),

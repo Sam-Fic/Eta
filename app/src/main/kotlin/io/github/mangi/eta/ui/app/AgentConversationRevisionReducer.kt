@@ -33,14 +33,32 @@ internal object AgentConversationRevisionReducer {
         val retainedUserOrdinal = historyUserIndices.size - (userMessageIndices.size - targetUserOrdinal)
         val historyIndex = historyUserIndices.getOrNull(retainedUserOrdinal)
         val prefix = historyIndex?.let(source::take).orEmpty()
-        val targetTurn = prefix.sumOf { it.compactedUserTurns + if (it.role == "user") 1 else 0 } + 1
-        val invalidatesSummary = prefix.any { it.contextSummary && it.summaryThroughUserTurn >= targetTurn }
+
+        // 优先按 messageId 在 journal 中精确定位截断点，消除「UI/journal 条数差值」在巨型会话下的漂移
+        // （真机实证：5050 条会话压缩后 UI 与 journal 条数不等，差值法算偏导致整段历史带出、CONTEXT_OVERFLOW）。
+        // 新消息进入 journal 时已带 messageId（_eta_message_id）；旧数据可能无 ID → 退化到原差值逻辑。
+        val idResolvedPrefix: List<AgentModelClient.ConversationMessage>? = targetMessageId
+            .takeIf { it.isNotBlank() }
+            ?.let { targetId ->
+                // 从编辑点往前找最近一条、其 UI id 能在 journal source 中按 messageId 对上用户消息，
+                // 以该消息在 source 中的 index 为截断边界（不含该消息本身之后的所有消息）。
+                (targetUserOrdinal downTo 0).asSequence()
+                    .mapNotNull { ordinal -> userMessageIndices.getOrNull(ordinal)?.let { state.messages[it].id } }
+                    .mapNotNull { uiId ->
+                        historyUserIndices.lastOrNull { source[it].messageId == uiId }
+                    }
+                    .firstOrNull()
+                    ?.let { matchedIndex -> source.take(matchedIndex) }
+            }
+        val effectivePrefix = idResolvedPrefix ?: prefix
+        val targetTurn = effectivePrefix.sumOf { it.compactedUserTurns + if (it.role == "user") 1 else 0 } + 1
+        val invalidatesSummary = effectivePrefix.any { it.contextSummary && it.summaryThroughUserTurn >= targetTurn }
         val compacted = historyIndex == null || invalidatesSummary
 
         return Boundary(
             userMessage = userMessage,
             userMessageIndex = userMessageIndex,
-            historyPrefix = prefix.filterNot { it.contextSummary && it.summaryThroughUserTurn >= targetTurn },
+            historyPrefix = effectivePrefix.filterNot { it.contextSummary && it.summaryThroughUserTurn >= targetTurn },
             laterTurnCount = userMessageIndices.size - targetUserOrdinal - 1,
             contextWasCompacted = compacted,
         )
