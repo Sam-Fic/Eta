@@ -35,11 +35,16 @@ class AgentSelectionDuringFollowTest {
     @get:Rule val compose = createComposeRule()
     @Before fun initPreferences() { Prefs.initLocal(RuntimeEnvironment.getApplication()) }
 
-    @Test fun growingTailDoesNotMovePressedTextAndNativeSelectionStarts() {
+    @Test fun growingTailDoesNotMovePressedTextAndNativeSelectionStarts() = checkSelection(longHistory = true)
+
+    @Test fun shortBottomAlignedConversationKeepsPressedTextWhenTailOutgrowsViewport() = checkSelection(longHistory = false)
+
+    private fun checkSelection(longHistory: Boolean) {
         val text = "Stable selectable answer alpha bravo charlie."
         val answer = AgentMessageUi("answer", text, renderMarkdown = false)
         val tail = AgentMessageUi("tail", "Tail", renderMarkdown = false)
-        val messages = mutableStateOf<List<AgentChatMessageUi>>(listOf(answer, tail))
+        val history = (if (longHistory) (0..7).toList() else emptyList()).map { AgentMessageUi("history-$it", "Earlier answer $it.\n".repeat(4), renderMarkdown = false) }
+        val messages = mutableStateOf<List<AgentChatMessageUi>>(history + listOf(answer, tail))
         lateinit var list: LazyListState
         compose.setContent {
             MiuixTheme {
@@ -52,6 +57,7 @@ class AgentSelectionDuringFollowTest {
             }
         }
         compose.waitForIdle()
+        assertEquals("Fixture scrollability", longHistory, list.canScrollBackward)
         val node = compose.onNodeWithText(text, useUnmergedTree = true)
         val layouts = mutableListOf<TextLayoutResult>()
         node.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
@@ -60,7 +66,7 @@ class AgentSelectionDuringFollowTest {
         val index = list.firstVisibleItemIndex
         val offset = list.firstVisibleItemScrollOffset
         node.performTouchInput { down(point) }
-        compose.runOnIdle { messages.value = listOf(answer, tail.copy(content = "Later output line\n".repeat(35))) }
+        compose.runOnIdle { messages.value = history + listOf(answer, tail.copy(content = "Later output line\n".repeat(35))) }
         compose.waitForIdle()
         assertEquals(top, node.fetchSemanticsNode().boundsInRoot.top, 1f)
         assertEquals(index, list.firstVisibleItemIndex)

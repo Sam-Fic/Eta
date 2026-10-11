@@ -834,6 +834,7 @@ internal fun AgentConversationMessages(
     // and before another scheduled follow frame can mutate the list position.
     // 手指是否按在列表上。只观察、不消费事件。
     val pointerDown = remember { mutableStateOf(false) }
+    var heldLeadingGapPx by remember { mutableIntStateOf(0) }
     var programmaticUserScrolls by remember { mutableIntStateOf(0) }
     val userScrollConnection = remember(scrollState, directionTracker) {
         object : NestedScrollConnection {
@@ -1408,7 +1409,7 @@ internal fun AgentConversationMessages(
         ) {
         LazyColumn(
             state = scrollState,
-            verticalArrangement = if (shouldPinConversationToBottom(isStreaming, streamFilledViewport)) {
+            verticalArrangement = if (!pointerDown.value && shouldPinConversationToBottom(isStreaming, streamFilledViewport)) {
                 Arrangement.Bottom
             } else {
                 Arrangement.Top
@@ -1454,11 +1455,20 @@ internal fun AgentConversationMessages(
                             while (true) {
                                 val event = awaitPointerEvent(PointerEventPass.Initial)
                                 val pressed = event.changes.any { it.pressed }
-                                if (pointerDown.value != pressed) pointerDown.value = pressed
+                                if (pointerDown.value != pressed) {
+                                    // Preserve short-list bottom alignment as real leading space.
+                                    // Otherwise tail growth moves the first row before scrollBy runs.
+                                    heldLeadingGapPx = if (pressed && !scrollState.canScrollBackward && !scrollState.canScrollForward) {
+                                        scrollState.layoutInfo.visibleItemsInfo.firstOrNull()
+                                            ?.takeIf { it.index == 0 }?.offset?.coerceAtLeast(0) ?: 0
+                                    } else 0
+                                    pointerDown.value = pressed
+                                }
                             }
                         }
                     } finally {
                         pointerDown.value = false
+                        heldLeadingGapPx = 0
                     }
                 }
                 .nestedScroll(userScrollConnection)
@@ -1467,7 +1477,7 @@ internal fun AgentConversationMessages(
                 .overScrollVertical(),
             // 最后一条静止时停在输入框上方 14dp；手动滑动时内容可以滚到输入框后面。
             contentPadding = PaddingValues(
-                top = 14.dp,
+                top = 14.dp + with(LocalDensity.current) { heldLeadingGapPx.toDp() },
                 bottom = ConversationComposerGap + bottomInset,
             ),
             overscrollEffect = null,
