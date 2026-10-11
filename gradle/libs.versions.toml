@@ -19,6 +19,8 @@ desugarJdkLibs = "2.1.5"
 kotlinx-serialization = "1.11.0"
 kotlinx-coroutines = "1.11.0"
 hiddenApiBypass = "6.1"
+# 小米 / 澎湃 OS 超级岛（焦点通知）载荷构建，见 docs/island-adaptation.md
+hyperisland = "0.4.5"
 room = "2.8.5"
 junit = "4.13.2"
 json = "20260814"
@@ -44,6 +46,7 @@ androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "l
 activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 intellij-markdown = { group = "org.jetbrains", name = "markdown", version.ref = "intellijMarkdown" }
 hidden-api-bypass = { group = "org.lsposed.hiddenapibypass", name = "hiddenapibypass", version.ref = "hiddenApiBypass" }
+hyperisland-kit = { group = "io.github.d4viddf", name = "hyperisland_kit", version.ref = "hyperisland" }
 datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }

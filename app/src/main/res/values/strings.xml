@@ -127,6 +127,10 @@
   <string name="island_enabled_summary">Show agent status on the MIUI / HyperOS Super Island when supported</string>
   <string name="island_channel_name">Eta Super Island</string>
   <string name="island_channel_description">Shows the running status of Eta agent on the Super Island</string>
+  <string name="island_state_result_ready">Done</string>
+  <string name="island_state_generating">Answering</string>
+  <string name="island_state_finishing">Finishing</string>
+  <string name="island_state_needs_input">Needs input</string>
   <string name="appearance_title">Appearance &amp; Theme</string>
   <string name="appearance_group_color">Colors &amp; Theme</string>
   <string name="appearance_group_interface">Interface &amp; Effects</string>

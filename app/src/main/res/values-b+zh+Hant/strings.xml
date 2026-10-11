@@ -124,6 +124,10 @@
   <string name="island_enabled_summary">裝置支援時，將 Agent 執行狀態同步到小米 / 澎湃 OS 超級島</string>
   <string name="island_channel_name">Eta 超級島</string>
   <string name="island_channel_description">在超級島上顯示 Eta Agent 的執行狀態</string>
+  <string name="island_state_result_ready">已完成</string>
+  <string name="island_state_generating">整理回答</string>
+  <string name="island_state_finishing">收尾中</string>
+  <string name="island_state_needs_input">需確認</string>
   <string name="appearance_title">外觀與主題</string>
   <string name="appearance_group_color">顏色與主題</string>
   <string name="appearance_group_interface">介面與效果</string>

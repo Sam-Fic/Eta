@@ -162,6 +162,9 @@ dependencies {
     implementation(libs.intellij.markdown)
     implementation(libs.hidden.api.bypass)
 
+    // 小米 / 澎湃 OS 超级岛（焦点通知）：param_v2 载荷与图片 Bundle 由该库按官方模板构建
+    implementation(libs.hyperisland.kit)
+
     // DataStore：Provider / Model 结构化 JSON 与当前选中 ID 等键值
     implementation(libs.datastore.preferences)
 

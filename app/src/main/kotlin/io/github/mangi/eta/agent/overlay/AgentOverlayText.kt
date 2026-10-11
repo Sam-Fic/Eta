@@ -26,6 +26,39 @@ internal sealed interface AgentOverlayStatus {
 @Composable
 internal fun AgentOverlayStatus.localizedText(): String = localizedText(LocalResources.current)
 
+/**
+ * 超级岛大岛 A / B 区的短文案。
+ *
+ * 官方《摘要态设计规范》要求大岛文案「建议总字数不超过 4 个中文字」，因此这里不能用
+ * [localizedText] 的整句状态（如「收尾中，结果出来后再补充」），只保留一眼能看懂的短标签；
+ * 完整状态与详情走展开态与通知正文。
+ */
+internal fun AgentOverlayStatus.islandShortText(resources: Resources): String = when (this) {
+    AgentOverlayStatus.Reasoning -> resources.getString(R.string.overlay_reasoning)
+    AgentOverlayStatus.SupplementReceived -> resources.getString(R.string.overlay_continuing)
+    is AgentOverlayStatus.RunningTool -> toolDisplayName(resources, name)
+    is AgentOverlayStatus.HostedToolRunning -> resources.getString(R.string.overlay_hosted_tool_running, name)
+    AgentOverlayStatus.ResultReady -> resources.getString(R.string.island_state_result_ready)
+    AgentOverlayStatus.RunFailed -> resources.getString(R.string.overlay_run_failed)
+    AgentOverlayStatus.GeneratingAnswer -> resources.getString(R.string.island_state_generating)
+    AgentOverlayStatus.Stopping -> resources.getString(R.string.overlay_stopping)
+    AgentOverlayStatus.Paused -> resources.getString(R.string.overlay_paused)
+    AgentOverlayStatus.Continuing -> resources.getString(R.string.overlay_continuing)
+    AgentOverlayStatus.Finishing -> resources.getString(R.string.island_state_finishing)
+    AgentOverlayStatus.ContinuationUnavailable -> resources.getString(R.string.island_state_needs_input)
+    AgentOverlayStatus.Stopped -> resources.getString(R.string.overlay_stopped)
+}
+
+/**
+ * 大岛 B 区（文本组件）只关心「正在做什么」：只有真的在执行工具时才给工具名，
+ * 其它状态留空，由 A 区的短状态单独承担（回到官方模版1「图文组件1 + 空」）。
+ */
+internal fun AgentOverlayStatus.islandToolName(resources: Resources): String? = when (this) {
+    is AgentOverlayStatus.RunningTool -> toolDisplayName(resources, name)
+    is AgentOverlayStatus.HostedToolRunning -> resources.getString(R.string.overlay_hosted_tool_running, name)
+    else -> null
+}
+
 /** 通知等非 Compose 表面与浮层共用同一套状态文案。 */
 internal fun AgentOverlayStatus.localizedText(resources: Resources): String = when (this) {
     AgentOverlayStatus.Reasoning -> resources.getString(R.string.overlay_reasoning)
