@@ -20,13 +20,14 @@ import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.AppUpdateOffer
 import io.github.mangi.eta.data.repository.AppUpdateRepository
+import io.github.mangi.eta.ui.adaptive.EtaDialog
+import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.EtaText
+import io.github.mangi.eta.ui.adaptive.EtaTextStyle
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowDialog
 
 @Composable
 internal fun AppUpdateDialog(
@@ -43,7 +44,7 @@ internal fun AppUpdateDialog(
         offer.versionName,
         currentVersion.ifBlank { stringResource(R.string.update_unknown_version) },
     )
-    WindowDialog(
+    EtaDialog(
         show = true,
         title = stringResource(R.string.update_available_title),
         summary = summary,
@@ -53,10 +54,9 @@ internal fun AppUpdateDialog(
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             if (offer.notes.isNotBlank()) {
-                Text(
+                EtaText(
                     text = offer.notes,
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    style = EtaTextStyle.Secondary,
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(max = 160.dp)
@@ -64,7 +64,7 @@ internal fun AppUpdateDialog(
                         .verticalScroll(rememberScrollState()),
                 )
             }
-            MiuixDialogActions(
+            EtaDialogActions(
                 confirmText = if (downloading) {
                     stringResource(R.string.update_downloading)
                 } else {
@@ -77,11 +77,11 @@ internal fun AppUpdateDialog(
                     if (!downloading) onDismiss()
                 },
                 onConfirm = {
-                    if (downloading) return@MiuixDialogActions
+                    if (downloading) return@EtaDialogActions
                     if (offer.apkUrl.isNullOrBlank()) {
                         AppUpdateRepository.openReleasePage(context, offer)
                         onDismiss()
-                        return@MiuixDialogActions
+                        return@EtaDialogActions
                     }
                     if (!AppUpdateRepository.canInstallPackages(context)) {
                         Toast.makeText(
@@ -90,7 +90,7 @@ internal fun AppUpdateDialog(
                             Toast.LENGTH_LONG,
                         ).show()
                         AppUpdateRepository.requestInstallPermission(context)
-                        return@MiuixDialogActions
+                        return@EtaDialogActions
                     }
                     downloading = true
                     scope.launch {

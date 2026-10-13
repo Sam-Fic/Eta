@@ -1,5 +1,7 @@
 package io.github.mangi.eta.ui
+import io.github.mangi.eta.ui.components.etaRippleConfiguration
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -7,6 +9,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.FactCheck
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -80,7 +83,7 @@ internal fun SubAgentSettingsScreen(
     var name by remember { mutableStateOf("") }
     val view = LocalView.current
     val editable = !directory.loading && directory.error == null
-    CompositionLocalProvider(LocalRippleConfiguration provides null) {
+    CompositionLocalProvider(LocalRippleConfiguration provides etaRippleConfiguration()) {
         WithoutPressRipple {
             Scaffold(containerColor = MaterialTheme.colorScheme.surface,
                 topBar = { TopAppBar(title = { Text("子代理组") }, navigationIcon = {
@@ -91,14 +94,14 @@ internal fun SubAgentSettingsScreen(
                     FilledTonalButton(enabled = editable, onClick = {
                         TouchHaptics.click(view); name = ""; add = true
                     }, modifier = Modifier.heightIn(min = 48.dp).widthIn(min = 168.dp), shape = RoundedCornerShape(50)) {
-                        Text("添加子代理组", style = MaterialTheme.typography.bodyLarge)
+                        Text("添加子代理组", style = MiuixTheme.textStyles.body1)
                     }
                 }) { padding ->
                 LazyColumn(Modifier.fillMaxSize().padding(padding).horizontalCutoutPadding(),
                     contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 96.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     item {
-                        Text("预设组可供不同会话复制使用；修改预设不会改变已应用的会话。", style = MaterialTheme.typography.bodyMedium)
+                        Text("预设组可供不同会话复制使用；修改预设不会改变已应用的会话。", style = MiuixTheme.textStyles.body2)
                         SubAgentPresetDirectoryStatus(directory)
                     }
                     items(directory.entries, key = { it.id }) { preset ->
@@ -169,7 +172,7 @@ private fun SubAgentPresetDetail(editor: ConversationSubAgentEditor, groupName: 
     var name by remember(editor) { mutableStateOf("") }
     val view = LocalView.current
     LaunchedEffect(editor, editable) { if (!editable) { rename = null; delete = null } }
-    CompositionLocalProvider(LocalRippleConfiguration provides null) {
+    CompositionLocalProvider(LocalRippleConfiguration provides etaRippleConfiguration()) {
     WithoutPressRipple {
         Scaffold(containerColor = MaterialTheme.colorScheme.surface,
             topBar = { TopAppBar(title = { Text(groupName) }, navigationIcon = {
@@ -188,7 +191,7 @@ private fun SubAgentPresetDetail(editor: ConversationSubAgentEditor, groupName: 
                     colors = ButtonDefaults.filledTonalButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer,
                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer),
                     elevation = ButtonDefaults.filledTonalButtonElevation(defaultElevation = 3.dp)) {
-                    Text("添加子代理", style = MaterialTheme.typography.bodyLarge)
+                    Text("添加子代理", style = MiuixTheme.textStyles.body1)
                 }
             }) { padding ->
             Box(Modifier.fillMaxSize().padding(padding).horizontalCutoutPadding(), contentAlignment = Alignment.TopCenter) {
@@ -200,7 +203,7 @@ private fun SubAgentPresetDetail(editor: ConversationSubAgentEditor, groupName: 
                             SubAgentEditorState.Loading -> "正在读取子代理组配置…"
                             else -> if (!editable) "当前子代理组暂不可修改。"
                                 else "配置属于此预设组；会话应用时复制，后续修改互不影响。"
-                        }, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface,
+                        }, style = MiuixTheme.textStyles.body2, color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.padding(bottom = 4.dp))
                         if (state is SubAgentEditorState.Error) TextButton(onClick = { editor?.retry() }) { Text("重试恢复配置") }
                     }
@@ -212,12 +215,12 @@ private fun SubAgentPresetDetail(editor: ConversationSubAgentEditor, groupName: 
                                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                         Icon(when (profile.role) {
-                                            "review" -> Icons.Rounded.FactCheck
+                                            "review" -> Icons.AutoMirrored.Rounded.FactCheck
                                             "image_generation" -> Icons.Rounded.Image
                                             "video_generation" -> Icons.Rounded.Videocam
                                             else -> Icons.Rounded.AccountTree
-                                        }, null, Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurface)
-                                        Text(profile.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium,
+                                        }, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurface)
+                                        Text(profile.name, Modifier.weight(1f), style = MiuixTheme.textStyles.headline2,
                                             maxLines = 2, overflow = TextOverflow.Ellipsis)
                                         Box(Modifier.requiredSize(36.dp, 22.dp).wrapContentSize(unbounded = true)
                                             .semantics { contentDescription = "启用${profile.name}" }, contentAlignment = Alignment.Center) {

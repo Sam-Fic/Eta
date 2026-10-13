@@ -1,6 +1,7 @@
 package io.github.mangi.eta.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -128,6 +129,7 @@ import io.github.mangi.eta.ui.model.ToolSummaryMessageUi
 import io.github.mangi.eta.ui.model.UserMessageUi
 import io.github.mangi.eta.ui.model.isResumeAfterCompress
 import io.github.mangi.eta.ui.model.isSteerSupplement
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -141,13 +143,64 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collectLatest
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
-import top.yukonga.miuix.kmp.basic.Icon
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
+
+/**
+ * 会话空状态与底部提示的外观适配。
+ *
+ * Material 3 Expressive 下全部取官方 [MaterialTheme] 角色与排版档位；miuix 主题族
+ * 沿用原有取值，两套主题互不影响。
+ */
+@Composable
+internal fun chatEmptyStateHeadlineStyle(): androidx.compose.ui.text.TextStyle =
+    if (isMaterial3Theme()) MaterialTheme.typography.headlineMedium else MiuixTheme.textStyles.headline1
+
+@Composable
+internal fun chatSecondaryLabelStyle(): androidx.compose.ui.text.TextStyle =
+    if (isMaterial3Theme()) MaterialTheme.typography.bodyMedium else MiuixTheme.textStyles.body2
+
+@Composable
+private fun chatMutedLabelColor(): androidx.compose.ui.graphics.Color =
+    if (isMaterial3Theme()) MaterialTheme.colorScheme.onSurfaceVariant else MiuixTheme.colorScheme.onSurfaceVariantSummary
+
+/** 新消息入场淡入：M3 取官方 effects 规格，miuix 分支保留原来的 180ms。 */
+@Composable
+private fun chatMessageFadeInSpec(): FiniteAnimationSpec<Float> =
+    if (isMaterial3Theme()) {
+        MaterialTheme.motionScheme.defaultEffectsSpec()
+    } else {
+        tween(durationMillis = 180)
+    }
+
+@Composable
+private fun chatBodyLabelColor(): androidx.compose.ui.graphics.Color =
+    if (isMaterial3Theme()) MaterialTheme.colorScheme.onSurface else MiuixTheme.colorScheme.onSurface
+
+/** 卡片描边：M3 用官方 outlineVariant 角色，miuix 保留原 outline 淡化值。 */
+@Composable
+private fun chatCardBorderColor(): androidx.compose.ui.graphics.Color =
+    if (isMaterial3Theme()) {
+        MaterialTheme.colorScheme.outlineVariant
+    } else {
+        MiuixTheme.colorScheme.outline.copy(alpha = 0.5f)
+    }
+
+@Composable
+private fun chatCardContainerColor(): androidx.compose.ui.graphics.Color =
+    if (isMaterial3Theme()) {
+        MaterialTheme.colorScheme.surfaceContainerLow
+    } else {
+        MiuixTheme.colorScheme.surface
+    }
 
 /**
  * 聊天主体：消息流 + 底部输入框。
@@ -250,11 +303,6 @@ internal fun AgentChatBody(
     val view = LocalView.current
     val context = LocalContext.current
     val voiceState by voiceController.state.collectAsState()
-    val density = LocalDensity.current
-    val imeInsets = WindowInsets.ime
-    val isKeyboardVisible by remember(imeInsets, density) {
-        derivedStateOf { imeInsets.getBottom(density) > 0 }
-    }
     val browserShortcut by remember {
         AgentBrowserSession.snapshots
             .map { snapshot ->
@@ -404,7 +452,6 @@ internal fun AgentChatBody(
                 voiceState = voiceState,
                 onStartVoiceMode = voiceController::start,
                 onStopVoiceMode = voiceController::stop,
-                showEmptySuggestions = !isKeyboardVisible,
                 keepBottomAnchored = keepBottomAnchored,
                 onBottomAnchorChanged = { keepBottomAnchored = it },
                 onSubmit = { text ->
@@ -493,7 +540,6 @@ internal fun AgentChatScaffold(
     voiceState: VoiceModeState = VoiceModeState(),
     onStartVoiceMode: (VoiceEntryMode) -> Unit = {},
     onStopVoiceMode: () -> Unit = {},
-    showEmptySuggestions: Boolean,
     keepBottomAnchored: Boolean,
     onBottomAnchorChanged: (Boolean) -> Unit,
     onSubmit: (String) -> Unit,
@@ -604,8 +650,12 @@ internal fun AgentChatScaffold(
     ) { innerPadding ->
         val bottomPadding = innerPadding.calculateBottomPadding()
         if (!hasMessages) {
+            // IME 可见性只有空态建议词消费。把 inset 读取限制在这一小段，
+            // 键盘起落时不再带着整条消息列表与输入栏一起重组。
+            val density = LocalDensity.current
+            val isKeyboardVisible = WindowInsets.ime.getBottom(density) > 0
             EmptyChatState(
-                showSuggestions = showEmptySuggestions,
+                showSuggestions = !isKeyboardVisible,
                 onSuggestionClick = onSuggestionClick,
                 modifier = Modifier
                     .fillMaxSize()
@@ -891,16 +941,26 @@ internal fun AgentConversationMessages(
     var hasLeftBottom by remember { mutableStateOf(false) }
     LaunchedEffect(scrollState) {
         snapshotFlow {
-            if (messageNavigationJob != null) null
-            else Triple(isUserScrolling, scrollState.isConversationAtBottom(), currentAnchor.value)
+            if (messageNavigationJob != null) {
+                null
+            } else {
+                // 手指压在列表上同样算拖动：onPreScroll 的 pointerDown 判定偶尔收不到
+                // （例如手势从输入区边缘起手），只靠 isUserScrolling 会让跟底逻辑
+                // 把已经翻到旧消息的列表又拽回底部，表现为「只能往一个方向滑」。
+                ChatListFollowState(
+                    dragging = isUserScrolling || pointerDown.value,
+                    atBottom = scrollState.isConversationAtBottom(),
+                    anchored = currentAnchor.value,
+                )
+            }
         }
             .distinctUntilChanged()
             .collect { state ->
-                val (userScrolling, atBottom, anchored) = state ?: return@collect
-                if (userScrolling && !atBottom) hasLeftBottom = true
+                val (dragging, atBottom, anchored) = state ?: return@collect
+                if (dragging && !atBottom) hasLeftBottom = true
                 val next = resolveKeepBottomAnchored(
                     current = anchored,
-                    isUserDragging = userScrolling,
+                    isUserDragging = dragging,
                     isAtBottom = atBottom,
                     hasLeftBottom = hasLeftBottom,
                 )
@@ -1409,11 +1469,11 @@ internal fun AgentConversationMessages(
         ) {
         LazyColumn(
             state = scrollState,
-            verticalArrangement = if (!pointerDown.value && shouldPinConversationToBottom(isStreaming, streamFilledViewport)) {
-                Arrangement.Bottom
-            } else {
-                Arrangement.Top
-            },
+            // 钉底只在列表真实放得下时启用，直接以测量结果为准：
+            // 旧条件（非流式即钉底）会给「可滚动」的空闲列表套上 Arrangement.Bottom，
+            // 它会把越界内容的滚动位置重新钳到末端，表现为只能往一个方向滚；
+            // 且旧条件还随 pointerDown 在 Bottom/Top 间翻转，手势中重新布局会跳动。
+            verticalArrangement = if (isListScrollable) Arrangement.Top else Arrangement.Bottom,
             modifier = Modifier
                 .streamDiagnosticMeasure("list.measure", diagnosticListAttribution)
                 .streamDiagnosticPlacement("list.place", diagnosticListAttribution)
@@ -1477,7 +1537,7 @@ internal fun AgentConversationMessages(
                 .overScrollVertical(),
             // 最后一条静止时停在输入框上方 14dp；手动滑动时内容可以滚到输入框后面。
             contentPadding = PaddingValues(
-                top = 14.dp + with(LocalDensity.current) { heldLeadingGapPx.toDp() },
+                top = 12.dp + with(LocalDensity.current) { heldLeadingGapPx.toDp() },
                 bottom = ConversationComposerGap + bottomInset,
             ),
             overscrollEffect = null,
@@ -1538,7 +1598,7 @@ internal fun AgentConversationMessages(
                         .streamDiagnosticDraw("row.draw", diagnosticRow)
                         .fillMaxWidth().then(
                         if (entry is AgentTimelineRow.Message) Modifier.animateItem(
-                            fadeInSpec = if (firstMessageAppearance) tween(durationMillis = 180) else null,
+                            fadeInSpec = if (firstMessageAppearance) chatMessageFadeInSpec() else null,
                             placementSpec = null,
                             fadeOutSpec = null,
                         ) else Modifier,
@@ -1747,7 +1807,7 @@ internal fun AgentConversationMessages(
                             modelName = "${telemetry.compactingModelName.ifBlank { telemetry.mainModelName }}（主代理）",
                             waiting = isWaitingForCompression && !isCompressingContext,
                             modifier = Modifier.animateItem(
-                                fadeInSpec = tween(durationMillis = 180),
+                                fadeInSpec = chatMessageFadeInSpec(),
                                 placementSpec = null,
                                 fadeOutSpec = null,
                             ),
@@ -1774,7 +1834,13 @@ internal fun AgentConversationMessages(
         fun navigateUserMessage(toEdge: Boolean) {
             // Do not queue animations on rapid taps; a new drag cancels the active jump.
             if (messageNavigationJob != null) return
-            val direction = navigationDirection
+            // 方向按「当前是否在底部」决定，而不是按上一次滑动方向：
+            // 不在底部 → 向下（去末尾）；已在底部 → 向上（去开头）。
+            val direction = if (scrollState.isConversationAtBottom()) {
+                ConversationNavigationDirection.Up
+            } else {
+                ConversationNavigationDirection.Down
+            }
             val target = conversationUserMessageTarget(
                 userMessageTargets, scrollState.firstVisibleItemIndex, bottomItemIndex, direction, toEdge,
                 firstVisibleScrollOffset = scrollState.firstVisibleItemScrollOffset,
@@ -1795,16 +1861,21 @@ internal fun AgentConversationMessages(
                 }
             }
         }
-        val showMessageNavigation by remember(scrollState, navigationDirection, keepBottomAnchored) {
+        val atConversationBottom by remember(scrollState) {
+            derivedStateOf { scrollState.isConversationAtBottom() }
+        }
+        val showMessageNavigation by remember(scrollState, keepBottomAnchored) {
             derivedStateOf {
-                !keepBottomAnchored && when (navigationDirection) {
-                    ConversationNavigationDirection.Up -> scrollState.canScrollBackward
-                    ConversationNavigationDirection.Down -> !scrollState.isConversationAtBottom()
-                }
+                // 只要还能滚动就给出跳转按钮；方向由当前位置决定，避免「在底部却显示跳到顶部」。
+                !keepBottomAnchored && (scrollState.canScrollForward || scrollState.canScrollBackward)
             }
         }
         ConversationTurnNavigationButton(
-            direction = navigationDirection,
+            direction = if (atConversationBottom) {
+                ConversationNavigationDirection.Up
+            } else {
+                ConversationNavigationDirection.Down
+            },
             visible = showMessageNavigation,
             onStep = { navigateUserMessage(toEdge = false) },
             onEdge = { navigateUserMessage(toEdge = true) },
@@ -2018,7 +2089,12 @@ private fun AgentChatBottomBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(start = 14.dp, end = 14.dp, bottom = 12.dp),
+                // Material 3 Expressive 的屏幕边缘留白是 16dp。
+                .padding(
+                    start = if (isMaterial3Theme()) 16.dp else 12.dp,
+                    end = if (isMaterial3Theme()) 16.dp else 12.dp,
+                    bottom = 12.dp,
+                ),
         ) {
             AgentChatInputBar(
                 collaborationConversationId = collaborationConversationId,
@@ -2123,18 +2199,25 @@ private fun ContextCompressingIndicator(waiting: Boolean = false, modelName: Str
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 10.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        CircularProgressIndicator(size = 18.dp, strokeWidth = 2.dp)
-        Text(
-            text = if (waiting) stringResource(R.string.compress_conversation_waiting) else
-                "${modelName.ifBlank { "主代理" }} • 正在压缩上下文",
-            style = MiuixTheme.textStyles.body2,
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            modifier = Modifier.padding(start = 8.dp),
-        )
+        if (isMaterial3Theme()) {
+                // 线宽取官方 ProgressIndicatorDefaults.CircularStrokeWidth，不再写死。
+                androidx.compose.material3.CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                )
+            } else {
+                CircularProgressIndicator(size = 18.dp, strokeWidth = 2.dp)
+            }
+            Text(
+                    text = if (waiting) stringResource(R.string.compress_conversation_waiting) else
+                        "${modelName.ifBlank { "主代理" }} • 正在压缩上下文",
+                    style = chatSecondaryLabelStyle(),
+                    color = chatMutedLabelColor(),
+                    modifier = Modifier.padding(start = 8.dp),
+                )
     }
 }
 
@@ -2249,17 +2332,29 @@ private suspend fun snapListToBottom(
     repeat(3) {
         if (!canPosition()) return
         val layout = scrollState.layoutInfo
+        // 哨兵行按构造恒为最后一项；调用方传入的索引可能来自过期的行表，
+        // 用总项数兜底，保证「跳到底部」永远落在真实哨兵上，不会停在半路。
+        val sentinelIndex = (layout.totalItemsCount - 1).coerceAtLeast(bottomItemIndex)
         val lastVisible = layout.visibleItemsInfo.lastOrNull()
         val viewportEnd = layout.viewportEndOffset - layout.afterContentPadding
         val decision = resolveConversationBottomSnap(
-            bottomItemIndex = bottomItemIndex,
+            bottomItemIndex = sentinelIndex,
             lastVisibleIndex = lastVisible?.index,
             lastVisibleBottom = lastVisible?.let { it.offset + it.size },
             viewportEnd = viewportEnd,
         )
         decision.requestIndex?.let { scrollState.scrollToItem(it) }
         if (decision.scrollByPx != 0) {
-            scrollState.scroll { if (canPosition()) scrollBy(decision.scrollByPx.toFloat()) }
+            var consumedPx = 0f
+            scrollState.scroll { if (canPosition()) consumedPx = scrollBy(decision.scrollByPx.toFloat()) }
+            // 欠消费未必是真到边：滚动标志被陈旧地钉住时 scrollBy(+) 会被整段钳成 0，
+            // 尾部却仍越在静止线下方。scrollToItem 走 requestScrollToItem 重新定位，
+            // 不受滚动钳位影响；只在「想向下滚但被钳住」时兜底，真到边时尾部已贴住静止线。
+            if (decision.scrollByPx > 0 && consumedPx < decision.scrollByPx - 0.5f &&
+                (scrollState.layoutInfo.measuredTailOverflow() ?: 0) > 1
+            ) {
+                scrollState.scrollToItem(sentinelIndex)
+            }
         }
         if (decision.requestIndex == null && decision.scrollByPx == 0) return
         withFrameNanos { }
@@ -2300,6 +2395,13 @@ private data class TailBreachSample(
 
 /** UserInput 来源的滚动只有在手指按着时才算用户滑动；惯性走的是 SideEffect 来源，不经过这里。 */
 internal fun isUserScrollGesture(pointerDown: Boolean): Boolean = pointerDown
+
+/** 聊天列表的跟底跟随快照：拖动状态 / 是否在底部 / 当前是否跟底。 */
+private data class ChatListFollowState(
+    val dragging: Boolean,
+    val atBottom: Boolean,
+    val anchored: Boolean,
+)
 
 /** 只保留类名和方法名（与主线程消息日志同一套截断规则），跳过本文件与协程、Compose 调度的帧。 */
 internal fun compactStack(frames: Array<StackTraceElement>, limit: Int = 14): String =
@@ -2420,36 +2522,53 @@ private fun EmptyChatState(
         ) {
             Text(
                 text = stringResource(R.string.ui_how_can_i_help_you_e75391),
-                style = MiuixTheme.textStyles.headline1,
-                color = MiuixTheme.colorScheme.onSurface,
+                style = chatEmptyStateHeadlineStyle(),
+                color = chatBodyLabelColor(),
             )
 
             Spacer(modifier = Modifier.height(30.dp))
 
             AnimatedVisibility(
                 visible = showSuggestions,
+                // M3 Expressive 的进出场动效统一取官方 motionScheme 规格；miuix 分支保留原时长。
                 enter = fadeIn(
-                    animationSpec = tween(durationMillis = 220)
+                    animationSpec = if (isMaterial3Theme()) {
+                        MaterialTheme.motionScheme.defaultEffectsSpec()
+                    } else {
+                        tween(durationMillis = 220)
+                    }
                 ) + slideInVertically(
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioNoBouncy,
-                        stiffness = Spring.StiffnessMediumLow,
-                    ),
+                    animationSpec = if (isMaterial3Theme()) {
+                        MaterialTheme.motionScheme.defaultSpatialSpec()
+                    } else {
+                        spring(
+                            dampingRatio = Spring.DampingRatioNoBouncy,
+                            stiffness = Spring.StiffnessMediumLow,
+                        )
+                    },
                     initialOffsetY = { it / 3 },
                 ),
                 exit = fadeOut(
-                    animationSpec = tween(durationMillis = 130)
+                    animationSpec = if (isMaterial3Theme()) {
+                        MaterialTheme.motionScheme.defaultEffectsSpec()
+                    } else {
+                        tween(durationMillis = 130)
+                    }
                 ) + slideOutVertically(
-                    animationSpec = tween(durationMillis = 180),
+                    animationSpec = if (isMaterial3Theme()) {
+                        MaterialTheme.motionScheme.defaultSpatialSpec()
+                    } else {
+                        tween(durationMillis = 180)
+                    },
                     targetOffsetY = { it / 4 },
                 ),
             ) {
                 Column(
                     modifier = Modifier.padding(horizontal = 24.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     suggestions.chunked(2).forEach { rowItems ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             rowItems.forEach { item ->
                                 SuggestionCard(
                                     item = item,
@@ -2471,30 +2590,50 @@ private fun SuggestionCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(MiuixTheme.colorScheme.surface)
-            .border(
-                width = 0.5.dp,
-                color = MiuixTheme.colorScheme.outline.copy(alpha = 0.5f),
-                shape = RoundedCornerShape(12.dp),
-            )
-            .clickable(onClick = onClick)
-            .padding(horizontal = 13.dp, vertical = 12.dp),
-    ) {
+    val borderColor = chatCardBorderColor()
+    val cardColor = chatCardContainerColor()
+    val cardShape: Shape =
+        if (isMaterial3Theme()) MaterialTheme.shapes.medium else RoundedCornerShape(12.dp)
+    val iconColor: androidx.compose.ui.graphics.Color =
+        if (isMaterial3Theme()) MaterialTheme.colorScheme.onSurfaceVariant else MiuixTheme.colorScheme.onBackground
+    val cardBody: @Composable () -> Unit = {
         Icon(
             imageVector = item.icon,
             contentDescription = null,
-            modifier = Modifier.size(17.dp),
-            tint = MiuixTheme.colorScheme.onBackground,
+            modifier = Modifier.size(16.dp),
+            tint = iconColor,
         )
         Spacer(modifier = Modifier.height(9.dp))
         Text(
             text = item.title,
-            style = MiuixTheme.textStyles.body2,
-            color = MiuixTheme.colorScheme.onSurface,
+            style = chatSecondaryLabelStyle(),
+            color = chatBodyLabelColor(),
             maxLines = 1,
+        )
+    }
+    // M3 Expressive：官方 Surface(onClick) 承担容器、形状、描边与按压涟漪；
+    // miuix 主题族沿用 clip + 背景 + border 的原有写法。
+    if (isMaterial3Theme()) {
+        Surface(
+            onClick = onClick,
+            modifier = modifier,
+            shape = cardShape,
+            color = cardColor,
+            border = BorderStroke(0.5.dp, borderColor),
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 13.dp, vertical = 12.dp)) {
+                cardBody()
+            }
+        }
+    } else {
+        Column(
+            modifier = modifier
+                .clip(cardShape)
+                .background(cardColor)
+                .border(width = 0.5.dp, color = borderColor, shape = cardShape)
+                .clickable(onClick = onClick)
+                .padding(horizontal = 13.dp, vertical = 12.dp),
+            content = { cardBody() },
         )
     }
 }

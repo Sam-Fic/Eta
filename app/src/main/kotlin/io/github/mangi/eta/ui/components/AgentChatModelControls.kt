@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -55,16 +56,55 @@ import io.github.mangi.eta.data.repository.ProviderBalanceStore
 import io.github.mangi.eta.ui.pages.providers.ProviderBalanceAmount
 import io.github.mangi.eta.ui.model.AgentContextUsageUi
 import io.github.mangi.eta.ui.model.AgentModelOptionUi
+import io.github.mangi.eta.ui.model.AgentModelProviderGroupUi
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
 import io.github.mangi.eta.ui.model.defaultExpandedModelProviderIds
 import io.github.mangi.eta.ui.model.formatContextUsage
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
-import top.yukonga.miuix.kmp.basic.Icon
+import androidx.compose.material3.SelectableDropdownMenuItem
+import androidx.compose.material3.CircularProgressIndicator as M3CircularProgressIndicator
+import androidx.compose.material3.CircularWavyProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider as M3HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuDefaults
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text as M3Text
 import top.yukonga.miuix.kmp.basic.ProgressIndicatorDefaults
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawscope.Stroke
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
+
+/**
+ * 官方菜单窗口属性一律使用 `MenuDefaults.DefaultMenuProperties`
+ * （即 `PopupProperties(focusable = true)`），不要覆盖。
+ *
+ * 原因：`focusable = false` 会给 Popup 窗口加上 `FLAG_NOT_FOCUSABLE`，而
+ * `createFlags()` 又**无条件**带上 `FLAG_WATCH_OUTSIDE_TOUCH`；于是「点开菜单的那一次抬手」
+ * 会被窗口当成一次外部点击，配合 `dismissOnClickOutside` 立刻回调 `onDismissRequest`，
+ * 结果就是菜单刚弹出就被关掉、肉眼看上去「点不出菜单」。
+ *
+ * 代价（与官方一致）：菜单弹出时会收起输入法。这是官方 `DropdownMenu` 的标准行为。
+ */
+
+/**
+ * 官方菜单项形状：按位置取 `MenuDefaults` 的 leading / middle / trailing 令牌，
+ * 单项时用 `standaloneItemShape`。不自定义圆角。
+ */
+@Composable
+internal fun etaOfficialMenuItemShape(index: Int, count: Int): Shape = when {
+    count <= 1 -> MenuDefaults.standaloneItemShape
+    index == 0 -> MenuDefaults.leadingItemShape
+    index == count - 1 -> MenuDefaults.trailingItemShape
+    else -> MenuDefaults.middleItemShape
+}
 
 @Composable
 internal fun AgentModelPickerButton(
@@ -77,6 +117,9 @@ internal fun AgentModelPickerButton(
     popupMaxHeight: Dp,
     onModelSelected: (String, String) -> Unit,
     modifier: Modifier = Modifier,
+    containerShape: androidx.compose.ui.graphics.Shape? = null,
+    containerColor: androidx.compose.ui.graphics.Color? = null,
+    containerSize: Dp = ChatInputActionSize,
 ) {
     // Draft tokens are real owners too: a nullable conversationId cannot fence a popup.
     val owner = LocalConversationSubAgentEditor.current?.owner
@@ -113,18 +156,61 @@ internal fun AgentModelPickerButton(
     }
     val currentModel = selected?.displayName ?: stringResource(R.string.model_not_selected)
     val switchModelDescription = stringResource(R.string.model_switch_current, currentModel)
+    val capturedMenuTicket = menuTicket
+    val menuVisible =
+        menuState.expanded && pickerAvailable && popup.isCurrent(capturedMenuTicket, currentPopup)
+    val anchorContent: @Composable () -> Unit = {
+        ModelBrandMark(
+            modelId = selected?.modelId,
+            sourceType = selected?.providerSourceType,
+            size = if (isMaterial3Theme()) {
+                // 图标尺寸走官方 IconButtonDefaults 令牌，由共享助手按容器尺寸取「仍然放得下的
+                // 最大档」：XS 32/20、S 40/24、M 56/24、L 96/32、XL 136/40。
+                etaOfficialIconButtonIconSize(containerSize)
+            } else {
+                ChatInputActionIconSize
+            },
+            modifier = if (isMaterial3Theme()) {
+                // M3 下由官方禁用态配色表达不可用，不再手动调透明度。
+                Modifier
+            } else {
+                Modifier.graphicsLayer(alpha = if (pickerAvailable) 1f else 0.38f)
+            },
+        )
+    }
+    val onAnchorClick: () -> Unit = {
+        // 单击打开模型菜单不需要子代理 editor owner（主会话里 owner 为空），
+        // owner 只用于长按打开的协作设置对话框。
+        if (pickerAvailable) {
+            expandedProviderIds = defaultExpandedModelProviderIds(state.selectedModel)
+            modelQuery = ""
+            menuState.onAnchorClick()
+            menuTicket = if (menuState.expanded) popup.open() else {
+                popup.dismiss()
+                null
+            }
+        }
+    }
+    val onMenuDismiss: () -> Unit = {
+        popup.dispatch(capturedMenuTicket, currentPopup) {
+            popup.dismiss()
+            menuTicket = null
+            menuState.dismiss()
+        }
+    }
+    val onProviderExpandedChange: (String, Boolean) -> Unit = { providerId, expanded ->
+        popup.dispatch(capturedMenuTicket, currentPopup) {
+            expandedProviderIds = if (expanded) setOf(providerId) else emptySet()
+        }
+    }
+    val onPickModel: (String, String) -> Unit = { providerId, modelId ->
+        popup.dispatch(capturedMenuTicket, currentPopup) {
+            if (!state.isChanging && pickerAvailable) onModelSelected(providerId, modelId)
+        }
+    }
     Box(modifier = modifier) {
         ChatInputNonFocusableIconButton(
-            onClick = {
-                if (!pickerAvailable || owner == null) return@ChatInputNonFocusableIconButton
-                expandedProviderIds = defaultExpandedModelProviderIds(state.selectedModel)
-                modelQuery = ""
-                menuState.onAnchorClick()
-                menuTicket = if (menuState.expanded) popup.open() else {
-                    popup.dismiss()
-                    null
-                }
-            },
+            onClick = onAnchorClick,
             contentDescription = switchModelDescription,
             onLongClick = {
                 if (owner != null) {
@@ -133,48 +219,85 @@ internal fun AgentModelPickerButton(
                     dialogTicket = popup.open()
                 }
             },
-        ) {
-            ModelBrandMark(
-                modelId = selected?.modelId,
-                sourceType = selected?.providerSourceType,
-                size = ChatInputActionIconSize,
-                modifier = Modifier.graphicsLayer(alpha = if (pickerAvailable) 1f else 0.38f),
-            )
+            containerShape = containerShape,
+            containerColor = containerColor,
+            containerSize = containerSize,
+            enabled = !isMaterial3Theme() || pickerAvailable,
+            content = anchorContent,
+        )
+        if (isMaterial3Theme()) {
+            // Material 3 Expressive：官方 DropdownMenu（官方容器形状/配色/阴影/动效 + 自动滚动）。
+            DropdownMenu(
+                expanded = menuVisible,
+                onDismissRequest = onMenuDismiss,
+                modifier = Modifier.heightIn(max = popupMaxHeight),
+            ) {
+                ModelPickerMenuContentM3(
+                    state = state,
+                    query = modelQuery,
+                    onQueryChange = { modelQuery = it },
+                    expandedProviderIds = expandedProviderIds,
+                    onProviderExpandedChange = onProviderExpandedChange,
+                    onModelSelected = onPickModel,
+                )
+            }
+        } else {
+            EtaDropdownMenu(
+                expanded = menuVisible,
+                onDismissRequest = onMenuDismiss,
+                alignEnd = true,
+                preferAbove = true,
+                focusable = true,
+                minWidth = 220.dp,
+                maxWidth = 220.dp,
+                maxHeight = popupMaxHeight,
+            ) {
+                ModelPickerPopupContent(
+                    state = state,
+                    query = modelQuery,
+                    onQueryChange = { modelQuery = it },
+                    expandedProviderIds = expandedProviderIds,
+                    onProviderExpandedChange = onProviderExpandedChange,
+                    onModelSelected = onPickModel,
+                )
+            }
         }
-        val capturedMenuTicket = menuTicket
-        EtaDropdownMenu(
-            expanded = menuState.expanded && pickerAvailable && popup.isCurrent(capturedMenuTicket, currentPopup),
-            onDismissRequest = {
-                popup.dispatch(capturedMenuTicket, currentPopup) {
-                    popup.dismiss()
-                    menuTicket = null
-                    menuState.dismiss()
-                }
-            },
-            alignEnd = true,
-            preferAbove = true,
-            focusable = true,
-            minWidth = 220.dp,
-            maxWidth = 220.dp,
-            maxHeight = popupMaxHeight,
-        ) {
-            ModelPickerPopupContent(
-                state = state,
-                query = modelQuery,
-                onQueryChange = { modelQuery = it },
-                expandedProviderIds = expandedProviderIds,
-                onProviderExpandedChange = { providerId, expanded ->
-                    popup.dispatch(capturedMenuTicket, currentPopup) {
-                        expandedProviderIds = if (expanded) setOf(providerId) else emptySet()
-                    }
-                },
-                onModelSelected = { providerId, modelId ->
-                    popup.dispatch(capturedMenuTicket, currentPopup) {
-                        if (!state.isChanging && pickerAvailable) onModelSelected(providerId, modelId)
-                    }
-                },
-            )
+    }
+}
+
+/**
+ * 订阅并按需刷新各服务商的余额快照；两个主题族的菜单共用。
+ */
+@Composable
+private fun rememberProviderBalanceStates(): Map<String, ProviderBalanceState> {
+    val states by ProviderBalanceStore.states.collectAsState()
+    val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        context.activityLifecycleOwnerOrNull()?.lifecycleScope?.let { scope ->
+            ProviderBalanceStore.start(scope)
+            ProviderBalanceStore.requestRefresh(scope)
         }
+    }
+    return states
+}
+
+/** 按搜索词过滤服务商分组：命中服务商名时保留全部模型，否则只保留命中的模型。 */
+private fun filterModelProviderGroups(
+    providerGroups: List<AgentModelProviderGroupUi>,
+    needle: String,
+): List<AgentModelProviderGroupUi> {
+    if (needle.isEmpty()) return providerGroups
+    return providerGroups.mapNotNull { group ->
+        val providerHit = group.providerName.contains(needle, ignoreCase = true)
+        val models = if (providerHit) {
+            group.models
+        } else {
+            group.models.filter { model ->
+                model.displayName.contains(needle, ignoreCase = true) ||
+                    model.modelId.contains(needle, ignoreCase = true)
+            }
+        }
+        if (models.isEmpty()) null else group.copy(models = models)
     }
 }
 
@@ -187,38 +310,16 @@ private fun ModelPickerPopupContent(
     onProviderExpandedChange: (String, Boolean) -> Unit,
     onModelSelected: (String, String) -> Unit,
 ) {
-    val balanceStates by ProviderBalanceStore.states.collectAsState()
-    val balanceContext = LocalContext.current
-    LaunchedEffect(Unit) {
-        balanceContext.activityLifecycleOwnerOrNull()?.lifecycleScope?.let { scope ->
-            ProviderBalanceStore.start(scope)
-            ProviderBalanceStore.requestRefresh(scope)
-        }
-    }
+    val balanceStates = rememberProviderBalanceStates()
     ModelPickerSearchField(query = query, onQueryChange = onQueryChange)
     val needle = query.trim()
-    val groups = if (needle.isEmpty()) {
-        state.providerGroups
-    } else {
-        state.providerGroups.mapNotNull { group ->
-            val providerHit = group.providerName.contains(needle, ignoreCase = true)
-            val models = if (providerHit) {
-                group.models
-            } else {
-                group.models.filter { model ->
-                    model.displayName.contains(needle, ignoreCase = true) ||
-                        model.modelId.contains(needle, ignoreCase = true)
-                }
-            }
-            if (models.isEmpty()) null else group.copy(models = models)
-        }
-    }
+    val groups = filterModelProviderGroups(state.providerGroups, needle)
     if (groups.isEmpty()) {
         Text(
             text = stringResource(R.string.model_search_empty),
             style = MiuixTheme.textStyles.footnote1,
             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
         )
         return
     }
@@ -247,6 +348,173 @@ private fun ModelPickerPopupContent(
     }
 }
 
+// ---------------------------------------------------------------------------
+// Material 3 Expressive：模型选择菜单
+// ---------------------------------------------------------------------------
+
+/** 菜单行模型：把 MIUI X 的手搓行结构映射成官方 DropdownMenuItem 序列。 */
+private sealed interface ModelMenuRow {
+    data class Provider(
+        val providerId: String,
+        val name: String,
+        val expanded: Boolean,
+        val collapsible: Boolean,
+        val balance: ProviderBalanceState?,
+    ) : ModelMenuRow
+
+    data class Model(val model: AgentModelOptionUi, val selected: Boolean) : ModelMenuRow
+
+    data object Divider : ModelMenuRow
+
+    data object Empty : ModelMenuRow
+}
+
+private fun List<ModelMenuRow>.isMenuItemAt(index: Int): Boolean =
+    when (getOrNull(index)) {
+        is ModelMenuRow.Provider, is ModelMenuRow.Model -> true
+        else -> false
+    }
+
+/** 当前连续菜单项段的首项下标。 */
+private fun List<ModelMenuRow>.firstItemInRunAt(index: Int): Int {
+    var first = index
+    while (first - 1 >= 0 && isMenuItemAt(first - 1)) first--
+    return first
+}
+
+/** 连续菜单项段的长度，供官方 `MenuDefaults.itemShape(index, count)` 使用。 */
+private fun List<ModelMenuRow>.itemRunLengthAt(index: Int): Int {
+    val first = firstItemInRunAt(index)
+    var last = index
+    while (last + 1 <= lastIndex && isMenuItemAt(last + 1)) last++
+    return last - first + 1
+}
+
+/**
+ * 官方 `DropdownMenu` 内容：官方 `OutlinedTextField` 搜索框 +
+ * 官方 `DropdownMenuItem`（单选模型项用官方 `selected` 重载，语义为 RadioButton）+
+ * 官方 `HorizontalDivider`，行形状与选中配色全部来自 `MenuDefaults`。
+ */
+@Composable
+private fun ModelPickerMenuContentM3(
+    state: AgentModelPickerUiState,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    expandedProviderIds: Set<String>,
+    onProviderExpandedChange: (String, Boolean) -> Unit,
+    onModelSelected: (String, String) -> Unit,
+) {
+    val balanceStates = rememberProviderBalanceStates()
+    val needle = query.trim()
+    val groups = filterModelProviderGroups(state.providerGroups, needle)
+    val rows: List<ModelMenuRow> = buildList {
+        if (groups.isEmpty()) {
+            add(ModelMenuRow.Empty)
+        } else {
+            groups.forEachIndexed { groupIndex, group ->
+                if (groupIndex > 0) add(ModelMenuRow.Divider)
+                val expanded = needle.isNotEmpty() || group.providerId in expandedProviderIds
+                add(
+                    ModelMenuRow.Provider(
+                        providerId = group.providerId,
+                        name = group.providerName,
+                        expanded = expanded,
+                        collapsible = needle.isEmpty(),
+                        balance = balanceStates[group.providerId],
+                    ),
+                )
+                if (expanded) {
+                    group.models.forEach { model ->
+                        add(
+                            ModelMenuRow.Model(
+                                model = model,
+                                selected = model.id == state.selectedModel?.id &&
+                                    model.providerId == state.selectedModel?.providerId,
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+    }
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        leadingIcon = { Icon(imageVector = Icons.Rounded.Search, contentDescription = null) },
+        placeholder = { M3Text(text = stringResource(R.string.model_search_hint)) },
+    )
+    rows.forEachIndexed { index, row ->
+        when (row) {
+            is ModelMenuRow.Provider -> DropdownMenuItem(
+                onClick = { onProviderExpandedChange(row.providerId, !row.expanded) },
+                text = {
+                    M3Text(text = row.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                },
+                trailingContent = { ModelProviderHeaderTrailingM3(row = row) },
+                enabled = row.collapsible,
+                shape = MenuDefaults.itemShape(index, rows.itemRunLengthAt(index)).shape,
+            )
+
+            is ModelMenuRow.Model -> SelectableDropdownMenuItem(
+                selected = row.selected,
+                onClick = { onModelSelected(row.model.providerId, row.model.id) },
+                text = {
+                    M3Text(
+                        text = row.model.displayName,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                },
+                shapes = MenuDefaults.itemShape(index, rows.itemRunLengthAt(index)),
+            )
+
+            ModelMenuRow.Divider -> M3HorizontalDivider(
+                modifier = Modifier.padding(MenuDefaults.HorizontalDividerPadding),
+            )
+
+            ModelMenuRow.Empty -> DropdownMenuItem(
+                onClick = {},
+                text = { M3Text(text = stringResource(R.string.model_search_empty)) },
+                enabled = false,
+                shape = MenuDefaults.standaloneItemShape,
+            )
+        }
+    }
+}
+
+/**
+ * 服务商行尾部：余额 + 展开箭头。
+ * 箭头旋转使用官方 `MaterialTheme.motionScheme` 空间动效规格，不自定义 tween。
+ */
+@Composable
+private fun ModelProviderHeaderTrailingM3(row: ModelMenuRow.Provider) {
+    val arrowRotation by animateFloatAsState(
+        targetValue = if (row.expanded) 180f else 0f,
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Float>(),
+        label = "model_provider_arrow",
+    )
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(MenuDefaults.GroupSpacing),
+    ) {
+        if (hasBalanceIndicatorContent(row.balance)) {
+            ProviderBalanceIndicator(state = row.balance)
+        }
+        Icon(
+            imageVector = Icons.Rounded.ExpandMore,
+            contentDescription = if (row.expanded) {
+                stringResource(R.string.model_collapse_provider, row.name)
+            } else {
+                stringResource(R.string.model_expand_provider, row.name)
+            },
+            modifier = Modifier.graphicsLayer { rotationZ = arrowRotation },
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
 @Composable
 private fun ModelPickerSearchField(
     query: String,
@@ -258,16 +526,16 @@ private fun ModelPickerSearchField(
             .padding(horizontal = 8.dp, vertical = 4.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(MiuixTheme.colorScheme.surfaceContainerHigh)
-            .padding(horizontal = 8.dp, vertical = 6.dp),
+            .padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             imageVector = Icons.Rounded.Search,
             contentDescription = null,
-            modifier = Modifier.size(14.dp),
+            modifier = Modifier.size(16.dp),
             tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
         )
-        Box(modifier = Modifier.padding(start = 6.dp).weight(1f)) {
+        Box(modifier = Modifier.padding(start = 8.dp).weight(1f)) {
             if (query.isEmpty()) {
                 Text(
                     text = stringResource(R.string.model_search_hint),
@@ -309,7 +577,7 @@ private fun ModelProviderGroupHeader(
                 TouchHaptics.click(view)
                 onClick()
             }
-            .padding(start = 12.dp, end = 10.dp, top = 9.dp, bottom = 8.dp),
+            .padding(start = 12.dp, end = 8.dp, top = 9.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -333,7 +601,7 @@ private fun ModelProviderGroupHeader(
                 stringResource(R.string.model_expand_provider, name)
             },
             modifier = Modifier
-                .size(15.dp)
+                .size(16.dp)
                 .graphicsLayer { rotationZ = arrowRotation },
             tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
         )
@@ -363,7 +631,7 @@ private fun ModelPickerRow(
                 TouchHaptics.click(view)
                 onClick()
             }
-            .padding(horizontal = 10.dp, vertical = 9.dp),
+            .padding(horizontal = 8.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -386,12 +654,25 @@ private fun ModelPickerRow(
     }
 }
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun AgentContextUsageButton(
     usage: AgentContextUsageUi,
     sendBlocked: Boolean = false,
     popupMaxHeight: Dp = 360.dp,
     modifier: Modifier = Modifier,
+    containerSize: Dp = ChatInputActionSize,
+    /**
+     * 进度环绘制直径，两个主题族都生效。
+     *
+     * Material 3 下官方 `CircularProgressIndicator` / `CircularWavyProgressIndicator`
+     * 会额外追加官方直径（圆形 40dp、波浪 48dp），但调用方这个 `size` 位于链上最外层，
+     * 会先把约束收紧，因此实际渲染以本参数为准（详见进度环分支内的注释）。
+     */
+    ringSize: Dp = ChatInputActionIconSize,
+    ringStrokeWidth: Dp = 2.5.dp,
+    /** 波浪样式（Material 3 Expressive）：模型回复中使用。 */
+    wavy: Boolean = false,
 ) {
     val menuState = rememberEtaMenuState()
     val selectorState = rememberEtaMenuState()
@@ -438,6 +719,7 @@ internal fun AgentContextUsageButton(
         summary.replace('\n', ' '),
     )
     val keepIme = rememberKeepImeWhenOpeningMenu()
+    val material3 = isMaterial3Theme()
     Box(modifier = modifier) {
         ChatInputNonFocusableIconButton(
             onClick = {
@@ -451,56 +733,161 @@ internal fun AgentContextUsageButton(
                 menuState.dismiss()
                 selectorState.onAnchorClick()
             },
+            containerSize = containerSize,
         ) {
-            CircularProgressIndicator(
-                progress = progress ?: 0f,
-                colors = ProgressIndicatorDefaults.progressIndicatorColors(
-                    foregroundColor = progressColor,
-                    disabledForegroundColor = progressColor,
-                    backgroundColor = MiuixTheme.colorScheme.secondaryContainer,
-                ),
-                strokeWidth = 2.5.dp,
-                size = ChatInputActionIconSize,
-                modifier = Modifier.semantics {
-                    contentDescription = "$selectedLabel · $usageDescription"
-                },
-            )
-        }
-        EtaDropdownMenu(
-            expanded = menuState.expanded,
-            onDismissRequest = menuState::dismiss,
-            alignEnd = true,
-            preferAbove = true,
-            focusable = false,
-            minWidth = 0.dp,
-            maxWidth = 220.dp,
-        ) {
-            Text(
-                text = selectedLabel,
-                style = MiuixTheme.textStyles.body1,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-            )
-            Text(
-                text = detail,
-                style = MiuixTheme.textStyles.body2,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 8.dp),
-            )
-        }
-        EtaDropdownMenu(
-            expanded = selectorState.expanded,
-            onDismissRequest = selectorState::dismiss,
-            alignEnd = true, preferAbove = true, focusable = false,
-            minWidth = 220.dp, maxWidth = 260.dp, maxHeight = popupMaxHeight,
-        ) {
-            Text("上下文统计", style = MiuixTheme.textStyles.footnote1,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
-            ContextTargetRow("${telemetry.mainModelName.ifBlank { "主代理" }}（主代理）", child == null) {
-                selectTask(null); selectorState.dismiss()
+            val ringSemantics = Modifier.semantics {
+                contentDescription = "$selectedLabel · $usageDescription"
             }
-            telemetry.children.forEach { target ->
-                ContextTargetRow("${target.contextLabel()} · ${target.contextStatusLabel()}", selectedTaskId == target.taskId) {
-                    selectTask(target.taskId); selectorState.dismiss()
+            if (material3) {
+                // 官方 Material 3 进度指示器：圆形 / 波浪，颜色只引用 colorScheme 角色。
+                //
+                // 官方圆形内部是 `Canvas(modifier.semantics{}.size(40.dp))`、
+                // 波浪是 `Spacer(modifier.size(48.dp)…​)`，都会在调用方 modifier 之后追加一个
+                // 官方直径。但 `Modifier.size()` 的语义是「把目标尺寸收敛进传入约束」
+                // （无条件覆盖的是 `requiredSize()`），而本链上调用方的 size 在最外层：
+                //   按钮 40dp 的 Box 会以 min=0/max=40 测量子节点
+                //   → 外层 size(ringSize) 把约束收紧成 [ringSize, ringSize]
+                //   → 内层官方 size(40) 再被 coerceIn 到 [ringSize, ringSize]
+                // 所以 ringSize 在 M3 下**是生效的**，必须保留，否则环会按官方 40/48dp
+                // 顶到按钮边缘（波浪还会溢出）。
+                val scheme = MaterialTheme.colorScheme
+                val indicatorColor = when {
+                    progress == null -> scheme.onSurfaceVariant
+                    progress >= 0.95f -> scheme.error
+                    progress >= 0.80f -> scheme.tertiary
+                    else -> scheme.primary
+                }
+                if (wavy) {
+                    val strokePx = with(androidx.compose.ui.platform.LocalDensity.current) {
+                        ringStrokeWidth.toPx()
+                    }
+                    CircularWavyProgressIndicator(
+                        progress = { progress ?: 0f },
+                        modifier = ringSemantics.size(ringSize),
+                        color = indicatorColor,
+                        trackColor = scheme.secondaryContainer,
+                        stroke = Stroke(width = strokePx),
+                        trackStroke = Stroke(width = strokePx),
+                    )
+                } else {
+                    M3CircularProgressIndicator(
+                        progress = { progress ?: 0f },
+                        modifier = ringSemantics.size(ringSize),
+                        color = indicatorColor,
+                        trackColor = scheme.secondaryContainer,
+                        strokeWidth = ringStrokeWidth,
+                    )
+                }
+            } else if (wavy) {
+                val strokePx = with(androidx.compose.ui.platform.LocalDensity.current) {
+                    ringStrokeWidth.toPx()
+                }
+                CircularWavyProgressIndicator(
+                    progress = { progress ?: 0f },
+                    modifier = ringSemantics.size(ringSize),
+                    color = progressColor,
+                    trackColor = MiuixTheme.colorScheme.secondaryContainer,
+                    stroke = Stroke(width = strokePx),
+                    trackStroke = Stroke(width = strokePx),
+                )
+            } else {
+                CircularProgressIndicator(
+                    progress = progress ?: 0f,
+                    colors = ProgressIndicatorDefaults.progressIndicatorColors(
+                        foregroundColor = progressColor,
+                        disabledForegroundColor = progressColor,
+                        backgroundColor = MiuixTheme.colorScheme.secondaryContainer,
+                    ),
+                    strokeWidth = ringStrokeWidth,
+                    size = ringSize,
+                    modifier = ringSemantics,
+                )
+            }
+        }
+        if (material3) {
+            // 官方 DropdownMenu：不抢焦点（保持输入法），菜单本体样式全部为官方默认值。
+            DropdownMenu(
+                expanded = menuState.expanded,
+                onDismissRequest = menuState::dismiss,
+            ) {
+                // 官方组标题自带 labelLarge 字阶，这里不再覆盖 style。
+                MenuDefaults.DropdownMenuGroupLabel {
+                    M3Text(text = selectedLabel)
+                }
+                M3Text(
+                    text = detail,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(MenuDefaults.DropdownMenuSelectableItemContentPadding),
+                )
+            }
+            val targets =
+                listOf("${telemetry.mainModelName.ifBlank { "主代理" }}（主代理）") +
+                    telemetry.children.map { "${it.contextLabel()} · ${it.contextStatusLabel()}" }
+            val selectedIndex = if (child == null) 0 else {
+                telemetry.children.indexOfFirst { it.taskId == selectedTaskId } + 1
+            }
+            DropdownMenu(
+                expanded = selectorState.expanded,
+                onDismissRequest = selectorState::dismiss,
+                modifier = Modifier.heightIn(max = popupMaxHeight),
+            ) {
+                MenuDefaults.DropdownMenuGroupLabel { M3Text(text = "上下文统计") }
+                targets.forEachIndexed { index, label ->
+                    SelectableDropdownMenuItem(
+                        selected = index == selectedIndex,
+                    onClick = {
+                        selectTask(if (index == 0) null else telemetry.children[index - 1].taskId)
+                        selectorState.dismiss()
+                    },
+                    text = {
+                        M3Text(
+                            text = label,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    },
+                    shapes = MenuDefaults.itemShape(index, targets.size),
+                )
+                }
+            }
+        } else {
+            EtaDropdownMenu(
+                expanded = menuState.expanded,
+                onDismissRequest = menuState::dismiss,
+                alignEnd = true,
+                preferAbove = true,
+                focusable = false,
+                minWidth = 0.dp,
+                maxWidth = 220.dp,
+            ) {
+                Text(
+                    text = selectedLabel,
+                    style = MiuixTheme.textStyles.body1,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                )
+                Text(
+                    text = detail,
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 8.dp),
+                )
+            }
+            EtaDropdownMenu(
+                expanded = selectorState.expanded,
+                onDismissRequest = selectorState::dismiss,
+                alignEnd = true, preferAbove = true, focusable = false,
+                minWidth = 220.dp, maxWidth = 260.dp, maxHeight = popupMaxHeight,
+            ) {
+                Text("上下文统计", style = MiuixTheme.textStyles.footnote1,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
+                ContextTargetRow("${telemetry.mainModelName.ifBlank { "主代理" }}（主代理）", child == null) {
+                    selectTask(null); selectorState.dismiss()
+                }
+                telemetry.children.forEach { target ->
+                    ContextTargetRow("${target.contextLabel()} · ${target.contextStatusLabel()}", selectedTaskId == target.taskId) {
+                        selectTask(target.taskId); selectorState.dismiss()
+                    }
                 }
             }
         }
@@ -525,17 +912,27 @@ private fun ModelBrandMark(
                 .clip(CircleShape),
         )
     } else {
+        val containerColor = if (isMaterial3Theme()) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MiuixTheme.colorScheme.primaryContainer
+        }
+        val iconTint = if (isMaterial3Theme()) {
+            MaterialTheme.colorScheme.onPrimaryContainer
+        } else {
+            MiuixTheme.colorScheme.primary
+        }
         Box(
             modifier = modifier
                 .size(size)
-                .background(MiuixTheme.colorScheme.primaryContainer, CircleShape),
+                .background(containerColor, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = Icons.Rounded.Dns,
                 contentDescription = null,
                 modifier = Modifier.size(size * 0.56f),
-                tint = MiuixTheme.colorScheme.primary,
+                tint = iconTint,
             )
         }
     }
@@ -547,7 +944,7 @@ private fun ContextTargetRow(label: String, selected: Boolean, onClick: () -> Un
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp)
         .squircleSurface(color = if (selected) MiuixTheme.colorScheme.surfaceContainerHigh else Color.Transparent, cornerRadius = 12.dp)
         .clickable { TouchHaptics.click(view); onClick() }
-        .padding(horizontal = 10.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+        .padding(horizontal = 8.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(label, style = MiuixTheme.textStyles.body2, maxLines = 2,
             overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
         if (selected) Icon(Icons.Rounded.Check, contentDescription = "当前统计对象", modifier = Modifier.size(18.dp))

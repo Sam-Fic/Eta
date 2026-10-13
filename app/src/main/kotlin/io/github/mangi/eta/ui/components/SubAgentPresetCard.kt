@@ -1,9 +1,6 @@
 package io.github.mangi.eta.ui.components
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.AccountTree
@@ -11,12 +8,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.agent.delegation.ConversationSubAgentPreferences
 import io.github.mangi.eta.agent.delegation.SubAgentPreset
 import io.github.mangi.eta.ui.haptics.TouchHaptics
@@ -83,7 +79,7 @@ internal fun SubAgentPresetDirectoryStatus(directory: SubAgentPresetDirectory) {
     }
 }
 
-/** Shared light Monet card. Haptics use the global switch; the click has no indication/ripple. */
+/** Official M3 container: Card owns shape/colors/elevation, the row is an interactive ListItem. */
 @Composable
 internal fun SubAgentPresetCard(
     preset: SubAgentPreset,
@@ -94,27 +90,44 @@ internal fun SubAgentPresetCard(
     trailing: @Composable (() -> Unit)? = null,
 ) {
     val view = LocalView.current
-    Surface(shape = RoundedCornerShape(24.dp),
-        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.38f),
-        contentColor = MaterialTheme.colorScheme.onSurface, modifier = Modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Row(Modifier.weight(1f).heightIn(min = 96.dp)
-                .semantics { contentDescription = actionLabel }
-                .clickable(enabled = enabled, role = Role.Button,
-                    interactionSource = remember { MutableInteractionSource() }, indication = null) {
-                    TouchHaptics.click(view)
-                    onClick()
-                }.padding(20.dp), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Icon(Icons.Rounded.AccountTree, null, tint = MaterialTheme.colorScheme.primary)
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(preset.name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text("${preset.config.profiles.size} 个子代理 · ${if (preset.config.enabled) "自动委派已开启" else "自动委派已关闭"}",
-                        style = MaterialTheme.typography.bodySmall)
-                    if (selected) Text("当前使用", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                }
-                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, Modifier.size(20.dp))
-            }
+    // 官方 Card（本版本 Card 即填充卡，形状取 CardDefaults.shape、颜色取 CardDefaults.cardColors，
+    // 底层是 FilledCardTokens）：不再手写 RoundedCornerShape(24.dp) 或 surface 叠色。
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+        ),
+    ) {
+        // 尾部「更多操作」按钮放在 ListItem 外层当兄弟节点。ListItem 内部是
+        // semantics(mergeDescendants = true)，塞进 trailingContent 会被吸进父节点，
+        // TalkBack 就无法再单独聚焦这个按钮（普通 Surface/Card 不合并，行本身才留得住）。
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            ListItem(
+                onClick = { TouchHaptics.click(view); onClick() },
+                // cd 与子文本只部分重叠：重叠的是组名，补足的是「编辑/应用子代理组」这个动作 affordance，
+                // 值得保留（代价是组名念两次）。这与 SubAgentSettingRow 的既有写法一致：
+                // description「设置XX模型」+ 可见 label「模型」。
+                // actionLabel 由调用方拼装（含组名），不在这里做 removeSuffix 之类的字符串裁剪。
+                modifier = Modifier.weight(1f).semantics { contentDescription = actionLabel },
+                enabled = enabled,
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                leadingContent = {
+                    Icon(Icons.Rounded.AccountTree, null, tint = MaterialTheme.colorScheme.primary)
+                },
+                trailingContent = {
+                    Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null)
+                },
+                content = {
+                    Column {
+                        Text(preset.name, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text("${preset.config.profiles.size} 个子代理 · ${if (preset.config.enabled) "自动委派已开启" else "自动委派已关闭"}",
+                            style = MaterialTheme.typography.bodyMedium)
+                        if (selected) Text("当前使用", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    }
+                },
+            )
+            // 尾部「更多操作」按钮是 ListItem 的兄弟节点：ListItem 是合并型宿主，
+            // 塞进 trailingContent 会让它被吸进父节点，TalkBack 就无法单独聚焦这个按钮。
             trailing?.invoke()
         }
     }

@@ -1,5 +1,6 @@
 package io.github.mangi.eta.ui.components
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -12,9 +13,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -23,21 +29,21 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.delegation.ConversationSubAgentPreferences
 import io.github.mangi.eta.agent.delegation.SubAgentProfile
 import io.github.mangi.eta.data.model.GptSpeedMode
 import io.github.mangi.eta.data.model.ProviderSetting
 import io.github.mangi.eta.data.model.supportsGptSpeedBinding
+import io.github.mangi.eta.ui.adaptive.etaOnSurface
+import io.github.mangi.eta.ui.adaptive.etaGptSpeedColor
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
@@ -100,21 +106,112 @@ private fun BoundSubAgentGptSpeedButton(
     val context = LocalContext.current
     val view = LocalView.current
 
-    val normalColor = MaterialTheme.colorScheme.onSurface
+    val normalColor = etaOnSurface()
     // 颜色由 owner 传入的 mode 决定，非 GPT 不会走到这里；渐变时长与主会话共用 450ms。
     val contentColor by animateColorAsState(
-        targetValue = gptSpeedChipColor(mode, normalColor),
-        animationSpec = tween(durationMillis = GptSpeedAnimationDurationMillis),
+        targetValue = if (isMaterial3Theme()) {
+            // Material 3：官方 colorScheme 角色；动效走官方 motionScheme。
+            etaGptSpeedColor(mode, normalColor)
+        } else {
+            gptSpeedChipColor(mode, normalColor)
+        },
+        animationSpec = if (isMaterial3Theme()) {
+            MaterialTheme.motionScheme.defaultSpatialSpec<androidx.compose.ui.graphics.Color>()
+        } else {
+            tween(durationMillis = GptSpeedAnimationDurationMillis)
+        },
         label = "sub_agent_gpt_speed_color",
     )
     val displayedColor = if (usable) contentColor else contentColor.copy(alpha = 0.38f)
+    val semanticsModifier = modifier.semantics(mergeDescendants = true) {
+        contentDescription = subAgentGptSpeedDescription(profile.name, mode)
+    }
+
+    // 动画规格必须在协程外取好：MaterialTheme.motionScheme 是 @Composable 读取，不能在协程里调用。
+    val progressSpec: androidx.compose.animation.core.FiniteAnimationSpec<Float> =
+        if (isMaterial3Theme()) {
+            MaterialTheme.motionScheme.defaultSpatialSpec()
+        } else {
+            tween(
+                durationMillis = GptSpeedAnimationDurationMillis,
+                easing = LinearEasing,
+            )
+        }
+
+    // 单击在原位循环速度档位；两套主题共用同一份点击处理器。
+    val cycleSpeed: () -> Unit = {
+        // 动画中拒绝新的单击：不排队、不累计，避免截断当前一圈。
+        val token = gate.request()
+        if (token != 0) {
+            scope.launch {
+                try {
+                    val result = editor?.cycleGptSpeed(
+                        profile.id, profile.providerId, profile.modelId, expected = profile,
+                    )
+                    coroutineContext.ensureActive()
+                    if (result !is ConversationSubAgentPreferences.WriteResult.Saved) return@launch
+                    // Only the actual saved binding may produce success feedback.
+                    val savedProfile = result.config.profiles.singleOrNull {
+                        it.id == profile.id && it.providerId == profile.providerId && it.modelId == profile.modelId
+                    } ?: return@launch
+                    val savedMode = savedProfile.gptSpeedForModel(profile.providerId, profile.modelId)
+                    TouchHaptics.click(view)
+                    Toast.makeText(context, gptSpeedToastMessage(savedMode), Toast.LENGTH_SHORT).show()
+                    progress.snapTo(0f)
+                    progress.animateTo(
+                        targetValue = 1f,
+                        animationSpec = progressSpec,
+                    )
+                } finally {
+                    // Query, write, feedback and animation share one cancellation-safe gate.
+                    gate.finish(token)
+                }
+            }
+        }
+    }
+
+    if (isMaterial3Theme()) {
+        // M3 Expressive：官方 AssistChip 承担容器高度、形状、描边、涟漪、标签排版与禁用态；
+        // 前置图标尺寸取官方 AssistChipDefaults.IconSize，只有品牌渐变色通过官方
+        // AssistChipDefaults.assistChipColors(labelColor = …) 注入，不自定义任何形状/间距。
+        AssistChip(
+            onClick = cycleSpeed,
+            // 触摸下限交给官方 Modifier.minimumInteractiveComponentSize()（读 LocalMinimumInteractiveComponentSize，默认 48.dp）。
+            modifier = semanticsModifier.minimumInteractiveComponentSize(),
+            enabled = usable,
+            colors = AssistChipDefaults.assistChipColors(labelColor = displayedColor),
+            leadingIcon = {
+                Icon(
+                    // 官方图标替代自绘 ic_atom：AutoAwesome＝AI 思考/生成中。
+                    imageVector = Icons.Rounded.AutoAwesome,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(AssistChipDefaults.IconSize)
+                        .graphicsLayer {
+                            rotationZ = gptSpeedRotationDegrees(progress.value)
+                            val scale = gptSpeedScale(progress.value)
+                            scaleX = scale
+                            scaleY = scale
+                        },
+                    tint = displayedColor,
+                )
+            },
+            label = {
+                Text(
+                    text = gptSpeedDisplayName(mode),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = displayedColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            },
+        )
+        return
+    }
 
     Row(
-        modifier = modifier
+        modifier = semanticsModifier
             .defaultMinSize(minWidth = SubAgentGptSpeedMinTouchSize, minHeight = SubAgentGptSpeedMinTouchSize)
-            .semantics(mergeDescendants = true) {
-                contentDescription = subAgentGptSpeedDescription(profile.name, mode)
-            }
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -122,46 +219,15 @@ private fun BoundSubAgentGptSpeedButton(
                 role = Role.Button,
                 hapticFeedbackEnabled = false,
                 onLongClick = null,
-                onClick = {
-                    // 动画中拒绝新的单击：不排队、不累计，避免截断当前一圈。
-                    val token = gate.request()
-                    if (token != 0) {
-                        scope.launch {
-                            try {
-                                val result = editor?.cycleGptSpeed(
-                                    profile.id, profile.providerId, profile.modelId, expected = profile,
-                                )
-                                coroutineContext.ensureActive()
-                                if (result !is ConversationSubAgentPreferences.WriteResult.Saved) return@launch
-                                // Only the actual saved binding may produce success feedback.
-                                val savedProfile = result.config.profiles.singleOrNull {
-                                    it.id == profile.id && it.providerId == profile.providerId && it.modelId == profile.modelId
-                                } ?: return@launch
-                                val savedMode = savedProfile.gptSpeedForModel(profile.providerId, profile.modelId)
-                                TouchHaptics.click(view)
-                                Toast.makeText(context, gptSpeedToastMessage(savedMode), Toast.LENGTH_SHORT).show()
-                                progress.snapTo(0f)
-                                progress.animateTo(
-                                    targetValue = 1f,
-                                    animationSpec = tween(
-                                        durationMillis = GptSpeedAnimationDurationMillis,
-                                        easing = LinearEasing,
-                                    ),
-                                )
-                            } finally {
-                                // Query, write, feedback and animation share one cancellation-safe gate.
-                                gate.finish(token)
-                            }
-                        }
-                    }
-                },
+                onClick = cycleSpeed,
             ),
         verticalAlignment = Alignment.CenterVertically,
         // 图标与文字作为一组在触摸区域内居中；两个入口共享同一间距，不做单行偏移。
         horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
     ) {
         Icon(
-            imageVector = ImageVector.vectorResource(R.drawable.ic_atom),
+            // 官方图标替代自绘 ic_atom：AutoAwesome＝AI 思考/生成中。
+            imageVector = Icons.Rounded.AutoAwesome,
             contentDescription = null,
             modifier = Modifier
                 .size(SubAgentGptSpeedIconSize)
@@ -175,7 +241,7 @@ private fun BoundSubAgentGptSpeedButton(
         )
         Text(
             text = gptSpeedDisplayName(mode),
-            style = MaterialTheme.typography.labelMedium,
+            style = MiuixTheme.textStyles.footnote1,
             color = displayedColor,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

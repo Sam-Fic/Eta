@@ -9,11 +9,13 @@ import android.util.Base64
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
@@ -39,6 +41,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
@@ -58,7 +61,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Build
-import androidx.compose.material.icons.rounded.CallSplit
+import androidx.compose.material.icons.automirrored.rounded.CallSplit
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.ContentCopy
@@ -94,6 +97,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -101,7 +105,6 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -109,7 +112,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.isTraversalGroup
@@ -125,6 +127,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextMotion
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -158,6 +161,11 @@ import com.mikepenz.markdown.model.markdownPadding
 import com.mikepenz.markdown.utils.getUnescapedTextInNode
 import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.haptics.TouchHaptics
+import io.github.mangi.eta.ui.adaptive.etaOnSurface
+import io.github.mangi.eta.ui.adaptive.etaOnSurfaceVariant
+import io.github.mangi.eta.ui.adaptive.etaPrimary
+import io.github.mangi.eta.ui.adaptive.etaSurfaceContainerHigh
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.agent.browser.AgentBrowserSession
 import io.github.mangi.eta.agent.browser.BrowserSessionSnapshot
 import io.github.mangi.eta.agent.model.AgentFileReferencePromptCodec
@@ -203,13 +211,169 @@ import org.intellij.markdown.flavours.gfm.GFMElementTypes.TABLE
 import org.intellij.markdown.flavours.gfm.GFMTokenTypes.CELL
 import org.intellij.markdown.flavours.gfm.GFMTokenTypes.CHECK_BOX
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.Icon
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ProgressIndicatorDefaults
+import androidx.compose.material3.SuggestionChip
+import androidx.compose.material3.SuggestionChipDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text as M3Text
+import androidx.compose.material3.TextButton as M3TextButton
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TooltipBox
 import top.yukonga.miuix.kmp.squircle.squircleBorder
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+
+// ── M3 Expressive 外观适配 ────────────────────────────────────────────────
+//
+// MiuixTheme 与 MaterialExpressiveTheme 同时存在于组合树里。消息区任何直接读
+// MiuixTheme.colorScheme/textStyles 的地方在 M3 主题下都会渲染成 miuix 配色。
+// 下面这组小助手把「同一处取值」在两个主题族之间分派：M3 一律走官方
+// MaterialTheme.colorScheme 角色与 typography 档位，miuix 分支逐字保留原取值。
+
+/** 卡片类容器的底色：M3 用官方 surface 角色。 */
+@Composable
+private fun chatSurfaceColor(): Color =
+    if (isMaterial3Theme()) MaterialTheme.colorScheme.surface else MiuixTheme.colorScheme.surface
+
+/** 嵌套容器底色：M3 用官方 surfaceContainer 角色。 */
+@Composable
+private fun chatSurfaceContainerColor(): Color =
+    if (isMaterial3Theme()) {
+        MaterialTheme.colorScheme.surfaceContainer
+    } else {
+        MiuixTheme.colorScheme.surfaceContainer
+    }
+
+/** 发丝分隔线：M3 用官方 outlineVariant 角色。 */
+@Composable
+private fun chatDividerColor(alpha: Float = 1f): Color =
+    if (isMaterial3Theme()) {
+        MaterialTheme.colorScheme.outlineVariant.copy(alpha = alpha)
+    } else {
+        MiuixTheme.colorScheme.outline.copy(alpha = alpha)
+    }
+
+/** 卡片外框：M3 走官方 shapes.medium（12dp）与 outlineVariant 描边。 */
+@Composable
+private fun chatCardShape(): Shape =
+    if (isMaterial3Theme()) MaterialTheme.shapes.medium else RoundedCornerShape(12.dp)
+
+@Composable
+private fun chatCardBorder(alpha: Float = 1f): BorderStroke =
+    BorderStroke(0.5.dp, chatDividerColor(alpha))
+
+/** 媒体占位圆角（与卡片同档）。 */
+@Composable
+private fun chatMediaShape(): Shape =
+    if (isMaterial3Theme()) MaterialTheme.shapes.medium else RoundedCornerShape(12.dp)
+
+/** 正文档位：M3 → bodyMedium；miuix → body1。 */
+@Composable
+private fun chatBodyStyle(): TextStyle =
+    if (isMaterial3Theme()) MaterialTheme.typography.bodyMedium else MiuixTheme.textStyles.body1
+
+/** 次级正文档位：M3 → bodySmall；miuix → body2。 */
+@Composable
+private fun chatSecondaryStyle(): TextStyle =
+    if (isMaterial3Theme()) MaterialTheme.typography.bodySmall else MiuixTheme.textStyles.body2
+
+/** 小号说明档位：M3 → labelMedium；miuix → footnote2。 */
+@Composable
+private fun chatTertiaryStyle(): TextStyle =
+    if (isMaterial3Theme()) MaterialTheme.typography.labelMedium else MiuixTheme.textStyles.footnote2
+
+/** 更小一档的标签：M3 → labelSmall；miuix → footnote1。 */
+@Composable
+private fun chatQuaternaryStyle(): TextStyle =
+    if (isMaterial3Theme()) MaterialTheme.typography.labelSmall else MiuixTheme.textStyles.footnote1
+
+/**
+ * 发丝分隔线。
+ *
+ * Material 3 Expressive 用官方 `HorizontalDivider`：厚度、颜色与内容内边距全部取
+ * `DividerDefaults` 默认值，不再自绘 0.5dp 细线。miuix 主题族保持原样。
+ */
+@Composable
+private fun ChatHairlineDivider(alpha: Float = 0.45f, modifier: Modifier = Modifier) {
+    if (isMaterial3Theme()) {
+        HorizontalDivider(modifier = modifier)
+        return
+    }
+    Box(modifier = modifier.height(0.5.dp).background(chatDividerColor(alpha)))
+}
+
+/**
+ * 折叠卡片外壳。
+ *
+ * Material 3 Expressive 用官方 `Surface`：[onClick] 存在时走官方的可点击重载（官方涟漪、
+ * Role、按下态），形状、底色与描边分别取官方 shapes / colorScheme 角色。
+ * miuix 主题族保留 squircle 表面 + 无 indication 的 clickable 原样组合。
+ */
+@Composable
+private fun CollapsibleChatCard(
+    shape: Shape,
+    color: Color,
+    borderWidth: Dp?,
+    borderColor: Color,
+    onClick: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+    container: Boolean = true,
+    content: @Composable () -> Unit,
+) {
+    if (isMaterial3Theme()) {
+        val border = borderWidth?.let { BorderStroke(it, borderColor) }
+        if (onClick != null) {
+            Surface(
+                onClick = onClick,
+                modifier = modifier,
+                shape = shape,
+                color = color,
+                border = border,
+                content = { content() },
+            )        } else {
+            Surface(modifier = modifier, shape = shape, color = color, border = border, content = content)
+        }
+        return
+    }
+    Column(
+        modifier = modifier
+            .then(
+                if (container) {
+                    Modifier
+                        .squircleSurface(color = color, cornerRadius = 12.dp)
+                        .then(
+                            if (borderWidth != null) {
+                                Modifier.squircleBorder(
+                                    width = borderWidth,
+                                    color = borderColor,
+                                    cornerRadius = 12.dp,
+                                )
+                            } else {
+                                Modifier
+                            },
+                        )
+                } else {
+                    Modifier.clip(RoundedCornerShape(12.dp))
+                }
+            )
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(interactionSource = null, indication = null, onClick = onClick)
+                } else {
+                    Modifier
+                }
+            ),
+        content = { content() },
+    )
+}
 
 /**
  * 返回 true 前先让出一帧。用于点击展开：点击那一帧只重组标题并启动展开动画，
@@ -304,7 +468,14 @@ private fun rememberActivePulse(
         initialValue = 0.58f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(820, easing = FastOutSlowInEasing),
+            // M3 Expressive 的呼吸节奏取官方 motionScheme；miuix 主题族保留原有 tween。
+            animation = if (isMaterial3Theme()) {
+                // 循环动画需要 DurationBasedAnimationSpec，官方 motionScheme 只提供有限时长规格，
+                // 因此这里沿用项目原有的 tween 循环节奏（不属于组件外观参数）。
+                tween(durationMillis = 1600, easing = LinearEasing)
+            } else {
+                tween(820, easing = FastOutSlowInEasing)
+            },
             repeatMode = RepeatMode.Reverse,
         ),
         label = "${label}_alpha",
@@ -495,75 +666,94 @@ internal fun AgentWorkProcessHeader(
         part = if (hasVisibleSteps && messages.isNotEmpty()) WorkProcessCardPart.First else WorkProcessCardPart.Whole,
         modifier = modifier,
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Row(
+        // 图标 / 文案 / 尾部箭头由两个主题族共用，容器各自使用对应主题的官方组件。
+        val leadingIcon = @Composable {
+            Icon(
+                imageVector = when {
+                    runningTool != null -> iconForTool(runningTool.toolName)
+                    // 官方图标替代自绘 ic_atom：AutoAwesome（星形）语义为 AI 生成/思考，
+                    // 与项目"思考深度"所用图标一致，比 Psychology（记忆语义）、HourglassTop（仅等待）更贴切。
+                    running -> Icons.Rounded.AutoAwesome
+                    else -> Icons.Rounded.Build
+                },
+                contentDescription = null,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(interactionSource = null, indication = null, onClick = onToggle)
-                    .padding(horizontal = 13.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    imageVector = when {
-                        runningTool != null -> iconForTool(runningTool.toolName)
-                        running -> ImageVector.vectorResource(R.drawable.ic_atom)
-                        else -> Icons.Rounded.Build
-                    },
-                    contentDescription = null,
+                    .size(16.dp)
+                    .graphicsLayer { alpha = if (running && !isPaused) pulseAlpha() else 1f },
+                tint = if (running && !isPaused) {
+                    etaPrimary()
+                } else {
+                    etaOnSurfaceVariant()
+                },
+            )
+        }
+        val label = @Composable {
+            Text(
+                text = when {
+                    running && toolCount > 0 -> pluralStringResource(
+                        R.plurals.work_processing_step,
+                        toolCount,
+                        toolCount,
+                    ) + (runningToolTitle?.let { " · $it" } ?: "")
+                    running -> stringResource(R.string.work_analyzing)
+                    toolCount > 0 -> pluralStringResource(
+                        R.plurals.work_completed_steps,
+                        toolCount,
+                        toolCount,
+                    )
+                    else -> stringResource(R.string.work_completed)
+                },
+                style = chatSecondaryStyle(),
+                color = if (running && !isPaused) {
+                    etaOnSurface()
+                } else {
+                    etaOnSurfaceVariant()
+                },
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        val trailingIcon = @Composable {
+            Icon(
+                imageVector = if (expanded) Icons.Rounded.ExpandMore
+                else Icons.Rounded.ChevronRight,
+                contentDescription = stringResource(
+                    if (expanded) R.string.work_collapse else R.string.work_expand,
+                ),
+                modifier = Modifier.size(16.dp),
+                tint = etaOnSurfaceVariant().copy(alpha = 0.7f),
+            )
+        }
+
+        Column(modifier = Modifier.fillMaxWidth()) {
+            if (isMaterial3Theme()) {
+                // 官方 ListItem 承担整行点击、涟漪与按压形变；容器透明，底板仍由卡片外壳绘制。
+                ListItem(
+                    onClick = onToggle,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    contentPadding = ListItemDefaults.ContentPadding,
+                    leadingContent = leadingIcon,
+                    content = label,
+                    trailingContent = trailingIcon,
+                )
+            } else {
+                Row(
                     modifier = Modifier
-                        .size(15.dp)
-                        .graphicsLayer { alpha = if (running && !isPaused) pulseAlpha() else 1f },
-                    tint = if (running && !isPaused) {
-                        MiuixTheme.colorScheme.primary
-                    } else {
-                        MiuixTheme.colorScheme.onSurfaceVariantSummary
-                    },
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = when {
-                        running && toolCount > 0 -> pluralStringResource(
-                            R.plurals.work_processing_step,
-                            toolCount,
-                            toolCount,
-                        ) + (runningToolTitle?.let { " · $it" } ?: "")
-                        running -> stringResource(R.string.work_analyzing)
-                        toolCount > 0 -> pluralStringResource(
-                            R.plurals.work_completed_steps,
-                            toolCount,
-                            toolCount,
-                        )
-                        else -> stringResource(R.string.work_completed)
-                    },
-                    style = MiuixTheme.textStyles.body2,
-                    color = if (running && !isPaused) {
-                        MiuixTheme.colorScheme.onSurface
-                    } else {
-                        MiuixTheme.colorScheme.onSurfaceVariantSummary
-                    },
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                Icon(
-                    imageVector = if (expanded) Icons.Rounded.ExpandMore
-                        else Icons.Rounded.ChevronRight,
-                    contentDescription = stringResource(
-                        if (expanded) R.string.work_collapse else R.string.work_expand,
-                    ),
-                    modifier = Modifier.size(14.dp),
-                    tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.7f),
-                )
+                        .fillMaxWidth()
+                        .clickable(interactionSource = null, indication = null, onClick = onToggle)
+                        .padding(horizontal = 13.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    leadingIcon()
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Box(modifier = Modifier.weight(1f)) { label() }
+                    trailingIcon()
+                }
             }
 
             if (hasVisibleSteps && messages.isNotEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 13.dp)
-                        .height(0.5.dp)
-                        .background(MiuixTheme.colorScheme.outline.copy(alpha = 0.45f)),
-                )
+                ChatHairlineDivider(modifier = Modifier.fillMaxWidth().padding(horizontal = 13.dp))
             }
         }
     }
@@ -614,35 +804,13 @@ private fun UserMessageBubble(
             .streamDiagnosticMeasure("render.userBubble.measure", diagnosticRow)
             .streamDiagnosticDraw("render.userBubble.draw", diagnosticRow)
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 7.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.End,
     ) {
-        Column(
-            modifier = Modifier
-                .widthIn(max = 320.dp)
-                .squircleSurface(
-                    color = MiuixTheme.colorScheme.surfaceContainerHigh,
-                    topStart = 20.dp,
-                    topEnd = 20.dp,
-                    bottomEnd = 6.dp,
-                    bottomStart = 20.dp,
-                )
-                .then(
-                    if (isEditing) {
-                        Modifier.squircleBorder(
-                            width = 1.dp,
-                            color = MiuixTheme.colorScheme.primary,
-                            cornerRadius = 20.dp,
-                        )
-                    } else {
-                        Modifier
-                    }
-                )
-                .padding(horizontal = 16.dp, vertical = 11.dp),
-        ) {
+        val bubbleBody: @Composable () -> Unit = {
             if (message.images.isNotEmpty()) {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.padding(bottom = 8.dp)
                 ) {
                     message.images.forEachIndexed { index, dataUrl ->
@@ -654,8 +822,8 @@ private fun UserMessageBubble(
                             Box(
                                 modifier = Modifier
                                     .size(100.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(MiuixTheme.colorScheme.surfaceContainer),
+                                    .clip(chatMediaShape())
+                                    .background(chatSurfaceContainerColor()),
                             ) {
                                 if (bitmap != null) {
                                     ChatClickableImage(
@@ -683,11 +851,11 @@ private fun UserMessageBubble(
                                     )
                                     Text(
                                         text = AgentVideoCodec.formatDuration(message.durationMsAt(index) ?: 0L),
-                                        style = MiuixTheme.textStyles.body2,
+                                        style = chatTertiaryStyle(),
                                         color = Color.White,
                                         modifier = Modifier
                                             .align(Alignment.BottomStart)
-                                            .padding(6.dp),
+                                            .padding(8.dp),
                                     )
                                 }
                             }
@@ -698,9 +866,9 @@ private fun UserMessageBubble(
             visiblePrompt.conversations.forEach { mention ->
                 Text(
                     text = "@${mention.title}" + if (mention.transcript.contains("[已截取：")) " · 已截取" else " · 全文",
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.primary,
-                    modifier = Modifier.padding(bottom = 6.dp),
+                    style = chatSecondaryStyle(),
+                    color = etaPrimary(),
+                    modifier = Modifier.padding(bottom = 8.dp),
                 )
             }
             if (visibleFiles.isNotEmpty()) {
@@ -718,19 +886,61 @@ private fun UserMessageBubble(
                         modifier = Modifier
                             .streamDiagnosticMeasure("render.userText.measure", diagnosticRow)
                             .streamDiagnosticDraw("render.userText.draw", diagnosticRow),
-                        style = MiuixTheme.textStyles.body1,
-                        color = MiuixTheme.colorScheme.onSurface,
+                        style = chatBodyStyle(),
+                        color = etaOnSurface(),
                     )
                 }
             }
             if (message.isEdited) {
                 Text(
                     text = stringResource(R.string.ui_edited_c36776),
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    style = chatTertiaryStyle(),
+                    color = etaOnSurfaceVariant(),
                     modifier = Modifier.padding(top = 4.dp),
                 )
             }
+        }
+        val bubbleShape: Shape =
+            if (isMaterial3Theme()) MaterialTheme.shapes.extraLarge else RoundedCornerShape(20.dp)
+        // M3 Expressive：官方 Surface 承担气泡容器、官方形状令牌与编辑态描边（primary 角色）。
+        // miuix 主题族保留 squircle 的非对称圆角（尾角 6dp）。
+        if (isMaterial3Theme()) {
+            Surface(
+                modifier = Modifier.widthIn(max = 320.dp),
+                shape = bubbleShape,
+                color = etaSurfaceContainerHigh(),
+                border = if (isEditing) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 11.dp),
+                    content = { bubbleBody() },
+                )
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .widthIn(max = 320.dp)
+                    .squircleSurface(
+                        color = etaSurfaceContainerHigh(),
+                        topStart = 20.dp,
+                        topEnd = 20.dp,
+                        bottomEnd = 6.dp,
+                        bottomStart = 20.dp,
+                    )
+                    .then(
+                        if (isEditing) {
+                            Modifier.squircleBorder(
+                                width = 1.dp,
+                                color = etaPrimary(),
+                                cornerRadius = 16.dp,
+                            )
+                        } else {
+                            Modifier
+                        }
+                    )
+                    .padding(horizontal = 16.dp, vertical = 11.dp),
+                content = { bubbleBody() },
+            )
         }
         Row(
             modifier = Modifier.padding(top = 2.dp),
@@ -750,11 +960,11 @@ private fun UserMessageBubble(
                         contentDescription = stringResource(
                             if (copied) R.string.copy_copied else R.string.ui_copy_4edd1d,
                         ),
-                        modifier = Modifier.size(15.dp),
+                        modifier = Modifier.size(16.dp),
                         tint = if (copied) {
-                            MiuixTheme.colorScheme.primary
+                            etaPrimary()
                         } else {
-                            MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f)
+                            etaOnSurfaceVariant().copy(alpha = 0.75f)
                         },
                     )
                 }
@@ -770,8 +980,8 @@ private fun UserMessageBubble(
                     Icon(
                         imageVector = Icons.Rounded.Edit,
                         contentDescription = stringResource(R.string.ui_edit_a7f814),
-                        modifier = Modifier.size(15.dp),
-                        tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
+                        modifier = Modifier.size(16.dp),
+                        tint = etaOnSurfaceVariant().copy(alpha = 0.75f),
                     )
                 }
             }
@@ -784,10 +994,10 @@ private fun UserMessageBubble(
                     enabled = branchEnabled,
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.CallSplit,
+                        imageVector = Icons.AutoMirrored.Rounded.CallSplit,
                         contentDescription = stringResource(R.string.ui_branch_conversation),
-                        modifier = Modifier.size(15.dp),
-                        tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
+                        modifier = Modifier.size(16.dp),
+                        tint = etaOnSurfaceVariant().copy(alpha = 0.75f),
                     )
                 }
             }
@@ -802,8 +1012,8 @@ private fun UserMessageBubble(
                     Icon(
                         imageVector = Icons.Rounded.Delete,
                         contentDescription = stringResource(R.string.ui_delete_3755f5),
-                        modifier = Modifier.size(15.dp),
-                        tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
+                        modifier = Modifier.size(16.dp),
+                        tint = etaOnSurfaceVariant().copy(alpha = 0.75f),
                     )
                 }
             }
@@ -869,7 +1079,7 @@ private fun AgentMessageBlock(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 7.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         if (message.content.isBlank() && message.isStreaming) {
             AITypingIndicator(
@@ -904,8 +1114,8 @@ private fun AgentMessageBlock(
                     message.content.isNotBlank() -> {
                         Text(
                             text = message.content,
-                            style = MiuixTheme.textStyles.body1,
-                            color = MiuixTheme.colorScheme.onSurface,
+                            style = chatBodyStyle(),
+                            color = etaOnSurface(),
                             modifier = completedContentDrawLayer(Modifier, true),
                         )
                     }
@@ -1065,7 +1275,7 @@ private fun LegacyStreamingMarkdown(
     val parserSession = state.parserSession
     val typography = chatMarkdownTypography(tone)
     val inlineCode = typography.inlineCode.copy(
-        background = MiuixTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f),
+        background = etaSurfaceContainerHigh().copy(alpha = 0.6f),
     ).toSpanStyle()
     val uriHandler = LocalUriHandler.current
     val preparedListener = remember(uriHandler) {
@@ -1738,7 +1948,7 @@ private fun chatMarkdownTypography(tone: ChatMarkdownTone) = markdownTypography(
     ordered = chatMarkdownBodyStyle(tone),
     bullet = chatMarkdownBodyStyle(tone),
     list = chatMarkdownBodyStyle(tone),
-    quote = MiuixTheme.textStyles.body2.copy(
+    quote = chatSecondaryStyle().copy(
         fontSize = if (tone == ChatMarkdownTone.Answer) 15.sp else 14.sp,
         lineHeight = if (tone == ChatMarkdownTone.Answer) 24.sp else 22.sp,
         color = chatMarkdownTextColor(ChatMarkdownTone.Thinking),
@@ -1753,14 +1963,14 @@ private fun chatMarkdownTypography(tone: ChatMarkdownTone) = markdownTypography(
         fontSize = if (tone == ChatMarkdownTone.Answer) 14.sp else 13.sp,
         fontFamily = FontFamily.Monospace,
     ),
-    table = MiuixTheme.textStyles.body2.copy(
+    table = chatSecondaryStyle().copy(
         fontSize = 14.sp,
         lineHeight = 20.sp,
         color = chatMarkdownTextColor(tone),
     ),
     textLink = TextLinkStyles(
         style = SpanStyle(
-            color = MiuixTheme.colorScheme.primary,
+            color = etaPrimary(),
             fontWeight = FontWeight.Medium,
         ),
     ),
@@ -1769,13 +1979,13 @@ private fun chatMarkdownTypography(tone: ChatMarkdownTone) = markdownTypography(
 @Composable
 private fun chatMarkdownBodyStyle(tone: ChatMarkdownTone) =
     if (tone == ChatMarkdownTone.Answer) {
-        MiuixTheme.textStyles.body1.copy(
+        chatBodyStyle().copy(
             fontSize = 16.sp,
             lineHeight = 26.sp,
             color = chatMarkdownTextColor(tone),
         )
     } else {
-        MiuixTheme.textStyles.body2.copy(
+        chatSecondaryStyle().copy(
             fontSize = 14.sp,
             lineHeight = 22.sp,
             color = chatMarkdownTextColor(tone),
@@ -1785,18 +1995,18 @@ private fun chatMarkdownBodyStyle(tone: ChatMarkdownTone) =
 @Composable
 private fun chatMarkdownTextColor(tone: ChatMarkdownTone): Color =
     if (tone == ChatMarkdownTone.Answer) {
-        MiuixTheme.colorScheme.onSurface
+        etaOnSurface()
     } else {
-        MiuixTheme.colorScheme.onSurfaceVariantSummary
+        etaOnSurfaceVariant()
     }
 
 @Composable
 private fun chatMarkdownColors(tone: ChatMarkdownTone) = markdownColor(
     text = chatMarkdownTextColor(tone),
     // 代码块与表格的底色、描边由自定义组件绘制，这里只保留行内代码底色与分隔线。
-    codeBackground = MiuixTheme.colorScheme.surface,
-    inlineCodeBackground = MiuixTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f),
-    dividerColor = MiuixTheme.colorScheme.outline.copy(alpha = 0.5f),
+    codeBackground = chatSurfaceColor(),
+    inlineCodeBackground = etaSurfaceContainerHigh().copy(alpha = 0.6f),
+    dividerColor = chatDividerColor(0.5f),
     tableBackground = Color.Transparent,
 )
 
@@ -1817,8 +2027,8 @@ private fun chatMarkdownPadding() = markdownPadding(
     listIndent = 14.dp,
     codeBlock = PaddingValues(horizontal = 13.dp, vertical = 11.dp),
     blockQuote = PaddingValues(horizontal = 12.dp),
-    blockQuoteText = PaddingValues(vertical = 3.dp),
-    blockQuoteBar = PaddingValues.Absolute(left = 2.dp, top = 3.dp, right = 0.dp, bottom = 3.dp),
+    blockQuoteText = PaddingValues(vertical = 4.dp),
+    blockQuoteBar = PaddingValues.Absolute(left = 2.dp, top = 4.dp, right = 0.dp, bottom = 4.dp),
 )
 
 private fun chatMarkdownComponents(
@@ -2032,7 +2242,7 @@ private fun ChatMarkdownList(
                             Text(
                                 text = "${initialListNumber + index}.",
                                 style = model.typography.ordered.copy(
-                                    color = MiuixTheme.colorScheme.primary,
+                                    color = etaPrimary(),
                                     fontWeight = FontWeight.SemiBold,
                                 ),
                             )
@@ -2049,9 +2259,9 @@ private fun ChatMarkdownList(
                                 },
                                 style = model.typography.bullet.copy(
                                     color = if (bulletDepth == 2) {
-                                        MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                        etaOnSurfaceVariant()
                                     } else {
-                                        MiuixTheme.colorScheme.primary
+                                        etaPrimary()
                                     },
                                 ),
                             )
@@ -2261,99 +2471,106 @@ private fun ChatCodeBlock(
         }
     }
 
+    val codeModifier = Modifier
+        .fillMaxWidth()
+        .horizontalScroll(rememberScrollState())
+        .then(
+            if (showChrome) Modifier.padding(horizontal = 13.dp, vertical = 11.dp)
+            else Modifier,
+        )
+        .let { base ->
+            if (revealState != null) base.smoothTextReveal(revealState) else base
+        }
+    val codeText: @Composable () -> Unit = {
+        Text(
+            text = code,
+            style = if (revealState != null) {
+                style.copy(textMotion = TextMotion.Animated)
+            } else {
+                style
+            },
+            color = etaOnSurface(),
+            modifier = codeModifier,
+            onTextLayout = revealState?.let { state ->
+                { layoutResult -> state.onTextLayout(code, layoutResult) }
+            },
+        )
+    }
+    val codeBlockBody: @Composable () -> Unit = {
+        if (showChrome) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 13.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = language?.takeIf { it.isNotBlank() } ?: "code",
+                    style = chatTertiaryStyle(),
+                    color = etaOnSurfaceVariant(),
+                    modifier = Modifier.weight(1f),
+                )
+                ChatIconAction(
+                    onClick = {
+                        @Suppress("DEPRECATION")
+                        clipboardManager.setText(AnnotatedString(code))
+                        copied = true
+                    },
+                    minWidth = 28.dp,
+                    minHeight = 28.dp,
+                ) {
+                    Icon(
+                        imageVector = if (copied) Icons.Rounded.Check
+                            else Icons.Rounded.ContentCopy,
+                        contentDescription = stringResource(
+                            if (copied) R.string.copy_copied else R.string.copy_code,
+                        ),
+                        modifier = Modifier.size(12.dp),
+                        tint = if (copied) {
+                            etaPrimary()
+                        } else {
+                            etaOnSurfaceVariant().copy(alpha = 0.8f)
+                        },
+                    )
+                }
+            }
+            ChatHairlineDivider(modifier = Modifier.fillMaxWidth().padding(horizontal = 13.dp))
+        }
+        // Selection registers the whole code block on every layout. A growing
+        // fence does that on each publish, so it stays a plain Text until done.
+        if (revealState == null) HapticSelectionContainer { codeText() } else codeText()
+    }
+    // M3 Expressive：带框代码块用官方 Surface（官方形状令牌 + outlineVariant 描边）。
+    // 无框（inline）路径与 miuix 主题族都保持原有的 clip + 背景 + 描边组合。
+    if (showChrome && isMaterial3Theme()) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
+            shape = chatCardShape(),
+            color = MaterialTheme.colorScheme.surface,
+            border = chatCardBorder(),
+        ) {
+            Column(content = { codeBlockBody() })
+        }
+        return
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .then(
                 if (showChrome) {
                     Modifier
-                        .padding(vertical = 5.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(MiuixTheme.colorScheme.surface)
-                        .border(
-                            0.5.dp,
-                            MiuixTheme.colorScheme.outline.copy(alpha = 0.5f),
-                            RoundedCornerShape(10.dp),
-                        )
+                        .padding(vertical = 4.dp)
+                        .clip(chatCardShape())
+                        .background(chatSurfaceColor())
+                        .border(0.5.dp, chatDividerColor(0.5f), chatCardShape())
                 } else {
                     Modifier
                 }
             ),
-    ) {
-        if (showChrome) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 13.dp, end = 6.dp, top = 3.dp, bottom = 3.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = language?.takeIf { it.isNotBlank() } ?: "code",
-                style = MiuixTheme.textStyles.footnote2,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                modifier = Modifier.weight(1f),
-            )
-            ChatIconAction(
-                onClick = {
-                    @Suppress("DEPRECATION")
-                    clipboardManager.setText(AnnotatedString(code))
-                    copied = true
-                },
-                minWidth = 28.dp,
-                minHeight = 28.dp,
-            ) {
-                Icon(
-                    imageVector = if (copied) Icons.Rounded.Check
-                        else Icons.Rounded.ContentCopy,
-                    contentDescription = stringResource(
-                        if (copied) R.string.copy_copied else R.string.copy_code,
-                    ),
-                    modifier = Modifier.size(13.dp),
-                    tint = if (copied) {
-                        MiuixTheme.colorScheme.primary
-                    } else {
-                        MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.8f)
-                    },
-                )
-            }
-        }
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 13.dp)
-                .height(0.5.dp)
-                .background(MiuixTheme.colorScheme.outline.copy(alpha = 0.45f)),
-        )
-        }
-        val codeModifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .then(
-                if (showChrome) Modifier.padding(horizontal = 13.dp, vertical = 11.dp)
-                else Modifier,
-            )
-            .let { base ->
-                if (revealState != null) base.smoothTextReveal(revealState) else base
-            }
-        val codeText: @Composable () -> Unit = {
-            Text(
-                text = code,
-                style = if (revealState != null) {
-                    style.copy(textMotion = TextMotion.Animated)
-                } else {
-                    style
-                },
-                color = MiuixTheme.colorScheme.onSurface,
-                modifier = codeModifier,
-                onTextLayout = revealState?.let { state ->
-                    { layoutResult -> state.onTextLayout(code, layoutResult) }
-                },
-            )
-        }
-        // Selection registers the whole code block on every layout. A growing
-        // fence does that on each publish, so it stays a plain Text until done.
-        if (revealState == null) HapticSelectionContainer { codeText() } else codeText()
-    }
+        content = { codeBlockBody() },
+    )
 }
 
 private val ChatTableCellWidth = 112.dp
@@ -2377,11 +2594,11 @@ private fun ChatMarkdownTable(
     }
     if (headerCells.isEmpty()) return
 
-    val borderColor = MiuixTheme.colorScheme.outline.copy(alpha = 0.5f)
+    val borderColor = chatDividerColor(0.5f)
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 5.dp),
+            .padding(vertical = 4.dp),
     ) {
         val tableWidth = ChatTableCellWidth * headerCells.size
         val scrollable = maxWidth <= tableWidth
@@ -2393,14 +2610,14 @@ private fun ChatMarkdownTable(
             } else {
                 Modifier.fillMaxWidth()
             })
-                .clip(RoundedCornerShape(10.dp))
-                .border(0.5.dp, borderColor, RoundedCornerShape(10.dp))
-                .background(MiuixTheme.colorScheme.surface),
+                .clip(chatCardShape())
+                .border(0.5.dp, borderColor, chatCardShape())
+                .background(chatSurfaceColor()),
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MiuixTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.45f))
+                    .background(etaSurfaceContainerHigh().copy(alpha = 0.45f))
                     .height(IntrinsicSize.Max),
             ) {
                 headerCells.forEach { cell ->
@@ -2425,12 +2642,7 @@ private fun ChatMarkdownTable(
             }
             bodyRows.forEach { rowCells ->
                 val rowSettled = revealCoordinator == null || rowCells !== tableTail
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(0.5.dp)
-                        .background(borderColor.copy(alpha = 0.6f)),
-                )
+                ChatHairlineDivider(0.6f, Modifier.fillMaxWidth())
                 Row(modifier = completedContentDrawLayer(Modifier.fillMaxWidth(), rowSettled)) {
                     rowCells.forEach { cell ->
                         Box(
@@ -2496,7 +2708,7 @@ private fun ChatMarkdownTableCell(
     Text(
         text = text,
         style = style.copy(textMotion = TextMotion.Animated),
-        color = MiuixTheme.colorScheme.onSurface,
+        color = etaOnSurface(),
         maxLines = maxLines,
         overflow = overflow,
         modifier = Modifier.smoothTextReveal(revealState),
@@ -2517,7 +2729,7 @@ private fun ChatBlockQuote(model: MarkdownComponentModel) {
     val padding = LocalMarkdownPadding.current
     val dimens = LocalMarkdownDimens.current
     val a11yLabels = LocalMarkdownA11yLabels.current
-    val barColor = MiuixTheme.colorScheme.primary.copy(alpha = 0.4f)
+    val barColor = etaPrimary().copy(alpha = 0.4f)
     val emptyLineHeight = with(LocalDensity.current) {
         model.typography.quote.lineHeight.takeOrElse { 22.sp }.toDp()
     }
@@ -2690,45 +2902,23 @@ private fun ThinkingRow(
         label = "thinking_pulse",
     )
 
-    // compact 模式渲染在工作过程卡片内部，不再携带自己的卡片外壳，避免卡中卡。
-    val containerModifier = if (compact) {
-        modifier
-            .fillMaxWidth()
-            .padding(horizontal = 10.dp, vertical = 2.dp)
-    } else {
-        modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 4.dp)
-            .squircleSurface(
-                color = MiuixTheme.colorScheme.surface,
-                cornerRadius = 14.dp,
-            )
-            .squircleBorder(
-                width = 0.5.dp,
-                color = MiuixTheme.colorScheme.outline.copy(alpha = 0.50f),
-                cornerRadius = 14.dp,
-            )
-    }
-
     // 跟工具行一样，整块都能点：点标题展开，展开后点正文也能收起。
     // 正文里的链接和长按选择先拿到手势，不会被这里吃掉。
-    Column(
-        modifier = containerModifier
-            .clickable(interactionSource = null, indication = null) {
-                onToggle?.invoke(message.id, !expanded)
-                anchorBottom = expansionHoldsBottom()
-                manuallyExpanded = true
-                expandedByTap = !expanded
-                expanded = !expanded
-                toggleProbeRef.token = StreamPerformanceDiagnostics.markToggle("thinking", expanded)
-                StreamPerformanceDiagnostics.probeEvent(
-                    toggleProbeRef.token,
-                    "item",
-                    "chars=${message.content.length} streaming=${message.isStreaming} " +
-                        "anchor=${if (anchorBottom) "bottom" else "top"}",
-                )
-            },
-    ) {
+    val toggle: () -> Unit = {
+        onToggle?.invoke(message.id, !expanded)
+        anchorBottom = expansionHoldsBottom()
+        manuallyExpanded = true
+        expandedByTap = !expanded
+        expanded = !expanded
+        toggleProbeRef.token = StreamPerformanceDiagnostics.markToggle("thinking", expanded)
+        StreamPerformanceDiagnostics.probeEvent(
+            toggleProbeRef.token,
+            "item",
+            "chars=${message.content.length} streaming=${message.isStreaming} " +
+                "anchor=${if (anchorBottom) "bottom" else "top"}",
+        )
+    }
+    val thinkingBody: @Composable () -> Unit = {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -2736,15 +2926,16 @@ private fun ThinkingRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                imageVector = ImageVector.vectorResource(R.drawable.ic_atom),
+                // 官方图标替代自绘 ic_atom：AutoAwesome＝AI 思考/生成中。
+                imageVector = Icons.Rounded.AutoAwesome,
                 contentDescription = null,
                 modifier = Modifier
-                    .size(15.dp)
+                    .size(16.dp)
                     .graphicsLayer { alpha = if (message.isStreaming && !isPaused) pulseAlpha() else 1f },
                 tint = if (message.isStreaming && !isPaused) {
-                    MiuixTheme.colorScheme.primary
+                    etaPrimary()
                 } else {
-                    MiuixTheme.colorScheme.onSurfaceVariantSummary
+                    etaOnSurfaceVariant()
                 },
             )
             Spacer(modifier = Modifier.width(8.dp))
@@ -2760,11 +2951,11 @@ private fun ThinkingRow(
                         )
                     } ?: stringResource(R.string.reasoning_completed)
                 },
-                style = MiuixTheme.textStyles.body2,
+                style = chatSecondaryStyle(),
                 color = if (message.isStreaming && !isPaused) {
-                    MiuixTheme.colorScheme.onSurface
+                    etaOnSurface()
                 } else {
-                    MiuixTheme.colorScheme.onSurfaceVariantSummary
+                    etaOnSurfaceVariant()
                 },
                 modifier = Modifier.weight(1f),
             )
@@ -2774,8 +2965,8 @@ private fun ThinkingRow(
                 contentDescription = stringResource(
                     if (expanded) R.string.reasoning_collapse else R.string.reasoning_expand,
                 ),
-                modifier = Modifier.size(14.dp),
-                tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.7f),
+                modifier = Modifier.size(16.dp),
+                tint = etaOnSurfaceVariant().copy(alpha = 0.7f),
             )
         }
 
@@ -2791,13 +2982,7 @@ private fun ThinkingRow(
             ) {
                 Column {
                     if (!compact) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 13.dp)
-                                .height(0.5.dp)
-                                .background(MiuixTheme.colorScheme.outline.copy(alpha = 0.45f)),
-                        )
+                        ChatHairlineDivider(modifier = Modifier.fillMaxWidth().padding(horizontal = 13.dp))
                     }
                     val contentModifier = Modifier
                         .fillMaxWidth()
@@ -2831,7 +3016,37 @@ private fun ThinkingRow(
             }
         }
     }
-}
+    // compact 模式渲染在工作过程卡片内部，不再携带自己的卡片外壳，避免卡中卡。
+    if (compact) {
+        if (isMaterial3Theme()) {
+            // compact 行没有自己的底板：官方 Surface 只提供官方涟漪与 Role，容器保持透明。
+            Surface(
+                onClick = toggle,
+                modifier = modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp),
+                shape = MaterialTheme.shapes.medium,
+                color = Color.Transparent,
+                content = { thinkingBody() },
+            )
+        } else {
+            Column(
+                modifier = modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                    .clickable(interactionSource = null, indication = null, onClick = toggle),
+                content = { thinkingBody() },
+            )
+        }
+        return
+    }
+    CollapsibleChatCard(
+        shape = chatCardShape(),
+        color = chatSurfaceColor(),
+        borderWidth = 0.5.dp,
+        borderColor = chatDividerColor(0.50f),
+        onClick = toggle,
+        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        content = { thinkingBody() },
+    )}
 
 // ── 工具调用：优雅极简时间线 ─────────────────────────────────────────
 
@@ -2839,12 +3054,25 @@ private fun ThinkingRow(
 /**
  * 展开和收起的时长、缓动不变，只换生长方向：下沿被钉住时从下沿长出，
  * 让已经排好的内容停在原处、由标签往上让开；否则从上沿往下长。
+ *
+ * Material 3 Expressive 的时长与缓动统一取官方 `motionScheme` 规格；
+ * miuix 主题族保留原有的自定义时长。
  */
-internal fun tailDetailsEnter(fromBottom: Boolean): androidx.compose.animation.EnterTransition =
-    fadeIn(tween(160)) + expandVertically(
-        animationSpec = tween(180, easing = FastOutSlowInEasing),
-        expandFrom = if (fromBottom) Alignment.Bottom else Alignment.Top,
-    )
+@Composable
+internal fun tailDetailsEnter(fromBottom: Boolean): androidx.compose.animation.EnterTransition {
+    val expandFrom = if (fromBottom) Alignment.Bottom else Alignment.Top
+    return if (isMaterial3Theme()) {
+        fadeIn(MaterialTheme.motionScheme.defaultSpatialSpec<Float>()) + expandVertically(
+            animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec<androidx.compose.ui.unit.IntSize>(),
+            expandFrom = expandFrom,
+        )
+    } else {
+        fadeIn(tween(160)) + expandVertically(
+            animationSpec = tween(180, easing = FastOutSlowInEasing),
+            expandFrom = expandFrom,
+        )
+    }
+}
 
 
 /**
@@ -2878,11 +3106,21 @@ internal fun AnimatedVisibilityScope.retainDrawLayerWhenIdle(enabled: Boolean = 
         )
 }
 
-internal fun tailDetailsExit(toBottom: Boolean): androidx.compose.animation.ExitTransition =
-    shrinkVertically(
-        animationSpec = tween(160, easing = FastOutSlowInEasing),
-        shrinkTowards = if (toBottom) Alignment.Bottom else Alignment.Top,
-    ) + fadeOut(tween(100))
+@Composable
+internal fun tailDetailsExit(toBottom: Boolean): androidx.compose.animation.ExitTransition {
+    val shrinkTowards = if (toBottom) Alignment.Bottom else Alignment.Top
+    return if (isMaterial3Theme()) {
+        shrinkVertically(
+            animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec<androidx.compose.ui.unit.IntSize>(),
+            shrinkTowards = shrinkTowards,
+        ) + fadeOut(MaterialTheme.motionScheme.defaultSpatialSpec<Float>())
+    } else {
+        shrinkVertically(
+            animationSpec = tween(160, easing = FastOutSlowInEasing),
+            shrinkTowards = shrinkTowards,
+        ) + fadeOut(tween(100))
+    }
+}
 
 @Composable
 private fun ToolActivityInline(
@@ -2945,50 +3183,50 @@ private fun ToolActivityInline(
     }
 
     val toolRowSettled = message.status != ToolActivityStatusUi.Running
-    Column(
+    val toggle: () -> Unit = {
+        anchorBottom = expansionHoldsBottom()
+        expandedByTap = !isExpanded
+        isExpanded = !isExpanded
+        toggleProbeRef.token = StreamPerformanceDiagnostics.markToggle("tool", isExpanded)
+        StreamPerformanceDiagnostics.probeEvent(
+            toggleProbeRef.token,
+            "item",
+            "status=${message.status} commandChars=${message.command?.length ?: 0} " +
+                "resultChars=${message.resultSummary?.length ?: 0} " +
+                "browser=$showBrowserShortcut anchor=${if (anchorBottom) "bottom" else "top"}",
+        )
+    }
+    CollapsibleChatCard(
+        shape = chatCardShape(),
+        color = Color.Transparent,
+        borderWidth = null,
+        borderColor = chatDividerColor(0.50f),
+        onClick = if (hasDetails) toggle else null,
+        container = false,
         modifier = modifier
-            
             .let { completedContentDrawLayer(it, toolRowSettled) }
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .then(
-                if (hasDetails) {
-                    Modifier.clickable(interactionSource = null, indication = null) {
-                        anchorBottom = expansionHoldsBottom()
-                        expandedByTap = !isExpanded
-                        isExpanded = !isExpanded
-                        toggleProbeRef.token = StreamPerformanceDiagnostics.markToggle("tool", isExpanded)
-                        StreamPerformanceDiagnostics.probeEvent(
-                            toggleProbeRef.token,
-                            "item",
-                            "status=${message.status} commandChars=${message.command?.length ?: 0} " +
-                                "resultChars=${message.resultSummary?.length ?: 0} " +
-                                "browser=$showBrowserShortcut anchor=${if (anchorBottom) "bottom" else "top"}",
-                        )
-                    }
-                } else {
-                    Modifier
-                }
-            )
-            .padding(horizontal = if (compact) 10.dp else 20.dp, vertical = 3.dp)
+            .fillMaxWidth(),
     ) {
+        Column(
+            modifier = Modifier.padding(horizontal = if (compact) 10.dp else 20.dp, vertical = 4.dp)
+        ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 5.dp),
+                .padding(horizontal = 4.dp, vertical = 4.dp),
         ) {
             // 工具图标与思考行的灯泡共用同一前导槽位，保证卡片内左边缘对齐。
             Icon(
                 imageVector = iconForTool(message.toolName),
                 contentDescription = null,
-                modifier = Modifier.size(15.dp),
+                modifier = Modifier.size(16.dp),
                 tint = when (message.status) {
-                    ToolActivityStatusUi.Running -> MiuixTheme.colorScheme.primary
-                    ToolActivityStatusUi.Failed -> StatusError
-                    ToolActivityStatusUi.Unknown -> MiuixTheme.colorScheme.onSurfaceVariantSummary
+                    ToolActivityStatusUi.Running -> etaPrimary()
+                    ToolActivityStatusUi.Failed -> toolStatusTextColor(failed = true)
+                    ToolActivityStatusUi.Unknown -> etaOnSurfaceVariant()
                     ToolActivityStatusUi.Success ->
-                        MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.8f)
+                        etaOnSurfaceVariant().copy(alpha = 0.8f)
                 }
             )
 
@@ -2997,11 +3235,11 @@ private fun ToolActivityInline(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
-                    style = MiuixTheme.textStyles.body2,
+                    style = chatSecondaryStyle(),
                     color = if (message.status == ToolActivityStatusUi.Running) {
-                        MiuixTheme.colorScheme.onSurface
+                        etaOnSurface()
                     } else {
-                        MiuixTheme.colorScheme.onSurfaceVariantSummary
+                        etaOnSurfaceVariant()
                     },
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -3010,11 +3248,11 @@ private fun ToolActivityInline(
                 if (subtitle != null) {
                     Text(
                         text = subtitle,
-                        style = MiuixTheme.textStyles.footnote2,
+                        style = chatTertiaryStyle(),
                         color = if (failureSubtitle != null) {
-                            StatusError
+                            toolStatusTextColor(failed = true)
                         } else {
-                            MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.8f)
+                            etaOnSurfaceVariant().copy(alpha = 0.8f)
                         },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -3024,16 +3262,29 @@ private fun ToolActivityInline(
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(5.dp)
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                AnimatedContent(
-                    targetState = message.status,
-                    transitionSpec = {
+                // 状态切换动效：M3 Expressive 取官方 motionScheme 规格；miuix 主题族保留原时长。
+                val statusTransition: ContentTransform =
+                    if (isMaterial3Theme()) {
+                        (fadeIn(MaterialTheme.motionScheme.defaultSpatialSpec<Float>()) +
+                            scaleIn(MaterialTheme.motionScheme.defaultSpatialSpec<Float>(), initialScale = 0.86f))
+                            .togetherWith(
+                                fadeOut(MaterialTheme.motionScheme.defaultSpatialSpec<Float>()) +
+                                    scaleOut(
+                                        MaterialTheme.motionScheme.defaultSpatialSpec<Float>(),
+                                        targetScale = 0.86f,
+                                    )
+                            )
+                    } else {
                         (fadeIn(tween(150)) + scaleIn(tween(170), initialScale = 0.86f))
                             .togetherWith(
                                 fadeOut(tween(90)) + scaleOut(tween(110), targetScale = 0.86f)
                             )
-                    },
+                    }
+                AnimatedContent(
+                    targetState = message.status,
+                    transitionSpec = { statusTransition },
                     label = "tool_status",
                 ) { status ->
                     // 成功是常态，只留低饱和度对勾；运行中与失败才占用视觉注意力
@@ -3041,13 +3292,13 @@ private fun ToolActivityInline(
                         Icon(
                             imageVector = Icons.Rounded.Check,
                             contentDescription = stringResource(R.string.tool_status_success),
-                            modifier = Modifier.size(13.dp),
-                            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.7f),
+                            modifier = Modifier.size(12.dp),
+                            tint = etaOnSurfaceVariant().copy(alpha = 0.7f),
                         )
                     } else {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
                             modifier = Modifier.graphicsLayer {
                                 alpha = if (status == ToolActivityStatusUi.Running) pulseAlpha() else 1f
                             },
@@ -3060,8 +3311,8 @@ private fun ToolActivityInline(
                             )
                             Text(
                                 text = status.statusLabel(),
-                                style = MiuixTheme.textStyles.footnote2,
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.8f),
+                                style = chatTertiaryStyle(),
+                                color = etaOnSurfaceVariant().copy(alpha = 0.8f),
                             )
                         }
                     }
@@ -3071,8 +3322,8 @@ private fun ToolActivityInline(
                         imageVector = if (isExpanded) Icons.Rounded.ExpandMore
                             else Icons.Rounded.ChevronRight,
                         contentDescription = null,
-                        modifier = Modifier.size(13.dp),
-                        tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.5f),
+                        modifier = Modifier.size(12.dp),
+                        tint = etaOnSurfaceVariant().copy(alpha = 0.5f),
                     )
                 }
             }
@@ -3086,17 +3337,12 @@ private fun ToolActivityInline(
         ) {
             // squircleSurface 已用自己的离屏层完成填充和遮罩；不要在外层再缓存相同正文。
             // 遮罩层是视觉必需的（含动画期间），与仅停稳后启用的 retain 缓存层不同。
-            Column(
-                modifier = Modifier
-                    .toggleProbe(toggleProbeRef, "content")
-                    .fillMaxWidth()
-                    .padding(start = 27.dp, top = 2.dp, bottom = 6.dp)
-                    .squircleSurface(
-                        color = MiuixTheme.colorScheme.surfaceContainer,
-                        cornerRadius = 10.dp,
-                    )
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-            ) {
+            val expandedPadding = Modifier
+                .toggleProbe(toggleProbeRef, "content")
+                .padding(start = 27.dp, top = 2.dp, bottom = 8.dp)
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+            val expandedBody: @Composable () -> Unit = {
+                Column(modifier = expandedPadding) {
                 // 点击那一帧只长出卡片外壳，命令与结果的组合和文字测量放到下一帧。
                 val bodyReady = rememberDeferredBody(deferOneFrame = expandedByTap)
                 if (!bodyReady) return@Column
@@ -3112,15 +3358,15 @@ private fun ToolActivityInline(
                 if (message.resultSummary != null && message.resultSummary.isNotBlank()) {
                     Text(
                         text = stringResource(R.string.ui_result_0a2c91),
-                        style = MiuixTheme.textStyles.footnote1,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        style = chatQuaternaryStyle(),
+                        color = etaOnSurfaceVariant(),
                         modifier = Modifier.padding(bottom = 2.dp)
                     )
                     HapticSelectionContainer {
                         Text(
                             text = message.resultSummary,
-                            style = MiuixTheme.textStyles.footnote2,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            style = chatTertiaryStyle(),
+                            color = etaOnSurfaceVariant(),
                             maxLines = 10,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -3128,8 +3374,8 @@ private fun ToolActivityInline(
                 } else if (showCompletedPlaceholder) {
                     Text(
                         text = stringResource(R.string.tool_status_success),
-                        style = MiuixTheme.textStyles.footnote2,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        style = chatTertiaryStyle(),
+                        color = etaOnSurfaceVariant(),
                     )
                 }
                 if (showBrowserShortcut) {
@@ -3146,17 +3392,48 @@ private fun ToolActivityInline(
                             .padding(top = 8.dp),
                         horizontalArrangement = Arrangement.End,
                     ) {
-                        TextButton(
-                            text = stringResource(R.string.ui_open_current_browser_58358e),
-                            onClick = onOpenBrowser,
-                            colors = ButtonDefaults.textButtonColorsPrimary(),
-                            minHeight = 36.dp,
-                            textStyle = MiuixTheme.textStyles.body2,
-                        )
+                        // M3 Expressive：官方 TextButton 的默认容器高度、内边距与 primary 配色；
+                        // miuix 主题族保留原 TextButton。
+                        if (isMaterial3Theme()) {
+                            M3TextButton(onClick = onOpenBrowser) {
+                                M3Text(
+                                    text = stringResource(R.string.ui_open_current_browser_58358e),
+                                    style = MaterialTheme.typography.labelLarge,
+                                )
+                            }
+                        } else {
+                            TextButton(
+                                text = stringResource(R.string.ui_open_current_browser_58358e),
+                                onClick = onOpenBrowser,
+                                colors = ButtonDefaults.textButtonColorsPrimary(),
+                                minHeight = 36.dp,
+                                textStyle = chatSecondaryStyle(),
+                            )
+                        }
                     }
                 }
             }
+            }
+            // M3 Expressive：官方 Surface 承担展开面板底板（官方 shapes.medium + 官方
+            // surfaceContainer 角色）；miuix 主题族保留 squircle 表面。
+            if (isMaterial3Theme()) {
+                Surface(
+                    modifier = modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                ) { expandedBody() }
+            } else {
+                Column(
+                    modifier = modifier
+                        .fillMaxWidth()
+                        .squircleSurface(
+                            color = chatSurfaceContainerColor(),
+                            cornerRadius = 12.dp,
+                        ),
+                ) { expandedBody() }
+            }
         }
+    }
     }
 }
 
@@ -3184,29 +3461,37 @@ private fun BrowserPagePreview(
         }
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .squircleSurface(
-                color = MiuixTheme.colorScheme.surfaceContainer,
-                cornerRadius = 10.dp,
-            ),
-    ) {
+    val previewBody: @Composable () -> Unit = {
         Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(
-                modifier = Modifier
-                    .size(6.dp)
-                    .clip(CircleShape)
-                    .background(if (snapshot.isLoading) StatusRunning else StatusSuccess),
-            )
+            // M3 Expressive：加载中用官方 CircularProgressIndicator 表达进度，
+            // 稳定后仍是一个静态状态点（直径取官方 CircularStrokeWidth 轨道厚度）；miuix 保留原圆点。
+            if (isMaterial3Theme()) {
+                if (snapshot.isLoading) {
+                    CircularProgressIndicator()
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(ProgressIndicatorDefaults.CircularStrokeWidth)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary),
+                    )
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(if (snapshot.isLoading) StatusRunning else StatusSuccess),
+                )
+            }
             Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = snapshot.host.ifBlank { snapshot.displayUrl },
-                style = MiuixTheme.textStyles.footnote2,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                style = chatTertiaryStyle(),
+                color = etaOnSurfaceVariant(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -3230,16 +3515,16 @@ private fun BrowserPagePreview(
                     imageVector = Icons.Rounded.Language,
                     contentDescription = null,
                     modifier = Modifier.size(20.dp),
-                    tint = MiuixTheme.colorScheme.outline,
+                    tint = chatDividerColor(),
                 )
             }
         }
-        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
             if (snapshot.title.isNotBlank()) {
                 Text(
                     text = snapshot.title,
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurface,
+                    style = chatSecondaryStyle(),
+                    color = etaOnSurface(),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -3247,14 +3532,35 @@ private fun BrowserPagePreview(
             if (snapshot.displayUrl.isNotBlank()) {
                 Text(
                     text = snapshot.displayUrl,
-                    style = MiuixTheme.textStyles.footnote2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.8f),
+                    style = chatTertiaryStyle(),
+                    color = etaOnSurfaceVariant().copy(alpha = 0.8f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
         }
     }
+    // M3 Expressive：官方 Surface 承担预览底板（官方 shapes.medium + surfaceContainer 角色）；
+    // miuix 主题族保留 squircle 表面。
+    if (isMaterial3Theme()) {
+        Surface(
+            modifier = modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surfaceContainer,
+        ) {
+            Column { previewBody() }
+        }
+        return
+    }
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .squircleSurface(
+                color = chatSurfaceContainerColor(),
+                cornerRadius = 12.dp,
+            ),
+        content = { previewBody() },
+    )
 }
 
 @Composable
@@ -3273,29 +3579,17 @@ private fun ToolCommandBlock(
         }
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .squircleSurface(
-                color = MiuixTheme.colorScheme.surface,
-                cornerRadius = 10.dp,
-            )
-            .squircleBorder(
-                width = 0.5.dp,
-                color = MiuixTheme.colorScheme.outline.copy(alpha = 0.5f),
-                cornerRadius = 10.dp,
-            ),
-    ) {
+    val commandBody: @Composable () -> Unit = {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 12.dp, end = 5.dp, top = 3.dp, bottom = 3.dp),
+                .padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = context.ifBlank { stringResource(R.string.shell_command) },
-                style = MiuixTheme.textStyles.footnote2,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                style = chatTertiaryStyle(),
+                color = etaOnSurfaceVariant(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
@@ -3315,34 +3609,54 @@ private fun ToolCommandBlock(
                     contentDescription = stringResource(
                         if (copied) R.string.copy_copied else R.string.copy_command,
                     ),
-                    modifier = Modifier.size(13.dp),
+                    modifier = Modifier.size(12.dp),
                     tint = if (copied) {
-                        MiuixTheme.colorScheme.primary
+                        etaPrimary()
                     } else {
-                        MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.8f)
+                        etaOnSurfaceVariant().copy(alpha = 0.8f)
                     },
                 )
             }
         }
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp)
-                .height(0.5.dp)
-                .background(MiuixTheme.colorScheme.outline.copy(alpha = 0.45f)),
-        )
+        ChatHairlineDivider(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp))
         HapticSelectionContainer {
             Text(
                 text = command,
-                style = MiuixTheme.textStyles.footnote2.copy(fontFamily = FontFamily.Monospace),
-                color = MiuixTheme.colorScheme.onSurface,
+                style = chatTertiaryStyle().copy(fontFamily = FontFamily.Monospace),
+                color = etaOnSurface(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
             )
         }
     }
+    // M3 Expressive：官方 Surface 承担命令块容器（官方形状、官方 colorScheme 角色与描边）；
+    // miuix 主题族保留 squircle 表面 + squircle 描边。
+    if (isMaterial3Theme()) {
+        Surface(
+            modifier = modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surface,
+            border = chatCardBorder(0.5f),
+            content = { commandBody() },
+        )
+        return
+    }
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .squircleSurface(
+                color = chatSurfaceColor(),
+                cornerRadius = 12.dp,
+            )
+            .squircleBorder(
+                width = 0.5.dp,
+                color = chatDividerColor(0.5f),
+                cornerRadius = 12.dp,
+            ),
+        content = { commandBody() },
+    )
 }
 
 // ── Run trace：轻量入口行 ─────────────────────────────────────────────
@@ -3353,40 +3667,60 @@ private fun RunTraceRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val body: @Composable RowScope.() -> Unit = {
+        Icon(
+            imageVector = Icons.Rounded.Check,
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
+            tint = etaPrimary(),
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = stringResource(R.string.ui_available_capacity_743337),
+            style = chatSecondaryStyle(),
+            color = etaOnSurface(),
+            modifier = Modifier.weight(1f),
+        )
+        Icon(
+            imageVector = Icons.Rounded.ChevronRight,
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
+            tint = etaOnSurfaceVariant().copy(alpha = 0.7f),
+        )
+    }
+    // M3 Expressive：官方 Surface(onClick) 承担可点区域、官方形状（shapes.medium）、
+    // surface 底色、outlineVariant 描边与官方涟漪；miuix 主题族保留 clip + 背景 + 描边。
+    if (isMaterial3Theme()) {
+        Surface(
+            onClick = onClick,
+            modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surface,
+            border = chatCardBorder(0.55f),
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 13.dp, vertical = 11.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) { body() }
+        }
+        return
+    }
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 4.dp)
+            .padding(horizontal = 16.dp, vertical = 4.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(MiuixTheme.colorScheme.surface)
+            .background(chatSurfaceColor())
             .border(
                 0.5.dp,
-                MiuixTheme.colorScheme.outline.copy(alpha = 0.55f),
+                chatDividerColor(0.55f),
                 RoundedCornerShape(12.dp),
             )
             .clickable(onClick = onClick)
             .padding(horizontal = 13.dp, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            imageVector = Icons.Rounded.Check,
-            contentDescription = null,
-            modifier = Modifier.size(15.dp),
-            tint = MiuixTheme.colorScheme.primary,
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = stringResource(R.string.ui_available_capacity_743337),
-            style = MiuixTheme.textStyles.body2,
-            color = MiuixTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f),
-        )
-        Icon(
-            imageVector = Icons.Rounded.ChevronRight,
-            contentDescription = null,
-            modifier = Modifier.size(14.dp),
-            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.7f),
-        )
+        body()
     }
 }
 
@@ -3402,36 +3736,52 @@ private fun ToolSummaryInline(
     FlowRow(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = if (compact) 10.dp else 20.dp, vertical = 3.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+            .padding(horizontal = if (compact) 10.dp else 20.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         message.tools.forEach { tool ->
-            Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(MiuixTheme.colorScheme.surface)
-                    .border(
-                        0.5.dp,
-                        MiuixTheme.colorScheme.outline.copy(alpha = 0.5f),
-                        RoundedCornerShape(10.dp),
-                    )
-                    .padding(horizontal = 9.dp, vertical = 5.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            val chipBody: @Composable () -> Unit = {
                 Icon(
                     imageVector = iconForTool(tool),
                     contentDescription = null,
                     modifier = Modifier.size(12.dp),
-                    tint = MiuixTheme.colorScheme.primary
+                    tint = etaPrimary()
                 )
                 Spacer(modifier = Modifier.width(5.dp))
                 Text(
                     text = toolDisplayName(tool),
-                    style = MiuixTheme.textStyles.footnote2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                    style = chatTertiaryStyle(),
+                    color = etaOnSurfaceVariant()
                 )
             }
+            // M3 Expressive：官方 Surface 承担只读标签容器（官方形状、官方 colorScheme 角色与描边）；
+            // miuix 主题族保留 clip + 背景 + 描边。
+            if (isMaterial3Theme()) {
+                Surface(
+                    shape = MaterialTheme.shapes.small,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        content = { chipBody() },
+                    )                }
+            } else {
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(chatSurfaceColor())
+                        .border(
+                            0.5.dp,
+                            chatDividerColor(0.5f),
+                            RoundedCornerShape(12.dp),
+                        )
+                        .padding(horizontal = 9.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    content = { chipBody() },
+                )            }
         }
     }
 }
@@ -3448,59 +3798,90 @@ private fun ContextCompactedDivider(
     if (message.compactedCount <= 0) return
     val view = LocalView.current
     var showSummary by remember { mutableStateOf(false) }
-    val lineColor = MiuixTheme.colorScheme.outline.copy(alpha = 0.55f)
-    val labelColor = MiuixTheme.colorScheme.onSurfaceVariantSummary
+    val lineColor = chatDividerColor(0.55f)
+    val labelColor = etaOnSurfaceVariant()
     val summaryAction = stringResource(R.string.context_compacted_summary_action)
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .height(0.5.dp)
-                .background(lineColor),
+    val countLabel = pluralStringResource(
+        R.plurals.context_compacted_messages,
+        message.compactedCount,
+        message.compactedCount,
+    )
+    val openSummary: () -> Unit = {
+        TouchHaptics.click(view)
+        showSummary = true
+    }
+    val labelBody: @Composable () -> Unit = {
+        Icon(
+            imageVector = Icons.Rounded.AutoAwesome,
+            contentDescription = null,
+            modifier = Modifier.size(12.dp),
+            tint = labelColor,
         )
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            text = countLabel,
+            style = chatTertiaryStyle(),
+            color = labelColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+    if (isMaterial3Theme()) {
+        // M3 Expressive：官方 HorizontalDivider 画两侧线条（官方 DividerDefaults），
+        // 官方 Surface(onClick) 承担中间可点的摘要标签（官方形状与涟漪）。
+        // contentDescription 保留，但只放「动作提示」，不放条数：官方 Surface(onClick) 链尾是
+        // `childSemantics()`，会把内容的 Text 合并进同一节点；ContentDescription 与 Text 是
+        // 两个不同的 SemanticsPropertyKey，分别落到 AccessibilityNodeInfo 的两个字段，
+        // TalkBack 会**两串都念**而非互相顶替。所以 cd 必须与子文本**互补**（"查看摘要" +
+        // "压紧了 N 条"），一旦把条数也抄进 cd 就会重复播报。
         Row(
-            modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .clickable {
-                    TouchHaptics.click(view)
-                    showSummary = true
-                }
-                .semantics {
-                    contentDescription = summaryAction
-                }
-                .padding(horizontal = 8.dp, vertical = 2.dp),
+            modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                imageVector = Icons.Rounded.AutoAwesome,
-                contentDescription = null,
-                modifier = Modifier.size(12.dp),
-                tint = labelColor,
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = pluralStringResource(
-                    R.plurals.context_compacted_messages,
-                    message.compactedCount,
-                    message.compactedCount,
-                ),
-                style = MiuixTheme.textStyles.footnote2,
-                color = labelColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            HorizontalDivider(modifier = Modifier.weight(1f))
+            Surface(
+                onClick = openSummary,
+                modifier = Modifier.semantics { contentDescription = summaryAction },
+                shape = MaterialTheme.shapes.extraSmall,
+                color = Color.Transparent,
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            ) {
+                Row { labelBody() }
+            }
+            HorizontalDivider(modifier = Modifier.weight(1f))
         }
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .height(0.5.dp)
-                .background(lineColor),
-        )
+    } else {
+        Row(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(0.5.dp)
+                    .background(lineColor),
+            )
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = openSummary)
+                    .semantics {
+                        contentDescription = summaryAction
+                    }
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                labelBody()
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(0.5.dp)
+                        .background(lineColor),
+                )
+            }
+        }
     }
     if (showSummary) {
         ContextCompactedSummarySheet(
@@ -3523,36 +3904,55 @@ private fun SuggestionChipsRow(
     FlowRow(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 6.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         message.prompts.forEach { prompt ->
-            Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(MiuixTheme.colorScheme.surface)
-                    .border(
-                        0.5.dp,
-                        MiuixTheme.colorScheme.outline.copy(alpha = 0.55f),
-                        RoundedCornerShape(10.dp),
+            // M3 Expressive：官方 SuggestionChip 正是「可点的建议语」，容器形状、描边、
+            // 内边距、涟漪与禁用态全部走官方默认值；miuix 主题族保留原卡片样式。
+            // Chip 家族在 alpha29 里不合并子节点语义（只有 `role = Role.Button`），
+            // 所以显式 mergeDescendants，让提示语作为按钮自身的播报文本被读一次。
+            if (isMaterial3Theme()) {
+                SuggestionChip(
+                    onClick = { onSuggestionClick(prompt) },
+                    modifier = Modifier.semantics(mergeDescendants = true) { },
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Rounded.AutoAwesome,
+                            contentDescription = null,
+                            modifier = Modifier.size(SuggestionChipDefaults.IconSize),
+                        )
+                    },
+                    label = { M3Text(prompt) },
+                )
+            } else {
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(chatSurfaceColor())
+                        .border(
+                            0.5.dp,
+                            chatDividerColor(0.55f),
+                            RoundedCornerShape(12.dp),
+                        )
+                        .clickable { onSuggestionClick(prompt) }
+                        .padding(horizontal = 13.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.AutoAwesome,
+                        contentDescription = null,
+                        modifier = Modifier.size(12.dp),
+                        tint = etaPrimary()
                     )
-                    .clickable { onSuggestionClick(prompt) }
-                    .padding(horizontal = 13.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.AutoAwesome,
-                    contentDescription = null,
-                    modifier = Modifier.size(12.dp),
-                    tint = MiuixTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = prompt,
-                    style = MiuixTheme.textStyles.footnote1,
-                    color = MiuixTheme.colorScheme.onSurface,
-                )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = prompt,
+                        style = chatQuaternaryStyle(),
+                        color = etaOnSurface(),
+                    )
+                }
             }
         }
     }
@@ -3560,13 +3960,28 @@ private fun SuggestionChipsRow(
 
 // ── 辅助 ──────────────────────────────────────────────────────────────
 
+/**
+ * 工具状态色。
+ *
+ * Material 3 Expressive 的 colorScheme 没有 success / running 语义角色，一律映射到官方
+ * `primary` / `error` / `onSurfaceVariant`；miuix 主题族保留 StatusColors 里的原有取值。
+ */
 @Composable
 private fun ToolActivityStatusUi.statusColor() = when (this) {
-    ToolActivityStatusUi.Running -> StatusRunning
-    ToolActivityStatusUi.Success -> StatusSuccess
-    ToolActivityStatusUi.Failed -> StatusError
-    ToolActivityStatusUi.Unknown -> MiuixTheme.colorScheme.onSurfaceVariantSummary
+    ToolActivityStatusUi.Running -> if (isMaterial3Theme()) MaterialTheme.colorScheme.primary else StatusRunning
+    ToolActivityStatusUi.Success -> if (isMaterial3Theme()) MaterialTheme.colorScheme.primary else StatusSuccess
+    ToolActivityStatusUi.Failed -> if (isMaterial3Theme()) MaterialTheme.colorScheme.error else StatusError
+    ToolActivityStatusUi.Unknown -> etaOnSurfaceVariant()
 }
+
+/** 工具状态文字色：M3 用官方 error / onSurface 角色；miuix 保留 StatusError。 */
+@Composable
+private fun toolStatusTextColor(failed: Boolean): Color =
+    if (failed) {
+        if (isMaterial3Theme()) MaterialTheme.colorScheme.error else StatusError
+    } else {
+        etaOnSurfaceVariant()
+    }
 
 @Composable
 private fun ToolActivityStatusUi.statusLabel(): String = when (this) {

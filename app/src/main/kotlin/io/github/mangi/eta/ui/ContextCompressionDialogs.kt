@@ -1,16 +1,13 @@
 package io.github.mangi.eta.ui
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.background
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.RadioButton
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.semantics.Role
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -20,8 +17,6 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.SharedPreferences
 import android.view.ViewTreeObserver
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
@@ -76,7 +71,9 @@ import top.yukonga.miuix.kmp.basic.DropdownItem
 import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.data.datastore.SettingsDataStore
 import io.github.mangi.eta.data.repository.ProviderRepository
-import io.github.mangi.eta.ui.components.MiuixDialogActions
+import io.github.mangi.eta.ui.adaptive.EtaDialog
+import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.model.AgentModelOptionUi
 import io.github.mangi.eta.ui.model.AgentModelPickerProjector
@@ -87,11 +84,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
-import top.yukonga.miuix.kmp.basic.Icon
+import androidx.compose.material3.Icon
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.window.WindowDialog
+import androidx.compose.material3.CircularProgressIndicator as M3CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider as M3HorizontalDivider
+import androidx.compose.material3.TextButton as M3TextButton
 
 
 private val CompressDialogChrome = 200.dp
@@ -165,7 +164,7 @@ internal fun CompressionEndpointPreference(
         Text(
             stringResource(R.string.ui_compress_endpoint_description),
             modifier = Modifier.fillMaxWidth().padding(start = horizontal, end = horizontal, bottom = 12.dp),
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Start,
         )
@@ -182,93 +181,58 @@ private fun CompactCompressionEndpointPreference(
     var detailsExpanded by remember { mutableStateOf(false) }
     val view = LocalView.current
     val detailsState = stringResource(if (detailsExpanded) R.string.work_collapse else R.string.work_expand)
-    Column(modifier = Modifier.fillMaxWidth().padding(top = 20.dp)) {
+    Column(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
         Text(
             text = stringResource(R.string.ui_compress_request_api),
-            style = MaterialTheme.typography.titleSmall,
+            style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
         Text(
             text = stringResource(R.string.ui_compress_endpoint_hint),
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 4.dp, bottom = 10.dp),
+            modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
         )
-        Column(
-            modifier = Modifier.fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .selectableGroup(),
-        ) {
+        // 官方单选列表：选中态、涟漪与无障碍单选语义均由 ListItem 提供。
+        Column(modifier = Modifier.fillMaxWidth().selectableGroup()) {
             listOf(
                 OpenAiEndpointMode.CHAT_COMPLETIONS to "Chat Completions API",
                 OpenAiEndpointMode.RESPONSES to "Responses API",
             ).forEach { (mode, label) ->
-                val checked = selected == mode
-                Row(
-                    modifier = Modifier.fillMaxWidth()
-                        .background(if (checked) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-                            else androidx.compose.ui.graphics.Color.Transparent)
-                        .selectable(
-                            selected = checked,
-                            enabled = enabled,
-                            role = Role.RadioButton,
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                        ) {
-                            if (!checked) {
-                                TouchHaptics.click(view)
-                                onSelect(mode)
-                            }
-                        }
-                        .heightIn(min = 48.dp)
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f),
-                    )
-                    RadioButton(selected = checked, onClick = null, enabled = enabled)
-                }
+                ListItem(
+                    selected = selected == mode,
+                    enabled = enabled,
+                    onClick = { if (selected != mode) { TouchHaptics.click(view); onSelect(mode) } },
+                    // 可交互/单选重载的正文参数名是 content（不是 headlineContent）。
+                    content = { Text(label) },
+                    trailingContent = { RadioButton(selected = selected == mode, onClick = null, enabled = enabled) },
+                )
             }
         }
-        Row(
-            modifier = Modifier.fillMaxWidth()
-                .semantics { stateDescription = detailsState }
-                .clickable(
-                    enabled = enabled,
-                    role = Role.Button,
-                    indication = null,
-                    interactionSource = remember { MutableInteractionSource() },
-                ) {
-                    TouchHaptics.click(view)
-                    detailsExpanded = !detailsExpanded
-                }
-                .heightIn(min = 48.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(
-                text = stringResource(R.string.ui_compress_endpoint_help),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(1f),
-            )
-            Icon(
-                imageVector = if (detailsExpanded) Icons.Rounded.ExpandMore else Icons.Rounded.ChevronRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp),
-            )
-        }
+        ListItem(
+            modifier = Modifier.semantics { stateDescription = detailsState },
+            onClick = {
+                TouchHaptics.click(view)
+                detailsExpanded = !detailsExpanded
+            },
+            // 可交互重载的正文参数名是 content（不是 headlineContent）。
+            content = {
+                Text(
+                    text = stringResource(R.string.ui_compress_endpoint_help),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            },
+            trailingContent = {
+                Icon(
+                    imageVector = if (detailsExpanded) Icons.Rounded.ExpandMore else Icons.Rounded.ChevronRight,
+                    contentDescription = null,
+                )
+            },
+        )
         AnimatedVisibility(visible = detailsExpanded) {
             Text(
                 text = stringResource(R.string.ui_compress_endpoint_description),
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Start,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
@@ -323,7 +287,7 @@ internal fun CompressConversationDialog(
         isLoadingModels = false
     }
 
-    WindowDialog(
+    EtaDialog(
         show = show,
         title = stringResource(R.string.action_compress_conversation),
         modifier = Modifier.offset(y = dialogImeOffset),
@@ -354,14 +318,24 @@ internal fun CompressConversationDialog(
                 ) {
                     Text(
                         text = stringResource(R.string.ui_custom_compress_model_title),
-                        style = MaterialTheme.typography.titleSmall,
+                        style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.weight(1f).padding(end = 12.dp),
                     )
                     val customModelLabel = stringResource(R.string.ui_custom_compress_model_title)
+                    // 官方 expressive 勾选：选中时在拇指内显示对勾，尺寸取官方 SwitchDefaults.IconSize。
                     Switch(
                         checked = customModelEnabled,
                         modifier = Modifier.semantics { contentDescription = customModelLabel },
+                        thumbContent = {
+                            if (customModelEnabled) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Check,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(SwitchDefaults.IconSize),
+                                )
+                            }
+                        },
                         enabled = !isCompressing && !isLoadingModels,
                         onCheckedChange = { value ->
                             TouchHaptics.click(view)
@@ -377,45 +351,26 @@ internal fun CompressConversationDialog(
                     )
                 }
                 if (customModelEnabled) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                            .clickable(
-                                enabled = !isCompressing && !isLoadingModels,
-                                role = Role.Button,
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                            ) {
-                                TouchHaptics.click(view)
-                                showModelDialog = true
-                            }
-                            .heightIn(min = 52.dp)
-                            .padding(horizontal = 12.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Text(
-                            text = if (isLoadingModels) stringResource(R.string.ui_compress_models_loading)
+                    ListItem(
+                        enabled = !isCompressing && !isLoadingModels,
+                        onClick = {
+                            TouchHaptics.click(view)
+                            showModelDialog = true
+                        },
+                        content = {
+                            Text(
+                                text = if (isLoadingModels) stringResource(R.string.ui_compress_models_loading)
                                 else selectedModel?.displayName ?: stringResource(R.string.model_not_selected),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Icon(
-                            imageVector = Icons.Rounded.ChevronRight,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        },
+                        trailingContent = { Icon(imageVector = Icons.Rounded.ChevronRight, contentDescription = null) },
+                    )
                 } else {
                     Text(
                         text = stringResource(R.string.ui_custom_compress_model_summary),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 2.dp),
                     )
@@ -440,16 +395,21 @@ internal fun CompressConversationDialog(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    CircularProgressIndicator(size = 18.dp, strokeWidth = 2.dp)
+                    if (isMaterial3Theme()) {
+                        // 官方不确定进度指示器：尺寸/线宽/配色全部使用官方默认值。
+                        M3CircularProgressIndicator(modifier = Modifier.size(18.dp))
+                    } else {
+                        CircularProgressIndicator(size = 18.dp, strokeWidth = 2.dp)
+                    }
                     Text(
                         text = stringResource(R.string.compress_conversation_in_progress),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(start = 8.dp),
                     )
                 }
             }
 
-            MiuixDialogActions(
+            EtaDialogActions(
                 confirmText = stringResource(R.string.compress_conversation_confirm),
                 cancelText = stringResource(R.string.action_cancel),
                 confirmEnabled = !isCompressing && !isLoadingModels,
@@ -459,7 +419,7 @@ internal fun CompressConversationDialog(
                     .alpha(if (isCompressing) 0.42f else 1f),
                 onCancel = onDismiss,
                 onConfirm = {
-                    if (isCompressing) return@MiuixDialogActions
+                    if (isCompressing) return@EtaDialogActions
                     focusManager.clearFocus()
                     keyboard?.hide()
                     Prefs.putString(Prefs.Keys.AGENT_MANUAL_COMPRESS_ENDPOINT_MODE, endpointMode)
@@ -516,18 +476,28 @@ internal fun CompressModelMissingWindowDialog(
     onDismiss: () -> Unit,
 ) {
     if (!show) return
-    WindowDialog(
+    EtaDialog(
         show = true,
         title = stringResource(R.string.compress_model_missing_window_title),
         summary = stringResource(R.string.compress_model_missing_window_summary),
         onDismissRequest = onDismiss,
     ) {
-        TextButton(
-            text = stringResource(R.string.ui_knew_cb63c6),
-            onClick = onDismiss,
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.textButtonColorsPrimary(),
-        )
+        if (isMaterial3Theme()) {
+            // 官方文字按钮：形状、行高与配色均取官方默认值。
+            M3TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(text = stringResource(R.string.ui_knew_cb63c6))
+            }
+        } else {
+            TextButton(
+                text = stringResource(R.string.ui_knew_cb63c6),
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.textButtonColorsPrimary(),
+            )
+        }
     }
 }
 
@@ -548,7 +518,7 @@ internal fun CompressModelPickerDialog(
             state.providerGroups.singleOrNull()?.providerId?.let(::setOf).orEmpty()
         }
     }
-    WindowDialog(
+    EtaDialog(
         show = show,
         title = title ?: stringResource(R.string.ui_compress_model_title),
         onDismissRequest = onDismiss,
@@ -566,68 +536,62 @@ internal fun CompressModelPickerDialog(
                         .padding(horizontal = 4.dp, vertical = 16.dp),
                     horizontalArrangement = Arrangement.Center,
                 ) {
-                    CircularProgressIndicator(size = 22.dp, strokeWidth = 2.dp)
+                    if (isMaterial3Theme()) {
+                        M3CircularProgressIndicator(modifier = Modifier.size(22.dp))
+                    } else {
+                        CircularProgressIndicator(size = 22.dp, strokeWidth = 2.dp)
+                    }
                 }
             } else if (state.providerGroups.isEmpty()) {
-                MiuixText(
-                    text = stringResource(R.string.provider_empty),
-                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 12.dp),
-                )
+                if (isMaterial3Theme()) {
+                    Text(
+                        text = stringResource(R.string.provider_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 12.dp),
+                    )
+                } else {
+                    MiuixText(
+                        text = stringResource(R.string.provider_empty),
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 12.dp),
+                    )
+                }
             } else {
                 state.providerGroups.forEachIndexed { index, group ->
                     if (index > 0) {
-                        HorizontalDivider(modifier = Modifier.padding(horizontal = 4.dp))
+                        if (isMaterial3Theme()) {
+                            M3HorizontalDivider(modifier = Modifier.padding(horizontal = 4.dp))
+                        } else {
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 4.dp))
+                        }
                     }
                     val expanded = group.providerId in expandedProviderIds
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                                role = Role.Button,
-                            ) {
-                                TouchHaptics.click(view)
-                                expandedProviderIds = if (expanded) {
-                                    emptySet()
-                                } else {
-                                    setOf(group.providerId)
-                                }
+                    ListItem(
+                        onClick = {
+                            TouchHaptics.click(view)
+                            expandedProviderIds = if (expanded) {
+                                emptySet()
+                            } else {
+                                setOf(group.providerId)
                             }
-                            .padding(horizontal = 4.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = group.providerName,
-                            style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
+                        },
+                        content = { Text(group.providerName) },
+                    )
                     if (expanded) {
                         group.models.forEach { model ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable(
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        indication = null,
-                                        role = Role.Button,
-                                    ) {
-                                        TouchHaptics.click(view)
-                                        onModelSelected(model.providerId, model.id)
+                            ListItem(
+                                modifier = Modifier.padding(start = 16.dp),
+                                onClick = {
+                                    TouchHaptics.click(view)
+                                    onModelSelected(model.providerId, model.id)
+                                },
+                                content = { Text(model.displayName) },
+                                trailingContent = {
+                                    if (model.id == state.selectedModel?.id) {
+                                        Icon(imageVector = Icons.Rounded.Check, contentDescription = null)
                                     }
-                                    .padding(start = 20.dp, end = 4.dp, top = 12.dp, bottom = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(
-                                    text = model.displayName,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    modifier = Modifier.weight(1f),
-                                )
-                                if (model.id == state.selectedModel?.id) {
-                                    Icon(imageVector = Icons.Rounded.Check, contentDescription = null)
-                                }
-                            }
+                                },
+                            )
                         }
                     }
                 }

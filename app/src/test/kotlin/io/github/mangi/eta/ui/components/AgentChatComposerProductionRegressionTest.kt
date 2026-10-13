@@ -168,7 +168,7 @@ class AgentChatComposerProductionRegressionTest {
                         isStreaming = streaming.value, isPaused = paused.value,
                         reasoningEffort = ReasoningEffort.MEDIUM, availableReasoningEfforts = emptyList(),
                         pendingImages = emptyList(), pendingFileReferences = emptyList(), conversationMentions = mentions, messageEdit = null,
-                        showEmptySuggestions = false, keepBottomAnchored = true, onBottomAnchorChanged = {},
+                        keepBottomAnchored = true, onBottomAnchorChanged = {},
                         onSubmit = callback.value, onReasoningEffortChange = {}, onModelSelected = { _, _ -> },
                         onStop = { calls += "stop" }, onContinue = { calls += "continue" },
                         onAttachImage = {}, onAttachVideo = {}, onRemoveImage = {}, onAttachFiles = {},

@@ -19,7 +19,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 internal fun TaskCompletedDivider(modifier: Modifier = Modifier) {
     val lineColor = MiuixTheme.colorScheme.outline.copy(alpha = 0.55f)
     Row(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
+        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.weight(1f).height(0.5.dp).background(lineColor))

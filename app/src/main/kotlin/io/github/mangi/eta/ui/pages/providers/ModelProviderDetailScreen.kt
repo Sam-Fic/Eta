@@ -28,6 +28,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -40,9 +41,14 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.adaptive.EtaDialog
+import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.EtaScaffold
+import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
+import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.data.model.AnthropicProviderSetting
-import io.github.mangi.eta.data.model.BalanceOption
 import io.github.mangi.eta.data.model.CustomProviderSetting
 import io.github.mangi.eta.agent.model.oauth.OpenAiCodexOAuth
 import io.github.mangi.eta.data.model.OpenAiEndpointMode
@@ -58,36 +64,26 @@ import io.github.mangi.eta.data.model.withId
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.data.repository.RemoteModelFetcher
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
-import io.github.mangi.eta.ui.components.MiuixDialogActions
 import io.github.mangi.eta.ui.components.MiuixPageBottomSpacer
-import io.github.mangi.eta.ui.components.MiuixScaffold
-import io.github.mangi.eta.ui.components.MiuixScaffoldPage
 import io.github.mangi.eta.ui.components.StatusError
 import io.github.mangi.eta.ui.components.StatusSuccess
 import io.github.mangi.eta.ui.layout.horizontalCutoutPadding
-import io.github.mangi.eta.ui.pages.providers.ProviderBalanceOptionFields
 import io.github.mangi.eta.ui.navigation.NewProviderType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.DropdownItem
-import top.yukonga.miuix.kmp.basic.HorizontalDivider
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
 import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.overlay.OverlayDialog
-import top.yukonga.miuix.kmp.preference.SwitchPreference
-import top.yukonga.miuix.kmp.preference.WindowSpinnerPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
+import androidx.compose.material3.Card as M3Card
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Text as M3Text
 
 @Composable
 internal fun ModelProviderDetailScreen(
@@ -157,7 +153,7 @@ internal fun ModelProviderDetailScreen(
     }
 
     if (provider == null && draft == null) {
-        MiuixScaffoldPage(
+        EtaScaffoldPage(
             title = stringResource(R.string.route_provider_details),
             onBack = onBack,
         ) {
@@ -167,9 +163,16 @@ internal fun ModelProviderDetailScreen(
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text(stringResource(R.string.ui_provider_does_not_exist_83cee6))
+                    if (isMaterial3Theme()) {
+                        M3Text(
+                            text = stringResource(R.string.ui_provider_does_not_exist_83cee6),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    } else {
+                        Text(text = stringResource(R.string.ui_provider_does_not_exist_83cee6))
+                    }
                     Spacer(modifier = Modifier.height(12.dp))
-                    TextButton(text = stringResource(R.string.ui_return_11d024), onClick = onBack)
+                    ProviderPrimaryAction(text = stringResource(R.string.ui_return_11d024), onClick = onBack)
                 }
             }
         }
@@ -187,7 +190,7 @@ internal fun ModelProviderDetailScreen(
     }
     val title = if (isNew) context.getString(R.string.page_create_new_provider_36cab9) else initial.name
 
-    MiuixScaffold(title = title, onBack = onBack) { paddingValues, scrollBehavior, sidePadding ->
+    EtaScaffold(title = title, onBack = onBack) { paddingValues, scrollBehavior, sidePadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -195,10 +198,16 @@ internal fun ModelProviderDetailScreen(
                 .padding(top = paddingValues.calculateTopPadding()),
         ) {
             if (!isNew) {
-                TabRow(
-                    tabs = listOf(context.getString(R.string.page_configuration_d7d7ce), context.getString(R.string.page_model_98fd0c)),
-                    selectedTabIndex = currentTab,
-                    onTabSelected = { TouchHaptics.click(view); currentTab = it },
+                ProviderTabs(
+                    tabs = listOf(
+                        context.getString(R.string.page_configuration_d7d7ce),
+                        context.getString(R.string.page_model_98fd0c),
+                    ),
+                    selectedIndex = currentTab,
+                    onSelect = {
+                        TouchHaptics.click(view)
+                        currentTab = it
+                    },
                     modifier = Modifier.padding(
                         horizontal = sidePadding + 12.dp,
                         vertical = 8.dp,
@@ -213,7 +222,7 @@ internal fun ModelProviderDetailScreen(
                         onDraftChange = { configDraft = it },
                         scope = scope,
                         isNew = isNew,
-                        scrollBehavior = scrollBehavior,
+                        scrollConnection = scrollBehavior,
                         contentSidePadding = sidePadding,
                         onCreated = { id -> createdId = id },
                         onDeleted = onBack,
@@ -222,7 +231,7 @@ internal fun ModelProviderDetailScreen(
                         ProviderModelsTab(
                             provider = initial,
                             scope = scope,
-                            scrollBehavior = scrollBehavior,
+                            scrollConnection = scrollBehavior,
                             contentSidePadding = sidePadding,
                             currentModelId = currentModelId,
                             onSelectCurrent = onSelectCurrentModel,
@@ -234,6 +243,41 @@ internal fun ModelProviderDetailScreen(
     }
 }
 
+/**
+ * 配置 / 模型分段切换。
+ *
+ * Material 3 走官方单选分段按钮（形状取官方 [SegmentedButtonDefaults]）；
+ * MIUI X 保持原有 [TabRow]。
+ */
+@Composable
+private fun ProviderTabs(
+    tabs: List<String>,
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (isMaterial3Theme()) {
+        SingleChoiceSegmentedButtonRow(modifier = modifier.fillMaxWidth()) {
+            tabs.forEachIndexed { index, label ->
+                SegmentedButton(
+                    selected = index == selectedIndex,
+                    onClick = { onSelect(index) },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = tabs.size),
+                ) {
+                    M3Text(text = label)
+                }
+            }
+        }
+    } else {
+        TabRow(
+            tabs = tabs,
+            selectedTabIndex = selectedIndex,
+            onTabSelected = onSelect,
+            modifier = modifier,
+        )
+    }
+}
+
 @Composable
 private fun ProviderConfigTab(
     provider: ProviderSetting,
@@ -241,7 +285,7 @@ private fun ProviderConfigTab(
     onDraftChange: (ProviderConfigDraft) -> Unit,
     scope: CoroutineScope,
     isNew: Boolean,
-    scrollBehavior: ScrollBehavior,
+    scrollConnection: NestedScrollConnection,
     contentSidePadding: Dp,
     onCreated: (String) -> Unit,
     onDeleted: () -> Unit,
@@ -263,11 +307,11 @@ private fun ProviderConfigTab(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            // 低层 MiuixScaffold 只负责把顶栏 Insets 传给调用方，输入法 Insets 由列表自行消费。
+            // 低层 Scaffold 只负责把顶栏 Insets 传给调用方，输入法 Insets 由列表自行消费。
             .imePadding()
             .scrollEndHaptic()
             .overScrollVertical()
-            .nestedScroll(scrollBehavior.nestedScrollConnection),
+            .nestedScroll(scrollConnection),
         contentPadding = PaddingValues(
             start = contentSidePadding,
             end = contentSidePadding,
@@ -277,22 +321,17 @@ private fun ProviderConfigTab(
         item(key = "connection") {
             ProviderSection(title = stringResource(R.string.ui_connection_configuration_7d057b)) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    TextField(
+                    ProviderField(
                         value = draft.name,
                         onValueChange = { onDraftChange(draft.copy(name = it)) },
                         label = stringResource(R.string.ui_name_1be7ae),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    TextField(
+                    ProviderField(
                         value = draft.baseUrl,
                         onValueChange = { onDraftChange(draft.copy(baseUrl = it)) },
                         label = "Base URL",
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.padding(top = 12.dp),
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
                     if (ProviderAuthMode.isOAuth(draft.authMode)) {
                         ProviderOAuthLoginRow(
                             providerId = provider.id,
@@ -303,52 +342,45 @@ private fun ProviderConfigTab(
                             onStatus = { status = it },
                         )
                     } else {
-                        TextField(
+                        ProviderField(
                             value = draft.apiKey,
                             onValueChange = { onDraftChange(draft.copy(apiKey = it)) },
                             label = "API Key",
-                            singleLine = true,
+                            modifier = Modifier.padding(top = 12.dp),
                             visualTransformation = if (apiKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
                             trailingIcon = {
-                                IconButton(onClick = {
-                                TouchHaptics.click(view)
-                                apiKeyVisible = !apiKeyVisible
-                            }) {
-                                    Icon(
-                                        imageVector = if (apiKeyVisible) Icons.Rounded.Visibility else Icons.Rounded.VisibilityOff,
-                                        contentDescription = if (apiKeyVisible) context.getString(R.string.page_hide_bb0e7e) else context.getString(R.string.page_show_71b677),
-                                    )
-                                }
+                                ProviderIconAction(
+                                    icon = if (apiKeyVisible) Icons.Rounded.Visibility else Icons.Rounded.VisibilityOff,
+                                    contentDescription = if (apiKeyVisible) context.getString(R.string.page_hide_bb0e7e) else context.getString(R.string.page_show_71b677),
+                                    onClick = {
+                                        TouchHaptics.click(view)
+                                        apiKeyVisible = !apiKeyVisible
+                                    },
+                                )
                             },
-                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                     if (provider is AnthropicProviderSetting) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        TextField(
+                        ProviderField(
                             value = draft.anthropicVersion,
                             onValueChange = { onDraftChange(draft.copy(anthropicVersion = it)) },
                             label = "anthropic-version",
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.padding(top = 12.dp),
                         )
                     }
                 }
                 val speechOnly = SpeechSynthesisModels.isSpeechOnlyProvider(provider)
                 if (provider !is AnthropicProviderSetting && !speechOnly) {
-                    HorizontalDivider()
-                    WindowSpinnerPreference(
-                        items = listOf(
-                            DropdownItem(text = "Chat Completions API"),
-                            DropdownItem(text = "Responses API"),
-                        ),
-                        selectedIndex = if (draft.endpointMode == OpenAiEndpointMode.RESPONSES) 1 else 0,
+                    ProviderDivider()
+                    ProviderDropdownRow(
                         title = stringResource(R.string.ui_endpoint_mode_3c8546),
                         summary = if (draft.endpointMode == OpenAiEndpointMode.RESPONSES) {
                             context.getString(R.string.page_using_typed_items_with_semantic_streaming_events_f9c906)
                         } else {
                             context.getString(R.string.page_use_standard_chat_completions_ee4b1a)
                         },
+                        items = listOf("Chat Completions API", "Responses API"),
+                        selectedIndex = if (draft.endpointMode == OpenAiEndpointMode.RESPONSES) 1 else 0,
                         onSelectedIndexChange = { selectedIndex ->
                             onDraftChange(
                                 draft.copy(
@@ -362,8 +394,7 @@ private fun ProviderConfigTab(
                         },
                     )
                     if (draft.endpointMode == OpenAiEndpointMode.RESPONSES) {
-                        HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
-                        SwitchPreference(
+                        EtaSwitchRow(
                             title = stringResource(R.string.ui_server_side_web_search_ddb8e0),
                             summary = stringResource(R.string.ui_allows_the_model_to_call_web_searches_provided_by_th_2f752f),
                             checked = draft.hostedWebSearchEnabled,
@@ -373,8 +404,8 @@ private fun ProviderConfigTab(
                         )
                     }
                 }
-                HorizontalDivider()
-                BasicComponent(
+                ProviderDivider()
+                ProviderClickableRow(
                     title = stringResource(R.string.ui_test_connection_10b7d8),
                     summary = testStatus,
                     enabled = !isWorking,
@@ -383,7 +414,7 @@ private fun ProviderConfigTab(
                         val validationError = validateProviderDraft(context, draft)
                         if (validationError != null) {
                             testStatus = context.getString(R.string.provider_error, validationError)
-                            return@BasicComponent
+                            return@ProviderClickableRow
                         }
                         scope.launch {
                             isWorking = true
@@ -452,10 +483,10 @@ private fun ProviderConfigTab(
 
         item(key = "preferences_and_prompt") {
             ProviderSection(title = stringResource(R.string.ui_preferences_and_strategies_2abd3c)) {
-                SwitchPreference(
+                EtaSwitchRow(
                     title = stringResource(R.string.ui_enable_this_provider_683a76),
                     checked = draft.isEnabled,
-                    onCheckedChange = { onDraftChange(draft.copy(isEnabled = it)) }
+                    onCheckedChange = { onDraftChange(draft.copy(isEnabled = it)) },
                 )
             }
         }
@@ -494,126 +525,166 @@ private fun ProviderConfigTab(
                     .padding(top = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                TextButton(
+                val onSavePrimary: () -> Unit = {
+                    TouchHaptics.click(view)
+                    val validationError = validateProviderDraft(context, draft)
+                        ?: if (ProviderAuthMode.isOAuth(draft.authMode) && draft.apiKey.isBlank()) {
+                            context.getString(R.string.provider_oauth_need_sign_in)
+                        } else {
+                            null
+                        }
+                    if (validationError != null) {
+                        status = context.getString(R.string.provider_error, validationError)
+                    } else {
+                        scope.launch {
+                        isWorking = true
+                        val built = buildUpdatedProvider(
+                            source = provider,
+                            name = draft.name,
+                            baseUrl = draft.baseUrl,
+                            apiKey = draft.apiKey,
+                            authMode = draft.authMode,
+                            isEnabled = draft.isEnabled,
+                            endpointMode = draft.endpointMode,
+                            responsesStripReasoningStatus = draft.responsesStripReasoningStatus,
+                            hostedWebSearchEnabled = draft.hostedWebSearchEnabled,
+                            anthropicVersion = draft.anthropicVersion,
+                            customHeaders = draft.headers.map { it.header },
+                            customBody = bodiesResult.getOrThrow(),
+                            balanceOption = draft.balanceOption,
+                            sessionGatewayJson = draft.encodedSessionGateway(),
+                        )
+                        try {
+                            if (isNew) {
+                                val newId = provider.id.ifBlank { ProviderRepository.newId() }
+                                val toSave = built.withId(newId).let { saved ->
+                                    when {
+                                        saved.usesOAuth && saved.models.isEmpty() ->
+                                            saved.withModels(OpenAiCodexOAuth.defaultModels())
+                                        SpeechSynthesisModels.isSpeechOnlyProvider(saved) && saved.models.none { SpeechSynthesisModels.matches(it) } ->
+                                            saved.withModels(SpeechSynthesisModels.mergeCatalog(saved))
+                                        else -> saved
+                                    }
+                                }
+                                val added = ProviderRepository.addProvider(toSave)
+                                RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+                                status = context.getString(R.string.capability_provider_created)
+                                creationCommitted = true
+                                onCreated(added.id)
+                            } else {
+                                ProviderRepository.updateProvider(built)
+                                RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+                                status = context.getString(R.string.capability_provider_saved)
+                            }
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (throwable: Throwable) {
+                            status = context.getString(
+                                R.string.provider_error,
+                                throwable.message ?: context.getString(R.string.provider_save_failed),
+                            )
+                        } finally {
+                            isWorking = false
+                        }
+                        }
+                    }
+                }
+                ProviderPrimaryAction(
                     text = when {
                         isWorking -> context.getString(R.string.page_saving_d70d42)
                         creationCommitted -> context.getString(R.string.page_created_62cfc5)
                         isNew -> context.getString(R.string.page_create_fcbd09)
                         else -> context.getString(R.string.page_save_configuration_817af1)
                     },
+                    onClick = onSavePrimary,
                     enabled = !isWorking && !creationCommitted,
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
-                    onClick = {
-                        TouchHaptics.click(view)
-                        val validationError = validateProviderDraft(context, draft)
-                            ?: if (ProviderAuthMode.isOAuth(draft.authMode) && draft.apiKey.isBlank()) {
-                                context.getString(R.string.provider_oauth_need_sign_in)
-                            } else {
-                                null
-                            }
-                        if (validationError != null) {
-                            status = context.getString(R.string.provider_error, validationError)
-                            return@TextButton
-                        }
-                        scope.launch {
-                            isWorking = true
-                            val built = buildUpdatedProvider(
-                                source = provider,
-                                name = draft.name,
-                                baseUrl = draft.baseUrl,
-                                apiKey = draft.apiKey,
-                                authMode = draft.authMode,
-                                isEnabled = draft.isEnabled,
-                                endpointMode = draft.endpointMode,
-                                responsesStripReasoningStatus = draft.responsesStripReasoningStatus,
-                                hostedWebSearchEnabled = draft.hostedWebSearchEnabled,
-                                anthropicVersion = draft.anthropicVersion,
-                                customHeaders = draft.headers.map { it.header },
-                                customBody = bodiesResult.getOrThrow(),
-                                balanceOption = draft.balanceOption,
-                                sessionGatewayJson = draft.encodedSessionGateway(),
-                            )
-                            try {
-                                if (isNew) {
-                                    val newId = provider.id.ifBlank { ProviderRepository.newId() }
-                                    val toSave = built.withId(newId).let { saved ->
-                                        when {
-                                            saved.usesOAuth && saved.models.isEmpty() ->
-                                                saved.withModels(OpenAiCodexOAuth.defaultModels())
-                                            SpeechSynthesisModels.isSpeechOnlyProvider(saved) && saved.models.none { SpeechSynthesisModels.matches(it) } ->
-                                                saved.withModels(SpeechSynthesisModels.mergeCatalog(saved))
-                                            else -> saved
-                                        }
-                                    }
-                                    val added = ProviderRepository.addProvider(toSave)
-                                    RuntimeConfigRepository.syncToRemotePreferences(
-                                        EtaApp.serviceInstance
-                                    )
-                                    status = context.getString(R.string.capability_provider_created)
-                                    creationCommitted = true
-                                    onCreated(added.id)
-                                } else {
-                                    ProviderRepository.updateProvider(built)
-                                    RuntimeConfigRepository.syncToRemotePreferences(
-                                        EtaApp.serviceInstance
-                                    )
-                                    status = context.getString(R.string.capability_provider_saved)
-                                }
-                            } catch (cancelled: CancellationException) {
-                                throw cancelled
-                            } catch (throwable: Throwable) {
-                                status = context.getString(
-                                    R.string.provider_error,
-                                    throwable.message ?: context.getString(R.string.provider_save_failed),
-                                )
-                            } finally {
-                                isWorking = false
-                            }
-                        }
-                    },
                 )
                 status?.let { message ->
-                    Text(
-                        text = message,
-                        style = MiuixTheme.textStyles.footnote2,
-                        color = if (message.startsWith(context.getString(R.string.page_fail_3e3c80))) StatusError else StatusSuccess,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
+                    if (isMaterial3Theme()) {
+                        M3Text(
+                            text = message,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (message.startsWith(context.getString(R.string.page_fail_3e3c80))) {
+                                MaterialTheme.colorScheme.error
+                            } else {
+                                MaterialTheme.colorScheme.primary
+                            },
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                    } else {
+                        Text(
+                            text = message,
+                            style = MiuixTheme.textStyles.footnote2,
+                            color = if (message.startsWith(context.getString(R.string.page_fail_3e3c80))) StatusError else StatusSuccess,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                    }
                 }
             }
         }
 
         if (!isNew) {
             item(key = "danger_zone") {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp)
-                        .padding(top = 12.dp),
-                    showIndication = true,
-                    onClick = if (isWorking) {
-                        null
-                    } else {
-                        {
-                            TouchHaptics.click(view)
-                            if (provider.isBuiltIn) showResetDialog = true else showDeleteDialog = true
-                        }
-                    },
-                ) {
-                    Box(
+                val onDangerClick = {
+                    TouchHaptics.click(view)
+                    if (provider.isBuiltIn) showResetDialog = true else showDeleteDialog = true
+                }
+                if (isMaterial3Theme()) {
+                    // 官方可点击 Card（自带涟漪与按压形变），破坏性文案取官方 error 角色色。
+                    M3Card(
+                        onClick = onDangerClick,
+                        enabled = !isWorking,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 14.dp),
-                        contentAlignment = Alignment.Center,
+                            .padding(horizontal = 12.dp)
+                            .padding(top = 12.dp),
                     ) {
-                        Text(
-                            text = if (provider.isBuiltIn) context.getString(R.string.page_reset_built_in_configuration_35b6ec) else context.getString(R.string.page_remove_provider_9f848f),
-                            fontSize = MiuixTheme.textStyles.headline1.fontSize,
-                            fontWeight = FontWeight.Medium,
-                            color = MiuixTheme.colorScheme.error,
-                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 12.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            M3Text(
+                                text = if (provider.isBuiltIn) {
+                                    context.getString(R.string.page_reset_built_in_configuration_35b6ec)
+                                } else {
+                                    context.getString(R.string.page_remove_provider_9f848f)
+                                },
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                    }
+                } else {
+                    top.yukonga.miuix.kmp.basic.Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp)
+                            .padding(top = 12.dp),
+                        showIndication = true,
+                        onClick = if (isWorking) null else onDangerClick,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 12.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = if (provider.isBuiltIn) {
+                                    context.getString(R.string.page_reset_built_in_configuration_35b6ec)
+                                } else {
+                                    context.getString(R.string.page_remove_provider_9f848f)
+                                },
+                                fontSize = MiuixTheme.textStyles.headline1.fontSize,
+                                fontWeight = FontWeight.Medium,
+                                color = MiuixTheme.colorScheme.error,
+                            )
+                        }
                     }
                 }
             }
@@ -625,79 +696,101 @@ private fun ProviderConfigTab(
     }
 
     if (showDeleteDialog) {
-        OverlayDialog(
+        val confirmLabel = if (isWorking) {
+            context.getString(R.string.page_deleting_6f941d)
+        } else {
+            context.getString(R.string.page_delete_3755f5)
+        }
+        val dialogTitle = stringResource(R.string.ui_remove_provider_9f848f)
+        val dialogSummary = stringResource(R.string.provider_delete_summary, provider.name)
+        val onDismissDelete = { if (!isWorking) showDeleteDialog = false }
+        val onCancelDelete = { showDeleteDialog = false }
+        val onConfirmDelete: () -> Unit = {
+            scope.launch {
+                isWorking = true
+                try {
+                    ProviderRepository.deleteProvider(provider.id)
+                    RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+                    showDeleteDialog = false
+                    onDeleted()
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (throwable: Throwable) {
+                    status = context.getString(
+                        R.string.provider_error,
+                        throwable.message ?: context.getString(R.string.provider_delete_failed),
+                    )
+                    showDeleteDialog = false
+                } finally {
+                    isWorking = false
+                }
+            }
+        }
+        // 自适应弹窗：M3 → 官方 AlertDialog + TextButton；MIUI X → WindowDialog + MiuixDialogActions。
+        EtaDialog(
             show = true,
-            title = stringResource(R.string.ui_remove_provider_9f848f),
-            summary = stringResource(R.string.provider_delete_summary, provider.name),
-            onDismissRequest = { if (!isWorking) showDeleteDialog = false },
+            title = dialogTitle,
+            summary = dialogSummary,
+            onDismissRequest = onDismissDelete,
         ) {
-            MiuixDialogActions(
-                confirmText = if (isWorking) context.getString(R.string.page_deleting_6f941d) else context.getString(R.string.page_delete_3755f5),
+            EtaDialogActions(
+                confirmText = confirmLabel,
                 cancelEnabled = !isWorking,
                 confirmEnabled = !isWorking,
                 destructive = true,
-                onCancel = { showDeleteDialog = false },
-                onConfirm = {
-                    scope.launch {
-                        isWorking = true
-                        try {
-                            ProviderRepository.deleteProvider(provider.id)
-                            RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
-                            showDeleteDialog = false
-                            onDeleted()
-                        } catch (cancelled: CancellationException) {
-                            throw cancelled
-                        } catch (throwable: Throwable) {
-                            status = context.getString(
-                                R.string.provider_error,
-                                throwable.message ?: context.getString(R.string.provider_delete_failed),
-                            )
-                            showDeleteDialog = false
-                        } finally {
-                            isWorking = false
-                        }
-                    }
-                },
+                onCancel = onCancelDelete,
+                onConfirm = onConfirmDelete,
             )
         }
     }
 
     if (showResetDialog) {
-        OverlayDialog(
+        val confirmLabel = if (isWorking) {
+            context.getString(R.string.page_resetting_616090)
+        } else {
+            context.getString(R.string.page_reset_3d8134)
+        }
+        val dialogTitle = stringResource(R.string.page_reset_built_in_configuration_35b6ec)
+        val dialogSummary = stringResource(R.string.provider_reset_summary, provider.name)
+        val onDismissReset = { if (!isWorking) showResetDialog = false }
+        val onCancelReset = { showResetDialog = false }
+        val onConfirmReset: () -> Unit = {
+            scope.launch {
+                isWorking = true
+                try {
+                    ProviderRepository.resetBuiltIn(provider.id)
+                    ProviderRepository.providerById(provider.id)?.let {
+                        onDraftChange(ProviderConfigDraft.from(it))
+                    }
+                    RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+                    status = context.getString(R.string.page_reset_a0cc65)
+                    showResetDialog = false
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (throwable: Throwable) {
+                    status = context.getString(
+                        R.string.provider_error,
+                        throwable.message ?: context.getString(R.string.provider_reset_failed),
+                    )
+                    showResetDialog = false
+                } finally {
+                    isWorking = false
+                }
+            }
+        }
+        // 自适应弹窗：M3 → 官方 AlertDialog + TextButton；MIUI X → WindowDialog + MiuixDialogActions。
+        EtaDialog(
             show = true,
-            title = stringResource(R.string.ui_reset_built_in_configuration_35b6ec),
-            summary = stringResource(R.string.provider_reset_summary, provider.name),
-            onDismissRequest = { if (!isWorking) showResetDialog = false },
+            title = dialogTitle,
+            summary = dialogSummary,
+            onDismissRequest = onDismissReset,
         ) {
-            MiuixDialogActions(
-                confirmText = if (isWorking) context.getString(R.string.page_resetting_616090) else context.getString(R.string.page_reset_3d8134),
+            EtaDialogActions(
+                confirmText = confirmLabel,
                 cancelEnabled = !isWorking,
                 confirmEnabled = !isWorking,
-                onCancel = { showResetDialog = false },
-                onConfirm = {
-                    scope.launch {
-                        isWorking = true
-                        try {
-                            ProviderRepository.resetBuiltIn(provider.id)
-                            ProviderRepository.providerById(provider.id)?.let {
-                                onDraftChange(ProviderConfigDraft.from(it))
-                            }
-                            RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
-                            status = context.getString(R.string.page_reset_a0cc65)
-                            showResetDialog = false
-                        } catch (cancelled: CancellationException) {
-                            throw cancelled
-                        } catch (throwable: Throwable) {
-                            status = context.getString(
-                                R.string.provider_error,
-                                throwable.message ?: context.getString(R.string.provider_reset_failed),
-                            )
-                            showResetDialog = false
-                        } finally {
-                            isWorking = false
-                        }
-                    }
-                },
+                onCancel = onCancelReset,
+                onConfirm = onConfirmReset,
             )
         }
     }
@@ -746,7 +839,29 @@ private fun ProviderOAuthLoginRow(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val id = providerId
-    TextButton(
+    val onSignIn: () -> Unit = {
+        onBusy(true)
+        onStatus(null)
+        scope.launch {
+            try {
+                val token = OpenAiCodexOAuth.login(context, id)
+                onToken(token)
+                onStatus(context.getString(R.string.provider_oauth_sign_in_ok))
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (throwable: Throwable) {
+                onStatus(
+                    context.getString(
+                        R.string.provider_error,
+                        throwable.message ?: context.getString(R.string.provider_oauth_sign_in_failed),
+                    ),
+                )
+            } finally {
+                onBusy(false)
+            }
+        }
+    }
+    ProviderPrimaryAction(
         text = if (signedIn) {
             context.getString(
                 R.string.provider_oauth_signed_in,
@@ -756,44 +871,29 @@ private fun ProviderOAuthLoginRow(
                 R.string.provider_oauth_sign_in,
             )
         },
+        onClick = onSignIn,
         enabled = enabled,
-        modifier = Modifier.fillMaxWidth(),
-        colors = ButtonDefaults.textButtonColorsPrimary(),
-        onClick = {
-            onBusy(true)
-            onStatus(null)
-            scope.launch {
-                try {
-                    val token = OpenAiCodexOAuth.login(context, id)
-                    onToken(token)
-                    onStatus(context.getString(R.string.provider_oauth_sign_in_ok))
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (throwable: Throwable) {
-                    onStatus(
-                        context.getString(
-                            R.string.provider_error,
-                            throwable.message ?: context.getString(R.string.provider_oauth_sign_in_failed),
-                        ),
-                    )
-                } finally {
-                    onBusy(false)
-                }
-            }
-        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp),
     )
-    Text(
-        text = if (signedIn) {
-            context.getString(
-                R.string.provider_oauth_signed_in_note,
-            )
-        } else {
-            context.getString(
-                R.string.provider_oauth_sign_in_note,
-            )
-        },
-        style = MiuixTheme.textStyles.footnote2,
-        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-        modifier = Modifier.padding(top = 8.dp),
-    )
+    val note = if (signedIn) {
+        context.getString(R.string.provider_oauth_signed_in_note)
+    } else {
+        context.getString(R.string.provider_oauth_sign_in_note)
+    }
+    if (isMaterial3Theme()) {
+        M3Text(
+            text = note,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+    } else {
+        Text(
+            text = note,
+            style = MiuixTheme.textStyles.footnote2,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+    }
 }

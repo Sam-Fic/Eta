@@ -1,23 +1,21 @@
 package io.github.mangi.eta.ui.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
-/** Compact Material menu: content-sized width, outline and no drop shadow. */
+/**
+ * Material 3 溢出菜单。
+ *
+ * 形状、容器色、阴影层级与菜单项字阶/高度全部沿用官方 `MenuDefaults`：
+ * `surfaceContainer` 容器 + `shapes.extraSmall`（4dp）圆角 + Level2 阴影，
+ * 菜单项 48dp、`labelLarge`。这里只额外限制宽度，避免超长文本撑破屏幕。
+ */
 @Composable
 internal fun EtaMaterialDropdownMenu(
     expanded: Boolean,
@@ -28,19 +26,11 @@ internal fun EtaMaterialDropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismissRequest,
         modifier = Modifier.widthIn(min = 112.dp, max = 280.dp),
-        shape = RoundedCornerShape(16.dp),
-        containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 0.dp,
-        shadowElevation = 0.dp,
-        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)),
-    ) {
-        ProvideTextStyle(MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Normal, fontStyle = FontStyle.Normal)) {
-            content()
-        }
-    }
+        content = content,
+    )
 }
 
-/** Match the conversation overflow menu's 40dp rows and 12dp horizontal padding. */
+/** 官方菜单项：48dp 行高、`labelLarge` 字阶、内容色由 `MenuDefaults` 决定。 */
 @Composable
 internal fun EtaMaterialDropdownMenuItem(
     text: String,
@@ -48,10 +38,8 @@ internal fun EtaMaterialDropdownMenuItem(
     onClick: () -> Unit,
 ) {
     DropdownMenuItem(
-        text = { Text(text, style = MaterialTheme.typography.bodyLarge) },
+        text = { Text(text = text) },
         enabled = enabled,
         onClick = onClick,
-        modifier = Modifier.height(40.dp),
-        contentPadding = PaddingValues(horizontal = 12.dp),
     )
 }

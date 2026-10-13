@@ -1,20 +1,17 @@
 package io.github.mangi.eta.ui.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Assignment
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.agent.delegation.SubAgentPreferences
@@ -74,7 +71,7 @@ internal fun SubAgentProfileRow(profile: SubAgentProfile, providers: List<Provid
                 onLongClick = { if (currentUsable && canThink) { TouchHaptics.longPress(view); thinkingPicker = true } },
                 trailing = { SubAgentGptSpeedButton(profile, providers, usable) })
             Box(Modifier.fillMaxWidth()) {
-                SubAgentSettingRow("职责", profile.roleLabel, Icons.Rounded.Assignment,
+                SubAgentSettingRow("职责", profile.roleLabel, Icons.AutoMirrored.Rounded.Assignment,
                     "选择${profile.name}职责", enabled = usable, dropdown = true,
                     onClick = { if (currentUsable) { TouchHaptics.click(view); rolePicker = !rolePicker } })
                 Box(Modifier.align(Alignment.CenterEnd).size(40.dp)) {
@@ -117,27 +114,40 @@ internal fun SubAgentProfileRow(profile: SubAgentProfile, providers: List<Provid
                 onClick = { if (currentUsable && canThink) { TouchHaptics.click(view); thinkingPicker = true } })
             SubAgentParallelLimitRow(profile, config, usable)
         } else {
-            Row(Modifier.fillMaxWidth().heightIn(min = 88.dp), horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f).heightIn(min = 64.dp)
-                    .semantics { contentDescription = "${profile.name}模型" }
-                    .combinedClickable(interactionSource = remember { MutableInteractionSource() }, indication = null,
-                        role = Role.Button, enabled = usable, hapticFeedbackEnabled = false,
-                        onClickLabel = "选择${profile.name}模型", onLongClickLabel = "调整${profile.name}思考深度",
-                        onClick = { if (currentUsable) { TouchHaptics.click(view); modelPicker = true } },
-                        onLongClick = { if (currentUsable && canThink) { TouchHaptics.longPress(view); thinkingPicker = true } }),
-                    verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically)) {
-                    Text(profile.name, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text(config?.let { it.modelDisplayName.ifBlank { it.model } } ?: if (profile.modelId.isBlank()) "无" else "模型不可用",
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    if (config != null) Text(config.providerName + " · 思考 $thinkingLabel",
-                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                // 官方可交互 ListItem：点击、长按、涟漪、Role.Button 语义、按压形变、禁用态与内边距
+                // 全部由组件提供（onLongClick 是 ListItem 独有的官方槽位，IconButton/Card/Surface 都没有）。
+                // 只把这块文本包成 ListItem：GPT 速度 Chip 与「配置」IconButton 是外层 Row 的兄弟节点，
+                // 天然落在点击区之外，不会被吞进同一次点按，所以不需要 combinedClickable 兜手势。
+                ListItem(
+                    onClick = { if (currentUsable) { TouchHaptics.click(view); modelPicker = true } },
+                    onLongClick = { if (currentUsable && canThink) { TouchHaptics.longPress(view); thinkingPicker = true } },
+                    onLongClickLabel = "调整${profile.name}思考深度",
+                    // 不再手写 semantics contentDescription：ListItem 内部已是
+                    // semantics(mergeDescendants = true)，headline(代理名) + supportingContent(模型/接口·思考)
+                    // 会自动合并成该可点节点的播报文本；再叠 contentDescription 只会造成重复朗读。
+                    modifier = Modifier.weight(1f),
+                    enabled = usable,
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    content = {
+                        Text(profile.name, style = MaterialTheme.typography.titleMedium,
+                            maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    },
+                    supportingContent = {
+                        Column {
+                            Text(config?.let { it.modelDisplayName.ifBlank { it.model } } ?: if (profile.modelId.isBlank()) "无" else "模型不可用",
+                                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            if (config != null) Text(config.providerName + " · 思考 $thinkingLabel",
+                                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    },
+                )
                 SubAgentGptSpeedButton(profile, providers, usable)
-                // Reserve a real 48dp layout/semantics target, not only IconButton's hit slop.
-                IconButton(modifier = Modifier.size(48.dp), enabled = usable, onClick = {
+                // 官方 IconButton：容器尺寸取 IconButtonDefaults 默认值（内部已 minimumInteractiveComponentSize()），
+                // 图标尺寸取 Icon 默认值，不再手写 48.dp / 20.dp。
+                IconButton(enabled = usable, onClick = {
                     if (currentUsable && editor != null) {
                         SubAgentProfileDraftSession.open(editor, profile)?.let {
                             TouchHaptics.click(view)
@@ -146,7 +156,7 @@ internal fun SubAgentProfileRow(profile: SubAgentProfile, providers: List<Provid
                     }
                 }) {
                     Icon(Icons.Rounded.MoreVert, "配置${profile.name}",
-                        Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurface)
+                        tint = MaterialTheme.colorScheme.onSurface)
                 }
             }
         }
@@ -169,12 +179,21 @@ internal fun SubAgentProfileRow(profile: SubAgentProfile, providers: List<Provid
                     if (verifiedGrok) "当前 Grok 实测端点仅验证低、高；中、超高不可选。" else "实际支持取决于端点映射。")
                 (listOf<String?>(null) + io.github.mangi.eta.agent.model.ImageResolutionTier.values).forEach { tier ->
                     val allowed = !verifiedGrok || tier == null || tier in setOf("low", "high")
-                    TextButton(enabled = usable && allowed, onClick = {
-                        if (currentUsable) editor?.updateProfile(profile.id) { latest ->
-                            if (latest.providerId == profile.providerId && latest.modelId == profile.modelId && latest.role == "image_generation") latest.copy(imageResolution = tier) else latest
-                        }
-                        resolutionPicker = false
-                    }) { Text(tier?.let(io.github.mangi.eta.agent.model.ImageResolutionTier::label) ?: "跟随接口") }
+                    // 官方单选列表项：选中态、无障碍单选语义与按压反馈全部由 ListItem 提供。
+                    ListItem(
+                        selected = profile.imageResolution == tier,
+                        enabled = usable && allowed,
+                        onClick = {
+                            if (currentUsable) editor?.updateProfile(profile.id) { latest ->
+                                if (latest.providerId == profile.providerId && latest.modelId == profile.modelId && latest.role == "image_generation") latest.copy(imageResolution = tier) else latest
+                            }
+                            resolutionPicker = false
+                        },
+                        // 可交互/单选重载的正文参数名是 content（不是 headlineContent）。
+                        content = {
+                            Text(tier?.let(io.github.mangi.eta.agent.model.ImageResolutionTier::label) ?: "跟随接口")
+                        },
+                    )
                 }
             } }, confirmButton = { TextButton(onClick = { resolutionPicker = false }) { Text("关闭") } })
     }

@@ -12,8 +12,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import top.yukonga.miuix.kmp.basic.Icon
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.Text as M3Text
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -23,6 +27,23 @@ internal fun MoveFolderOption(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
+    if (isMaterial3Theme()) {
+        // Material 3 Expressive：官方单选 ListItem 承担容器、形状、选中配色、涟漪与
+        // 单选语义（Role.RadioButton），行高与内容内边距全部走 ListItemDefaults.ContentPadding，
+        // 不再是「Row + clip + 硬编码圆角 + clickable」的手搓可点区域。
+        ListItem(
+            selected = selected,
+            onClick = onClick,
+            modifier = Modifier.fillMaxWidth(),
+            leadingContent = {
+                Icon(imageVector = Icons.Rounded.Folder, contentDescription = null)
+            },
+        ) {
+            M3Text(text = label, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        return
+    }
+    // MIUI X 主题族：保持原有绘制与命中区不变。
     Row(
         modifier = Modifier
             .fillMaxWidth()

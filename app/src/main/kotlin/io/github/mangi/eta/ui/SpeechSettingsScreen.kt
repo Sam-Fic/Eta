@@ -6,8 +6,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -17,11 +15,14 @@ import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.voice.offline.OfflineSpeechPack
 import io.github.mangi.eta.agent.voice.offline.SpeechModelManifest
-import io.github.mangi.eta.ui.components.MiuixDialogActions
+import io.github.mangi.eta.ui.adaptive.EtaCard
+import io.github.mangi.eta.ui.adaptive.EtaClickableRow
+import io.github.mangi.eta.ui.adaptive.EtaDialog
+import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
+import io.github.mangi.eta.ui.adaptive.EtaText
+import io.github.mangi.eta.ui.adaptive.EtaTextStyle
 import io.github.mangi.eta.ui.haptics.TouchHaptics
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.preference.SwitchPreference
 
 @Composable
 internal fun SpeechSettingsScreen(onBack: () -> Unit) {
@@ -39,11 +40,11 @@ internal fun SpeechSettingsScreen(onBack: () -> Unit) {
     LaunchedEffect(Unit) { DoubaoVoiceConfig.load(context); OfflineSpeechPack.initialize(context) }
     VoiceSettingsSectionPage(title = stringResource(R.string.speech_title), onBack = onBack) {
         item(key = "speech_enable") {
-            Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-                SwitchPreference(
+            EtaCard(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
+                EtaSwitchRow(
                     title = stringResource(R.string.speech_enable),
                     summary = "点击聊天输入框的语音按钮，把说话变成文字。",
-                    insideMargin = PaddingValues(16.dp),
+                    contentPadding = PaddingValues(16.dp),
                     checked = config.inputEnabled,
                     enabled = true,
                     onCheckedChange = { enabled ->
@@ -54,8 +55,8 @@ internal fun SpeechSettingsScreen(onBack: () -> Unit) {
             }
         }
         item(key = "speech_pack") {
-            Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-                ArrowPreference(
+            EtaCard(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
+                EtaClickableRow(
                     title = stringResource(when {
                         state.downloading -> R.string.speech_cancel_download
                         state.ready -> R.string.speech_pack_ready
@@ -66,7 +67,7 @@ internal fun SpeechSettingsScreen(onBack: () -> Unit) {
                         state.error -> R.string.speech_download_failed
                         else -> R.string.speech_pack_summary
                     }),
-                    insideMargin = PaddingValues(16.dp),
+                    contentPadding = PaddingValues(16.dp),
                     enabled = !state.checking && !state.ready,
                     onClick = {
                         TouchHaptics.click(view)
@@ -77,27 +78,27 @@ internal fun SpeechSettingsScreen(onBack: () -> Unit) {
                     val progress = (state.downloadedBytes.toFloat() / SpeechModelManifest.totalBytes).coerceIn(0f, 1f)
                     Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
                         LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
-                        Text("${(progress * 100).toInt()}%", style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(top = 6.dp))
+                        EtaText("${(progress * 100).toInt()}%", style = EtaTextStyle.Footnote,
+                            modifier = Modifier.padding(top = 8.dp))
                     }
                 }
             }
         }
         item(key = "recognition_method") {
-            Card(Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-                ArrowPreference(title = "识别方式", summary = if (config.cloudAsr) "豆包识别 · 需要联网" else "本机识别 · 无需账户",
-                    insideMargin = PaddingValues(16.dp), onClick = { TouchHaptics.click(view); page = "asr" })
+            EtaCard(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
+                EtaClickableRow(title = "识别方式", summary = if (config.cloudAsr) "豆包识别 · 需要联网" else "本机识别 · 无需账户",
+                    contentPadding = PaddingValues(16.dp), onClick = { TouchHaptics.click(view); page = "asr" })
             }
         }
 
     }
-    top.yukonga.miuix.kmp.window.WindowDialog(
+    EtaDialog(
         show = confirmDownload,
         title = stringResource(R.string.speech_download),
         onDismissRequest = { confirmDownload = false },
     ) {
-        Text(stringResource(R.string.speech_download_confirm), style = MaterialTheme.typography.bodyMedium)
-        MiuixDialogActions(
+        EtaText(stringResource(R.string.speech_download_confirm), style = EtaTextStyle.Secondary)
+        EtaDialogActions(
             confirmText = stringResource(R.string.speech_download),
             cancelText = stringResource(R.string.action_cancel),
             modifier = Modifier.padding(top = 16.dp),

@@ -7,6 +7,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
@@ -14,6 +15,10 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.InsertDriveFile
 import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text as M3Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -24,7 +29,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.navigationevent.NavigationEventInfo
@@ -37,18 +44,20 @@ import io.github.mangi.eta.agent.terminal.LinuxFileExplorer
 import io.github.mangi.eta.agent.terminal.SharedFolderMounts
 import io.github.mangi.eta.agent.terminal.terminalEnvironment
 import io.github.mangi.eta.agent.terminal.ShellProcessSupervisor
-import io.github.mangi.eta.ui.components.MiuixDialogActions
-import io.github.mangi.eta.ui.components.MiuixScaffoldPage
+import io.github.mangi.eta.ui.adaptive.EtaDialog
+import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.EtaText
+import io.github.mangi.eta.ui.adaptive.EtaTextStyle
+import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowDialog
 
 /**
  * Linux 环境文件浏览：目录列举、预览、导出和删除都在 Linux 会话中完成，
@@ -211,7 +220,7 @@ internal fun LinuxFilesScreen(
         onBackCompleted = { closeFile() },
     )
 
-    MiuixScaffoldPage(
+    EtaScaffoldPage(
         title = stringResource(R.string.linux_files_title),
         onBack = { if (openFilePath != null) closeFile() else onBack() },
     ) {
@@ -253,11 +262,10 @@ internal fun LinuxFilesScreen(
                             }
                         }
                         item(key = "viewer-content") {
+                            // SelectionContainer 是官方 foundation 手势组件，M3/MIUIX 通用。
                             SelectionContainer {
-                                Text(
-                                    text = result.content,
-                                    style = MiuixTheme.textStyles.footnote1
-                                        .copy(fontFamily = FontFamily.Monospace),
+                                TerminalMonoText(
+                                    text = AnnotatedString(result.content),
                                     modifier = Modifier.padding(horizontal = 24.dp),
                                 )
                             }
@@ -374,7 +382,7 @@ internal fun LinuxFilesScreen(
     }
 
     pendingDelete?.let { target ->
-        WindowDialog(
+        EtaDialog(
             show = true,
             title = stringResource(R.string.linux_files_delete_title),
             summary = stringResource(
@@ -384,7 +392,7 @@ internal fun LinuxFilesScreen(
             ),
             onDismissRequest = { if (!busy) pendingDelete = null },
         ) {
-            MiuixDialogActions(
+            EtaDialogActions(
                 confirmText = stringResource(R.string.action_delete),
                 destructive = true,
                 confirmEnabled = !busy,
@@ -439,6 +447,23 @@ private fun PathBar(
     path: String,
     onLongClick: (() -> Unit)? = null,
 ) {
+    if (isMaterial3Theme()) {
+        // 官方可交互 ListItem：长按手势交给 onLongClick，自带涟漪与长按语义。
+        if (onLongClick == null) {
+            ListItem(
+                modifier = Modifier.fillMaxWidth(),
+                content = { PathMonoText(path) },
+            )
+        } else {
+            ListItem(
+                onClick = {},
+                onLongClick = onLongClick,
+                modifier = Modifier.fillMaxWidth(),
+                content = { PathMonoText(path) },
+            )
+        }
+        return
+    }
     Text(
         text = path,
         style = MiuixTheme.textStyles.body2.copy(fontFamily = FontFamily.Monospace),
@@ -454,21 +479,30 @@ private fun PathBar(
 }
 
 @Composable
+private fun PathMonoText(path: String) {
+    M3Text(
+        text = path,
+        style = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+@Composable
 private fun StateMessage(message: String) {
-    Text(
+    EtaText(
         text = message,
-        style = MiuixTheme.textStyles.body2,
-        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+        style = EtaTextStyle.Body,
+        secondary = true,
         modifier = Modifier.padding(horizontal = 24.dp),
     )
 }
 
 @Composable
 private fun HintText(message: String) {
-    Text(
+    EtaText(
         text = message,
-        style = MiuixTheme.textStyles.footnote1,
-        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+        style = EtaTextStyle.Footnote,
+        secondary = true,
         modifier = Modifier
             .padding(horizontal = 24.dp)
             .padding(bottom = 8.dp),
@@ -485,18 +519,91 @@ private fun FileRow(
     enabled: Boolean = true,
     onLongClick: (() -> Unit)? = null,
 ) {
+    EtaFileRow(
+        title = name,
+        summary = summary,
+        leadingIcon = if (isDir) {
+            Icons.Rounded.Folder
+        } else {
+            Icons.AutoMirrored.Rounded.InsertDriveFile
+        },
+        enabled = enabled,
+        onClick = onClick,
+        onLongClick = onLongClick,
+    )
+}
+
+/**
+ * 文件/目录列表行。
+ *
+ * M3：官方 `ListItem(onClick, onLongClick)` —— 涟漪、长按、语义与内边距全部来自官方默认值；
+ * MIUI X：沿用 miuix `BasicComponent` + `combinedClickable`，行为不变。
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+internal fun EtaFileRow(
+    title: String,
+    summary: String?,
+    leadingIcon: ImageVector,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
+) {
+    val supporting: (@Composable () -> Unit)? = summary?.let {
+        {
+            M3Text(
+                text = it,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+    if (isMaterial3Theme()) {
+        val leading: @Composable () -> Unit = {
+            Icon(
+                imageVector = leadingIcon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (onClick != null) {
+            ListItem(
+                onClick = onClick,
+                modifier = modifier.fillMaxWidth(),
+                enabled = enabled,
+                onLongClick = onLongClick,
+                leadingContent = leading,
+                content = {
+                    M3Text(text = title, style = MaterialTheme.typography.bodyLarge)
+                },
+                supportingContent = supporting,
+            )
+        } else {
+            ListItem(
+                modifier = modifier.fillMaxWidth(),
+                enabled = enabled,
+                leadingContent = leading,
+                content = {
+                    M3Text(text = title, style = MaterialTheme.typography.bodyLarge)
+                },
+                supportingContent = supporting,
+            )
+        }
+        return
+    }
     BasicComponent(
-        modifier = Modifier.combinedClickable(
+        modifier = modifier.combinedClickable(
             enabled = enabled,
-            onClick = onClick,
+            onClick = onClick ?: {},
             onLongClick = onLongClick,
         ),
-        title = name,
+        title = title,
         summary = summary,
         enabled = enabled,
         startAction = {
             Icon(
-                imageVector = if (isDir) Icons.Rounded.Folder else Icons.AutoMirrored.Rounded.InsertDriveFile,
+                imageVector = leadingIcon,
                 contentDescription = null,
                 modifier = Modifier
                     .padding(end = 12.dp)

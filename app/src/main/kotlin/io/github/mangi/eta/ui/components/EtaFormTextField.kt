@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -18,9 +17,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Text
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-internal val EtaInputCornerRadius = 14.dp
+internal val EtaInputCornerRadius = 12.dp
 
 @Composable
 internal fun etaInputContainerColor(): Color {
@@ -28,8 +28,12 @@ internal fun etaInputContainerColor(): Color {
     return lerp(colors.surface, colors.surfaceContainerHigh, 0.35f)
 }
 
-/** Rounded, softly filled form field. Floating labels remain on the top outline. */
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * 圆角填充式表单输入框。
+ *
+ * Material 3 下直接使用官方 `OutlinedTextField` 默认形态（官方圆角/配色/涟漪/字阶）；
+ * MIUI X 下保留原来的柔和填充风格。
+ */
 @Composable
 internal fun EtaFormTextField(
     value: String,
@@ -43,9 +47,27 @@ internal fun EtaFormTextField(
     visualTransformation: VisualTransformation = VisualTransformation.None,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
 ) {
+    if (isMaterial3Theme()) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = modifier
+                .fillMaxWidth()
+                .semantics { contentDescription = hint },
+            enabled = enabled,
+            singleLine = singleLine,
+            minLines = if (singleLine) 1 else minLines,
+            maxLines = if (singleLine) 1 else maxLines,
+            visualTransformation = visualTransformation,
+            keyboardOptions = keyboardOptions,
+            label = { Text(text = hint) },
+        )
+        return
+    }
+
     val colors = MiuixTheme.colorScheme
     val container = etaInputContainerColor()
-    CompositionLocalProvider(LocalRippleConfiguration provides null) {
+    CompositionLocalProvider(LocalRippleConfiguration provides etaRippleConfiguration()) {
         WithoutPressRipple {
             OutlinedTextField(
                 value = value,

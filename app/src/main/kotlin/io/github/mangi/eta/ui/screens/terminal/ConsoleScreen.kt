@@ -56,6 +56,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
@@ -68,12 +69,285 @@ import io.github.mangi.eta.ui.app.ConsoleStore
 import io.github.mangi.eta.ui.app.ConsoleUiState
 import io.github.mangi.eta.ui.app.UserTerminalStore
 import io.github.mangi.eta.ui.components.toSpanStyle
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.TextButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Button as M3Button
+import androidx.compose.material3.ButtonDefaults as M3ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Text as M3Text
+import androidx.compose.material3.TextButton as M3TextButton
+import androidx.compose.ui.graphics.vector.ImageVector
+import io.github.mangi.eta.ui.adaptive.EtaButtonStyle
+import io.github.mangi.eta.ui.adaptive.EtaIconButton
+import io.github.mangi.eta.ui.adaptive.EtaIconSize
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
+import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
+import top.yukonga.miuix.kmp.basic.ButtonDefaults as MiuixButtonDefaults
+import top.yukonga.miuix.kmp.basic.TextButton as MiuixTextButton
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+
+/** 终端界面的根背景色：M3 用官方 surface，MIUI X 沿用 miuix surface。 */
+@Composable
+internal fun terminalRootSurface(): androidx.compose.ui.graphics.Color =
+    if (isMaterial3Theme()) MaterialTheme.colorScheme.surface else MiuixTheme.colorScheme.surface
+
+/** 终端正文前景色。 */
+@Composable
+internal fun terminalForeground(): androidx.compose.ui.graphics.Color =
+    if (isMaterial3Theme()) MaterialTheme.colorScheme.onSurface else MiuixTheme.colorScheme.onSurface
+
+/** 终端次要前景色（摘要、提示）。 */
+@Composable
+internal fun terminalMutedForeground(): androidx.compose.ui.graphics.Color =
+    if (isMaterial3Theme()) {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    } else {
+        MiuixTheme.colorScheme.onSurfaceVariantSummary
+    }
+
+/** 终端强调色。 */
+@Composable
+internal fun terminalAccentColor(): androidx.compose.ui.graphics.Color =
+    if (isMaterial3Theme()) MaterialTheme.colorScheme.primary else MiuixTheme.colorScheme.primary
+
+/** 终端错误/失败态前景色。 */
+@Composable
+internal fun terminalErrorColor(): androidx.compose.ui.graphics.Color =
+    if (isMaterial3Theme()) MaterialTheme.colorScheme.error else MiuixTheme.colorScheme.error
+
+/** 终端等宽字符网格的字阶：M3 用官方 bodySmall + 等宽字族。 */
+@Composable
+internal fun terminalGridTextStyle(): TextStyle =
+    if (isMaterial3Theme()) {
+        MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
+    } else {
+        MiuixTheme.textStyles.footnote1.copy(fontFamily = FontFamily.Monospace)
+    }
+
+/** 终端等宽正文块（M3 走官方 Text，MIUI X 走 miuix Text）。 */
+@Composable
+internal fun TerminalMonoText(
+    text: AnnotatedString,
+    modifier: Modifier = Modifier,
+    color: androidx.compose.ui.graphics.Color = terminalForeground(),
+    softWrap: Boolean = true,
+    maxLines: Int = Int.MAX_VALUE,
+) {
+    val style = terminalGridTextStyle()
+    if (isMaterial3Theme()) {
+        M3Text(
+            text = text,
+            modifier = modifier,
+            style = style,
+            color = color,
+            softWrap = softWrap,
+            maxLines = maxLines,
+            overflow = TextOverflow.Ellipsis,
+        )
+    } else {
+        MiuixText(
+            text = text,
+            modifier = modifier,
+            style = style,
+            color = color,
+            softWrap = softWrap,
+            maxLines = maxLines,
+        )
+    }
+}
+
+/** 终端进行中指示：M3 用官方 CircularProgressIndicator，MIUI X 沿用 miuix 无限进度。 */
+@Composable
+internal fun TerminalBusyIndicator(size: androidx.compose.ui.unit.Dp) {
+    if (isMaterial3Theme()) {
+        androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(size))
+    } else {
+        InfiniteProgressIndicator(size = size)
+    }
+}
+
+/** 终端日志/正文视图：M3 用官方 Text + bodyLarge，MIUI X 沿用 miuix Text。 */
+@Composable
+internal fun TerminalBodyText(
+    text: String,
+    modifier: Modifier = Modifier,
+    color: androidx.compose.ui.graphics.Color = terminalForeground(),
+    textAlign: TextAlign? = null,
+    maxLines: Int = Int.MAX_VALUE,
+) {
+    if (isMaterial3Theme()) {
+        M3Text(
+            text = text,
+            modifier = modifier,
+            color = color,
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = textAlign,
+            maxLines = maxLines,
+            overflow = TextOverflow.Ellipsis,
+        )
+    } else {
+        MiuixText(
+            text = text,
+            modifier = modifier,
+            color = color,
+            style = MiuixTheme.textStyles.body1,
+            textAlign = textAlign,
+            maxLines = maxLines,
+        )
+    }
+}
+
+/**
+ * 环境切换标签（Android / Linux）。
+ *
+ * M3：官方 `SingleChoiceSegmentedButtonRow` + `SegmentedButton`，自带选中语义、涟漪与
+ * 官方连接形状（`SegmentedButtonDefaults.itemShape`）。
+ */
+@Composable
+internal fun TerminalEnvironmentTabs(
+    labels: List<String>,
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val view = LocalView.current
+    if (isMaterial3Theme()) {
+        SingleChoiceSegmentedButtonRow(modifier = modifier) {
+            labels.forEachIndexed { index, label ->
+                SegmentedButton(
+                    selected = index == selectedIndex,
+                    onClick = {
+                        TouchHaptics.click(view)
+                        onSelect(index)
+                    },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = labels.size),
+                ) {
+                    M3Text(text = label, style = MaterialTheme.typography.labelLarge)
+                }
+            }
+        }
+    } else {
+        Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+            labels.forEachIndexed { index, label ->
+                MiuixText(
+                    text = label,
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = if (index == selectedIndex) {
+                        MiuixTheme.colorScheme.primary
+                    } else {
+                        MiuixTheme.colorScheme.onSurfaceVariantSummary
+                    },
+                    fontWeight = if (index == selectedIndex) FontWeight.SemiBold else null,
+                    modifier = Modifier
+                        .clickable(onClick = {
+                            TouchHaptics.click(view)
+                            onSelect(index)
+                        })
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                )
+            }
+        }
+    }
+}
+
+/** 终端状态栏图标按钮：M3 用官方图标按钮（容器/图标尺寸取 `IconButtonDefaults` 令牌）。 */
+@Composable
+internal fun TerminalIconButton(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val view = LocalView.current
+    if (isMaterial3Theme()) {
+        EtaIconButton(
+            icon = icon,
+            contentDescription = contentDescription,
+            onClick = {
+                TouchHaptics.click(view)
+                onClick()
+            },
+            modifier = modifier,
+            size = EtaIconSize.XS,
+            style = EtaButtonStyle.Standard,
+        )
+    } else {
+        MiuixIconButton(onClick = {
+            TouchHaptics.click(view)
+            onClick()
+        }, modifier = modifier) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                modifier = Modifier.size(18.dp),
+                tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            )
+        }
+    }
+}
+
+/**
+ * 终端状态栏/浮层里的文字按钮。
+ *
+ * M3：官方 `TextButton`（默认胶囊 + `labelLarge`）；破坏性动作用官方
+ * `ButtonDefaults.textButtonColors` 搭配 `errorContainer/onErrorContainer` 角色色。
+ */
+@Composable
+internal fun TerminalTextButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    destructive: Boolean = false,
+) {
+    val view = LocalView.current
+    if (isMaterial3Theme()) {
+        M3TextButton(
+            onClick = {
+                TouchHaptics.click(view)
+                onClick()
+            },
+            modifier = modifier,
+            enabled = enabled,
+            colors = if (destructive) {
+                M3ButtonDefaults.textButtonColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                )
+            } else {
+                M3ButtonDefaults.textButtonColors()
+            },
+        ) {
+            M3Text(text = text, style = MaterialTheme.typography.labelLarge)
+        }
+    } else {
+        MiuixTextButton(
+            text = text,
+            onClick = {
+                TouchHaptics.click(view)
+                onClick()
+            },
+            modifier = modifier,
+            enabled = enabled,
+            minHeight = 28.dp,
+            insideMargin = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+            textStyle = MiuixTheme.textStyles.body2,
+            colors = if (destructive) {
+                MiuixButtonDefaults.textButtonColorsPrimary(
+                    color = MiuixTheme.colorScheme.error,
+                    textColor = MiuixTheme.colorScheme.onError,
+                )
+            } else {
+                MiuixButtonDefaults.textButtonColorsPrimary()
+            },
+        )
+    }
+}
 
 /** 终端入口：块式终端为本体；PTY 可用时状态栏提供控制台模式切换。 */
 @Composable
@@ -130,7 +404,7 @@ internal fun ConsoleScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MiuixTheme.colorScheme.surface)
+            .background(terminalRootSurface())
             .imePadding()
             .navigationBarsPadding(),
     ) {
@@ -219,54 +493,33 @@ private fun ConsoleStatusBar(
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        EnvironmentTab(
-            label = "Android",
-            selected = environment == TerminalEnvironment.ANDROID,
-            onClick = { onSwitchEnvironment(TerminalEnvironment.ANDROID) },
-        )
-        EnvironmentTab(
-            label = linuxEnvironment.label(),
-            selected = environment == linuxEnvironment,
-            onClick = { onSwitchEnvironment(linuxEnvironment) },
+        TerminalEnvironmentTabs(
+            labels = listOf("Android", linuxEnvironment.label()),
+            selectedIndex = if (environment == TerminalEnvironment.ANDROID) 0 else 1,
+            onSelect = { index ->
+                onSwitchEnvironment(
+                    if (index == 0) TerminalEnvironment.ANDROID else linuxEnvironment,
+                )
+            },
         )
         Row(
             modifier = Modifier.weight(1f),
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            val view = LocalView.current
-            IconButton(onClick = {
-                TouchHaptics.click(view)
-                onOpenSessions()
-            }) {
-                Icon(
-                    imageVector = Icons.Rounded.Layers,
-                    contentDescription = stringResource(R.string.terminal_sessions),
-                    modifier = Modifier.size(18.dp),
-                    tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                )
-            }
-            IconButton(onClick = {
-                TouchHaptics.click(view)
-                onOpenTasks()
-            }) {
-                Icon(
-                    imageVector = Icons.Rounded.Insights,
-                    contentDescription = stringResource(R.string.terminal_daemon_tasks),
-                    modifier = Modifier.size(18.dp),
-                    tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                )
-            }
-            TextButton(
+            TerminalIconButton(
+                icon = Icons.Rounded.Layers,
+                contentDescription = stringResource(R.string.terminal_sessions),
+                onClick = onOpenSessions,
+            )
+            TerminalIconButton(
+                icon = Icons.Rounded.Insights,
+                contentDescription = stringResource(R.string.terminal_daemon_tasks),
+                onClick = onOpenTasks,
+            )
+            TerminalTextButton(
                 text = stringResource(R.string.terminal_block_mode),
-                onClick = {
-                    TouchHaptics.click(view)
-                    onExitConsole()
-                },
-                minHeight = 28.dp,
-                insideMargin = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                textStyle = MiuixTheme.textStyles.body2,
-                colors = ButtonDefaults.textButtonColorsPrimary(),
+                onClick = onExitConsole,
             )
         }
     }
@@ -283,15 +536,17 @@ private fun ColumnScope.ConsoleGrid(
 ) {
     val density = LocalDensity.current
     val textMeasurer = rememberTextMeasurer()
-    val cellStyle = MiuixTheme.textStyles.footnote1.copy(fontFamily = FontFamily.Monospace)
-    val defaultColor = MiuixTheme.colorScheme.onSurface
-    val cursorColor = MiuixTheme.colorScheme.onSurface
-    val cursorTextColor = MiuixTheme.colorScheme.surface
+    val cellStyle = terminalGridTextStyle()
+    val defaultColor = terminalForeground()
+    val cursorColor = terminalForeground()
+    val cursorTextColor = terminalRootSurface()
 
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
             .weight(1f)
+            // PTY 网格本体：点按只用于把焦点交给隐藏输入框，没有可点击语义，
+            // 官���组件都会画涟漪/按压态，落在终端字符流上会造成闪烁，故保留无涟漪的手势。
             .clickable(
                 interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                 indication = null,
@@ -378,44 +633,29 @@ private fun ColumnScope.ConsoleGrid(
         }
 
         if (state.exited || state.failMessage != null) {
-            val view = LocalView.current
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(MiuixTheme.colorScheme.surface.copy(alpha = 0.92f)),
+                    .background(terminalRootSurface().copy(alpha = 0.92f)),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
-                Text(
+                TerminalBodyText(
                     text = state.failMessage ?: stringResource(R.string.terminal_session_closed),
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    modifier = Modifier,
+                    color = terminalMutedForeground(),
                     textAlign = TextAlign.Center,
                 )
-                TextButton(
+                TerminalTextButton(
                     text = stringResource(R.string.terminal_reconnect),
-                    onClick = {
-                        TouchHaptics.click(view)
-                        store.reconnect()
-                    },
+                    onClick = store::reconnect,
                     modifier = Modifier.padding(top = 12.dp),
-                    minHeight = 28.dp,
-                    insideMargin = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                    textStyle = MiuixTheme.textStyles.body2,
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
                 )
                 if (state.failMessage != null) {
-                    TextButton(
+                    TerminalTextButton(
                         text = stringResource(R.string.terminal_open_environment),
-                        onClick = {
-                            TouchHaptics.click(view)
-                            onOpenEnvironment()
-                        },
+                        onClick = onOpenEnvironment,
                         modifier = Modifier.padding(top = 4.dp),
-                        minHeight = 28.dp,
-                        insideMargin = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                        textStyle = MiuixTheme.textStyles.body2,
-                        colors = ButtonDefaults.textButtonColorsPrimary(),
                     )
                 }
             }
@@ -435,12 +675,21 @@ private fun ConsoleLine(
     val text = remember(line.id, line.version, cursorCol, defaultColor) {
         lineToAnnotated(line, cursorCol, cursorColor, cursorTextColor)
     }
-    Text(
-        text = text,
-        style = style.copy(color = defaultColor),
-        softWrap = false,
-        maxLines = 1,
-    )
+    if (isMaterial3Theme()) {
+        M3Text(
+            text = text,
+            style = style.copy(color = defaultColor),
+            softWrap = false,
+            maxLines = 1,
+        )
+    } else {
+        MiuixText(
+            text = text,
+            style = style.copy(color = defaultColor),
+            softWrap = false,
+            maxLines = 1,
+        )
+    }
 }
 
 /** 网格行 → AnnotatedString：连续同样式单元格合并为一个 span；光标格反色。 */
@@ -521,6 +770,32 @@ private fun KeyChip(
     onClick: () -> Unit,
 ) {
     val view = LocalView.current
+    if (isMaterial3Theme()) {
+        // 官方按钮：激活键用 FilledButton，其余用 FilledTonalButton；
+        // 胶囊形状、容器色、字阶与按压动效全部取官方默认值，不覆盖。
+        if (active) {
+            M3Button(
+                onClick = {
+                    TouchHaptics.keyboardTap(view)
+                    onClick()
+                },
+                modifier = modifier,
+            ) {
+                M3Text(text = label, style = MaterialTheme.typography.labelLarge)
+            }
+        } else {
+            FilledTonalButton(
+                onClick = {
+                    TouchHaptics.keyboardTap(view)
+                    onClick()
+                },
+                modifier = modifier,
+            ) {
+                M3Text(text = label, style = MaterialTheme.typography.labelLarge)
+            }
+        }
+        return
+    }
     Box(
         modifier = modifier
             .background(
@@ -534,7 +809,7 @@ private fun KeyChip(
             .padding(vertical = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
+        MiuixText(
             text = label,
             style = MiuixTheme.textStyles.footnote1,
             color = if (active) {
@@ -545,31 +820,6 @@ private fun KeyChip(
             fontWeight = if (active) FontWeight.SemiBold else null,
         )
     }
-}
-
-@Composable
-private fun EnvironmentTab(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    val view = LocalView.current
-    Text(
-        text = label,
-        style = MiuixTheme.textStyles.footnote1,
-        color = if (selected) {
-            MiuixTheme.colorScheme.primary
-        } else {
-            MiuixTheme.colorScheme.onSurfaceVariantSummary
-        },
-        fontWeight = if (selected) FontWeight.SemiBold else null,
-        modifier = Modifier
-            .clickable(onClick = {
-                TouchHaptics.click(view)
-                onClick()
-            })
-            .padding(horizontal = 8.dp, vertical = 6.dp),
-    )
 }
 
 private fun measureCell(textMeasurer: TextMeasurer, style: TextStyle): Pair<Int, Int> {

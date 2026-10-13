@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.*
@@ -94,13 +93,12 @@ internal fun ConversationCollaborationDialog(
     val panelState = panelEditor?.observe()
     val panelConfig = (panelState as? SubAgentEditorState.Loaded)?.config
     val panelEnabled = canChange && panelEditor?.enabled == true && panelConfig != null
-    CompositionLocalProvider(LocalRippleConfiguration provides null) {
+    CompositionLocalProvider(LocalRippleConfiguration provides etaRippleConfiguration()) {
         WithoutPressRipple {
             Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-                Surface(Modifier.widthIn(max = 480.dp).fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp)
-                    .heightIn(max = maximumHeight).testTag("subagent-collaboration-card"), shape = RoundedCornerShape(28.dp),
-                    color = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
-                    Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 8.dp)) {
+                Card(Modifier.widthIn(max = 480.dp).fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp)
+                    .heightIn(max = maximumHeight).testTag("subagent-collaboration-card")) {
+                    Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp)) {
                         Text("本会话协作", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(bottom = 16.dp))
                         Column(Modifier.fillMaxWidth().weight(1f, fill = false).testTag("subagent-collaboration-body")
                             .verticalScroll(key(editor, choosing, current?.presetApplicationToken) { rememberScrollState() })
@@ -116,9 +114,9 @@ internal fun ConversationCollaborationDialog(
                             }
                             if (choosing && directory != null && editor != null && chooserPopup != null) {
                                 val (popup, ticket) = chooserPopup
-                                Text("选择子代理组", style = MaterialTheme.typography.titleMedium)
+                                Text("选择子代理组", style = MaterialTheme.typography.headlineSmall)
                                 Text("应用时复制到本会话；本会话修改不会反写预设。切换会替换当前会话配置。",
-                                    style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 12.dp))
+                                    style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 12.dp))
                                 SubAgentPresetDirectoryStatus(directory)
                                 directory.entries.forEach { preset ->
                                     key(editor, preset.id) {
@@ -159,33 +157,36 @@ internal fun ConversationCollaborationDialog(
                                             else -> Unit
                                         }
                                         (panelConfig ?: current).appliedPresetName?.let {
-                                            Text("已应用：$it", style = MaterialTheme.typography.bodySmall)
+                                            Text("已应用：$it", style = MaterialTheme.typography.bodyMedium)
                                         }
-                                        Row(Modifier.fillMaxWidth().heightIn(min = 64.dp)
-                                            .toggleable(value = panelConfig?.enabled ?: current.enabled, enabled = panelEnabled, role = Role.Switch,
+                                        // 官方 ListItem 承载整行点击与无障碍开关语义，官方 Switch 只负责呈现状态。
+                                        ListItem(
+                                            supportingContent = { Text("按职责自动分配任务") },
+                                            trailingContent = {
+                                                Switch(checked = panelConfig?.enabled ?: current.enabled, enabled = panelEnabled, onCheckedChange = null)
+                                            },
+                                            modifier = Modifier.toggleable(
+                                                value = panelConfig?.enabled ?: current.enabled, enabled = panelEnabled, role = Role.Switch,
                                                 onValueChange = {
                                                     if (panelEnabled && panelEditor.enabled) { TouchHaptics.click(view); panelEditor.setEnabled(it) }
-                                                }), verticalAlignment = Alignment.CenterVertically) {
-                                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                                Text("自动委派", style = MaterialTheme.typography.bodyLarge)
-                                                Text("按职责自动分配任务", style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurface)
-                                            }
-                                            Switch(checked = panelConfig?.enabled ?: current.enabled, enabled = panelEnabled, onCheckedChange = null)
+                                                },
+                                            ),
+                                        ) {
+                                            Text("自动委派")
                                         }
-                                        HorizontalDivider(Modifier.padding(top = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                                        HorizontalDivider(Modifier.padding(top = 12.dp))
                                         (panelConfig ?: current).profiles.forEach { profile ->
                                             key(panelEditor, profile.id) {
                                                 SubAgentProfileRow(profile, providers, enabled = panelEnabled,
                                                     draftAllowed = latestOwnerMatches() && !latestTaskRunning && !latestChoosing,
                                                     draftRetry = { editor.retry(); panelEditor.retry() })
-                                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
+                                                HorizontalDivider()
                                             }
                                         }
                                         Row(Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 4.dp),
                                             verticalAlignment = Alignment.CenterVertically) {
-                                            Text("点按模型切换 · 长按调整思考", style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+                                            Text("点按模型切换 · 长按调整思考", style = MaterialTheme.typography.labelMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
                                             IconButton(modifier = Modifier.size(48.dp), enabled = panelEnabled, onClick = {
                                                 if (panelEnabled && panelEditor.enabled) {
                                                     SubAgentProfileDraftSession.open(panelEditor)?.let {

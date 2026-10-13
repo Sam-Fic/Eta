@@ -1,5 +1,6 @@
 package io.github.mangi.eta.ui
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -156,7 +157,7 @@ internal fun VirtualDisplayRecoveryControls(
             ) {
                 Text(
                     text = stringResource(R.string.agent_task_preference_recovery_title),
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MiuixTheme.textStyles.headline2,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Row(
@@ -172,7 +173,7 @@ internal fun VirtualDisplayRecoveryControls(
                     }
                     Text(
                         text = stringResource(recoveryStatusRes(readable, busy, present, phase)),
-                        style = MaterialTheme.typography.bodyLarge,
+                        style = MiuixTheme.textStyles.body1,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
@@ -182,14 +183,14 @@ internal fun VirtualDisplayRecoveryControls(
                             R.string.agent_task_preference_recovery_display_id,
                             snapshot?.optInt("displayId", -1) ?: -1,
                         ),
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MiuixTheme.textStyles.body2,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 if (readable && present && !busy && phase != RECOVERY_PHASE_PENDING) {
                     Text(
                         text = stringResource(R.string.agent_task_preference_recovery_raw_phase, phase),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MiuixTheme.textStyles.footnote1,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -197,14 +198,14 @@ internal fun VirtualDisplayRecoveryControls(
                 if (lastError.isNotBlank()) {
                     Text(
                         text = lastError,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MiuixTheme.textStyles.footnote1,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     val detail = snapshot?.optString("lastDetail").orEmpty()
                     if (detail.isNotBlank()) {
                         Text(
                             text = detail,
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MiuixTheme.textStyles.footnote1,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
@@ -213,7 +214,7 @@ internal fun VirtualDisplayRecoveryControls(
                     if (receipt.optBoolean("ok") && receipt.optBoolean("released")) {
                         Text(
                             text = stringResource(R.string.vd_recovery_success),
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MiuixTheme.textStyles.body2,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                     } else {
@@ -222,14 +223,14 @@ internal fun VirtualDisplayRecoveryControls(
                                 R.string.vd_recovery_failed,
                                 receipt.optString("error", "UNKNOWN"),
                             ),
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MiuixTheme.textStyles.body2,
                             color = MaterialTheme.colorScheme.error,
                         )
                         val message = receipt.optString("message")
                         if (message.isNotBlank()) {
                             Text(
                                 text = message,
-                                style = MaterialTheme.typography.bodySmall,
+                                style = MiuixTheme.textStyles.footnote1,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
@@ -312,7 +313,7 @@ internal fun VirtualDisplayRecoveryControls(
                             contentDescription = null,
                             modifier = Modifier.size(18.dp),
                         )
-                        Spacer(Modifier.width(6.dp))
+                        Spacer(Modifier.width(8.dp))
                         Text(
                             text = stringResource(R.string.vd_recovery_refresh),
                             maxLines = 1,

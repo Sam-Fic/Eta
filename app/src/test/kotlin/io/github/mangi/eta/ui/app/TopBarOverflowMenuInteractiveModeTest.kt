@@ -187,7 +187,6 @@ class TopBarOverflowMenuInteractiveModeTest {
                     Box(Modifier.fillMaxSize()) {
                         Box(Modifier.align(Alignment.TopEnd)) {
                             TopBarOverflowMenu(
-                                onNewConversation = {},
                                 onOpenTerminal = { terminalOpens++ },
                                 onLaunchKimiWeb = {},
                                 kimiWebLabel = "Kimi Web",

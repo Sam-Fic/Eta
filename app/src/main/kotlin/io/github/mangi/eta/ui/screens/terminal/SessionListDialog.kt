@@ -1,4 +1,5 @@
 package io.github.mangi.eta.ui.screens.terminal
+
 import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import androidx.compose.ui.platform.LocalView
@@ -14,6 +15,12 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text as M3Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
@@ -24,12 +31,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.agent.terminal.TerminalEnvironment
+import io.github.mangi.eta.ui.adaptive.EtaDialog
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.app.displayName
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowDialog
 
 @Immutable
 internal data class SessionDialogRow(
@@ -52,17 +60,15 @@ internal fun SessionListDialog(
     onClose: (String) -> Unit,
     onNew: () -> Unit,
 ) {
-    val view = LocalView.current
-    WindowDialog(
+    EtaDialog(
         show = true,
         title = stringResource(R.string.terminal_sessions),
         onDismissRequest = onDismiss,
     ) {
         if (rows.isEmpty()) {
-            Text(
+            TerminalBodyText(
                 text = stringResource(R.string.terminal_session_empty),
-                style = MiuixTheme.textStyles.footnote1,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                color = terminalMutedForeground(),
                 textAlign = TextAlign.Center,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -80,17 +86,12 @@ internal fun SessionListDialog(
                 }
             }
         }
-        TextButton(
+        TerminalTextButton(
             text = stringResource(R.string.terminal_new_session),
-            onClick = {
-                TouchHaptics.click(view)
-                onNew()
-                onDismiss()
-            },
+            onClick = onNew,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 4.dp),
-            colors = ButtonDefaults.textButtonColorsPrimary(),
         )
     }
 }
@@ -103,6 +104,72 @@ private fun SessionRow(
     onClose: () -> Unit,
 ) {
     val view = LocalView.current
+    if (isMaterial3Theme()) {
+        // 官方单选列表项：selected 语义、涟漪、按压形变与内边距全部由 ListItem 自带。
+        ListItem(
+            selected = row.active,
+            onClick = {
+                TouchHaptics.click(view)
+                onSelect()
+            },
+            modifier = Modifier.fillMaxWidth(),
+            content = {
+                M3Text(
+                    text = row.environment.displayName,
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+            },
+            supportingContent = {
+                Column {
+                    if (row.active) {
+                        M3Text(
+                            text = stringResource(R.string.terminal_session_current),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    if (row.subtitle.isNotEmpty()) {
+                        M3Text(
+                            text = row.subtitle,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontFamily = FontFamily.Monospace,
+                            ),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            },
+            trailingContent = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    M3Text(
+                        text = sessionStateLabel(row),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (row.running) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                    TerminalIconButton(
+                        icon = Icons.Rounded.Refresh,
+                        contentDescription = stringResource(R.string.terminal_restart_session),
+                        onClick = onRestart,
+                    )
+                    TerminalIconButton(
+                        icon = Icons.Rounded.Close,
+                        contentDescription = stringResource(R.string.terminal_close_session),
+                        onClick = onClose,
+                    )
+                }
+            },
+        )
+        return
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -110,7 +177,7 @@ private fun SessionRow(
                 TouchHaptics.click(view)
                 onSelect()
             })
-            .padding(vertical = 6.dp),
+            .padding(vertical = 8.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(

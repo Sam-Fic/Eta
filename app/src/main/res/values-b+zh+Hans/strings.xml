@@ -220,6 +220,10 @@
   <string name="appearance_icon_cat">猫咪颜色</string>
   <string name="appearance_icon_apply">确定</string>
   <string name="appearance_group_interface">界面与效果</string>
+  <string name="appearance_theme_family">主题风格</string>
+  <string name="appearance_theme_family_miui">MIUI X</string>
+  <string name="appearance_theme_family_material3">Material Design 3</string>
+  <string name="appearance_theme_family_summary">在 MIUI X 与 Material Design 3 Expressive 组件体系之间切换整个应用</string>
   <string name="appearance_theme_mode">主题模式</string>
   <string name="appearance_theme_system">跟随系统</string>
   <string name="appearance_theme_light">浅色</string>
@@ -1534,4 +1538,14 @@
   <string name="whale_maid_satiety_peckish">不饿，但是不介意吃多点</string>
   <string name="whale_maid_satiety_full">饱腹满足</string>
   <string name="whale_maid_satiety_stuffed">吃得有点撑了</string>
+
+  <!-- M3 Expressive 输入区 -->
+  <string name="composer_schedule_send">定时发送</string>
+  <string name="composer_save_draft">保存草稿</string>
+  <string name="composer_share">分享</string>
+  <string name="composer_schedule_title">选择发送时间</string>
+  <string name="composer_draft_saved">草稿已保存</string>
+  <string name="composer_scheduled_toast">已安排在 %1$s 发送</string>
+  <string name="composer_schedule_cancel">取消定时发送</string>
+  <string name="composer_schedule_none">暂无定时消息</string>
 </resources>

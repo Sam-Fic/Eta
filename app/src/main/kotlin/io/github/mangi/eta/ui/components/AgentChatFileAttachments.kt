@@ -26,10 +26,18 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.FolderOpen
-import androidx.compose.material.icons.outlined.Image
-import androidx.compose.material.icons.outlined.Videocam
-import androidx.compose.material.icons.outlined.Link
+import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.Videocam
+import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text as M3Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,6 +45,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import io.github.mangi.eta.ui.adaptive.EtaDialog
+import io.github.mangi.eta.ui.adaptive.EtaDialogActions
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -53,19 +63,22 @@ import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.agent.model.AgentFileReference
 import io.github.mangi.eta.agent.model.AgentFileReferenceKind
 import io.github.mangi.eta.ui.model.PendingFileReferenceUi
-import top.yukonga.miuix.kmp.basic.Icon
+import androidx.compose.material3.Icon
 import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.squircle.squircleBorder
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowDialog
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 
 internal val ChatInputPopupMargin = 8.dp
-internal val ChatInputActionSize = 40.dp
+/** 主页 / 侧边栏按钮统一档：官方 Small 图标按钮容器（40dp），尺寸只引用 IconButtonDefaults 令牌。 */
+internal val ChatInputActionSize = IconButtonDefaults.smallContainerSize().height
+/** MIUI X 分支既有图标尺寸；Material 3 分支一律走 `etaOfficialIconButtonIconSize` 官方令牌。 */
 internal val ChatInputActionIconSize = 24.dp
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun AgentAttachmentPickerButton(
     onAttachImage: (String) -> Unit,
@@ -74,6 +87,10 @@ internal fun AgentAttachmentPickerButton(
     onAttachFolder: (String) -> Unit,
     onAttachFilePath: (String) -> Unit,
     modifier: Modifier = Modifier,
+    icon: androidx.compose.ui.graphics.vector.ImageVector = Icons.Rounded.Add,
+    containerShape: androidx.compose.ui.graphics.Shape? = null,
+    containerColor: androidx.compose.ui.graphics.Color? = null,
+    containerSize: androidx.compose.ui.unit.Dp = ChatInputActionSize,
 ) {
     val context = LocalContext.current
     val view = LocalView.current
@@ -118,6 +135,36 @@ internal fun AgentAttachmentPickerButton(
     }
 
     val keepIme = rememberKeepImeWhenOpeningMenu()
+    val material3 = isMaterial3Theme()
+    val options = listOf(
+        Triple(stringResource(R.string.attachment_image), Icons.Rounded.Image, 0),
+        Triple(stringResource(R.string.attachment_video), Icons.Rounded.Videocam, 1),
+        Triple(stringResource(R.string.attachment_file), Icons.Rounded.Description, 2),
+        Triple(stringResource(R.string.attachment_folder), Icons.Rounded.FolderOpen, 3),
+        Triple(stringResource(R.string.attachment_enter_path), Icons.Rounded.Link, 4),
+    )
+    fun runOption(index: Int) {
+        TouchHaptics.click(view)
+        menuState.dismiss()
+        when (index) {
+            0 -> photoPicker.launch(
+                PickVisualMediaRequest(
+                    ActivityResultContracts.PickVisualMedia.ImageOnly
+                )
+            )
+            1 -> videoPicker.launch(
+                PickVisualMediaRequest(
+                    ActivityResultContracts.PickVisualMedia.VideoOnly
+                )
+            )
+            2 -> filePicker.launch(arrayOf("*/*"))
+            3 -> folderPicker.launch(null)
+            4 -> {
+                pathInput = ""
+                showPathDialog = true
+            }
+        }
+    }
     Box(modifier = modifier) {
         ChatInputNonFocusableIconButton(
             onClick = {
@@ -125,94 +172,146 @@ internal fun AgentAttachmentPickerButton(
                 menuState.onAnchorClick()
             },
             contentDescription = stringResource(R.string.ui_add_attachment_dba9e8),
+            containerShape = containerShape,
+            containerColor = containerColor,
+            containerSize = containerSize,
         ) {
             Icon(
-                imageVector = Icons.Rounded.Add,
+                imageVector = icon,
                 contentDescription = null,
-                modifier = Modifier.size(ChatInputActionIconSize),
-                tint = MiuixTheme.colorScheme.onSurface,
+                modifier = Modifier.size(
+                    if (material3) {
+                        // 官方图标按钮图标尺寸令牌。
+                        etaOfficialIconButtonIconSize(containerSize)
+                    } else {
+                        ChatInputActionIconSize
+                    },
+                ),
+                tint = if (material3) {
+                    // 官方图标按钮已通过 LocalContentColor 下发内容色。
+                    LocalContentColor.current
+                } else {
+                    MiuixTheme.colorScheme.onSurface
+                },
             )
         }
-        EtaDropdownMenu(
-            expanded = menuState.expanded,
-            onDismissRequest = menuState::dismiss,
-            preferAbove = true,
-            minWidth = 0.dp,
-            focusable = false,
-        ) {
-            val options = listOf(
-                Triple(stringResource(R.string.attachment_image), Icons.Outlined.Image, 0),
-                Triple(stringResource(R.string.attachment_video), Icons.Outlined.Videocam, 1),
-                Triple(stringResource(R.string.attachment_file), Icons.Rounded.Description, 2),
-                Triple(stringResource(R.string.attachment_folder), Icons.Rounded.FolderOpen, 3),
-                Triple(stringResource(R.string.attachment_enter_path), Icons.Outlined.Link, 4),
-            )
-            options.forEach { (option, icon, index) ->
-                DropdownMenuItem(
-                    modifier = Modifier.height(40.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp),
-                    text = { androidx.compose.material3.Text(option) },
-                    leadingIcon = {
-                        androidx.compose.material3.Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            modifier = Modifier.size(22.dp),
-                        )
-                    },
-                    onClick = {
-                        TouchHaptics.click(view)
-                        menuState.dismiss()
-                        when (index) {
-                            0 -> photoPicker.launch(
-                                PickVisualMediaRequest(
-                                    ActivityResultContracts.PickVisualMedia.ImageOnly
-                                )
+        if (material3) {
+            // Material 3 Expressive：官方 DropdownMenu + 官方 DropdownMenuItem，
+            // 行高 / 内边距 / 前置图标尺寸 / 行形状全部取官方默认值。
+            DropdownMenu(
+                expanded = menuState.expanded,
+                onDismissRequest = menuState::dismiss,
+            ) {
+                options.forEachIndexed { index, (label, optionIcon, action) ->
+                    DropdownMenuItem(
+                        text = { M3Text(text = label) },
+                        leadingIcon = { Icon(imageVector = optionIcon, contentDescription = null) },
+                        shape = etaOfficialMenuItemShape(index, options.size),
+                        onClick = { runOption(action) },
+                    )
+                }
+            }
+        } else {
+            EtaDropdownMenu(
+                expanded = menuState.expanded,
+                onDismissRequest = menuState::dismiss,
+                preferAbove = true,
+                minWidth = 0.dp,
+                focusable = false,
+            ) {
+                options.forEach { (option, icon, index) ->
+                    DropdownMenuItem(
+                        modifier = Modifier.height(40.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp),
+                        text = { M3Text(option) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
                             )
-                            1 -> videoPicker.launch(
-                                PickVisualMediaRequest(
-                                    ActivityResultContracts.PickVisualMedia.VideoOnly
-                                )
-                            )
-                            2 -> filePicker.launch(arrayOf("*/*"))
-                            3 -> folderPicker.launch(null)
-                            4 -> {
-                                pathInput = ""
-                                showPathDialog = true
-                            }
-                        }
-                    },
-                )
+                        },
+                        onClick = { runOption(index) },
+                    )
+                }
             }
         }
     }
 
-    WindowDialog(
-        show = showPathDialog,
-        title = stringResource(R.string.ui_input_file_path_36d474),
-        summary = stringResource(R.string.ui_supports_files_and_folders_under_internal_storage_or_520786),
-        onDismissRequest = { showPathDialog = false },
-    ) {
-        Column {
-            TextField(
-                value = pathInput,
-                onValueChange = { pathInput = it },
-                label = stringResource(R.string.ui_absolute_path_9ac6fc),
-                useLabelAsPlaceholder = true,
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            MiuixDialogActions(
-                confirmText = stringResource(R.string.attachment_add),
-                confirmEnabled = pathInput.trim().startsWith('/'),
-                onCancel = { showPathDialog = false },
-                onConfirm = {
-                    val path = pathInput.trim()
-                    showPathDialog = false
-                    onAttachFilePath(path)
+    if (material3) {
+        if (showPathDialog) {
+            AlertDialog(
+                onDismissRequest = { showPathDialog = false },
+                title = { M3Text(text = stringResource(R.string.ui_input_file_path_36d474)) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        M3Text(
+                            text = stringResource(
+                                R.string.ui_supports_files_and_folders_under_internal_storage_or_520786
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        OutlinedTextField(
+                            value = pathInput,
+                            onValueChange = { pathInput = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { M3Text(text = stringResource(R.string.ui_absolute_path_9ac6fc)) },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                        )
+                    }
                 },
-                modifier = Modifier.padding(top = 16.dp),
+                confirmButton = {
+                    androidx.compose.material3.TextButton(
+                        onClick = {
+                            val path = pathInput.trim()
+                            showPathDialog = false
+                            onAttachFilePath(path)
+                        },
+                        enabled = pathInput.trim().startsWith('/'),
+                    ) {
+                        M3Text(text = stringResource(R.string.attachment_add))
+                    }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(onClick = { showPathDialog = false }) {
+                        M3Text(text = stringResource(R.string.action_cancel))
+                    }
+                },
             )
+        }
+    } else {
+        EtaDialog(
+            show = showPathDialog,
+            title = stringResource(R.string.ui_input_file_path_36d474),
+            summary = stringResource(
+                R.string.ui_supports_files_and_folders_under_internal_storage_or_520786
+            ),
+            onDismissRequest = { showPathDialog = false },
+        ) {
+            Column {
+                TextField(
+                    value = pathInput,
+                    onValueChange = { pathInput = it },
+                    label = stringResource(R.string.ui_absolute_path_9ac6fc),
+                    useLabelAsPlaceholder = true,
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                EtaDialogActions(
+                    confirmText = stringResource(R.string.attachment_add),
+                    confirmEnabled = pathInput.trim().startsWith('/'),
+                    onCancel = { showPathDialog = false },
+                    onConfirm = {
+                        val path = pathInput.trim()
+                        showPathDialog = false
+                        onAttachFilePath(path)
+                    },
+                    modifier = Modifier.padding(top = 16.dp),
+                )
+            }
         }
     }
 }
@@ -238,14 +337,14 @@ internal fun PendingFileReferenceStrip(
                     .widthIn(max = 250.dp)
                     .squircleSurface(
                         color = MiuixTheme.colorScheme.surfaceContainerHigh,
-                        cornerRadius = 14.dp,
+                        cornerRadius = 12.dp,
                     )
                     .squircleBorder(
                         width = 0.5.dp,
                         color = MiuixTheme.colorScheme.outline.copy(alpha = 0.5f),
-                        cornerRadius = 14.dp,
+                        cornerRadius = 12.dp,
                     )
-                    .padding(start = 12.dp, end = 6.dp),
+                    .padding(start = 12.dp, end = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -278,7 +377,7 @@ internal fun PendingFileReferenceStrip(
                     Icon(
                         imageVector = Icons.Rounded.Close,
                         contentDescription = stringResource(R.string.ui_remove_file_reference_04bbfc),
-                        modifier = Modifier.size(15.dp),
+                        modifier = Modifier.size(16.dp),
                         tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
                     )
                 }
@@ -295,8 +394,8 @@ internal fun SentFileReferenceFlow(
 ) {
     FlowRow(
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         references.forEach { reference ->
             Row(
@@ -323,7 +422,7 @@ internal fun SentFileReferenceFlow(
                         Icons.Rounded.Description
                     },
                     contentDescription = null,
-                    modifier = Modifier.size(17.dp),
+                    modifier = Modifier.size(16.dp),
                     tint = MiuixTheme.colorScheme.primary,
                 )
                 Text(

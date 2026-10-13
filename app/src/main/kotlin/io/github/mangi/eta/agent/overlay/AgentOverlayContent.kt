@@ -94,7 +94,7 @@ import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
-import top.yukonga.miuix.kmp.basic.Icon
+import androidx.compose.material3.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
@@ -340,7 +340,7 @@ internal fun AgentOverlayBubble(
             modifier = Modifier
                 .widthIn(max = 136.dp),
             cornerRadius = 16.dp,
-            insideMargin = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+            insideMargin = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
             colors = CardDefaults.defaultColors(
                 color = MiuixTheme.colorScheme.surfaceContainer.copy(alpha = 0.8f)
             ),
@@ -349,7 +349,7 @@ internal fun AgentOverlayBubble(
             Text(
                 text = statusText,
                 color = statusColor,
-                fontSize = 12.sp,
+                fontSize = MiuixTheme.textStyles.footnote1.fontSize,
                 fontWeight = FontWeight.Bold,
                 maxLines = 2,
                 lineHeight = 16.sp,
@@ -405,12 +405,12 @@ internal fun AgentOverlayBubble(
                         onClick = ::enterSupplementMode,
                         minWidth = 28.dp,
                         minHeight = 28.dp,
-                        cornerRadius = 14.dp
+                        cornerRadius = 12.dp
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Edit,
                             contentDescription = stringResource(R.string.overlay_supplement),
-                            modifier = Modifier.size(14.dp),
+                            modifier = Modifier.size(16.dp),
                             tint = MiuixTheme.colorScheme.onSurface,
                         )
                     }
@@ -419,12 +419,12 @@ internal fun AgentOverlayBubble(
                             onClick = onPause,
                             minWidth = 28.dp,
                             minHeight = 28.dp,
-                            cornerRadius = 14.dp
+                            cornerRadius = 12.dp
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.Pause,
                                 contentDescription = stringResource(R.string.overlay_pause),
-                                modifier = Modifier.size(14.dp),
+                                modifier = Modifier.size(16.dp),
                                 tint = MiuixTheme.colorScheme.onSurface,
                             )
                         }
@@ -433,12 +433,12 @@ internal fun AgentOverlayBubble(
                             onClick = onResume,
                             minWidth = 28.dp,
                             minHeight = 28.dp,
-                            cornerRadius = 14.dp,
+                            cornerRadius = 12.dp,
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.PlayArrow,
                                 contentDescription = stringResource(R.string.overlay_resume),
-                                modifier = Modifier.size(14.dp),
+                                modifier = Modifier.size(16.dp),
                                 tint = MiuixTheme.colorScheme.primary,
                             )
                         }
@@ -447,12 +447,12 @@ internal fun AgentOverlayBubble(
                         onClick = onStop,
                         minWidth = 28.dp,
                         minHeight = 28.dp,
-                        cornerRadius = 14.dp,
+                        cornerRadius = 12.dp,
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Stop,
                             contentDescription = stringResource(R.string.action_stop),
-                            modifier = Modifier.size(14.dp),
+                            modifier = Modifier.size(16.dp),
                             tint = MiuixTheme.colorScheme.error,
                         )
                     }
@@ -482,22 +482,22 @@ private fun SupplementInput(
 
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 44.dp, max = 112.dp)
-                .clip(RoundedCornerShape(14.dp))
+                .clip(RoundedCornerShape(12.dp))
                 .background(fieldBg)
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                .padding(horizontal = 12.dp, vertical = 8.dp),
             contentAlignment = Alignment.TopStart,
         ) {
             if (value.isBlank()) {
                 Text(
                     text = stringResource(R.string.overlay_supplement_hint),
                     color = textColor.copy(alpha = 0.45f),
-                    fontSize = 14.sp,
+                    fontSize = MiuixTheme.textStyles.body2.fontSize,
                     lineHeight = 18.sp,
                 )
             }
@@ -509,7 +509,7 @@ private fun SupplementInput(
                     .focusRequester(focusRequester),
                 textStyle = TextStyle(
                     color = textColor,
-                    fontSize = 14.sp,
+                    fontSize = MiuixTheme.textStyles.body2.fontSize,
                     lineHeight = 18.sp,
                 ),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
@@ -528,7 +528,7 @@ private fun SupplementInput(
                 onClick = onCancel,
                 minWidth = 44.dp,
                 minHeight = 32.dp,
-                insideMargin = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                insideMargin = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
             )
             Spacer(modifier = Modifier.width(8.dp))
             TextButton(
@@ -537,7 +537,7 @@ private fun SupplementInput(
                 enabled = value.isNotBlank(),
                 minWidth = 44.dp,
                 minHeight = 32.dp,
-                insideMargin = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                insideMargin = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                 colors = ButtonDefaults.textButtonColorsPrimary(),
             )
         }
@@ -572,7 +572,7 @@ internal fun AgentResultCard(
         modifier = Modifier
             .fillMaxSize()
             .navigationBarsPadding()
-            .padding(start = 12.dp, end = 12.dp, bottom = 20.dp),
+            .padding(start = 12.dp, end = 12.dp, bottom = 16.dp),
     ) {
         AnimatedVisibility(
             visible = visible,
@@ -594,7 +594,7 @@ internal fun AgentResultCard(
                     .fillMaxWidth()
                     .heightIn(max = 360.dp)
                     .shadow(8.dp, RoundedCornerShape(CardDefaults.CornerRadius)),
-                insideMargin = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+                insideMargin = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
             ) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -614,7 +614,7 @@ internal fun AgentResultCard(
                         Text(
                             text = statusLabel,
                             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                            fontSize = 13.sp,
+                            fontSize = MiuixTheme.textStyles.footnote1.fontSize,
                         )
                         Spacer(modifier = Modifier.weight(1f))
                         // 关闭直接交给 Service，不经 Compose 协程延迟
@@ -639,16 +639,16 @@ internal fun AgentResultCard(
                     // Markdown 结果，可滚动
                     val markdownState = rememberMarkdownState(content = content, retainState = true)
                     val typography = markdownTypography(
-                        h1 = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold, color = textColor),
-                        h2 = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = textColor),
-                        h3 = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = textColor),
-                        text = TextStyle(fontSize = 16.sp, lineHeight = 22.sp, color = textColor),
-                        paragraph = TextStyle(fontSize = 16.sp, lineHeight = 22.sp, color = textColor),
-                        ordered = TextStyle(fontSize = 16.sp, lineHeight = 22.sp, color = textColor),
-                        bullet = TextStyle(fontSize = 16.sp, lineHeight = 22.sp, color = textColor),
-                        list = TextStyle(fontSize = 16.sp, lineHeight = 22.sp, color = textColor),
+                        h1 = TextStyle(fontSize = MiuixTheme.textStyles.title3.fontSize, fontWeight = FontWeight.Bold, color = textColor),
+                        h2 = TextStyle(fontSize = MiuixTheme.textStyles.title4.fontSize, fontWeight = FontWeight.Bold, color = textColor),
+                        h3 = TextStyle(fontSize = MiuixTheme.textStyles.body1.fontSize, fontWeight = FontWeight.Bold, color = textColor),
+                        text = TextStyle(fontSize = MiuixTheme.textStyles.body1.fontSize, lineHeight = 22.sp, color = textColor),
+                        paragraph = TextStyle(fontSize = MiuixTheme.textStyles.body1.fontSize, lineHeight = 22.sp, color = textColor),
+                        ordered = TextStyle(fontSize = MiuixTheme.textStyles.body1.fontSize, lineHeight = 22.sp, color = textColor),
+                        bullet = TextStyle(fontSize = MiuixTheme.textStyles.body1.fontSize, lineHeight = 22.sp, color = textColor),
+                        list = TextStyle(fontSize = MiuixTheme.textStyles.body1.fontSize, lineHeight = 22.sp, color = textColor),
                         code = TextStyle(
-                            fontSize = 13.sp,
+                            fontSize = MiuixTheme.textStyles.footnote1.fontSize,
                             fontFamily = FontFamily.Monospace,
                             color = textColor,
                         ),
@@ -661,10 +661,10 @@ internal fun AgentResultCard(
                             .heightIn(max = 280.dp)
                             .verticalScroll(rememberScrollState()),
                         loading = {
-                            Text(text = content, color = textColor, fontSize = 16.sp, modifier = it)
+                            Text(text = content, color = textColor, fontSize = MiuixTheme.textStyles.body1.fontSize, modifier = it)
                         },
                         error = {
-                            Text(text = content, color = textColor, fontSize = 16.sp, modifier = it)
+                            Text(text = content, color = textColor, fontSize = MiuixTheme.textStyles.body1.fontSize, modifier = it)
                         },
                     )
                 }

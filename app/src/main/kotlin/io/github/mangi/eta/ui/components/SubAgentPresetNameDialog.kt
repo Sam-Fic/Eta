@@ -1,23 +1,20 @@
 package io.github.mangi.eta.ui.components
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import top.yukonga.miuix.kmp.window.WindowDialog
+import androidx.compose.ui.res.stringResource
+import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.adaptive.EtaDialog
+import io.github.mangi.eta.ui.adaptive.EtaDialogActions
 
 /**
- * Use the app's window-level form host, also used for conversation names in AgentAppRoot.
- * Its DialogContentLayout supplies the form's bounds; the editable field is not placed in
- * Material AlertDialog's weighted supporting-text slot. Keep the shared outlined input and
- * Material text actions rather than introducing a different input or button style.
+ * 子智能体预设命名弹窗。
+ *
+ * 走自适应 [EtaDialog]：Material 3 使用官方 `AlertDialog`，MIUI X 仍使用窗口级表单宿主。
+ * 编辑框保持共用 [EtaFormTextField]，动作行统一由 [EtaDialogActions] 渲染，
+ * 不再自行拼装按钮行。
  */
 @Composable
 internal fun SubAgentPresetNameDialog(
@@ -29,7 +26,7 @@ internal fun SubAgentPresetNameDialog(
     onSave: () -> Unit,
     fieldHint: String = "组名称",
 ) {
-    WindowDialog(
+    EtaDialog(
         show = true,
         title = title,
         onDismissRequest = onDismiss,
@@ -41,13 +38,13 @@ internal fun SubAgentPresetNameDialog(
                 hint = fieldHint,
                 singleLine = true,
             )
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-            ) {
-                TextButton(onClick = onDismiss) { Text("取消") }
-                TextButton(enabled = saveEnabled, onClick = onSave) { Text("保存") }
-            }
+            EtaDialogActions(
+                confirmText = stringResource(R.string.action_save),
+                cancelText = stringResource(R.string.action_cancel),
+                confirmEnabled = saveEnabled,
+                onCancel = onDismiss,
+                onConfirm = onSave,
+            )
         }
     }
 }

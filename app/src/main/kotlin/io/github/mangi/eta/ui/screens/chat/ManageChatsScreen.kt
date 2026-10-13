@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Search
@@ -49,8 +48,12 @@ import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.app.SearchHistoryDialog
-import io.github.mangi.eta.ui.components.MiuixDialogActions
-import io.github.mangi.eta.ui.components.MiuixScaffoldPage
+import io.github.mangi.eta.ui.adaptive.EtaDialog
+import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
+import io.github.mangi.eta.ui.adaptive.EtaText
+import io.github.mangi.eta.ui.adaptive.EtaTextStyle
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.components.streamDiagnosticDraw
 import io.github.mangi.eta.ui.components.streamDiagnosticMeasure
 import io.github.mangi.eta.ui.components.streamDiagnosticPlacement
@@ -59,7 +62,13 @@ import io.github.mangi.eta.ui.model.MessageSearchHit
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.collectLatest
-import top.yukonga.miuix.kmp.basic.Icon
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.Text as M3Text
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -114,33 +123,31 @@ internal fun ManageChatsScreen(
     val byId = remember(conversations) { conversations.associateBy { it.id } }
     val ordered = remember(nextOrder, byId) { nextOrder.mapNotNull { byId[it] } }
 
-    MiuixScaffoldPage(
+    EtaScaffoldPage(
         title = stringResource(R.string.history_page_title),
         onBack = onBack,
         listModifier = Modifier.streamDiagnosticMeasure("manage.lazy.measure").streamDiagnosticPlacement("manage.lazy.place").streamDiagnosticDraw("manage.lazy.draw"),
         actions = {
-            IconButton(onClick = { showSearchHistory = true }) {
-                Icon(
-                    imageVector = Icons.Rounded.Search,
-                    contentDescription = stringResource(R.string.action_search_history),
-                    tint = MiuixTheme.colorScheme.onSurface,
-                )
-            }
-            IconButton(onClick = { if (conversations.isNotEmpty()) showDeleteAll = true }) {
-                Icon(
-                    imageVector = Icons.Rounded.Delete,
-                    contentDescription = stringResource(R.string.history_page_delete_all),
-                    tint = MiuixTheme.colorScheme.error,
-                )
-            }
+            TopBarIconButton(
+                icon = Icons.Rounded.Search,
+                contentDescription = stringResource(R.string.action_search_history),
+                onClick = { showSearchHistory = true },
+            )
+            TopBarIconButton(
+                icon = Icons.Rounded.Delete,
+                contentDescription = stringResource(R.string.history_page_delete_all),
+                destructive = true,
+                enabled = conversations.isNotEmpty(),
+                onClick = { if (conversations.isNotEmpty()) showDeleteAll = true },
+            )
         },
     ) {
         if (ordered.isEmpty()) {
             item(key = "empty") {
-                Text(
+                EtaText(
                     text = stringResource(R.string.history_page_empty),
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    style = MiuixTheme.textStyles.body2,
+                    style = EtaTextStyle.Body,
+                    secondary = true,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 28.dp),
                 )
             }
@@ -153,7 +160,13 @@ internal fun ManageChatsScreen(
                     onDelete = { onDeleteConversation(conversation) },
                     modifier = Modifier.animateItem(
                         fadeInSpec = null,
-                        fadeOutSpec = tween(180),
+                        // M3 Expressive：淡出/位移动效统一取官方 motionScheme 规格；
+                        // miuix 主题族保留原来的 180ms。
+                        fadeOutSpec = if (isMaterial3Theme()) {
+                            MaterialTheme.motionScheme.defaultEffectsSpec()
+                        } else {
+                            tween(180)
+                        },
                         placementSpec = null,
                     ),
                 )
@@ -172,13 +185,13 @@ internal fun ManageChatsScreen(
     )
 
     if (showDeleteAll) {
-        WindowDialog(
+        EtaDialog(
             show = true,
             title = stringResource(R.string.history_page_delete_all_title),
             summary = stringResource(R.string.history_page_delete_all_message),
             onDismissRequest = { showDeleteAll = false },
         ) {
-            MiuixDialogActions(
+            EtaDialogActions(
                 confirmText = stringResource(R.string.action_delete),
                 destructive = true,
                 onCancel = { showDeleteAll = false },
@@ -188,6 +201,51 @@ internal fun ManageChatsScreen(
                 },
             )
         }
+    }
+}
+
+/**
+ * 顶栏图标按钮。M3 用官方图标按钮（容器尺寸取 `IconButtonDefaults` 官方令牌，
+ * 破坏性动作用 `IconButtonDefaults.iconButtonColors` 搭配 error 角色色）。
+ */
+@Composable
+private fun TopBarIconButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    destructive: Boolean = false,
+    enabled: Boolean = true,
+) {
+    val view = LocalView.current
+    if (isMaterial3Theme()) {
+        val colors = if (destructive) {
+            androidx.compose.material3.IconButtonDefaults.iconButtonColors(
+                contentColor = MaterialTheme.colorScheme.error,
+            )
+        } else {
+            androidx.compose.material3.IconButtonDefaults.iconButtonColors()
+        }
+        androidx.compose.material3.IconButton(
+            onClick = {
+                TouchHaptics.click(view)
+                onClick()
+            },
+            enabled = enabled,
+            colors = colors,
+        ) {
+            Icon(imageVector = icon, contentDescription = contentDescription)
+        }
+        return
+    }
+    IconButton(onClick = {
+        TouchHaptics.click(view)
+        onClick()
+    }, enabled = enabled) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = if (destructive) MiuixTheme.colorScheme.error else MiuixTheme.colorScheme.onSurface,
+        )
     }
 }
 
@@ -202,6 +260,48 @@ private fun SwipeableManageChatRow(
     val view = LocalView.current
     val density = androidx.compose.ui.platform.LocalDensity.current
     val deleteDistance = with(density) { 96.dp.toPx() }
+
+    if (isMaterial3Theme()) {
+        // 官方滑动删除：SwipeToDismissBox + rememberSwipeToDismissBoxState，
+        // 只允许 EndToStart（向左）触发删除，阈值与回落动效由官方 AnimateTo/Snap 规格决定。
+        val dismissState = rememberSwipeToDismissBoxState(
+            positionalThreshold = { totalDistance -> totalDistance * 0.5f },
+        )
+        SwipeToDismissBox(
+            state = dismissState,
+            enableDismissFromStartToEnd = false,
+            enableDismissFromEndToStart = true,
+            backgroundContent = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.errorContainer),
+                    contentAlignment = Alignment.CenterEnd,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Delete,
+                        contentDescription = stringResource(R.string.action_delete),
+                        tint = MaterialTheme.colorScheme.onErrorContainer,
+                    )
+                }
+            },
+            modifier = modifier,
+        ) {
+            ManageChatRow(
+                conversation = conversation,
+                onClick = onClick,
+                onTogglePin = onTogglePin,
+            )
+        }
+        LaunchedEffect(dismissState.currentValue) {
+            if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
+                TouchHaptics.gestureThreshold(view)
+                onDelete()
+            }
+        }
+        return
+    }
+
     var offsetX by remember { mutableFloatStateOf(0f) }
     var collapsing by remember { mutableStateOf(false) }
     var deleted by remember { mutableStateOf(false) }
@@ -243,13 +343,13 @@ private fun SwipeableManageChatRow(
                 )
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 4.dp)
-                .clip(RoundedCornerShape(18.dp)),
+                .clip(RoundedCornerShape(16.dp)),
         ) {
             Box(
                 modifier = Modifier
                     .matchParentSize()
                     .background(MiuixTheme.colorScheme.errorContainer)
-                    .padding(horizontal = 20.dp),
+                    .padding(horizontal = 16.dp),
                 contentAlignment = Alignment.CenterEnd,
             ) {
                 Icon(
@@ -275,20 +375,87 @@ private fun ManageChatRow(
     onClick: () -> Unit,
     onTogglePin: () -> Unit,
 ) {
+    if (isMaterial3Theme()) {
+        // 官方可交互 ListItem：整行点按 + 自带涟漪/语义；置顶用官方 FilledIconToggleButton。
+        ListItem(
+            onClick = onClick,
+            modifier = Modifier.fillMaxWidth(),
+            content = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    M3Text(
+                        text = conversation.title.ifBlank { conversation.preview },
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    if (conversation.isActiveRun || conversation.hasCompletionMarker) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .clip(CircleShape)
+                                .then(
+                                    if (conversation.isActiveRun) {
+                                        Modifier.background(MaterialTheme.colorScheme.primary)
+                                    } else {
+                                        Modifier.border(
+                                            1.dp,
+                                            MaterialTheme.colorScheme.primary,
+                                            CircleShape,
+                                        )
+                                    },
+                                ),
+                        )
+                    }
+                }
+            },
+            supportingContent = {
+                M3Text(
+                    text = conversation.timeLabel,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            },
+            trailingContent = {
+                androidx.compose.material3.IconToggleButton(
+                    checked = conversation.isPinned,
+                    onCheckedChange = { onTogglePin() },
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.PushPin,
+                        contentDescription = stringResource(
+                            if (conversation.isPinned) {
+                                R.string.conversation_unpin
+                            } else {
+                                R.string.conversation_pin
+                            },
+                        ),
+                    )
+                }
+            },
+        )
+        return
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
+            .clip(RoundedCornerShape(16.dp))
             .background(MiuixTheme.colorScheme.surfaceContainerHigh)
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
                     text = conversation.title.ifBlank { conversation.preview },
@@ -322,11 +489,7 @@ private fun ManageChatRow(
         }
         IconButton(onClick = onTogglePin) {
             Icon(
-                imageVector = if (conversation.isPinned) {
-                    Icons.Rounded.PushPin
-                } else {
-                    Icons.Outlined.PushPin
-                },
+                imageVector = Icons.Rounded.PushPin,
                 contentDescription = stringResource(
                     if (conversation.isPinned) {
                         R.string.conversation_unpin

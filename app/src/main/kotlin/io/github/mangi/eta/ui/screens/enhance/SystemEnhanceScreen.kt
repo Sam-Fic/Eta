@@ -1,6 +1,9 @@
 package io.github.mangi.eta.ui.screens.enhance
 
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ManageSearch
 import androidx.compose.material.icons.rounded.AccountTree
@@ -13,18 +16,26 @@ import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material.icons.rounded.VerifiedUser
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.adaptive.EtaCard
+import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
+import io.github.mangi.eta.ui.adaptive.EtaSectionTitle
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.app.description
 import io.github.mangi.eta.ui.app.rememberDeviceCapabilities
-import io.github.mangi.eta.ui.components.MiuixScaffoldPage
 import io.github.mangi.eta.ui.components.PreferenceIcon
 import io.github.mangi.eta.ui.model.AgentSystemEnhanceAction
+import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text as M3Text
 import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.TextButton
 
 @Composable
@@ -35,91 +46,163 @@ fun SystemEnhanceScreen(
     val context = LocalContext.current
     val capabilities = rememberDeviceCapabilities()
     val canRequestRoot = capabilities.root.suPresent && !capabilities.root.isGranted
-    MiuixScaffoldPage(
+    EtaScaffoldPage(
         title = stringResource(R.string.capability_enhancements),
         onBack = { onAction(AgentSystemEnhanceAction.NavigateBack) },
         modifier = modifier,
     ) {
         item(key = "access") {
-            Card(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
-                BasicComponent(
+            EtaCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                EnhanceRow(
                     title = "Root",
                     summary = capabilities.root.description(context),
-                    startAction = { PreferenceIcon(Icons.Rounded.Key) },
-                    endActions = {
-                        TextButton(
-                            text = stringResource(
-                                if (canRequestRoot) R.string.capability_root_request
-                                else R.string.capability_root_refresh,
-                            ),
-                            enabled = !capabilities.root.isChecking,
-                            onClick = {
-                                onAction(
-                                    if (canRequestRoot) AgentSystemEnhanceAction.RequestRoot
-                                    else AgentSystemEnhanceAction.RefreshRoot,
-                                )
-                            },
-                        )
-                    },
-                )
-                BasicComponent(
+                    icon = Icons.Rounded.Key,
+                ) {
+                    EnhanceActionButton(
+                        text = stringResource(
+                            if (canRequestRoot) R.string.capability_root_request
+                            else R.string.capability_root_refresh,
+                        ),
+                        enabled = !capabilities.root.isChecking,
+                        onClick = {
+                            onAction(
+                                if (canRequestRoot) AgentSystemEnhanceAction.RequestRoot
+                                else AgentSystemEnhanceAction.RefreshRoot,
+                            )
+                        },
+                    )
+                }
+                EnhanceRow(
                     title = stringResource(R.string.capability_xposed_service),
                     summary = stringResource(
                         if (capabilities.xposedConnected) R.string.capability_xposed_connected
                         else R.string.capability_xposed_disconnected,
                     ),
-                    startAction = { PreferenceIcon(Icons.Rounded.AccountTree) },
+                    icon = Icons.Rounded.AccountTree,
                 )
             }
         }
         item(key = "framework-help") {
-            Card(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
-                BasicComponent(
+            EtaCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                EnhanceRow(
                     title = stringResource(R.string.capability_xposed_help),
                     summary = stringResource(R.string.capability_xposed_help_summary),
-                    startAction = { PreferenceIcon(Icons.Rounded.Info) },
+                    icon = Icons.Rounded.Info,
                 )
             }
         }
-        item(key = "root-title") { SmallTitle(stringResource(R.string.capability_root_features)) }
+        item(key = "root-title") { EtaSectionTitle(text = stringResource(R.string.capability_root_features)) }
         item(key = "root-features") {
-            Card(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
-                BasicComponent(
+            EtaCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                EnhanceRow(
                     title = stringResource(R.string.capability_root_device),
                     summary = stringResource(R.string.capability_root_device_summary),
-                    startAction = { PreferenceIcon(Icons.Rounded.AdminPanelSettings) },
+                    icon = Icons.Rounded.AdminPanelSettings,
                 )
-                BasicComponent(
+                EnhanceRow(
                     title = stringResource(R.string.capability_root_data),
                     summary = stringResource(R.string.capability_root_data_summary),
-                    startAction = { PreferenceIcon(Icons.Rounded.Lock) },
+                    icon = Icons.Rounded.Lock,
                 )
-                BasicComponent(
+                EnhanceRow(
                     title = stringResource(R.string.capability_root_linux),
                     summary = stringResource(R.string.capability_root_linux_summary),
-                    startAction = { PreferenceIcon(Icons.Rounded.Terminal) },
+                    icon = Icons.Rounded.Terminal,
                 )
             }
         }
-        item(key = "hook-title") { SmallTitle(stringResource(R.string.capability_system_features)) }
+        item(key = "hook-title") { EtaSectionTitle(text = stringResource(R.string.capability_system_features)) }
         item(key = "hook-features") {
-            Card(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
-                BasicComponent(
+            EtaCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                EnhanceRow(
                     title = stringResource(R.string.capability_hook_assistants),
                     summary = stringResource(R.string.capability_hook_assistants_summary),
-                    startAction = { PreferenceIcon(Icons.Rounded.AutoAwesome) },
+                    icon = Icons.Rounded.AutoAwesome,
                 )
-                BasicComponent(
+                EnhanceRow(
                     title = stringResource(R.string.capability_hook_google),
                     summary = stringResource(R.string.capability_hook_google_summary),
-                    startAction = { PreferenceIcon(Icons.AutoMirrored.Rounded.ManageSearch) },
+                    icon = Icons.AutoMirrored.Rounded.ManageSearch,
                 )
-                BasicComponent(
+                EnhanceRow(
                     title = stringResource(R.string.capability_hook_accessibility),
                     summary = stringResource(R.string.capability_hook_accessibility_summary),
-                    startAction = { PreferenceIcon(Icons.Rounded.VerifiedUser) },
+                    icon = Icons.Rounded.VerifiedUser,
                 )
             }
         }
+    }
+}
+
+/**
+ * 系统增强页的设置行。
+ *
+ * Material 3 走官方 [ListItem]（可点击重载自带涟漪、语义与按压形变，内边距取
+ * [ListItemDefaults.ContentPadding] 官方默认值）；MIUI X 保持原有 [BasicComponent]。
+ */
+@Composable
+private fun EnhanceRow(
+    title: String,
+    summary: String,
+    icon: ImageVector,
+    enabled: Boolean = true,
+    onClick: (() -> Unit)? = null,
+    trailing: (@Composable RowScope.() -> Unit)? = null,
+) {
+    if (isMaterial3Theme()) {
+        val leading: @Composable () -> Unit = {
+            Icon(imageVector = icon, contentDescription = null)
+        }
+        val supporting: @Composable () -> Unit = {
+            M3Text(
+                text = summary,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        val headline: @Composable () -> Unit = {
+            M3Text(text = title, style = MaterialTheme.typography.bodyLarge)
+        }
+        if (onClick != null) {
+            ListItem(
+                onClick = onClick,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = enabled,
+                leadingContent = leading,
+                content = headline,
+                supportingContent = supporting,
+                trailingContent = trailing?.let { slot -> { Row { slot() } } },
+            )
+        } else {
+            ListItem(
+                modifier = Modifier.fillMaxWidth(),
+                enabled = enabled,
+                leadingContent = leading,
+                content = headline,
+                supportingContent = supporting,
+                trailingContent = trailing?.let { slot -> { Row { slot() } } },
+            )
+        }
+    } else {
+        BasicComponent(
+            title = title,
+            summary = summary,
+            startAction = { PreferenceIcon(icon, enabled = enabled) },
+            endActions = trailing,
+            enabled = enabled,
+            onClick = onClick,
+        )
+    }
+}
+
+/** 行尾主操作按钮：M3 用官方 [Button]（不覆盖形状与配色），MIUI X 保持原有 [TextButton]。 */
+@Composable
+private fun EnhanceActionButton(text: String, enabled: Boolean, onClick: () -> Unit) {
+    if (isMaterial3Theme()) {
+        Button(onClick = onClick, enabled = enabled) {
+            M3Text(text = text)
+        }
+    } else {
+        TextButton(text = text, enabled = enabled, onClick = onClick)
     }
 }

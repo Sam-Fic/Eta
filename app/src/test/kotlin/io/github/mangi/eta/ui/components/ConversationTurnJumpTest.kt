@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -55,6 +56,41 @@ class ConversationTurnJumpTest {
             assertEquals(0, state.firstVisibleItemScrollOffset)
             assertEquals(0, conversationUserMessageTarget(listOf(0, 4, 8), state.firstVisibleItemIndex, 12,
                 ConversationNavigationDirection.Up, false, state.firstVisibleItemScrollOffset))
+        }
+    }
+
+    @Test fun stalledJumpReserveTestIsTrueWhileContentOverflowsAndFalseAtRealEdges() {
+        val state = LazyListState()
+        lateinit var scope: CoroutineScope
+        compose.setContent {
+            val rememberedScope = rememberCoroutineScope()
+            SideEffect { scope = rememberedScope }
+            // 与应用一致的布局不变量：末项是短哨兵，真到底时其底边贴住静止线。
+            LazyColumn(state = state, modifier = Modifier.size(300.dp, 400.dp)) {
+                items(18) { index -> Box(Modifier.height(if (index == 17) 80.dp else 900.dp)) }
+            }
+        }
+        compose.waitForIdle()
+        // 中途位置：头尾都在裁剪 = 被钳住时布局上仍有越界余量（允许 snapToItem 救援）。
+        compose.runOnIdle {
+            scope.launch { state.scrollToItem(6, 300) }
+        }
+        compose.waitForIdle()
+        compose.runOnIdle {
+            assertTrue("forward reserve expected mid-list", state.hasClampedScrollReserve(forward = true))
+            assertTrue("backward reserve expected mid-list", state.hasClampedScrollReserve(forward = false))
+            scope.launch { state.scrollToItem(17) }
+        }
+        compose.waitForIdle()
+        // 真到底：尾部贴住静止线，正向越界测试必须不成立（允许判定为真边界并放弃）。
+        compose.runOnIdle {
+            assertFalse("forward reserve must be false at the real end", state.hasClampedScrollReserve(forward = true))
+            scope.launch { state.scrollToItem(0) }
+        }
+        compose.waitForIdle()
+        // 真到顶：头部贴住起点线，反向越界测试必须不成立。
+        compose.runOnIdle {
+            assertFalse("backward reserve must be false at the real top", state.hasClampedScrollReserve(forward = false))
         }
     }
 

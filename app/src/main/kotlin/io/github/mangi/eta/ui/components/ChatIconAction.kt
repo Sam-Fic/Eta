@@ -5,6 +5,9 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -12,17 +15,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 
 /**
- * Transparent chat icon action, drawn without miuix `IconButton`'s unconditional squircle layer.
+ * Transparent chat icon action.
  *
- * miuix builds an offscreen squircle mask for every `IconButton` even when the background is
- * transparent, so that mask only ever carved pixels which were never visible, while each node
- * still paid an extra offscreen composite per frame. One device scroll trace attributed roughly
- * three quarters of all `alpha caused saveLayer` records to these small icon buttons.
+ * miuix branch keeps the original layout: miuix builds an offscreen squircle mask for every
+ * IconButton even when the background is transparent, and that mask only ever carved pixels which
+ * were never visible while each node still paid an extra offscreen composite per frame.
  *
- * Size, role, enablement and content match the `IconButton` call it replaces, so the hit target,
- * semantics and glyph are unchanged. Tooltips stay with the caller, exactly as before.
+ * Material 3 Expressive branch uses the official IconButton: the container comes from
+ * IconButtonDefaults.extraSmallContainerSize() (32dp) and shape, colors, ripple and the minimum
+ * interactive size are all supplied by the official component. minWidth / minHeight only apply to
+ * the miuix branch; they are kept so caller signatures stay untouched.
  */
 @Composable
 internal fun ChatIconAction(
@@ -33,6 +38,16 @@ internal fun ChatIconAction(
     minHeight: Dp = 30.dp,
     content: @Composable BoxScope.() -> Unit,
 ) {
+    if (isMaterial3Theme()) {
+        IconButton(
+            onClick = onClick,
+            modifier = modifier.size(IconButtonDefaults.extraSmallContainerSize()),
+            enabled = enabled,
+        ) {
+            Box(contentAlignment = Alignment.Center, content = content)
+        }
+        return
+    }
     Box(
         modifier = modifier
             .defaultMinSize(minWidth = minWidth, minHeight = minHeight)

@@ -8,14 +8,12 @@ import android.text.format.Formatter
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.InsertDriveFile
-import androidx.compose.material.icons.rounded.DriveFolderUpload
 import androidx.compose.material.icons.rounded.Folder
-import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -41,20 +39,20 @@ import io.github.mangi.eta.data.repository.LinuxEnvironmentSettingsRepository
 import io.github.mangi.eta.ui.app.WorkspaceEntry
 import io.github.mangi.eta.ui.app.WorkspaceFileStore
 import io.github.mangi.eta.ui.app.guestWorkspacePath
+import io.github.mangi.eta.ui.adaptive.EtaCard
+import io.github.mangi.eta.ui.adaptive.EtaClickableRow
+import io.github.mangi.eta.ui.adaptive.EtaDialog
+import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
+import io.github.mangi.eta.ui.adaptive.EtaSectionTitle
+import io.github.mangi.eta.ui.adaptive.EtaText
+import io.github.mangi.eta.ui.adaptive.EtaTextStyle
 import io.github.mangi.eta.ui.components.ListEmptyState
-import io.github.mangi.eta.ui.components.MiuixDialogActions
-import io.github.mangi.eta.ui.components.MiuixScaffoldPage
-import io.github.mangi.eta.ui.components.PreferenceIcon
 import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.window.WindowDialog
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -175,27 +173,31 @@ internal fun WorkspaceScreen(onBack: () -> Unit) {
             message = context.getString(R.string.capability_workspace_failed)
         }
     }
-    MiuixScaffoldPage(title = stringResource(R.string.capability_workspace), onBack = onBack) {
+    EtaScaffoldPage(title = stringResource(R.string.capability_workspace), onBack = onBack) {
         item(key = "workspace-info") {
-            BasicComponent(
+            EtaClickableRow(
                 title = stringResource(R.string.capability_workspace_private),
                 summary = stringResource(R.string.capability_workspace_private_summary),
-                modifier = Modifier.padding(horizontal = 12.dp),
+                onClick = null,
+                showChevron = false,
+                contentPadding = PaddingValues(horizontal = 12.dp),
             )
         }
         item(key = "actions") {
-            Card(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
-                ArrowPreference(
+            EtaCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                EtaClickableRow(
                     title = stringResource(R.string.capability_workspace_import),
                     enabled = !busy,
-                    startAction = { PreferenceIcon(Icons.Rounded.DriveFolderUpload, enabled = !busy) },
                     onClick = { importLauncher.launch(arrayOf("*/*")) },
                 )
 
-                ArrowPreference(
+                EtaClickableRow(
                     title = stringResource(R.string.capability_workspace_public),
-                    startAction = { PreferenceIcon(Icons.Rounded.FolderOpen) },
-                    summary = if (publicAccess) stringResource(R.string.capability_workspace_public_granted) else stringResource(R.string.capability_workspace_public_summary),
+                    summary = if (publicAccess) {
+                        stringResource(R.string.capability_workspace_public_granted)
+                    } else {
+                        stringResource(R.string.capability_workspace_public_summary)
+                    },
                     onClick = {
                         try {
                             accessLauncher.launch(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
@@ -207,16 +209,21 @@ internal fun WorkspaceScreen(onBack: () -> Unit) {
                 )
             }
         }
-        message?.let { text -> item(key = "message") { BasicComponent(title = text) } }
+        message?.let { text ->
+            item(key = "message") {
+                EtaClickableRow(title = text, onClick = null, showChevron = false)
+            }
+        }
         item(key = "path") {
-            SmallTitle(if (path.isBlank()) stringResource(R.string.capability_workspace_files) else path)
+            EtaSectionTitle(
+                if (path.isBlank()) stringResource(R.string.capability_workspace_files) else path,
+            )
         }
         if (path.isNotBlank()) {
             item(key = "parent") {
-                Card(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
-                    ArrowPreference(
+                EtaCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+                    EtaClickableRow(
                         title = stringResource(R.string.capability_workspace_parent),
-                        startAction = { PreferenceIcon(Icons.Rounded.FolderOpen) },
                         onClick = { path = path.substringBeforeLast('/', "") },
                     )
                 }
@@ -231,35 +238,30 @@ internal fun WorkspaceScreen(onBack: () -> Unit) {
             }
         }
         items(entries, key = { it.path }) { entry ->
-            Card(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
-                BasicComponent(
-                    modifier = Modifier.combinedClickable(
-                        enabled = !busy,
-                        onClick = {
-                            if (entry.directory) path = entry.path
-                        },
-                        onLongClick = {
-                            pendingActions = FileEntryActions(
-                                path = entry.path,
-                                name = entry.name,
-                                directory = entry.directory,
-                                canExport = !entry.directory,
-                                canDelete = true,
-                            )
-                        },
-                    ),
-                    title = entry.name,
-                    summary = if (entry.directory) stringResource(R.string.capability_workspace_directory)
-                        else Formatter.formatShortFileSize(context, entry.size),
-                    enabled = !busy,
-                    startAction = {
-                        PreferenceIcon(
-                            icon = if (entry.directory) Icons.Rounded.Folder else Icons.AutoMirrored.Rounded.InsertDriveFile,
-                            enabled = !busy,
-                        )
-                    },
-                )
-            }
+            EtaFileRow(
+                title = entry.name,
+                summary = if (entry.directory) {
+                    stringResource(R.string.capability_workspace_directory)
+                } else {
+                    Formatter.formatShortFileSize(context, entry.size)
+                },
+                leadingIcon = if (entry.directory) {
+                    Icons.Rounded.Folder
+                } else {
+                    Icons.AutoMirrored.Rounded.InsertDriveFile
+                },
+                enabled = !busy,
+                onClick = { if (entry.directory) path = entry.path },
+                onLongClick = {
+                    pendingActions = FileEntryActions(
+                        path = entry.path,
+                        name = entry.name,
+                        directory = entry.directory,
+                        canExport = !entry.directory,
+                        canDelete = true,
+                    )
+                },
+            )
         }
     }
 
@@ -286,7 +288,7 @@ internal fun WorkspaceScreen(onBack: () -> Unit) {
     }
 
     pendingDelete?.let { target ->
-        WindowDialog(
+        EtaDialog(
             show = true,
             title = stringResource(R.string.capability_workspace_delete_title),
             summary = stringResource(
@@ -296,13 +298,13 @@ internal fun WorkspaceScreen(onBack: () -> Unit) {
             ),
             onDismissRequest = { if (!busy) pendingDelete = null },
         ) {
-            MiuixDialogActions(
+            EtaDialogActions(
                 confirmText = stringResource(R.string.action_delete),
                 destructive = true,
                 confirmEnabled = !busy,
                 onCancel = { if (!busy) pendingDelete = null },
                 onConfirm = {
-                    if (busy) return@MiuixDialogActions
+                    if (busy) return@EtaDialogActions
                     val deleting = target
                     pendingDelete = null
                     scope.launch {

@@ -5,22 +5,25 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Circle
 import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconToggleButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -29,11 +32,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -41,35 +45,32 @@ import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.AppearanceAccentColor
 import io.github.mangi.eta.data.model.AppearancePaletteStyle
 import io.github.mangi.eta.data.model.AppearanceSettings
+import io.github.mangi.eta.data.model.AppearanceThemeFamily
 import io.github.mangi.eta.data.model.AppearanceThemeMode
 import io.github.mangi.eta.data.model.AppearanceTopBarBlurStyle
 import io.github.mangi.eta.data.model.MAX_INTERFACE_SCALE
 import io.github.mangi.eta.data.model.MIN_INTERFACE_SCALE
 import io.github.mangi.eta.data.model.normalizeInterfaceScale
 import io.github.mangi.eta.data.repository.AppearanceSettingsRepository
+import io.github.mangi.eta.ui.adaptive.EtaCard
+import io.github.mangi.eta.ui.adaptive.EtaClickableRow
+import io.github.mangi.eta.ui.adaptive.EtaDialog
+import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.EtaDropdownRow
+import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
+import io.github.mangi.eta.ui.adaptive.EtaSectionTitle
+import io.github.mangi.eta.ui.adaptive.EtaSlider
+import io.github.mangi.eta.ui.adaptive.EtaSwitch
+import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
+import io.github.mangi.eta.ui.adaptive.EtaText
+import io.github.mangi.eta.ui.adaptive.EtaTextButton
+import io.github.mangi.eta.ui.adaptive.EtaTextField
+import io.github.mangi.eta.ui.adaptive.etaOnSurfaceVariant
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.app.LocalAppearanceSettings
-import io.github.mangi.eta.ui.components.MiuixDialogActions
-import io.github.mangi.eta.ui.components.MiuixScaffoldPage
-import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.Slider
-import top.yukonga.miuix.kmp.basic.Switch
-import top.yukonga.miuix.kmp.basic.SliderDefaults
-import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
-import io.github.mangi.eta.ui.components.AppCatIcon
-import io.github.mangi.eta.ui.components.ArrowPreference
 import io.github.mangi.eta.ui.haptics.TouchHaptics
-import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
-import io.github.mangi.eta.ui.components.SwitchPreference
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowDialog
+import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import kotlin.math.roundToInt
 
 @Composable
@@ -109,6 +110,11 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
         update { current -> current.copy(interfaceScale = scale) }
     }
 
+    val themeFamilies = AppearanceThemeFamily.entries
+    val themeFamilyLabels = listOf(
+        stringResource(R.string.appearance_theme_family_miui),
+        stringResource(R.string.appearance_theme_family_material3),
+    )
     val themeModes = AppearanceThemeMode.entries
     val themeModeLabels = listOf(
         stringResource(R.string.appearance_theme_system),
@@ -149,16 +155,27 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
         stringResource(R.string.appearance_blur_style_progressive_summary),
     )
 
-    MiuixScaffoldPage(
+    EtaScaffoldPage(
         title = stringResource(R.string.appearance_title),
         onBack = onBack,
     ) {
         item(key = "appearance_color_title") {
-            SmallTitle(text = stringResource(R.string.appearance_group_color))
+            EtaSectionTitle(text = stringResource(R.string.appearance_group_color))
         }
         item(key = "appearance_color_card") {
-            Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-                OverlayDropdownPreference(
+            EtaCard(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
+                EtaDropdownRow(
+                    title = stringResource(R.string.appearance_theme_family),
+                    summary = themeFamilyLabels[appearance.themeFamily.ordinal],
+                    items = themeFamilyLabels,
+                    selectedIndex = appearance.themeFamily.ordinal,
+                    onSelectedIndexChange = { index ->
+                        themeFamilies.getOrNull(index)?.let { family ->
+                            update { current -> current.copy(themeFamily = family) }
+                        }
+                    },
+                )
+                EtaDropdownRow(
                     title = stringResource(R.string.appearance_theme_mode),
                     summary = themeModeLabels[appearance.themeMode.ordinal],
                     items = themeModeLabels,
@@ -169,7 +186,7 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
                         }
                     },
                 )
-                OverlayDropdownPreference(
+                EtaDropdownRow(
                     title = stringResource(R.string.appearance_palette_style),
                     summary = paletteLabels[appearance.paletteStyle.ordinal],
                     items = paletteLabels,
@@ -180,7 +197,7 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
                         }
                     },
                 )
-                OverlayDropdownPreference(
+                EtaDropdownRow(
                     title = stringResource(R.string.appearance_accent_color),
                     summary = accentLabels[appearance.accentColor.ordinal],
                     items = accentLabels,
@@ -191,7 +208,7 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
                         }
                     },
                 )
-                SwitchPreference(
+                EtaSwitchRow(
                     title = stringResource(R.string.appearance_pure_black),
                     summary = stringResource(R.string.appearance_pure_black_summary),
                     checked = appearance.pureBlackEnabled,
@@ -199,9 +216,10 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
                         update { current -> current.copy(pureBlackEnabled = enabled) }
                     },
                 )
-                BasicComponent(
+                EtaClickableRow(
                     title = stringResource(R.string.appearance_icon),
                     summary = stringResource(R.string.appearance_icon_summary),
+                    showChevron = false,
                     onClick = {
                         TouchHaptics.click(view)
                         iconExpanded = !iconExpanded
@@ -211,8 +229,8 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
                         Icon(
                             imageVector = if (iconExpanded) Icons.Rounded.ExpandMore else Icons.Rounded.ChevronRight,
                             contentDescription = null,
-                            modifier = Modifier.align(Alignment.CenterVertically).padding(end = 16.dp).size(16.dp),
-                            tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                            modifier = Modifier.align(Alignment.CenterVertically),
+                            tint = etaOnSurfaceVariant(),
                         )
                     },
                     bottomAction = if (iconExpanded) {
@@ -232,11 +250,11 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
         }
 
         item(key = "appearance_interface_title") {
-            SmallTitle(text = stringResource(R.string.appearance_group_interface))
+            EtaSectionTitle(text = stringResource(R.string.appearance_group_interface))
         }
         item(key = "appearance_interface_card") {
-            Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-                SwitchPreference(
+            EtaCard(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
+                EtaSwitchRow(
                     title = stringResource(R.string.appearance_message_timestamps),
                     summary = stringResource(R.string.appearance_message_timestamps_summary),
                     checked = appearance.messageTimestampsEnabled,
@@ -244,33 +262,36 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
                         update { current -> current.copy(messageTimestampsEnabled = enabled) }
                     },
                 )
-                SwitchPreference(
-                    title = stringResource(R.string.appearance_blur),
-                    summary = stringResource(R.string.appearance_blur_summary),
-                    checked = appearance.blurEnabled && blurSupported,
-                    onCheckedChange = { enabled ->
-                        update { current -> current.copy(blurEnabled = enabled) }
-                    },
-                    enabled = blurSupported,
-                )
-                AnimatedVisibility(
-                    visible = appearance.blurEnabled && blurSupported,
-                    enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
-                    exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut(),
-                ) {
-                    OverlayDropdownPreference(
-                        title = stringResource(R.string.appearance_blur_style),
-                        summary = blurStyleSummaries[appearance.topBarBlurStyle.ordinal],
-                        items = blurStyleLabels,
-                        selectedIndex = appearance.topBarBlurStyle.ordinal,
-                        onSelectedIndexChange = { index ->
-                            blurStyles.getOrNull(index)?.let { style ->
-                                update { current -> current.copy(topBarBlurStyle = style) }
-                            }
+                // Material 3 模式使用不透明表面，毛玻璃相关设置不适用，直接隐藏。
+                if (!isMaterial3Theme()) {
+                    EtaSwitchRow(
+                        title = stringResource(R.string.appearance_blur),
+                        summary = stringResource(R.string.appearance_blur_summary),
+                        checked = appearance.blurEnabled && blurSupported,
+                        onCheckedChange = { enabled ->
+                            update { current -> current.copy(blurEnabled = enabled) }
                         },
+                        enabled = blurSupported,
                     )
+                    AnimatedVisibility(
+                        visible = appearance.blurEnabled && blurSupported,
+                        enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
+                        exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut(),
+                    ) {
+                        EtaDropdownRow(
+                            title = stringResource(R.string.appearance_blur_style),
+                            summary = blurStyleSummaries[appearance.topBarBlurStyle.ordinal],
+                            items = blurStyleLabels,
+                            selectedIndex = appearance.topBarBlurStyle.ordinal,
+                            onSelectedIndexChange = { index ->
+                                blurStyles.getOrNull(index)?.let { style ->
+                                    update { current -> current.copy(topBarBlurStyle = style) }
+                                }
+                            },
+                        )
+                    }
                 }
-                BasicComponent(
+                EtaClickableRow(
                     title = stringResource(R.string.appearance_morph_loading),
                     summary = when {
                         !appearance.morphLoadingIndicator ->
@@ -280,6 +301,7 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
                         else ->
                             stringResource(R.string.appearance_morph_loading_during_generation)
                     },
+                    showChevron = false,
                     onClick = {
                         if (appearance.morphLoadingIndicator) {
                             morphLoadingExpanded = !morphLoadingExpanded
@@ -304,14 +326,11 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
                                         R.string.appearance_morph_loading_expand
                                     },
                                 ),
-                                modifier = Modifier
-                                    .align(Alignment.CenterVertically)
-                                    .padding(end = 6.dp)
-                                    .size(16.dp),
-                                tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                                modifier = Modifier.align(Alignment.CenterVertically),
+                                tint = etaOnSurfaceVariant(),
                             )
                         }
-                        Switch(
+                        EtaSwitch(
                             checked = appearance.morphLoadingIndicator,
                             onCheckedChange = { enabled ->
                                 update { current -> current.copy(morphLoadingIndicator = enabled) }
@@ -321,7 +340,7 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
                     },
                     bottomAction = if (appearance.morphLoadingIndicator && morphLoadingExpanded) {
                         {
-                            SwitchPreference(
+                            EtaSwitchRow(
                                 title = stringResource(R.string.appearance_morph_loading_before_response),
                                 summary = stringResource(R.string.appearance_morph_loading_before_response_summary),
                                 checked = appearance.morphLoadingBeforeResponseOnly,
@@ -330,14 +349,14 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
                                         current.copy(morphLoadingBeforeResponseOnly = enabled)
                                     }
                                 },
-                                insideMargin = PaddingValues(0.dp),
+                                dense = true,
                             )
                         }
                     } else {
                         null
                     },
                 )
-                SwitchPreference(
+                EtaSwitchRow(
                     title = stringResource(R.string.appearance_swipe_dismiss),
                     summary = stringResource(R.string.appearance_swipe_dismiss_summary),
                     checked = appearance.swipeDismissEnabled,
@@ -345,7 +364,7 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
                         update { current -> current.copy(swipeDismissEnabled = enabled) }
                     },
                 )
-                SwitchPreference(
+                EtaSwitchRow(
                     title = stringResource(R.string.appearance_predictive_back),
                     summary = stringResource(R.string.appearance_predictive_back_summary),
                     checked = appearance.predictiveBackEnabled,
@@ -353,18 +372,19 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
                         update { current -> current.copy(predictiveBackEnabled = enabled) }
                     },
                 )
-                ArrowPreference(
+                EtaClickableRow(
                     title = stringResource(R.string.appearance_interface_scale),
                     summary = stringResource(R.string.appearance_interface_scale_summary),
+                    onClick = {
+                        scaleInput = scaleDraft.roundToInt().toString()
+                        showScaleDialog = true
+                    },
+                    holdDownState = showScaleDialog,
                     endActions = {
-                        Text(
-                            text = "${scaleDraft.roundToInt()}%",
-                            fontSize = MiuixTheme.textStyles.body2.fontSize,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                        )
+                        EtaText(text = "${scaleDraft.roundToInt()}%", secondary = true)
                     },
                     bottomAction = {
-                        Slider(
+                        EtaSlider(
                             value = scaleDraft.coerceIn(
                                 MIN_INTERFACE_SCALE * 100f,
                                 MAX_INTERFACE_SCALE * 100f,
@@ -372,32 +392,24 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
                             onValueChange = { scaleDraft = it },
                             modifier = Modifier.fillMaxWidth(),
                             valueRange = (MIN_INTERFACE_SCALE * 100f)..(MAX_INTERFACE_SCALE * 100f),
-                            onValueChangeFinished = { commitScale(scaleDraft) },
-                            showKeyPoints = true,
                             keyPoints = listOf(80f, 90f, 100f, 110f),
-                            magnetThreshold = 0.01f,
-                            hapticEffect = SliderDefaults.SliderHapticEffect.Step,
+                            onValueChangeFinished = { commitScale(scaleDraft) },
                         )
                     },
-                    onClick = {
-                        scaleInput = scaleDraft.roundToInt().toString()
-                        showScaleDialog = true
-                    },
-                    holdDownState = showScaleDialog,
                 )
             }
         }
     }
 
     val parsedScale = scaleInput.toIntOrNull()
-    WindowDialog(
+    EtaDialog(
         show = showScaleDialog,
         title = stringResource(R.string.appearance_interface_scale_dialog_title),
         summary = stringResource(R.string.appearance_interface_scale_dialog_summary),
         onDismissRequest = { showScaleDialog = false },
     ) {
         Column {
-            TextField(
+            EtaTextField(
                 value = scaleInput,
                 onValueChange = { value -> scaleInput = value.filter(Char::isDigit).take(3) },
                 label = stringResource(R.string.appearance_interface_scale_input_label),
@@ -405,7 +417,7 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
-            MiuixDialogActions(
+            EtaDialogActions(
                 confirmText = stringResource(R.string.action_confirm),
                 confirmEnabled = parsedScale != null && parsedScale in 80..110,
                 onCancel = { showScaleDialog = false },
@@ -448,11 +460,10 @@ private fun IconAppearanceEditor(
         IconColorChoices(stringResource(R.string.appearance_icon_light), draftLight) { draftLight = it }
         IconColorChoices(stringResource(R.string.appearance_icon_dark), draftDark) { draftDark = it }
         IconColorChoices(stringResource(R.string.appearance_icon_cat), draftCat) { draftCat = it }
-        TextButton(
+        EtaTextButton(
             text = stringResource(R.string.appearance_icon_apply),
             enabled = dirty,
             modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.textButtonColorsPrimary(),
             onClick = {
                 TouchHaptics.click(view)
                 onConfirm(draftLight, draftDark, draftCat)
@@ -465,19 +476,41 @@ private fun IconAppearanceEditor(
 private fun IconColorChoices(title: String, selected: Int, onSelect: (Int) -> Unit) {
     val view = LocalView.current
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(text = title, style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        EtaText(text = title, secondary = true)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             iconSwatches.forEach { color ->
-                Box(
-                    modifier = Modifier
-                        .size(if (color == selected) 28.dp else 24.dp)
-                        .clip(CircleShape)
-                        .background(Color(color))
-                        .clickable {
+                if (isMaterial3Theme()) {
+                    // M3 Expressive 没有取色器/色板组件：色板用官方 IconToggleButton 承载，
+                    // 选中语义、涟漪、容器形状与容器尺寸全部取 IconButtonDefaults 默认值，
+                    // 颜色本体作为图标 tint 呈现；不再 Box + clip(CircleShape) + background + clickable 拼装。
+                    IconToggleButton(
+                        checked = color == selected,
+                        onCheckedChange = {
                             TouchHaptics.click(view)
                             onSelect(color)
                         },
-                )
+                    ) {
+                        Icon(
+                            Icons.Rounded.Circle,
+                            // 色板本身没有文案，M3 也没有取色器组件，这里用色值本身作无障碍名称。
+                            // 必须给：IconToggleButton 经 Surface 的 childSemantics() 合并子节点，
+                            // 若这里是 contentDescription = null，8 个色块会变成「无名按钮」。
+                            contentDescription = "颜色 #%08X".format(color),
+                            tint = Color(color),
+                        )
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(if (color == selected) 28.dp else 24.dp)
+                            .clip(CircleShape)
+                            .background(Color(color))
+                            .clickable {
+                                TouchHaptics.click(view)
+                                onSelect(color)
+                            },
+                    )
+                }
             }
         }
     }
@@ -494,11 +527,12 @@ private fun LauncherIconPreview(
     Box(
         modifier = Modifier
             .size(56.dp)
-            .clip(RoundedCornerShape(14.dp)),
+            // 官方形状令牌（medium = 12dp），不写死圆角。
+            .clip(MaterialTheme.shapes.medium),
     ) {
         if (id != 0) {
-            androidx.compose.foundation.Image(
-                painter = androidx.compose.ui.res.painterResource(id),
+            Image(
+                painter = painterResource(id),
                 contentDescription = null,
                 modifier = Modifier.size(56.dp),
             )

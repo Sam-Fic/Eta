@@ -3,7 +3,7 @@ package io.github.mangi.eta.ui.components
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Stop
-import androidx.compose.material.icons.rounded.VolumeUp
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.voice.tts.SpeechPlayback
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
-import top.yukonga.miuix.kmp.basic.Icon
+import androidx.compose.material3.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -37,9 +37,9 @@ internal fun SpeechPlaybackButton(messageId: String, text: String) {
             CircularProgressIndicator(size = 15.dp, strokeWidth = 2.dp)
         } else {
             Icon(
-                imageVector = if (active) Icons.Rounded.Stop else Icons.Rounded.VolumeUp,
+                imageVector = if (active) Icons.Rounded.Stop else Icons.AutoMirrored.Rounded.VolumeUp,
                 contentDescription = stringResource(if (active) R.string.tts_stop else R.string.tts_read),
-                modifier = Modifier.size(15.dp),
+                modifier = Modifier.size(16.dp),
                 tint = if (active) {
                     MiuixTheme.colorScheme.primary
                 } else {

@@ -35,6 +35,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.config.Prefs
+import io.github.mangi.eta.ui.adaptive.EtaDialog
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
 import io.github.mangi.eta.ui.components.PreferenceIcon
 import io.github.mangi.eta.ui.components.discreteSliderIndexForTap
@@ -43,14 +45,17 @@ import io.github.mangi.eta.ui.haptics.TouchHaptics
 import kotlin.math.roundToInt
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.Icon
+import androidx.compose.material3.Icon
 import top.yukonga.miuix.kmp.basic.Slider
 import top.yukonga.miuix.kmp.basic.SliderDefaults
 import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowDialog
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider as M3Slider
+import androidx.compose.material3.Text as M3Text
+import androidx.compose.material3.rememberSliderState
 
 @Composable
 internal fun HapticsSettingsScreen(onBack: () -> Unit) {
@@ -162,7 +167,7 @@ internal fun HapticsSettingsScreen(onBack: () -> Unit) {
                             ),
                             modifier = Modifier
                                 .align(Alignment.CenterVertically)
-                                .padding(end = 6.dp)
+                                .padding(end = 8.dp)
                                 .size(16.dp),
                             tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
                         )
@@ -237,7 +242,7 @@ internal fun HapticsSettingsScreen(onBack: () -> Unit) {
                                 ),
                                 modifier = Modifier
                                     .align(Alignment.CenterVertically)
-                                    .padding(end = 6.dp)
+                                    .padding(end = 8.dp)
                                     .size(16.dp),
                                 tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
                             )
@@ -326,7 +331,7 @@ private fun HapticIntensityPickerDialog(
     val preview = options[previewIndex]
     val maxIndex = (options.size - 1).toFloat().coerceAtLeast(0f)
 
-    WindowDialog(
+    EtaDialog(
         show = show,
         title = stringResource(R.string.haptics_intensity_title),
         onDismissRequest = onDismiss,
@@ -335,81 +340,120 @@ private fun HapticIntensityPickerDialog(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Icon(
-                imageVector = Icons.Rounded.Vibration,
-                contentDescription = null,
-                modifier = Modifier
-                    .padding(top = 6.dp)
-                    .size(32.dp),
-                tint = MiuixTheme.colorScheme.primary,
-            )
-            Text(
-                text = stringResource(preview.labelRes),
-                style = MiuixTheme.textStyles.title3,
-                color = MiuixTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(top = 6.dp, bottom = 16.dp),
-            )
-            Box(modifier = Modifier.fillMaxWidth()) {
-                Slider(
-                    value = sliderValue.coerceIn(0f, maxIndex),
-                    onValueChange = {},
-                    modifier = Modifier.fillMaxWidth(),
-                    valueRange = 0f..maxIndex,
-                    steps = (options.size - 2).coerceAtLeast(0),
-                    showKeyPoints = true,
-                    keyPoints = options.indices.map { it.toFloat() },
-                    magnetThreshold = 0.18f,
-                    hapticEffect = SliderDefaults.SliderHapticEffect.None,
-                )
-                Box(
+            if (isMaterial3Theme()) {
+                Icon(
+                    imageVector = Icons.Rounded.Vibration,
+                    contentDescription = null,
                     modifier = Modifier
-                        .matchParentSize()
-                        .pointerInput(options.size) {
-                            awaitEachGesture {
-                                val down = awaitFirstDown()
-                                down.consume()
-                                val width = size.width.toFloat().coerceAtLeast(1f)
-                                var current = discreteSliderIndexForTap(
-                                    down.position.x,
-                                    width,
-                                    options.size,
-                                )
-                                sliderValue = current.toFloat()
-                                lastHapticIndex = current
-                                latestOnPreview(options[current])
-                                if (options[current] != latestIntensity) {
-                                    latestOnIntensityChange(options[current])
-                                }
-                                while (true) {
-                                    val event = awaitPointerEvent()
-                                    val change = event.changes.firstOrNull() ?: break
-                                    val index = discreteSliderIndexForTap(
-                                        change.position.x,
+                        .padding(top = 8.dp)
+                        .size(32.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                M3Text(
+                    text = stringResource(preview.labelRes),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),
+                )
+                // 官方离散滑块：steps 由档位数推导，吸附、拖拽命中与无障碍全部交给官方组件，
+                // 不再叠加自绘的指针命中层。
+                val sliderState = rememberSliderState(
+                    value = sliderValue.coerceIn(0f, maxIndex),
+                    steps = (options.size - 2).coerceAtLeast(0),
+                    trackRange = 0f..maxIndex,
+                )
+                M3Slider(
+                    state = sliderState,
+                    onValueChange = { value ->
+                        sliderValue = value
+                        val index = value.roundToInt().coerceIn(0, options.lastIndex)
+                        if (index != lastHapticIndex) {
+                            lastHapticIndex = index
+                            latestOnPreview(options[index])
+                            if (options[index] != latestIntensity) {
+                                latestOnIntensityChange(options[index])
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Rounded.Vibration,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .size(32.dp),
+                    tint = MiuixTheme.colorScheme.primary,
+                )
+                Text(
+                    text = stringResource(preview.labelRes),
+                    style = MiuixTheme.textStyles.title3,
+                    color = MiuixTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),
+                )
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    Slider(
+                        value = sliderValue.coerceIn(0f, maxIndex),
+                        onValueChange = {},
+                        modifier = Modifier.fillMaxWidth(),
+                        valueRange = 0f..maxIndex,
+                        steps = (options.size - 2).coerceAtLeast(0),
+                        showKeyPoints = true,
+                        keyPoints = options.indices.map { it.toFloat() },
+                        magnetThreshold = 0.18f,
+                        hapticEffect = SliderDefaults.SliderHapticEffect.None,
+                    )
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .pointerInput(options.size) {
+                                awaitEachGesture {
+                                    val down = awaitFirstDown()
+                                    down.consume()
+                                    val width = size.width.toFloat().coerceAtLeast(1f)
+                                    var current = discreteSliderIndexForTap(
+                                        down.position.x,
                                         width,
                                         options.size,
                                     )
-                                    if (index != current) {
-                                        current = index
-                                        sliderValue = current.toFloat()
-                                        if (current != lastHapticIndex) {
-                                            lastHapticIndex = current
-                                            latestOnPreview(options[current])
-                                            if (options[current] != latestIntensity) {
-                                                latestOnIntensityChange(options[current])
+                                    sliderValue = current.toFloat()
+                                    lastHapticIndex = current
+                                    latestOnPreview(options[current])
+                                    if (options[current] != latestIntensity) {
+                                        latestOnIntensityChange(options[current])
+                                    }
+                                    while (true) {
+                                        val event = awaitPointerEvent()
+                                        val change = event.changes.firstOrNull() ?: break
+                                        val index = discreteSliderIndexForTap(
+                                            change.position.x,
+                                            width,
+                                            options.size,
+                                        )
+                                        if (index != current) {
+                                            current = index
+                                            sliderValue = current.toFloat()
+                                            if (current != lastHapticIndex) {
+                                                lastHapticIndex = current
+                                                latestOnPreview(options[current])
+                                                if (options[current] != latestIntensity) {
+                                                    latestOnIntensityChange(options[current])
+                                                }
                                             }
                                         }
+                                        change.consume()
+                                        if (!event.changes.any { it.pressed }) break
                                     }
-                                    change.consume()
-                                    if (!event.changes.any { it.pressed }) break
+                                    val coerced = current.coerceIn(0, options.lastIndex)
+                                    sliderValue = coerced.toFloat()
+                                    lastHapticIndex = coerced
+                                    val next = options[coerced]
+                                    if (next != latestIntensity) latestOnIntensityChange(next)
                                 }
-                                val coerced = current.coerceIn(0, options.lastIndex)
-                                sliderValue = coerced.toFloat()
-                                lastHapticIndex = coerced
-                                val next = options[coerced]
-                                if (next != latestIntensity) latestOnIntensityChange(next)
-                            }
-                        },
-                )
+                            },
+                    )
+                }
             }
         }
     }

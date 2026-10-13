@@ -39,6 +39,8 @@ import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
@@ -53,6 +55,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
@@ -82,7 +85,12 @@ import io.github.mangi.eta.agent.model.oauth.OpenAiCodexOAuth
 import io.github.mangi.eta.data.repository.RemoteModelFetcher
 import io.github.mangi.eta.data.model.SpeechSynthesisModels
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
-import io.github.mangi.eta.ui.components.MiuixDialogActions
+import io.github.mangi.eta.ui.adaptive.EtaCard
+import io.github.mangi.eta.ui.adaptive.EtaDialog
+import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.EtaSectionTitle
+import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.components.PreferenceIcon
 import io.github.mangi.eta.ui.components.StatusError
@@ -95,8 +103,7 @@ import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Checkbox
-import top.yukonga.miuix.kmp.basic.HorizontalDivider
-import top.yukonga.miuix.kmp.basic.Icon
+import androidx.compose.material3.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
@@ -104,7 +111,6 @@ import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.squircle.squircleSurface
@@ -194,7 +200,7 @@ private fun String.containsCharactersInOrder(query: String): Boolean {
 internal fun ProviderModelsTab(
     provider: ProviderSetting,
     scope: CoroutineScope,
-    scrollBehavior: ScrollBehavior,
+    scrollConnection: NestedScrollConnection,
     contentSidePadding: Dp,
     currentModelId: String? = null,
     onSelectCurrent: ((String) -> Unit)? = null,
@@ -235,7 +241,7 @@ internal fun ProviderModelsTab(
                 .fillMaxSize()
                 .scrollEndHaptic()
                 .overScrollVertical()
-                .nestedScroll(scrollBehavior.nestedScrollConnection),
+                .nestedScroll(scrollConnection),
             contentPadding = PaddingValues(
                 start = contentSidePadding,
                 end = contentSidePadding,
@@ -244,15 +250,12 @@ internal fun ProviderModelsTab(
         ) {
             item(key = "actions", contentType = "section") {
                 ProviderSection(title = stringResource(R.string.ui_model_management_183414)) {
-                    ArrowPreference(
+                    ProviderClickableRow(
                         title = if (isFetching) context.getString(R.string.page_retrieving_a880c9) else context.getString(R.string.page_automatically_pull_from_remote_f883d0),
                         summary = stringResource(R.string.provider_models_endpoint_summary, provider.baseUrl),
                         enabled = !isFetching && !isMutatingModel && !SpeechSynthesisModels.isSpeechOnlyProvider(provider),
-                        startAction = {
-                            PreferenceIcon(
-                                icon = Icons.Rounded.CloudDownload,
-                                enabled = !isFetching && !isMutatingModel,
-                            )
+                        leading = {
+                            Icon(imageVector = Icons.Rounded.CloudDownload, contentDescription = null)
                         },
                         onClick = {
                             scope.launch {
@@ -322,15 +325,12 @@ internal fun ProviderModelsTab(
                         },
                     )
 
-                    ArrowPreference(
+                    ProviderClickableRow(
                         title = stringResource(R.string.ui_add_custom_model_a5ddc0),
                         summary = stringResource(R.string.ui_manually_fill_in_the_display_name_and_model_id_077a7b),
                         enabled = !isFetching && !isMutatingModel,
-                        startAction = {
-                            PreferenceIcon(
-                                icon = Icons.Rounded.Add,
-                                enabled = !isFetching && !isMutatingModel,
-                            )
+                        leading = {
+                            Icon(imageVector = Icons.Rounded.Add, contentDescription = null)
                         },
                         onClick = {
                             editorError = null
@@ -343,25 +343,37 @@ internal fun ProviderModelsTab(
                         },
                     )
                     message?.let {
-                        HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
-                        Text(
-                            text = it,
-                            style = MiuixTheme.textStyles.footnote2,
-                            color = if (it.startsWith(context.getString(R.string.page_fail_3e3c80))) StatusError else StatusSuccess,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                        )
+                        // 走 ProviderDivider：M3 下是官方 HorizontalDivider，MIUI X 保持原分隔线。
+                        ProviderDivider(modifier = Modifier.padding(start = 16.dp))
+                        if (isMaterial3Theme()) {
+                            // M3：官方字阶 + 官方 error / primary 角色色（原写法读的是 MiuixTheme 与写死的 StatusSuccess）。
+                            MaterialText(
+                                text = it,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (it.startsWith(context.getString(R.string.page_fail_3e3c80))) {
+                                    MaterialTheme.colorScheme.error
+                                } else {
+                                    MaterialTheme.colorScheme.primary
+                                },
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            )
+                        } else {
+                            Text(
+                                text = it,
+                                style = MiuixTheme.textStyles.footnote2,
+                                color = if (it.startsWith(context.getString(R.string.page_fail_3e3c80))) StatusError else StatusSuccess,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            )
+                        }
                     }
                 }
             }
 
             item(key = "model_search", contentType = "search") {
-                InputField(
+                ProviderSearchField(
                     query = modelSearchQuery,
                     onQueryChange = { modelSearchQuery = it },
-                    onSearch = {},
-                    expanded = false,
-                    onExpandedChange = {},
-                    label = stringResource(R.string.ui_search_model_df5586),
+                    placeholder = stringResource(R.string.ui_search_model_df5586),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp)
@@ -388,15 +400,24 @@ internal fun ProviderModelsTab(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Text(
-                                text = if (provider.models.isEmpty()) {
-                                    context.getString(R.string.page_there_is_no_model_yet_please_pull_it_from_the_remote_ced865)
-                                } else {
-                                    context.getString(R.string.page_no_matching_model_found_ae7e96)
-                                },
-                                style = MiuixTheme.textStyles.body2,
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                            )
+                            val emptyText = if (provider.models.isEmpty()) {
+                                context.getString(R.string.page_there_is_no_model_yet_please_pull_it_from_the_remote_ced865)
+                            } else {
+                                context.getString(R.string.page_no_matching_model_found_ae7e96)
+                            }
+                            if (isMaterial3Theme()) {
+                                MaterialText(
+                                    text = emptyText,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            } else {
+                                Text(
+                                    text = emptyText,
+                                    style = MiuixTheme.textStyles.body2,
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                )
+                            }
                         }
                     }
                 }
@@ -408,30 +429,41 @@ internal fun ProviderModelsTab(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Box(modifier = Modifier.weight(1f)) {
-                            SmallTitle(modelListTitle)
+                            EtaSectionTitle(text = modelListTitle)
                         }
                         if (selectionMode) {
-                            Text(
-                                text = stringResource(R.string.page_select_all_3e44b2),
-                                style = MiuixTheme.textStyles.body2,
-                                color = MiuixTheme.colorScheme.primary,
-                                modifier = Modifier
-                                    .clickable(
-                                        enabled = !isFetching && !isMutatingModel,
-                                        onClick = {
-                                            TouchHaptics.click(view)
-                                            selectedModelIds = if (
-                                                filteredModels.isNotEmpty() &&
-                                                selectedModelIds.containsAll(filteredModels.map { it.id })
-                                            ) {
-                                                emptySet()
-                                            } else {
-                                                filteredModels.mapTo(mutableSetOf()) { it.id }
-                                            }
-                                        },
-                                    )
-                                    .padding(end = 16.dp),
-                            )
+                            val onSelectAll = {
+                                TouchHaptics.click(view)
+                                selectedModelIds = if (
+                                    filteredModels.isNotEmpty() &&
+                                    selectedModelIds.containsAll(filteredModels.map { it.id })
+                                ) {
+                                    emptySet()
+                                } else {
+                                    filteredModels.mapTo(mutableSetOf()) { it.id }
+                                }
+                            }
+                            // M3：官方 TextButton，替掉「Text + clickable」。
+                            if (isMaterial3Theme()) {
+                                TextButton(
+                                    onClick = onSelectAll,
+                                    enabled = !isFetching && !isMutatingModel,
+                                ) {
+                                    MaterialText(text = stringResource(R.string.page_select_all_3e44b2))
+                                }
+                            } else {
+                                Text(
+                                    text = stringResource(R.string.page_select_all_3e44b2),
+                                    style = MiuixTheme.textStyles.body2,
+                                    color = MiuixTheme.colorScheme.primary,
+                                    modifier = Modifier
+                                        .clickable(
+                                            enabled = !isFetching && !isMutatingModel,
+                                            onClick = onSelectAll,
+                                        )
+                                        .padding(end = 16.dp),
+                                )
+                            }
                         }
                     }
                 }
@@ -446,6 +478,8 @@ internal fun ProviderModelsTab(
                     ) {
                         ModelListItem(
                             model = model,
+                            itemIndex = index,
+                            itemCount = filteredModels.size,
                             enabled = !isFetching && !isMutatingModel,
                             isSelected = model.id == selectedModelId,
                             selectionMode = selectionMode,
@@ -547,39 +581,50 @@ internal fun ProviderModelsTab(
     }
 
     modelPendingDelete?.let { model ->
-        OverlayDialog(
+        val confirmLabel = if (isMutatingModel) {
+            context.getString(R.string.page_deleting_6f941d)
+        } else {
+            context.getString(R.string.page_delete_3755f5)
+        }
+        val onConfirmDelete: () -> Unit = {
+            scope.launch {
+                isMutatingModel = true
+                try {
+                    ModelRepository.deleteModel(provider.id, model.id)
+                    RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+                    message = context.getString(R.string.provider_model_deleted, model.displayName)
+                    modelPendingDelete = null
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (throwable: Throwable) {
+                    message = context.getString(
+                        R.string.provider_error,
+                        throwable.message ?: context.getString(R.string.provider_delete_failed),
+                    )
+                    modelPendingDelete = null
+                } finally {
+                    isMutatingModel = false
+                }
+            }
+        }
+        val dialogTitle = stringResource(R.string.ui_delete_model_cf24da)
+        val dialogSummary = stringResource(R.string.provider_model_delete_summary, model.displayName)
+        val onDismissDelete = { if (!isMutatingModel) modelPendingDelete = null }
+        val onCancelDelete = { modelPendingDelete = null }
+        // 自适应弹窗：M3 → 官方 AlertDialog + TextButton；MIUI X → WindowDialog + MiuixDialogActions。
+        EtaDialog(
             show = true,
-            title = stringResource(R.string.ui_delete_model_cf24da),
-            summary = stringResource(R.string.provider_model_delete_summary, model.displayName),
-            onDismissRequest = { if (!isMutatingModel) modelPendingDelete = null },
+            title = dialogTitle,
+            summary = dialogSummary,
+            onDismissRequest = onDismissDelete,
         ) {
-            MiuixDialogActions(
-                confirmText = if (isMutatingModel) context.getString(R.string.page_deleting_6f941d) else context.getString(R.string.page_delete_3755f5),
+            EtaDialogActions(
+                confirmText = confirmLabel,
                 cancelEnabled = !isMutatingModel,
                 confirmEnabled = !isMutatingModel,
                 destructive = true,
-                onCancel = { modelPendingDelete = null },
-                onConfirm = {
-                    scope.launch {
-                        isMutatingModel = true
-                        try {
-                            ModelRepository.deleteModel(provider.id, model.id)
-                            RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
-                            message = context.getString(R.string.provider_model_deleted, model.displayName)
-                            modelPendingDelete = null
-                        } catch (cancelled: CancellationException) {
-                            throw cancelled
-                        } catch (throwable: Throwable) {
-                            message = context.getString(
-                                R.string.provider_error,
-                                throwable.message ?: context.getString(R.string.provider_delete_failed),
-                            )
-                            modelPendingDelete = null
-                        } finally {
-                            isMutatingModel = false
-                        }
-                    }
-                },
+                onCancel = onCancelDelete,
+                onConfirm = onConfirmDelete,
             )
         }
     }
@@ -618,50 +663,61 @@ internal fun ProviderModelsTab(
     }
 
     if (showBatchDeleteDialog) {
-        OverlayDialog(
+        val confirmLabel = if (isMutatingModel) {
+            context.getString(R.string.page_deleting_6f941d)
+        } else {
+            context.getString(R.string.page_delete_3755f5)
+        }
+        val dialogTitle = stringResource(R.string.ui_delete_model_cf24da)
+        val dialogSummary = pluralStringResource(
+            R.plurals.provider_selected_delete_summary,
+            selectedModelIds.size,
+            selectedModelIds.size,
+        )
+        val onDismissBatch = { if (!isMutatingModel) showBatchDeleteDialog = false }
+        val onCancelBatch = { showBatchDeleteDialog = false }
+        val onConfirmBatch: () -> Unit = {
+            scope.launch {
+                val deletedCount = selectedModelIds.size
+                isMutatingModel = true
+                try {
+                    ModelRepository.deleteModels(provider.id, selectedModelIds)
+                    RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+                    message = context.resources.getQuantityString(
+                        R.plurals.provider_models_deleted,
+                        deletedCount,
+                        deletedCount,
+                    )
+                    showBatchDeleteDialog = false
+                    selectionMode = false
+                    selectedModelIds = emptySet()
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (throwable: Throwable) {
+                    message = context.getString(
+                        R.string.provider_error,
+                        throwable.message ?: context.getString(R.string.provider_delete_failed),
+                    )
+                    showBatchDeleteDialog = false
+                } finally {
+                    isMutatingModel = false
+                }
+            }
+        }
+        // 自适应弹窗：M3 → 官方 AlertDialog + TextButton；MIUI X → WindowDialog + MiuixDialogActions。
+        EtaDialog(
             show = true,
-            title = stringResource(R.string.ui_delete_model_cf24da),
-            summary = pluralStringResource(
-                R.plurals.provider_selected_delete_summary,
-                selectedModelIds.size,
-                selectedModelIds.size,
-            ),
-            onDismissRequest = { if (!isMutatingModel) showBatchDeleteDialog = false },
+            title = dialogTitle,
+            summary = dialogSummary,
+            onDismissRequest = onDismissBatch,
         ) {
-            MiuixDialogActions(
-                confirmText = if (isMutatingModel) context.getString(R.string.page_deleting_6f941d) else context.getString(R.string.page_delete_3755f5),
+            EtaDialogActions(
+                confirmText = confirmLabel,
                 cancelEnabled = !isMutatingModel,
                 confirmEnabled = !isMutatingModel,
                 destructive = true,
-                onCancel = { showBatchDeleteDialog = false },
-                onConfirm = {
-                    scope.launch {
-                        val deletedCount = selectedModelIds.size
-                        isMutatingModel = true
-                        try {
-                            ModelRepository.deleteModels(provider.id, selectedModelIds)
-                            RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
-                            message = context.resources.getQuantityString(
-                                R.plurals.provider_models_deleted,
-                                deletedCount,
-                                deletedCount,
-                            )
-                            showBatchDeleteDialog = false
-                            selectionMode = false
-                            selectedModelIds = emptySet()
-                        } catch (cancelled: CancellationException) {
-                            throw cancelled
-                        } catch (throwable: Throwable) {
-                            message = context.getString(
-                                R.string.provider_error,
-                                throwable.message ?: context.getString(R.string.provider_delete_failed),
-                            )
-                            showBatchDeleteDialog = false
-                        } finally {
-                            isMutatingModel = false
-                        }
-                    }
-                },
+                onCancel = onCancelBatch,
+                onConfirm = onConfirmBatch,
             )
         }
     }
@@ -673,6 +729,18 @@ private fun ModelListGroupItem(
     isLast: Boolean,
     content: @Composable () -> Unit,
 ) {
+    if (isMaterial3Theme()) {
+        // M3：不再给每一行套自拼圆角 Surface；容器底色与首尾圆角交给官方
+        // ListItem（ListItemDefaults.segmentedColors + segmentedShapes）。
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp),
+        ) {
+            content()
+        }
+        return
+    }
     val surfaceColor = MiuixTheme.colorScheme.surfaceContainer
     val contentColor = MiuixTheme.colorScheme.onSurfaceContainer
     val cornerRadius = CardDefaults.CornerRadius
@@ -708,7 +776,7 @@ private fun ModelSelectionBar(
     onDelete: () -> Unit,
     onExit: () -> Unit,
 ) {
-    Card(
+    EtaCard(
         modifier = Modifier
             .fillMaxWidth()
             .navigationBarsPadding()
@@ -722,22 +790,17 @@ private fun ModelSelectionBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            TextButton(
+            ProviderDestructiveAction(
                 text = stringResource(R.string.ui_delete_3755f5),
+                onClick = onDelete,
                 enabled = selectedCount > 0 && enabled,
                 modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.textButtonColorsPrimary(
-                    color = MiuixTheme.colorScheme.error,
-                    textColor = MiuixTheme.colorScheme.onError,
-                ),
-                onClick = onDelete,
             )
-            TextButton(
+            ProviderPrimaryAction(
                 text = stringResource(R.string.action_cancel),
+                onClick = onExit,
                 enabled = enabled,
                 modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.textButtonColorsPrimary(),
-                onClick = onExit,
             )
         }
     }
@@ -756,22 +819,119 @@ private fun ModelListItem(
     onEdit: () -> Unit,
     onSetCurrent: () -> Unit,
     modifier: Modifier = Modifier,
+    itemIndex: Int = 0,
+    itemCount: Int = 1,
 ) {
     val context = LocalContext.current
     val view = LocalView.current
+    val onClick = {
+        TouchHaptics.click(view)
+        if (selectionMode) onToggleChecked() else onSetCurrent()
+    }
+    val onLongClick = {
+        TouchHaptics.longPress(view)
+        if (selectionMode) onToggleChecked() else onEnterSelection()
+    }
+    // 尾部：多选时为官方 Checkbox，否则为「当前模型」勾 + 官方图标按钮。
+    val trailing: @Composable () -> Unit = {
+        if (selectionMode) {
+            if (isMaterial3Theme()) {
+                Checkbox(checked = checked, onCheckedChange = { onClick() }, enabled = enabled)
+            } else {
+                Checkbox(
+                    state = if (checked) ToggleableState.On else ToggleableState.Off,
+                    onClick = onClick,
+                    enabled = enabled,
+                )
+            }
+        } else {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.wrapContentWidth(),
+            ) {
+                if (isSelected) {
+                    Icon(
+                        imageVector = Icons.Rounded.Check,
+                        contentDescription = context.getString(R.string.page_current_model_a0af8f),
+                        tint = if (isMaterial3Theme()) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MiuixTheme.colorScheme.primary
+                        },
+                        modifier = Modifier
+                            .padding(end = 2.dp)
+                            .size(20.dp),
+                    )
+                }
+                ProviderIconAction(
+                    icon = Icons.Rounded.Tune,
+                    contentDescription = stringResource(R.string.ui_edit_model_parameters_ba4864),
+                    enabled = enabled,
+                    onClick = {
+                        TouchHaptics.click(view)
+                        onEdit()
+                    },
+                )
+            }
+        }
+    }
+    if (isMaterial3Theme()) {
+        // M3：官方 ListItem（selected + onClick + onLongClick）一次覆盖点按、长按与多选；
+        // 分组圆角与分组底色改由官方 ListItemDefaults.segmentedShapes / segmentedColors 提供。
+        ListItem(
+            selected = isSelected,
+            onClick = onClick,
+            onLongClick = onLongClick,
+            enabled = enabled,
+            modifier = modifier.fillMaxWidth(),
+            shapes = ListItemDefaults.segmentedShapes(index = itemIndex, count = itemCount),
+            colors = ListItemDefaults.segmentedColors(
+                // 分组底色用官方 surfaceContainerLow 角色色；选中态仍由官方 selectedContainerColor 接管。
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            ),
+            content = {
+                MaterialText(
+                    text = model.displayName,
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            },
+            supportingContent = {
+                MaterialText(
+                    text = model.modelId,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                ) {
+                    capabilityTags(model).forEach { tag ->
+                        TagChip(text = tag)
+                    }
+                    if (isSelected) {
+                        TagChip(text = stringResource(R.string.ui_current_25e74d), tone = TagChipTone.Emphasized)
+                    }
+                }
+            },
+            trailingContent = trailing,
+        )
+        return
+    }
     Row(
         modifier = modifier
             .fillMaxWidth()
             .combinedClickable(
                 enabled = enabled,
-                onClick = {
-                    TouchHaptics.click(view)
-                    if (selectionMode) onToggleChecked() else onSetCurrent()
-                },
-                onLongClick = {
-                    TouchHaptics.longPress(view)
-                    if (selectionMode) onToggleChecked() else onEnterSelection()
-                },
+                onClick = onClick,
+                onLongClick = onLongClick,
             )
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -792,11 +952,11 @@ private fun ModelListItem(
                 modifier = Modifier.padding(top = 2.dp),
             )
             FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 6.dp),
+                    .padding(top = 8.dp),
             ) {
                 capabilityTags(model).forEach { tag ->
                     TagChip(text = tag)
@@ -806,47 +966,7 @@ private fun ModelListItem(
                 }
             }
         }
-        if (selectionMode) {
-            Checkbox(
-                state = if (checked) ToggleableState.On else ToggleableState.Off,
-                onClick = {
-                    TouchHaptics.click(view)
-                    onToggleChecked()
-                },
-                enabled = enabled,
-            )
-        } else {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.wrapContentWidth(),
-            ) {
-                if (isSelected) {
-                    Icon(
-                        imageVector = Icons.Rounded.Check,
-                        contentDescription = context.getString(R.string.page_current_model_a0af8f),
-                        tint = MiuixTheme.colorScheme.primary,
-                        modifier = Modifier
-                            .padding(end = 2.dp)
-                            .size(20.dp),
-                    )
-                }
-                IconButton(
-                    onClick = {
-                        TouchHaptics.click(view)
-                        onEdit()
-                    },
-                    enabled = enabled,
-                    modifier = Modifier.size(40.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Tune,
-                        contentDescription = stringResource(R.string.ui_edit_model_parameters_ba4864),
-                        tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                        modifier = Modifier.size(22.dp),
-                    )
-                }
-            }
-        }
+        trailing()
     }
 }
 
@@ -936,7 +1056,8 @@ private fun ModelEditDialog(
         },
     )
 
-    OverlayDialog(
+    // 自适应弹窗：M3 → 官方 AlertDialog；MIUI X → WindowDialog。正文自带限高滚动容器。
+    EtaDialog(
         show = true,
         title = if (isNew) context.getString(R.string.page_add_model_532a64) else context.getString(R.string.page_edit_model_29e31e),
         onDismissRequest = { if (!isSaving) onDismiss() },
@@ -949,7 +1070,7 @@ private fun ModelEditDialog(
                     .scrollEndHaptic()
                     .verticalScroll(rememberScrollState()),
             ) {
-                TextField(
+                ProviderField(
                     value = displayName,
                     onValueChange = { displayName = it },
                     label = stringResource(R.string.ui_display_name_ed16be),
@@ -958,7 +1079,7 @@ private fun ModelEditDialog(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(modifier = Modifier.height(12.dp))
-                TextField(
+                ProviderField(
                     value = modelId,
                     onValueChange = { modelId = it },
                     label = "Model ID",
@@ -970,7 +1091,7 @@ private fun ModelEditDialog(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(modifier = Modifier.height(12.dp))
-                TextField(
+                ProviderField(
                     value = contextWindowOverrideText,
                     onValueChange = { contextWindowOverrideText = it },
                     label = stringResource(R.string.ui_context_length_tokens_227860),
@@ -982,20 +1103,37 @@ private fun ModelEditDialog(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 contextError?.let { validationError ->
+                    if (isMaterial3Theme()) {
+                        MaterialText(
+                            text = validationError,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    } else {
+                        Text(
+                            text = validationError,
+                            style = MiuixTheme.textStyles.footnote2,
+                            color = StatusError,
+                        )
+                    }
+                }
+                if (isMaterial3Theme()) {
+                    MaterialText(
+                        text = stringResource(R.string.ui_this_value_is_used_for_session_clipping_and_context__c3f9e7),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
+                    )
+                } else {
                     Text(
-                        text = validationError,
+                        text = stringResource(R.string.ui_this_value_is_used_for_session_clipping_and_context__c3f9e7),
                         style = MiuixTheme.textStyles.footnote2,
-                        color = StatusError,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
                     )
                 }
-                Text(
-                    text = stringResource(R.string.ui_this_value_is_used_for_session_clipping_and_context__c3f9e7),
-                    style = MiuixTheme.textStyles.footnote2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
-                )
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    SwitchPreference(
+                EtaCard(modifier = Modifier.fillMaxWidth()) {
+                    EtaSwitchRow(
                         checked = reasoningEnabled,
                         onCheckedChange = { enabled ->
                             reasoningOverrideActive = true
@@ -1015,7 +1153,7 @@ private fun ModelEditDialog(
                         },
                         enabled = !isSaving,
                     )
-                    SwitchPreference(
+                    EtaSwitchRow(
                         checked = visionEnabled,
                         onCheckedChange = { enabled ->
                             visionOverrideActive = true
@@ -1037,15 +1175,24 @@ private fun ModelEditDialog(
                     )
                 }
                 error?.let { message ->
-                    Text(
-                        text = message,
-                        style = MiuixTheme.textStyles.footnote2,
-                        color = StatusError,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
+                    if (isMaterial3Theme()) {
+                        MaterialText(
+                            text = message,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                    } else {
+                        Text(
+                            text = message,
+                            style = MiuixTheme.textStyles.footnote2,
+                            color = StatusError,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                    }
                 }
                 if (reasoningOverrideActive) {
-                    TextButton(
+                    ProviderPrimaryAction(
                         text = stringResource(R.string.ui_restore_automatic_8d4e1e),
                         onClick = {
                             TouchHaptics.click(view)
@@ -1055,11 +1202,10 @@ private fun ModelEditDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 12.dp),
-                        colors = ButtonDefaults.textButtonColorsPrimary(),
                     )
                 }
                 onDelete?.let { delete ->
-                    TextButton(
+                    ProviderDestructiveAction(
                         text = stringResource(R.string.ui_delete_model_cf24da),
                         onClick = {
                             TouchHaptics.click(view)
@@ -1069,15 +1215,11 @@ private fun ModelEditDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 12.dp),
-                        colors = ButtonDefaults.textButtonColorsPrimary(
-                            color = MiuixTheme.colorScheme.error,
-                            textColor = MiuixTheme.colorScheme.onError,
-                        ),
                     )
                 }
             }
         }
-        MiuixDialogActions(
+        EtaDialogActions(
             confirmText = if (isSaving) context.getString(R.string.page_saving_d70d42) else context.getString(R.string.page_save_fadf24),
             confirmEnabled = !isSaving &&
                 displayName.isNotBlank() &&
@@ -1136,7 +1278,6 @@ private fun RemoteModelPickDialog(
     fun keyOf(model: Model) = model.modelId.trim().lowercase()
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surface,
         title = { MaterialText(stringResource(R.string.provider_remote_pick_title)) },
         text = {
             Column(Modifier.fillMaxWidth().height(420.dp)) {
@@ -1171,18 +1312,21 @@ private fun RemoteModelPickDialog(
                     items(visible, key = { keyOf(it) }) { model ->
                         val key = keyOf(model)
                         val checked = key in selectedKeys
-                        Row(
-                            Modifier.fillMaxWidth().clickable {
-                                selectedKeys = if (checked) selectedKeys - key else selectedKeys + key
-                            }.padding(vertical = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Checkbox(checked = checked, onCheckedChange = { on ->
+                        ListItem(
+                            checked = checked,
+                            onCheckedChange = { on ->
                                 selectedKeys = if (on) selectedKeys + key else selectedKeys - key
-                            })
-                            Column(Modifier.weight(1f)) {
-                                MaterialText(model.displayName.ifBlank { model.modelId }, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                if (model.displayName.isNotBlank() && model.displayName != model.modelId) {
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            content = {
+                                MaterialText(
+                                    model.displayName.ifBlank { model.modelId },
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            },
+                            supportingContent = if (model.displayName.isNotBlank() && model.displayName != model.modelId) {
+                                {
                                     MaterialText(
                                         model.modelId,
                                         style = MaterialTheme.typography.bodySmall,
@@ -1191,8 +1335,10 @@ private fun RemoteModelPickDialog(
                                         overflow = TextOverflow.Ellipsis,
                                     )
                                 }
-                            }
-                        }
+                            } else {
+                                null
+                            },
+                        )
                     }
                 }
             }

@@ -15,12 +15,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.adaptive.EtaCard
+import io.github.mangi.eta.ui.adaptive.EtaDialog
+import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
+import io.github.mangi.eta.ui.adaptive.EtaSectionTitle
+import io.github.mangi.eta.ui.adaptive.EtaTextButton
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.components.ListEmptyState
-import io.github.mangi.eta.ui.components.MiuixDialogActions
-import io.github.mangi.eta.ui.components.MiuixScaffoldPage
 import io.github.mangi.eta.ui.components.PreferenceIcon
 import io.github.mangi.eta.ui.model.AgentSkillsAction
 import io.github.mangi.eta.ui.model.AgentSkillsUiState
@@ -28,11 +34,15 @@ import io.github.mangi.eta.ui.model.SkillItemUi
 import io.github.mangi.eta.ui.model.canDeleteUserSkill
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
-import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.window.WindowDialog
+import androidx.compose.material3.Button as M3Button
+import androidx.compose.material3.ButtonDefaults as M3ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text as M3Text
 
 private val CardHorizontalPadding = 12.dp
 private val CardBottomPadding = 12.dp
@@ -60,7 +70,7 @@ fun AgentSkillsScreen(
         )
     }
 
-    MiuixScaffoldPage(
+    EtaScaffoldPage(
         title = stringResource(R.string.route_skills),
         onBack = { onAction(AgentSkillsAction.NavigateBack) },
         modifier = modifier,
@@ -70,45 +80,36 @@ fun AgentSkillsScreen(
         val userInstalled = installed.filter { it.canDeleteUserSkill }
         val removed = state.skills.filter { !it.installed }
 
-        item(key = "zip-import-title") { SmallTitle(stringResource(R.string.ui_install_087db6)) }
+        item(key = "zip-import-title") { EtaSectionTitle(text = stringResource(R.string.ui_install_087db6)) }
         item(key = "zip-import-card") {
-            Card(
+            EtaCard(
                 modifier = Modifier
                     .padding(horizontal = CardHorizontalPadding)
                     .padding(bottom = CardBottomPadding),
             ) {
-                BasicComponent(
-                    title = if (state.isImporting) stringResource(R.string.skills_checking_package) else stringResource(R.string.skills_import_zip),
+                SkillActionRow(
+                    title = if (state.isImporting) {
+                        stringResource(R.string.skills_checking_package)
+                    } else {
+                        stringResource(R.string.skills_import_zip)
+                    },
                     summary = if (state.isImporting) {
                         stringResource(R.string.skills_installing_package)
                     } else {
                         stringResource(R.string.skills_choose_package)
                     },
-                    startAction = {
-                        if (state.isImporting) {
-                            Box(
-                                modifier = Modifier
-                                    .padding(end = 6.dp)
-                                    .size(24.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                InfiniteProgressIndicator(size = 22.dp)
-                            }
-                        } else {
-                            PreferenceIcon(Icons.Rounded.FolderZip, enabled = !operationPending)
-                        }
-                    },
+                    icon = Icons.Rounded.FolderZip,
+                    iconLoading = state.isImporting,
                     enabled = !operationPending,
                     onClick = openZipPicker,
-                    onClickLabel = stringResource(R.string.skills_choose_zip),
                 )
             }
         }
 
         if (builtinInstalled.isNotEmpty()) {
-            item(key = "builtin-title") { SmallTitle(stringResource(R.string.ui_built_in_skills_1ceedf)) }
+            item(key = "builtin-title") { EtaSectionTitle(text = stringResource(R.string.ui_built_in_skills_1ceedf)) }
             item(key = "builtin-card") {
-                Card(
+                EtaCard(
                     modifier = Modifier
                         .padding(horizontal = CardHorizontalPadding)
                         .padding(bottom = CardBottomPadding),
@@ -125,9 +126,9 @@ fun AgentSkillsScreen(
         }
 
         if (userInstalled.isNotEmpty()) {
-            item(key = "user-title") { SmallTitle(stringResource(R.string.ui_user_skills_748e7f)) }
+            item(key = "user-title") { EtaSectionTitle(text = stringResource(R.string.ui_user_skills_748e7f)) }
             item(key = "user-card") {
-                Card(
+                EtaCard(
                     modifier = Modifier
                         .padding(horizontal = CardHorizontalPadding)
                         .padding(bottom = CardBottomPadding),
@@ -145,22 +146,20 @@ fun AgentSkillsScreen(
         }
 
         if (removed.isNotEmpty()) {
-            item(key = "removed-title") { SmallTitle(stringResource(R.string.ui_removed_4e5c49)) }
+            item(key = "removed-title") { EtaSectionTitle(text = stringResource(R.string.ui_removed_4e5c49)) }
             item(key = "removed-card") {
-                Card(
+                EtaCard(
                     modifier = Modifier
                         .padding(horizontal = CardHorizontalPadding)
                         .padding(bottom = CardBottomPadding),
                 ) {
                     removed.forEach { skill ->
-                        BasicComponent(
+                        SkillActionRow(
                             title = skill.name,
                             summary = stringResource(R.string.ui_click_to_reinstall_dc60de),
-                            startAction = { PreferenceIcon(iconForSkill(skill.id), enabled = !operationPending) },
+                            icon = iconForSkill(skill.id),
                             enabled = !operationPending,
-                            onClick = {
-                                onAction(AgentSkillsAction.ReinstallBuiltin(skill.id))
-                            },
+                            onClick = { onAction(AgentSkillsAction.ReinstallBuiltin(skill.id)) },
                         )
                     }
                 }
@@ -173,7 +172,7 @@ fun AgentSkillsScreen(
                     title = stringResource(R.string.ui_no_skills_installed_yet_4e960f),
                     summary = stringResource(R.string.skills_choose_package),
                     action = {
-                        TextButton(
+                        EtaTextButton(
                             text = stringResource(R.string.skills_import_zip),
                             enabled = !operationPending,
                             onClick = openZipPicker,
@@ -185,13 +184,13 @@ fun AgentSkillsScreen(
     }
 
     state.replacement?.let { replacement ->
-        WindowDialog(
+        EtaDialog(
             show = true,
             title = stringResource(R.string.ui_replace_user_skills_250e98),
             summary = stringResource(R.string.skills_replace_summary, replacement.name, replacement.id),
             onDismissRequest = { onAction(AgentSkillsAction.CancelZipReplacement) },
         ) {
-            MiuixDialogActions(
+            EtaDialogActions(
                 confirmText = stringResource(R.string.skills_replace),
                 confirmEnabled = !operationPending,
                 onCancel = { onAction(AgentSkillsAction.CancelZipReplacement) },
@@ -201,13 +200,13 @@ fun AgentSkillsScreen(
     }
 
     deleteTarget?.let { skill ->
-        WindowDialog(
+        EtaDialog(
             show = true,
             title = stringResource(R.string.ui_delete_user_skills_f319a9),
             summary = stringResource(R.string.skills_delete_summary, skill.name),
             onDismissRequest = { deleteTarget = null },
         ) {
-            MiuixDialogActions(
+            EtaDialogActions(
                 confirmText = stringResource(R.string.ui_delete_3755f5),
                 destructive = true,
                 confirmEnabled = !operationPending,
@@ -221,22 +220,102 @@ fun AgentSkillsScreen(
     }
 
     state.notice?.let { notice ->
-        WindowDialog(
+        EtaDialog(
             show = true,
             title = notice.title,
             summary = notice.message,
             onDismissRequest = { onAction(AgentSkillsAction.DismissNotice) },
         ) {
-            TextButton(
-                text = stringResource(R.string.ui_knew_cb63c6),
-                onClick = { onAction(AgentSkillsAction.DismissNotice) },
-                modifier = Modifier.fillMaxWidth(),
-                colors = if (notice.isError) {
-                    ButtonDefaults.textButtonColors()
-                } else {
-                    ButtonDefaults.textButtonColorsPrimary()
-                },
-            )
+            if (isMaterial3Theme()) {
+                // 官方按钮：错误提示用 error 配色，正常提示用默认主色。
+                M3Button(
+                    onClick = { onAction(AgentSkillsAction.DismissNotice) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = if (notice.isError) {
+                        M3ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError,
+                        )
+                    } else {
+                        M3ButtonDefaults.buttonColors()
+                    },
+                ) {
+                    M3Text(text = stringResource(R.string.ui_knew_cb63c6))
+                }
+            } else {
+                TextButton(
+                    text = stringResource(R.string.ui_knew_cb63c6),
+                    onClick = { onAction(AgentSkillsAction.DismissNotice) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = if (notice.isError) {
+                        ButtonDefaults.textButtonColors()
+                    } else {
+                        ButtonDefaults.textButtonColorsPrimary()
+                    },
+                )
+            }
         }
+    }
+}
+
+/**
+ * 可点击的技能行。
+ *
+ * Material 3 走官方 [ListItem]（onClick 重载自带涟漪与语义），加载态用官方
+ * [CircularProgressIndicator]；MIUI X 保持原有 [BasicComponent] + [InfiniteProgressIndicator]。
+ */
+@Composable
+private fun SkillActionRow(
+    title: String,
+    summary: String,
+    icon: ImageVector,
+    enabled: Boolean,
+    iconLoading: Boolean = false,
+    onClick: () -> Unit,
+) {
+    if (isMaterial3Theme()) {
+        ListItem(
+            onClick = onClick,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = enabled,
+            leadingContent = {
+                if (iconLoading) {
+                    CircularProgressIndicator()
+                } else {
+                    Icon(imageVector = icon, contentDescription = null)
+                }
+            },
+            content = {
+                M3Text(text = title, style = MaterialTheme.typography.bodyLarge)
+            },
+            supportingContent = {
+                M3Text(
+                    text = summary,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+        )
+    } else {
+        BasicComponent(
+            title = title,
+            summary = summary,
+            startAction = {
+                if (iconLoading) {
+                    Box(
+                        modifier = Modifier
+                            .padding(end = 8.dp)
+                            .size(24.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        InfiniteProgressIndicator(size = 22.dp)
+                    }
+                } else {
+                    PreferenceIcon(icon, enabled = enabled)
+                }
+            },
+            enabled = enabled,
+            onClick = onClick,
+        )
     }
 }

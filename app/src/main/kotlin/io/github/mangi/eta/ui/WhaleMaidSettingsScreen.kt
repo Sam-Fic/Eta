@@ -8,6 +8,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -30,16 +31,15 @@ import io.github.mangi.eta.agent.model.ModelFeatureSelection
 import io.github.mangi.eta.agent.pet.WhaleMaidController
 import io.github.mangi.eta.agent.pet.WhaleMaidStore
 import io.github.mangi.eta.data.repository.ProviderRepository
-import io.github.mangi.eta.ui.components.ArrowPreference
-import io.github.mangi.eta.ui.components.MiuixScaffoldPage
-import io.github.mangi.eta.ui.components.SwitchPreference
+import io.github.mangi.eta.ui.adaptive.EtaCard
+import io.github.mangi.eta.ui.adaptive.EtaClickableRow
+import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
+import io.github.mangi.eta.ui.adaptive.EtaSwitch
+import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
+import io.github.mangi.eta.ui.adaptive.etaOnSurfaceVariant
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.model.AgentModelPickerProjector
-import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.Switch
-import top.yukonga.miuix.kmp.theme.MiuixTheme
+import androidx.compose.material3.Icon
 
 @Composable
 internal fun WhaleMaidSettingsScreen(onBack: () -> Unit) {
@@ -62,11 +62,12 @@ internal fun WhaleMaidSettingsScreen(onBack: () -> Unit) {
             selectedModel = all.selectedModel?.takeIf { !it.supportsImageGeneration && !it.supportsVideoGeneration },
         )
     }
-    MiuixScaffoldPage(title = stringResource(R.string.whale_maid_title), onBack = onBack) {
+    EtaScaffoldPage(title = stringResource(R.string.whale_maid_title), onBack = onBack) {
         item(key = "whale_maid") {
-            Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-                BasicComponent(
+            EtaCard(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
+                EtaClickableRow(
                     title = stringResource(R.string.whale_maid_title),
+                    showChevron = false,
                     onClick = {
                         TouchHaptics.click(view)
                         expanded = !expanded
@@ -78,11 +79,11 @@ internal fun WhaleMaidSettingsScreen(onBack: () -> Unit) {
                             contentDescription = null,
                             modifier = Modifier
                                 .align(Alignment.CenterVertically)
-                                .padding(end = 6.dp)
+                                .padding(end = 8.dp)
                                 .size(16.dp),
-                            tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                            tint = etaOnSurfaceVariant(),
                         )
-                        Switch(
+                        EtaSwitch(
                             checked = enabled,
                             onCheckedChange = { value ->
                                 if (value && !Settings.canDrawOverlays(context)) {
@@ -92,7 +93,7 @@ internal fun WhaleMaidSettingsScreen(onBack: () -> Unit) {
                                             Uri.parse("package:${context.packageName}"),
                                         ),
                                     )
-                                    return@Switch
+                                    return@EtaSwitch
                                 }
                                 enabled = value
                                 WhaleMaidController.setEnabled(context, value)
@@ -105,43 +106,43 @@ internal fun WhaleMaidSettingsScreen(onBack: () -> Unit) {
                     enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
                     exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut(),
                 ) {
-                    androidx.compose.foundation.layout.Column {
-                    SwitchPreference(
-                        title = stringResource(R.string.whale_maid_work_speech),
-                        checked = workSpeech,
-                        onCheckedChange = { value ->
-                            workSpeech = value
-                            WhaleMaidController.setWorkSpeechEnabled(context, value)
-                        },
-                    )
-                    SwitchPreference(
-                        title = stringResource(R.string.whale_maid_global),
-                        checked = globalVisible,
-                        onCheckedChange = { value ->
-                            globalVisible = value
-                            WhaleMaidController.setGlobalVisible(context, value)
-                        },
-                    )
-                    SwitchPreference(
-                        title = stringResource(R.string.whale_maid_custom_model),
-                        checked = selection.custom,
-                        onCheckedChange = { value ->
-                            selection = selection.copy(custom = value)
-                            WhaleMaidController.setModelSelection(
-                                context,
-                                selection.custom,
-                                selection.providerId,
-                                selection.modelId,
-                            )
-                        },
-                    )
-                    if (selection.custom) {
-                        ArrowPreference(
-                            title = stringResource(R.string.whale_maid_select_model),
-                            summary = models.selectedModel?.let { "${it.providerName} / ${it.displayName}" },
-                            onClick = { picker = true },
+                    Column {
+                        EtaSwitchRow(
+                            title = stringResource(R.string.whale_maid_work_speech),
+                            checked = workSpeech,
+                            onCheckedChange = { value ->
+                                workSpeech = value
+                                WhaleMaidController.setWorkSpeechEnabled(context, value)
+                            },
                         )
-                    }
+                        EtaSwitchRow(
+                            title = stringResource(R.string.whale_maid_global),
+                            checked = globalVisible,
+                            onCheckedChange = { value ->
+                                globalVisible = value
+                                WhaleMaidController.setGlobalVisible(context, value)
+                            },
+                        )
+                        EtaSwitchRow(
+                            title = stringResource(R.string.whale_maid_custom_model),
+                            checked = selection.custom,
+                            onCheckedChange = { value ->
+                                selection = selection.copy(custom = value)
+                                WhaleMaidController.setModelSelection(
+                                    context,
+                                    selection.custom,
+                                    selection.providerId,
+                                    selection.modelId,
+                                )
+                            },
+                        )
+                        if (selection.custom) {
+                            EtaClickableRow(
+                                title = stringResource(R.string.whale_maid_select_model),
+                                summary = models.selectedModel?.let { "${it.providerName} / ${it.displayName}" },
+                                onClick = { picker = true },
+                            )
+                        }
                     }
                 }
             }

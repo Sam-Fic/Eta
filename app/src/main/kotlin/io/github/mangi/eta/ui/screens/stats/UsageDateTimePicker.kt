@@ -9,6 +9,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -21,17 +27,29 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.haptics.TouchHaptics
+import java.time.Instant
 import java.time.LocalDate
 import java.time.Month
 import java.time.YearMonth
+import java.time.ZoneOffset
 import java.time.format.TextStyle
 import java.util.Locale
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TextButton as MiuixTextButton
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.window.WindowDialog
 
+private const val MILLIS_PER_DAY = 86_400_000L
+
+/**
+ * 统计页的日期选择弹窗。
+ *
+ * Material 3 下使用官方 `DatePickerDialog` + `DatePicker` + `rememberDatePickerState`；
+ * MIUI X 下保留原有 `WindowDialog` + `NumberPicker` 实现。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun UsageDateTimePickerDialog(
     show: Boolean,
@@ -45,6 +63,51 @@ internal fun UsageDateTimePickerDialog(
     if (!show) return
     val initial = remember(current, endOfBound) { current.date ?: LocalDate.now() }
     var picked by remember(initial) { mutableStateOf(initial) }
+
+    if (isMaterial3Theme()) {
+        val view = LocalView.current
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = initial.toEpochDay() * MILLIS_PER_DAY,
+        )
+        DatePickerDialog(
+            onDismissRequest = onDismiss,
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val millis = pickerState.selectedDateMillis
+                        if (millis != null) {
+                            val date = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
+                            picked = date
+                            onConfirm(UsageTimeBound.from(date))
+                        }
+                        onDismiss()
+                    },
+                    enabled = pickerState.selectedDateMillis != null,
+                ) {
+                    Text(text = stringResource(R.string.stats_model_filter_set))
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(
+                        onClick = {
+                            TouchHaptics.click(view)
+                            onClear()
+                        },
+                    ) {
+                        Text(text = stringResource(R.string.action_clear))
+                    }
+                    TextButton(onClick = onDismiss) {
+                        Text(text = stringResource(R.string.action_cancel))
+                    }
+                }
+            },
+        ) {
+            DatePicker(state = pickerState, title = { Text(text = title) })
+        }
+        return
+    }
+
     val textColor = MiuixTheme.colorScheme.onSurface.toArgb()
     val view = LocalView.current
     WindowDialog(
@@ -68,7 +131,7 @@ internal fun UsageDateTimePickerDialog(
                     .padding(top = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                TextButton(
+                MiuixTextButton(
                     text = stringResource(R.string.action_clear),
                     onClick = {
                         TouchHaptics.click(view)
@@ -76,7 +139,7 @@ internal fun UsageDateTimePickerDialog(
                     },
                     modifier = Modifier.weight(1f),
                 )
-                TextButton(
+                MiuixTextButton(
                     text = stringResource(R.string.action_cancel),
                     onClick = {
                         TouchHaptics.click(view)
@@ -84,7 +147,7 @@ internal fun UsageDateTimePickerDialog(
                     },
                     modifier = Modifier.weight(1f),
                 )
-                TextButton(
+                MiuixTextButton(
                     text = stringResource(R.string.stats_model_filter_set),
                     onClick = {
                         TouchHaptics.click(view)

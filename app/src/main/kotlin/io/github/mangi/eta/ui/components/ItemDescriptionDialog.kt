@@ -11,10 +11,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
-import top.yukonga.miuix.kmp.basic.Text
+import io.github.mangi.eta.ui.adaptive.EtaDialog
+import io.github.mangi.eta.ui.adaptive.EtaText
+import io.github.mangi.eta.ui.adaptive.EtaTextStyle
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowDialog
+import androidx.compose.material3.Text as M3Text
+import androidx.compose.material3.TextButton as M3TextButton
 
 @Composable
 internal fun ItemDescriptionDialog(
@@ -23,29 +26,37 @@ internal fun ItemDescriptionDialog(
     onDismiss: () -> Unit,
     summary: String? = null,
 ) {
-    WindowDialog(
+    EtaDialog(
         show = true,
         title = title,
         summary = summary?.takeIf(String::isNotBlank),
-        summaryColor = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.62f),
         onDismissRequest = onDismiss,
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
+            EtaText(
                 text = description,
-                style = MiuixTheme.textStyles.body2,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                style = EtaTextStyle.Secondary,
                 modifier = Modifier.fillMaxWidth().weight(1f, fill = false)
                     .verticalScroll(rememberScrollState()),
             )
-            TextButton(
-                text = stringResource(R.string.action_close),
-                onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            if (isMaterial3Theme()) {
+                // 官方文字按钮：形状、行高与配色均取官方默认值。
+                M3TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    M3Text(text = stringResource(R.string.action_close))
+                }
+            } else {
+                TextButton(
+                    text = stringResource(R.string.action_close),
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
     }
 }

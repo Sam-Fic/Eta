@@ -217,7 +217,7 @@ internal fun EtaDropdownMenu(
                         color = colors.outline.copy(alpha = 0.45f),
                         cornerRadius = MenuCornerRadius,
                     )
-                    .padding(vertical = 6.dp)
+                    .padding(vertical = 8.dp)
                     .verticalScroll(rememberScrollState()),
                 content = content,
             )

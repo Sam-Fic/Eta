@@ -23,10 +23,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.model.ConversationMention
 import io.github.mangi.eta.ui.model.ConversationMentionInputUi
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text as M3Text
+import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -37,21 +45,65 @@ internal fun ConversationMentionPanel(
     onSelect: (String) -> Unit,
 ) {
     if (state.pending.isNotEmpty()) {
-        Row(
-            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(bottom = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            state.pending.forEach { mention ->
-                Row(
-                    modifier = Modifier.widthIn(max = 280.dp).clip(RoundedCornerShape(14.dp))
-                        .background(MiuixTheme.colorScheme.surfaceContainerHigh).padding(start = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text("@${mention.title}", modifier = Modifier.weight(1f, fill = false),
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        color = MiuixTheme.colorScheme.primary, style = MiuixTheme.textStyles.body2)
-                    IconButton(onClick = { state.onRemove(mention.id) }, minWidth = 40.dp, minHeight = 48.dp) {
-                        Icon(Icons.Rounded.Close, contentDescription = "移除会话引用 ${mention.title}", modifier = Modifier.size(18.dp))
+        if (isMaterial3Theme()) {
+            // M3 Expressive：已引用会话是只读容器，官方 Surface 承担形状（shapes.medium）与
+            // surfaceContainerHigh 底色；移除动作走官方 IconButton（容器尺寸取官方
+            // IconButtonDefaults.smallContainerSize()，图标取官方 smallIconSize，涟漪与
+            // disabled 状态全部由官方组件提供）。文字色只用官方 primary / onSurfaceVariant 角色。
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                    .padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                state.pending.forEach { mention ->
+                    Surface(
+                        modifier = Modifier.widthIn(max = 280.dp),
+                        shape = MaterialTheme.shapes.medium,
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            M3Text(
+                                text = "@${mention.title}",
+                                modifier = Modifier
+                                    .weight(1f, fill = false)
+                                    .padding(ListItemDefaults.ContentPadding),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.labelLarge,
+                            )
+                            IconButton(
+                                onClick = { state.onRemove(mention.id) },
+                                modifier = Modifier.size(IconButtonDefaults.smallContainerSize()),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Close,
+                                    contentDescription = "移除会话引用 ${mention.title}",
+                                    modifier = Modifier.size(IconButtonDefaults.smallIconSize),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                state.pending.forEach { mention ->
+                    Row(
+                        modifier = Modifier.widthIn(max = 280.dp).clip(RoundedCornerShape(12.dp))
+                            .background(MiuixTheme.colorScheme.surfaceContainerHigh).padding(start = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("@${mention.title}", modifier = Modifier.weight(1f, fill = false),
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            color = MiuixTheme.colorScheme.primary, style = MiuixTheme.textStyles.body2)
+                        MiuixIconButton(onClick = { state.onRemove(mention.id) }, minWidth = 40.dp, minHeight = 48.dp) {
+                            Icon(Icons.Rounded.Close, contentDescription = "移除会话引用 ${mention.title}", modifier = Modifier.size(18.dp))
+                        }
                     }
                 }
             }
@@ -60,8 +112,66 @@ internal fun ConversationMentionPanel(
     if (query == null) return
     val candidates = ConversationMention.candidates(state.conversations, query, state.currentConversationId,
         state.pending.map { it.conversationId }.toSet())
+    if (isMaterial3Theme()) {
+        // M3 Expressive：官方 Surface 承担面板底板，候选行改用官方可交互 ListItem——
+        // 形状、内容间距、涟漪、Role 与排版档位全部由官方组件提供。
+        Surface(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+        ) {
+            val itemColors = ListItemDefaults.colors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            )
+            val limitReached = state.pending.size >= ConversationMention.MAX_ATTACHED
+            if (limitReached || candidates.isEmpty()) {
+                ListItem(
+                    colors = itemColors,
+                    content = {
+                        M3Text(
+                            text = if (limitReached) {
+                                "最多引用 3 个会话，请先移除一个。"
+                            } else {
+                                "没有匹配的其他会话"
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    },
+                )
+            } else {
+                LazyColumn(modifier = Modifier.heightIn(max = 220.dp)) {
+                    items(candidates, key = { it.id }) { candidate ->
+                        ListItem(
+                            onClick = { onSelect(candidate.id) },
+                            colors = itemColors,
+                            content = {
+                                M3Text(
+                                    text = "@${candidate.title}",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            },
+                            supportingContent = {
+                                M3Text(
+                                    text = listOf(candidate.preview, candidate.timeLabel, if (candidate.isActiveRun) "运行中" else "")
+                                        .filter { it.isNotBlank() }.joinToString(" · "),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            },
+                        )
+                    }
+                }
+            }
+        }
+        return
+    }
     Column(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-        .clip(RoundedCornerShape(14.dp)).background(MiuixTheme.colorScheme.surfaceContainerHigh)) {
+        .clip(RoundedCornerShape(12.dp)).background(MiuixTheme.colorScheme.surfaceContainerHigh)) {
         if (state.pending.size >= ConversationMention.MAX_ATTACHED) {
             Text("最多引用 3 个会话，请先移除一个。", modifier = Modifier.padding(12.dp))
         } else if (candidates.isEmpty()) {
@@ -70,7 +180,7 @@ internal fun ConversationMentionPanel(
             LazyColumn(modifier = Modifier.heightIn(max = 220.dp)) {
                 items(candidates, key = { it.id }) { candidate ->
                     Column(modifier = Modifier.fillMaxWidth().clickable { onSelect(candidate.id) }
-                        .padding(horizontal = 12.dp, vertical = 10.dp)) {
+                        .padding(horizontal = 12.dp, vertical = 8.dp)) {
                         Text("@${candidate.title}", style = MiuixTheme.textStyles.body1, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(listOf(candidate.preview, candidate.timeLabel, if (candidate.isActiveRun) "运行中" else "")
                             .filter { it.isNotBlank() }.joinToString(" · "),

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AddComment
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.runtime.Composable
@@ -19,6 +20,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
@@ -49,7 +51,7 @@ import io.github.mangi.eta.ui.model.ConversationTokenUsageUi
 import io.github.mangi.eta.ui.model.MessageSearchHit
 import io.github.mangi.eta.ui.model.ConversationSummaryUi
 import io.github.mangi.eta.ui.navigation.AppRoute
-import top.yukonga.miuix.kmp.basic.Icon
+import androidx.compose.material3.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
@@ -60,7 +62,7 @@ import top.yukonga.miuix.kmp.basic.SmallTopAppBar
  * Agent App 统一壳层。
  *
  * - 负责全局 Scaffold、状态栏/横向安全边距、顶层工具栏。
- * - 首页工具栏只保留历史入口与溢出菜单（新建对话、终端、浏览器），保持聊天舞台干净。
+ * - 首页工具栏保留历史入口、独立的新建对话按钮与溢出菜单（终端、浏览器），保持聊天舞台干净。
  * - 非首页子路由统一提供返回按钮与标题，避免每个页面各自像独立设置页。
  * - Settings 由标准二级页骨架自己提供 TopAppBar，壳层在此路由不重复绘制。
  */
@@ -168,6 +170,13 @@ internal fun AgentAppShell(
                             onBack = onBack,
                             onOpenConversationPane = onOpenConversationPane,
                             onNewConversation = onNewConversation,
+                            onRenameCurrentConversation = {
+                                val pane = conversationPaneState
+                                val conversation = pane?.selectedConversationId?.let { id ->
+                                    pane.conversations.find { it.id == id }
+                                }
+                                if (conversation != null) onConversationRename(conversation)
+                            },
                             onOpenTerminal = onOpenTerminal,
                             onLaunchKimiWeb = onLaunchKimiWeb,
                             kimiWebLabel = kimiWebLabel,
@@ -250,6 +259,7 @@ private fun AgentTopBar(
     onBack: () -> Unit,
     onOpenConversationPane: () -> Unit,
     onNewConversation: () -> Unit,
+    onRenameCurrentConversation: () -> Unit = {},
     onOpenTerminal: () -> Unit,
     onLaunchKimiWeb: () -> Unit,
     kimiWebLabel: String,
@@ -298,13 +308,22 @@ private fun AgentTopBar(
                 key(selectedProviderId) {
                     ProviderBalanceIndicator(
                         state = selectedBalanceState,
-                        modifier = Modifier.padding(end = 6.dp),
+                        modifier = Modifier.padding(end = 8.dp),
                         animateChanges = true,
                     )
                 }
             }
+            // 新建对话独立成顶栏按钮，避免每次都要先展开溢出菜单。
+            IconButton(onClick = {
+                TouchHaptics.click(view)
+                onNewConversation()
+            }) {
+                Icon(
+                    imageVector = Icons.Rounded.AddComment,
+                    contentDescription = stringResource(R.string.action_new_conversation),
+                )
+            }
             TopBarOverflowMenu(
-                onNewConversation = onNewConversation,
                 onOpenTerminal = onOpenTerminal,
                 onLaunchKimiWeb = onLaunchKimiWeb,
                 kimiWebLabel = kimiWebLabel,
@@ -325,7 +344,40 @@ private fun AgentTopBar(
         }
     }
 
-    if (isHome) {
+    if (isHome && io.github.mangi.eta.ui.adaptive.isMaterial3Theme()) {
+        // 首页 M3 顶栏不消费滚动偏移，但壳层内容仍挂在共享 MiuixScrollBehavior 的嵌套滚动连接上。
+        // 二级页的可折叠顶栏（AdaptiveTopAppBar）会把 heightOffsetLimit 设成负的折叠区间；
+        // 切换主题必须途经设置页，返回首页后该状态残留在共享 TopAppBarState 上，连接就把
+        // 「朝最新消息方向」（available.y <= 0）的位移整段吞掉充作折叠高度：表现为只能向上滑、
+        // 不能向下滚。miuix 首页靠 SmallTopAppBar 每帧把折叠区间复位成 0 逃过这一劫，这里对
+        // M3 首页做同样的复位：区间归零后高度偏移无法移动，连接立刻回到惯性状态，不再吃位移。
+        SideEffect {
+            scrollBehavior.state.heightOffsetLimit = 0f
+            scrollBehavior.state.heightOffset = 0f
+        }
+        // 首页（Material 3 Expressive）：菜单 + 会话标题拆分按钮 + 新建对话，一行排开。
+        Material3HomeTopBar(
+            title = titleForRoute(route, currentConversationTitle),
+            onOpenConversationPane = onOpenConversationPane,
+            onRenameCurrentConversation = onRenameCurrentConversation,
+            onNewConversation = onNewConversation,
+            onOpenTerminal = onOpenTerminal,
+            onLaunchKimiWeb = onLaunchKimiWeb,
+            kimiWebLabel = kimiWebLabel,
+            canStopKimiWeb = canStopKimiWeb,
+            onStopKimiWeb = onStopKimiWeb,
+            onOpenBrowser = onOpenBrowser,
+            onOpenWorkspace = onOpenWorkspace,
+            autoCompressEnabled = autoCompressEnabled,
+            isCompressingContext = isCompressingContext,
+            onToggleAutoCompress = onToggleAutoCompress,
+            onCompressConversation = onCompressConversation,
+            onSearchHistory = onSearchHistory,
+            onOpenHistoryHit = onOpenHistoryHit,
+            tokenUsage = tokenUsage,
+            subAgentStatuses = subAgentStatuses,
+        )
+    } else if (isHome) {
         // 首页聊天舞台保持紧凑；二级内容页统一使用可折叠大标题。
         SmallTopAppBar(
             title = titleForRoute(route, currentConversationTitle),

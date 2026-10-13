@@ -28,15 +28,16 @@ import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.datastore.SettingsDataStore
 import io.github.mangi.eta.data.model.ErrorReconnectPolicy
-import io.github.mangi.eta.ui.components.MiuixScaffoldPage
+import io.github.mangi.eta.ui.adaptive.EtaCard
+import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
+import io.github.mangi.eta.ui.adaptive.EtaSectionTitle
+import io.github.mangi.eta.ui.adaptive.EtaText
+import io.github.mangi.eta.ui.adaptive.etaOnSurfaceVariant
+import io.github.mangi.eta.ui.adaptive.etaPrimary
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.map
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 internal fun ErrorReconnectSettingsScreen(onBack: () -> Unit) {
@@ -47,13 +48,13 @@ internal fun ErrorReconnectSettingsScreen(onBack: () -> Unit) {
     val policy = loadedPolicy ?: ErrorReconnectPolicy.DEFAULT
     var saving by remember { mutableStateOf(false) }
 
-    MiuixScaffoldPage(
+    EtaScaffoldPage(
         title = stringResource(R.string.error_reconnect_title),
         onBack = onBack,
     ) {
         item(key = "error_reconnect_policy") {
-            SmallTitle(stringResource(R.string.error_reconnect_duration))
-            Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
+            EtaSectionTitle(stringResource(R.string.error_reconnect_duration))
+            EtaCard(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
                 ErrorReconnectPolicyOptions(
                     selectedPolicy = policy,
                     enabled = loadedPolicy != null && !saving,
@@ -108,7 +109,7 @@ internal fun ErrorReconnectPolicyOptions(
                     .padding(horizontal = 16.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
+                EtaText(
                     text = stringResource(errorReconnectPolicyLabel(policy)),
                     modifier = Modifier.weight(1f),
                 )
@@ -117,8 +118,8 @@ internal fun ErrorReconnectPolicyOptions(
                     enabled = enabled,
                     onClick = null,
                     colors = RadioButtonDefaults.colors(
-                        selectedColor = MiuixTheme.colorScheme.primary,
-                        unselectedColor = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                        selectedColor = etaPrimary(),
+                        unselectedColor = etaOnSurfaceVariant(),
                     ),
                 )
             }

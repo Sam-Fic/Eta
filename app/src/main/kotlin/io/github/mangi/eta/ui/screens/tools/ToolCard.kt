@@ -1,5 +1,6 @@
 package io.github.mangi.eta.ui.screens.tools
 
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,6 +25,10 @@ import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.tool.AgentToolCapabilities
 import io.github.mangi.eta.agent.tool.RootRequirement
+import io.github.mangi.eta.ui.adaptive.EtaText
+import io.github.mangi.eta.ui.adaptive.EtaTextStyle
+import io.github.mangi.eta.ui.adaptive.etaOnSurfaceVariant
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.components.ItemDescriptionDialog
 import io.github.mangi.eta.ui.components.iconForTool
 import io.github.mangi.eta.ui.model.AgentToolsAction
@@ -33,7 +38,10 @@ import io.github.mangi.eta.ui.model.toolCardAction
 import io.github.mangi.eta.ui.model.toolCardRequirement
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
-import top.yukonga.miuix.kmp.basic.Icon
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Card as M3Card
+import androidx.compose.material3.IconButton as M3IconButton
+import androidx.compose.material3.Text as M3Text
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -61,73 +69,107 @@ internal fun ToolCard(
         AgentToolsAction.OpenEnhancements -> stringResource(R.string.tools_view_enhancements)
         else -> stringResource(R.string.ui_view_description)
     }
-    Card(
-        modifier = modifier.heightIn(min = 136.dp),
-        insideMargin = PaddingValues(16.dp),
-        colors = CardDefaults.defaultColors(
-            color = MiuixTheme.colorScheme.surfaceContainer,
-            contentColor = MiuixTheme.colorScheme.onSurfaceContainer,
-        ),
-        pressFeedbackType = PressFeedbackType.Sink,
-        showIndication = true,
-        onClick = {
-            if (action != null) onAction(action) else showDescription = true
-        },
-    ) {
+    val secondaryColor = etaOnSurfaceVariant()
+    val accentColor = if (isMaterial3Theme()) {
+        androidx.compose.material3.MaterialTheme.colorScheme.primary
+    } else {
+        MiuixTheme.colorScheme.primary
+    }
+    val titleText = tool.title
+    val bodyText = description
+    val requirement = requirementText
+    val actionLabel = actionText
+    val infoDescription = stringResource(R.string.ui_description_named, tool.title)
+    val toolIcon = iconForTool(tool.id)
+    val openInfo = { showDescription = true }
+    val cardBody: @Composable ColumnScope.() -> Unit = {
         Row(
             modifier = Modifier.fillMaxWidth().heightIn(min = 40.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                imageVector = iconForTool(tool.id),
-                contentDescription = null,
-                modifier = Modifier.size(24.dp),
-                tint = MiuixTheme.colorScheme.onSurfaceContainer,
-            )
+            if (isMaterial3Theme()) {
+                Icon(
+                    imageVector = toolIcon,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                )
+            } else {
+                Icon(
+                    imageVector = toolIcon,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                    tint = MiuixTheme.colorScheme.onSurfaceContainer,
+                )
+            }
             Spacer(modifier = Modifier.weight(1f))
             if (action != null) {
-                IconButton(onClick = { showDescription = true }) {
-                    Icon(
-                        imageVector = Icons.Rounded.Info,
-                        contentDescription = stringResource(R.string.ui_description_named, tool.title),
-                        modifier = Modifier.size(18.dp),
-                        tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                    )
+                if (isMaterial3Theme()) {
+                    M3IconButton(onClick = openInfo) {
+                        Icon(imageVector = Icons.Rounded.Info, contentDescription = infoDescription)
+                    }
+                } else {
+                    IconButton(onClick = openInfo) {
+                        Icon(
+                            imageVector = Icons.Rounded.Info,
+                            contentDescription = infoDescription,
+                            modifier = Modifier.size(18.dp),
+                            tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                        )
+                    }
                 }
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = tool.title,
-            style = MiuixTheme.textStyles.body2,
-            fontWeight = FontWeight.Medium,
-            color = MiuixTheme.colorScheme.onSurfaceContainer,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(
-            text = description,
-            style = MiuixTheme.textStyles.footnote1,
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            maxLines = 3,
-            overflow = TextOverflow.Ellipsis,
-        )
-        requirementText?.let {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = it,
-                style = MiuixTheme.textStyles.footnote1,
-                color = MiuixTheme.colorScheme.onSurfaceVariantActions,
+        if (isMaterial3Theme()) {
+            M3Text(
+                text = titleText,
+                style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
+            Spacer(modifier = Modifier.height(2.dp))
+            M3Text(
+                text = bodyText,
+                style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
+                color = secondaryColor,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+            )
+            requirement?.let {
+                Spacer(modifier = Modifier.height(8.dp))
+                EtaText(text = it, style = EtaTextStyle.Footnote, color = secondaryColor)
+            }
+        } else {
+            Text(
+                text = titleText,
+                style = MiuixTheme.textStyles.body2,
+                fontWeight = FontWeight.Medium,
+                color = MiuixTheme.colorScheme.onSurfaceContainer,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = bodyText,
+                style = MiuixTheme.textStyles.footnote1,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+            )
+            requirement?.let {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = it,
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                )
+            }
         }
         Spacer(modifier = Modifier.height(12.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = actionText,
+                text = actionLabel,
                 style = MiuixTheme.textStyles.footnote1,
-                color = if (action != null) MiuixTheme.colorScheme.primary
-                    else MiuixTheme.colorScheme.onSurfaceVariantActions,
+                color = if (action != null) accentColor else secondaryColor,
                 modifier = Modifier.weight(1f),
             )
             if (action != null) {
@@ -135,9 +177,35 @@ internal fun ToolCard(
                     imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
-                    tint = MiuixTheme.colorScheme.primary,
+                    tint = accentColor,
                 )
             }
+        }
+    }
+
+    // M3 下改用官方可点击 Card（自带涟漪、语义与按压形变），容器色与形状全部走官方默认值。
+    if (isMaterial3Theme()) {
+        M3Card(
+            onClick = { if (action != null) onAction(action) else showDescription = true },
+            modifier = modifier.heightIn(min = 136.dp),
+        ) {
+            cardBody()
+        }
+    } else {
+        Card(
+            modifier = modifier.heightIn(min = 136.dp),
+            insideMargin = PaddingValues(16.dp),
+            colors = CardDefaults.defaultColors(
+                color = MiuixTheme.colorScheme.surfaceContainer,
+                contentColor = MiuixTheme.colorScheme.onSurfaceContainer,
+            ),
+            pressFeedbackType = PressFeedbackType.Sink,
+            showIndication = true,
+            onClick = {
+                if (action != null) onAction(action) else showDescription = true
+            },
+        ) {
+            cardBody()
         }
     }
     if (showDescription) {

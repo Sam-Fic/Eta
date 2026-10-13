@@ -2,12 +2,6 @@ package io.github.mangi.eta.ui
 
 import android.content.Context
 import android.content.SharedPreferences
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material3.Icon
-import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -16,14 +10,10 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -32,13 +22,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.model.AgentCompressionEndpoint
 import io.github.mangi.eta.config.AutoCompressPreference
 import io.github.mangi.eta.config.Prefs
-import io.github.mangi.eta.ui.components.MiuixScaffoldPage
+import io.github.mangi.eta.ui.adaptive.EtaCard
+import io.github.mangi.eta.ui.adaptive.EtaClickableRow
+import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
+import io.github.mangi.eta.ui.adaptive.EtaSectionTitle
+import io.github.mangi.eta.ui.adaptive.EtaSwitch
+import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
+import io.github.mangi.eta.ui.adaptive.EtaText
+import io.github.mangi.eta.ui.adaptive.EtaTextStyle
 import io.github.mangi.eta.ui.components.rememberAutoCompressEnabled
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.model.AgentModelOptionUi
@@ -46,9 +42,6 @@ import io.github.mangi.eta.ui.model.AgentModelPickerUiState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.preference.SwitchPreference
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -106,43 +99,39 @@ internal fun ContextCompressionSettingsScreen(context: Context, onBack: () -> Un
         onDispose { prefs?.unregisterOnSharedPreferenceChangeListener(listener) }
     }
 
-    MiuixScaffoldPage(title = stringResource(R.string.ui_context_compression_settings_title), onBack = onBack) {
+    EtaScaffoldPage(title = stringResource(R.string.ui_context_compression_settings_title), onBack = onBack) {
         item(key = "auto_compress") {
-            Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
+            EtaCard(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                        // Material content in a Miuix Card needs an explicit themed foreground.
-                        Text(
+                        EtaText(
                             text = stringResource(R.string.ui_auto_compress_context_title),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            style = EtaTextStyle.Body,
                         )
-                        Text(
+                        EtaText(
                             text = stringResource(R.string.ui_auto_compress_context_summary),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Start,
+                            style = EtaTextStyle.Footnote,
                             modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                         )
                     }
-                    Switch(
+                    EtaSwitch(
                         checked = enabled,
                         enabled = autoCompressPreference.isWritable,
                         onCheckedChange = { value ->
                             TouchHaptics.click(view)
                             autoCompressPreference.setEnabled(value)
-                        }
+                        },
                     )
                 }
             }
         }
 
         item(key = "compress_endpoint") {
-            Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
+            EtaCard(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
                 CompressionEndpointPreference(
                     selected = endpointMode,
                     enabled = prefs != null,
@@ -155,10 +144,10 @@ internal fun ContextCompressionSettingsScreen(context: Context, onBack: () -> Un
         }
 
         item(key = "compress_model") {
-            Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-                SwitchPreference(
+            EtaCard(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
+                EtaSwitchRow(
                     title = stringResource(R.string.ui_custom_compress_model_title),
-                    insideMargin = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                     summary = stringResource(R.string.ui_custom_compress_model_summary),
                     checked = customModelEnabled,
                     onCheckedChange = { value ->
@@ -176,44 +165,22 @@ internal fun ContextCompressionSettingsScreen(context: Context, onBack: () -> Un
                     },
                 )
                 if (customModelEnabled) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth()
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                                role = Role.Button,
-                            ) {
-                                TouchHaptics.click(view)
-                                showModelDialog = true
-                            }
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                            Text(
-                                text = stringResource(R.string.ui_compress_model_title),
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            Text(
-                                text = selectedCompressModel?.displayName
-                                    ?: stringResource(R.string.model_not_selected),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Icon(
-                            imageVector = Icons.Rounded.ChevronRight,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                    EtaClickableRow(
+                        title = stringResource(R.string.ui_compress_model_title),
+                        summary = selectedCompressModel?.displayName
+                            ?: stringResource(R.string.model_not_selected),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                        onClick = {
+                            TouchHaptics.click(view)
+                            showModelDialog = true
+                        },
+                    )
                 }
             }
         }
 
         item(key = "hint") {
-            SmallTitle("")
+            EtaSectionTitle("")
         }
     }
 

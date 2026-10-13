@@ -54,8 +54,8 @@ internal fun WorkProcessCardSlice(
         modifier = modifier
             .fillMaxWidth()
             .padding(
-                start = 20.dp,
-                end = 20.dp,
+                start = 16.dp,
+                end = 16.dp,
                 top = if (part.startsCard) 4.dp else 0.dp,
                 bottom = if (part.endsCard) 4.dp else 0.dp,
             )

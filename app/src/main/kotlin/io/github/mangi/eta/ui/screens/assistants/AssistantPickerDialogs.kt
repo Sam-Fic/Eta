@@ -1,15 +1,14 @@
 package io.github.mangi.eta.ui.screens.assistants
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -30,9 +29,11 @@ import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.AssistantProfile
 import io.github.mangi.eta.data.repository.AssistantRepository
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
+import io.github.mangi.eta.ui.adaptive.EtaDialog
+import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.components.AssistantAvatar
 import io.github.mangi.eta.ui.haptics.TouchHaptics
-import io.github.mangi.eta.ui.components.MiuixDialogActions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -40,9 +41,13 @@ import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults as M3ButtonDefaults
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text as M3Text
 
 @Composable
 internal fun AssistantPickerDialog(
@@ -77,7 +82,7 @@ internal fun AssistantPickerDialog(
         }
     }
 
-    WindowDialog(
+    EtaDialog(
         show = show,
         title = stringResource(R.string.assistant_list_title),
         onDismissRequest = {
@@ -89,13 +94,10 @@ internal fun AssistantPickerDialog(
                 .fillMaxWidth()
                 .height(dialogBodyHeight),
         ) {
-            TextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                label = stringResource(R.string.assistant_search),
-                useLabelAsPlaceholder = true,
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+            AssistantSearchField(
+                query = searchQuery,
+                onQueryChange = { searchQuery = it },
+                placeholder = stringResource(R.string.assistant_search),
             )
             Column(
                 modifier = Modifier
@@ -117,10 +119,10 @@ internal fun AssistantPickerDialog(
                     )
                 }
                 if (filtered.isEmpty()) {
-                    Text(
+                    M3Text(
                         text = stringResource(R.string.assistant_empty),
-                        style = MiuixTheme.textStyles.body2,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
                     )
                 }
@@ -172,7 +174,12 @@ internal fun AssistantPickerDialog(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+/**
+ * 助手条目。
+ *
+ * Material 3 走官方 [ListItem]（selected 重载自带选中容器色与按压形变，同时支持
+ * `onLongClick`）；MIUI X 保持原有 [Card] + `combinedClickable`。
+ */
 @Composable
 internal fun AssistantProfileCard(
     profile: AssistantProfile,
@@ -182,41 +189,68 @@ internal fun AssistantProfileCard(
     modifier: Modifier = Modifier,
 ) {
     val view = LocalView.current
-    Card(modifier = modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .combinedClickable(
-                    hapticFeedbackEnabled = false,
-                    onClick = {
-                        TouchHaptics.click(view)
-                        onClick()
-                    },
-                    onLongClick = {
-                        TouchHaptics.longPress(view)
-                        onLongClick()
-                    },
-                )
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            AssistantAvatar(assistant = profile, size = 32.dp)
-            Text(
-                text = profile.name,
-                style = MiuixTheme.textStyles.title3,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 12.dp, end = 8.dp),
-            )
-            if (selected) {
-                Text(
-                    text = stringResource(R.string.assistant_current),
-                    style = MiuixTheme.textStyles.footnote1,
-                    color = MiuixTheme.colorScheme.primary,
+    if (isMaterial3Theme()) {
+        ListItem(
+            selected = selected,
+            onClick = onClick,
+            onLongClick = onLongClick,
+            modifier = modifier.fillMaxWidth(),
+            leadingContent = { AssistantAvatar(assistant = profile, size = 32.dp) },
+            content = {
+                M3Text(
+                    text = profile.name,
+                    style = MaterialTheme.typography.bodyLarge,
                     maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
+            },
+            trailingContent = {
+                if (selected) {
+                    M3Text(
+                        text = stringResource(R.string.assistant_current),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                    )
+                }
+            },
+        )
+    } else {
+        Card(modifier = modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .combinedClickable(
+                        hapticFeedbackEnabled = false,
+                        onClick = {
+                            TouchHaptics.click(view)
+                            onClick()
+                        },
+                        onLongClick = {
+                            TouchHaptics.longPress(view)
+                            onLongClick()
+                        },
+                    )
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AssistantAvatar(assistant = profile, size = 32.dp)
+                Text(
+                    text = profile.name,
+                    style = MiuixTheme.textStyles.title3,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 12.dp, end = 8.dp),
+                )
+                if (selected) {
+                    Text(
+                        text = stringResource(R.string.assistant_current),
+                        style = MiuixTheme.textStyles.footnote1,
+                        maxLines = 1,
+                    )
+                }
             }
         }
     }
@@ -231,7 +265,7 @@ internal fun AssistantActionsDialog(
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    WindowDialog(
+    EtaDialog(
         show = true,
         title = profile.name,
         onDismissRequest = onDismiss,
@@ -240,27 +274,48 @@ internal fun AssistantActionsDialog(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            TextButton(
-                text = stringResource(R.string.ui_copy_4edd1d),
-                onClick = onCopy,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            TextButton(
-                text = stringResource(R.string.ui_edit_a7f814),
-                onClick = onEdit,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.textButtonColorsPrimary(),
-            )
-            TextButton(
-                text = stringResource(R.string.action_delete),
-                onClick = onDelete,
-                enabled = canDelete,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.textButtonColorsPrimary(
-                    color = MiuixTheme.colorScheme.error,
-                    textColor = MiuixTheme.colorScheme.onError,
-                ),
-            )
+            if (isMaterial3Theme()) {
+                // 官方按钮：形状、行高、配色全部使用官方默认值。
+                OutlinedButton(onClick = onCopy, modifier = Modifier.fillMaxWidth()) {
+                    M3Text(text = stringResource(R.string.ui_copy_4edd1d))
+                }
+                OutlinedButton(onClick = onEdit, modifier = Modifier.fillMaxWidth()) {
+                    M3Text(text = stringResource(R.string.ui_edit_a7f814))
+                }
+                Button(
+                    onClick = onDelete,
+                    enabled = canDelete,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = M3ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError,
+                    ),
+                ) {
+                    M3Text(text = stringResource(R.string.action_delete))
+                }
+            } else {
+                TextButton(
+                    text = stringResource(R.string.ui_copy_4edd1d),
+                    onClick = onCopy,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                TextButton(
+                    text = stringResource(R.string.ui_edit_a7f814),
+                    onClick = onEdit,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.textButtonColorsPrimary(),
+                )
+                TextButton(
+                    text = stringResource(R.string.action_delete),
+                    onClick = onDelete,
+                    enabled = canDelete,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.textButtonColorsPrimary(
+                        color = MiuixTheme.colorScheme.error,
+                        textColor = MiuixTheme.colorScheme.onError,
+                    ),
+                )
+            }
         }
     }
 }
@@ -272,13 +327,13 @@ internal fun AssistantDeleteDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
-    WindowDialog(
+    EtaDialog(
         show = true,
         title = stringResource(R.string.assistant_delete_title),
         summary = stringResource(R.string.assistant_delete_body, profile.name),
         onDismissRequest = onDismiss,
     ) {
-        MiuixDialogActions(
+        EtaDialogActions(
             confirmText = stringResource(R.string.action_delete),
             destructive = true,
             confirmEnabled = canDelete,

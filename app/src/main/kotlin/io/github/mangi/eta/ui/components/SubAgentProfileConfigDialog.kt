@@ -2,15 +2,19 @@ package io.github.mangi.eta.ui.components
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Assignment
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import io.github.mangi.eta.ui.adaptive.EtaDialog
+import io.github.mangi.eta.ui.adaptive.EtaDialogActions
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -34,7 +38,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.ButtonDefaults as MiuixButtonDefaults
 import top.yukonga.miuix.kmp.basic.TextButton as MiuixTextButton
-import top.yukonga.miuix.kmp.window.WindowDialog
 
 /** One opening owns one editor, application, expected profile and parallel-pool snapshot.
  * Nothing here writes preferences until commitProfileDraft; abandoning a session is zero-write. */
@@ -213,19 +216,27 @@ internal fun SubAgentProfileConfigDialog(
     val dismiss = { session.dismiss(); latestDismiss() }
     // Back/outside taps cannot abandon an in-flight commit. Saved/owner invalidation still close.
     val userDismiss = { if (!session.submitting) dismiss() }
-    CompositionLocalProvider(LocalRippleConfiguration provides null) {
+    CompositionLocalProvider(LocalRippleConfiguration provides etaRippleConfiguration()) {
         WithoutPressRipple {
             // This form is also opened from a Compose Dialog. OverlayDialog registers
             // content in a Scaffold host, which can be absent or behind that parent window.
             // WindowDialog keeps the same Miuix layout/style in its own modal window.
-            WindowDialog(show = true, title = if (session.expectedProfile == null) "添加子代理" else "子代理配置",
+            EtaDialog(show = true, title = if (session.expectedProfile == null) "添加子代理" else "子代理配置",
                 onDismissRequest = userDismiss) {
                 Column(Modifier.fillMaxWidth().profileDialogScrollableBody().verticalScroll(rememberScrollState())) {
                     EtaFormTextField(session.name, { if (usable) session.name = it.take(80) }, hint = "名称",
                         singleLine = true, enabled = usable, modifier = Modifier.fillMaxWidth())
-                    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("启用", Modifier.weight(1f))
-                        Switch(draft.enabled, enabled = usable, onCheckedChange = { active -> interact { session.edit { it.copy(enabled = active) } } })
+                    // 官方 ListItem 行承载整行点按与开关语义；官方 Switch 只呈现状态，点击统一由行处理。
+                    ListItem(
+                        trailingContent = { Switch(checked = draft.enabled, enabled = usable, onCheckedChange = null) },
+                        modifier = Modifier.toggleable(
+                            value = draft.enabled,
+                            enabled = usable,
+                            role = Role.Switch,
+                            onValueChange = { active -> interact { session.edit { it.copy(enabled = active) } } },
+                        ),
+                    ) {
+                        Text("启用")
                     }
                     SubAgentSettingRow("模型", boundConfig?.let { it.modelDisplayName.ifBlank { it.model } }
                         ?: if (draft.modelId.isBlank()) "选择模型" else "模型不可用", Icons.Rounded.ViewInAr,
@@ -240,7 +251,7 @@ internal fun SubAgentProfileConfigDialog(
                                     (SubAgentProfile.modelReasoningKey(profile.providerId, profile.modelId) to profile.gptSpeedForModel().next()))
                             }
                         } })
-                    SubAgentSettingRow("职责", draft.roleLabel, Icons.Rounded.Assignment, "草稿职责", usable,
+                    SubAgentSettingRow("职责", draft.roleLabel, Icons.AutoMirrored.Rounded.Assignment, "草稿职责", usable,
                         onClick = { interact { choices = "role" } })
                     if (draft.supportsTaskTier) SubAgentSettingRow("任务分工", draft.tier?.label ?: "未设置分工",
                         Icons.Rounded.AccountTree, "草稿任务分工", usable, onClick = { interact { choices = "tier" } })
@@ -252,7 +263,8 @@ internal fun SubAgentProfileConfigDialog(
                         enabled = usable && boundConfig != null, modifier = Modifier.fillMaxWidth())
                     if (!session.parallelIsValid()) Text("请输入 0 或正整数", color = MaterialTheme.colorScheme.error)
                     Text("本配置内相同提供商/API 模型共用此上限；仅确认时保存，调低不会取消正在执行的任务。",
-                        style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 8.dp))
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 8.dp))
                     if (draft.role == "image_generation") SubAgentSettingRow("默认分辨率",
                         draft.imageResolution?.let(ImageResolutionTier::label) ?: "跟随接口", Icons.Rounded.Image,
                         "草稿分辨率", usable && boundConfig != null, onClick = { interact { choices = "resolution" } })
@@ -320,18 +332,28 @@ internal fun SubAgentProfileConfigDialog(
                     "tier" -> listOf(null to "未设置分工") + SubAgentTaskTier.entries.map { it.wireValue to it.label }
                     else -> listOf(null to "跟随接口") + ImageResolutionTier.values.filter { !verifiedGrok || it in setOf("low", "high") }.map { it to ImageResolutionTier.label(it) }
                 }
-                WindowDialog(show = true, title = when (field) { "role" -> "职责"; "tier" -> "任务分工"; else -> "默认分辨率" },
+                EtaDialog(show = true, title = when (field) { "role" -> "职责"; "tier" -> "任务分工"; else -> "默认分辨率" },
                     onDismissRequest = { choices = null }) {
                     Column(Modifier.fillMaxWidth().profileDialogScrollableBody().verticalScroll(rememberScrollState())) {
                         options.forEach { (value, label) ->
-                            TextButton(onClick = { interact {
-                                session.edit { profile -> when (field) {
-                                    "role" -> profile.withRole(requireNotNull(value))
-                                    "tier" -> if (profile.supportsTaskTier) profile.copy(tier = SubAgentTaskTier.fromWireValue(value.orEmpty())) else profile
-                                    else -> if (profile.role == "image_generation") profile.copy(imageResolution = value) else profile
-                                } }
-                                choices = null
-                            } }, modifier = Modifier.fillMaxWidth()) { Text(label) }
+                            // 官方单选列表项：选中态与无障碍单选语义都由 ListItem 提供。
+                            ListItem(
+                                selected = when (field) {
+                                    "role" -> draft.role == value
+                                    "tier" -> draft.tier == SubAgentTaskTier.fromWireValue(value.orEmpty())
+                                    else -> draft.imageResolution == value
+                                },
+                                onClick = { interact {
+                                    session.edit { profile -> when (field) {
+                                        "role" -> profile.withRole(requireNotNull(value))
+                                        "tier" -> if (profile.supportsTaskTier) profile.copy(tier = SubAgentTaskTier.fromWireValue(value.orEmpty())) else profile
+                                        else -> if (profile.role == "image_generation") profile.copy(imageResolution = value) else profile
+                                    } }
+                                    choices = null
+                                } },
+                                // 可交互/单选重载的正文参数名是 content（不是 headlineContent）。
+                                content = { Text(label) },
+                            )
                         }
                     }
                 }

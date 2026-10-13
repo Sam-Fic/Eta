@@ -1,5 +1,6 @@
 package io.github.mangi.eta.agent.pet
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import android.app.Service
 import android.content.Intent
 import android.graphics.BitmapFactory
@@ -530,13 +531,13 @@ private fun WhaleMaidPet(
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier
                     .graphicsLayer { alpha = bubbleAlpha.value }
-                    .padding(bottom = 6.dp)
+                    .padding(bottom = 8.dp)
                     // Short speech wraps its text; long speech wraps at the scaled cap.
                     .widthIn(max = 220.dp * snapshot.scale)
                     .background(Color.White, RoundedCornerShape(12.dp))
                     .border(2.dp, Color(0xFF3B82F6), RoundedCornerShape(12.dp))
                     .noRippleClickable(onClick = onDismissSpeech)
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
             )
         }
         WhaleMaidSprite(
@@ -652,11 +653,11 @@ private fun WhaleMaidCabinet(
                 .padding(24.dp)
                 .width(320.dp)
                 .heightIn(max = 520.dp)
-                .background(Color(0xFFFFF7ED), RoundedCornerShape(18.dp))
+                .background(Color(0xFFFFF7ED), RoundedCornerShape(16.dp))
                 .noRippleClickable {}
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(stringResource(R.string.whale_maid_cabinet), fontWeight = FontWeight.Bold, color = Color(0xFF4A2812))
             Text("${snapshot.satiety} / $WHALE_MAID_MAX_SATIETY ($percent%)", color = bar, fontWeight = FontWeight.Medium)
@@ -676,7 +677,7 @@ private fun WhaleMaidCabinet(
                     WhaleMaidAssetImage(food.asset, Modifier.size(48.dp))
                     Column(Modifier.padding(start = 8.dp)) {
                         Text(name, color = Color(0xFF4A2812))
-                        Text("+${food.tokens}", color = Color(0xFF92400E), fontSize = 12.sp)
+                        Text("+${food.tokens}", color = Color(0xFF92400E), fontSize = MiuixTheme.textStyles.footnote1.fontSize)
                     }
                 }
             }
@@ -699,10 +700,10 @@ private fun WhaleMaidCabinet(
                 Text(stringResource(R.string.whale_maid_clear), color = Color(0xFF1D4ED8), modifier = Modifier.noRippleClickable(onClick = onClear))
             }
             if (snapshot.memories.isEmpty()) {
-                Text(stringResource(R.string.whale_maid_empty), color = Color(0xFF78716C), fontSize = 12.sp)
+                Text(stringResource(R.string.whale_maid_empty), color = Color(0xFF78716C), fontSize = MiuixTheme.textStyles.footnote1.fontSize)
             } else {
                 snapshot.memories.forEach { memory ->
-                    Text("[${memory.mood}] ${memory.speech}", color = Color(0xFF44403C), fontSize = 13.sp)
+                    Text("[${memory.mood}] ${memory.speech}", color = Color(0xFF44403C), fontSize = MiuixTheme.textStyles.footnote1.fontSize)
                 }
             }
         }

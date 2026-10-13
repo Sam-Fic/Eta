@@ -1153,6 +1153,10 @@
             </intent-filter>
         </activity-alias>
 
+        <receiver
+            android:name=".ui.components.ScheduledSendReceiver"
+            android:exported="false" />
+
     </application>
 
 </manifest>

@@ -1,5 +1,6 @@
 package io.github.mangi.eta.ui
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -18,6 +19,8 @@ import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.agent.voice.mimo.MimoPersonalVoices
 import io.github.mangi.eta.agent.voice.tts.ReadAloudVoiceHistory
 import io.github.mangi.eta.agent.voice.tts.SpeechPlayback
+import io.github.mangi.eta.ui.adaptive.EtaCard
+import io.github.mangi.eta.ui.adaptive.EtaClickableRow
 import io.github.mangi.eta.ui.components.EtaFormTextField
 import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.data.model.SpeechSynthesisModels
@@ -37,10 +40,10 @@ internal fun PersonalVoicesScreen(onBack: () -> Unit) {
     BackHandler(onBack = onBack)
     VoiceSettingsSectionPage(title = androidx.compose.ui.res.stringResource(io.github.mangi.eta.R.string.voice_section_personal), onBack = onBack) {
         item {
-            top.yukonga.miuix.kmp.basic.Card(Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
-                top.yukonga.miuix.kmp.preference.ArrowPreference(title = "豆包语音",
+            EtaCard(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                EtaClickableRow(title = "豆包语音",
                     onClick = { TouchHaptics.click(view); page = "doubao" })
-                top.yukonga.miuix.kmp.preference.ArrowPreference(title = "MiMo 语音",
+                EtaClickableRow(title = "MiMo 语音",
                     onClick = { TouchHaptics.click(view); page = "mimo" })
             }
         }
@@ -80,7 +83,7 @@ private fun MimoVoicesScreen(onBack: () -> Unit) {
         })
     }) { padding ->
         Column(Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("保存参考录音后即可复刻朗读，无需等待训练。", style = MaterialTheme.typography.bodyMedium)
+            Text("保存参考录音后即可复刻朗读，无需等待训练。", style = MiuixTheme.textStyles.body2)
             if (available.isEmpty()) Text("请先在提供商设置中配置并启用 MiMo API Key。")
             Box {
                 TextButton(enabled = !busy && available.isNotEmpty(), onClick = { TouchHaptics.click(view); providerMenu = true }) {
@@ -98,7 +101,7 @@ private fun MimoVoicesScreen(onBack: () -> Unit) {
             TextButton(enabled = !busy, onClick = { TouchHaptics.click(view); picker.launch(arrayOf("audio/mpeg", "audio/wav", "audio/x-wav")) }) {
                 Text(if (uri == null) "选择 MP3 / WAV 录音" else "录音已选择 · 重新选择")
             }
-            Text("导入只保存到本机。试听或使用此声音朗读时，参考录音和文字会发送到所选 MiMo 提供商。Base64 编码后不超过 10 MB。", style = MaterialTheme.typography.bodySmall)
+            Text("导入只保存到本机。试听或使用此声音朗读时，参考录音和文字会发送到所选 MiMo 提供商。Base64 编码后不超过 10 MB。", style = MiuixTheme.textStyles.footnote1)
             Button(enabled = ready && !busy && uri != null && name.isNotBlank() && provider != null,
                 modifier = Modifier.fillMaxWidth(), onClick = {
                     TouchHaptics.click(view)
@@ -117,7 +120,7 @@ private fun MimoVoicesScreen(onBack: () -> Unit) {
                     }
                 }) { Text(if (busy) "正在保存…" else "保存参考声音") }
             EtaFormTextField(sample, { sample = it.take(300) }, hint = "试听文字", modifier = Modifier.fillMaxWidth())
-            if (notice.isNotBlank()) Text(notice, style = MaterialTheme.typography.bodyMedium)
+            if (notice.isNotBlank()) Text(notice, style = MiuixTheme.textStyles.body2)
             playback.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             voices.forEach { voice ->
                 val owner = "mimo-preview:${voice.id}"
@@ -125,9 +128,9 @@ private fun MimoVoicesScreen(onBack: () -> Unit) {
                 val bound = available.firstOrNull { it.id == voice.providerId }
                 OutlinedCard(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(voice.name, style = MaterialTheme.typography.bodyLarge)
-                        Text("${bound?.name ?: "提供商不可用"} · ${voice.durationMs / 1000.0} 秒 · 参考录音已保存", style = MaterialTheme.typography.bodySmall)
-                        if (playing) Text(if (playback.preparing) "正在生成试听…" else "正在试听", style = MaterialTheme.typography.bodySmall)
+                        Text(voice.name, style = MiuixTheme.textStyles.body1)
+                        Text("${bound?.name ?: "提供商不可用"} · ${voice.durationMs / 1000.0} 秒 · 参考录音已保存", style = MiuixTheme.textStyles.footnote1)
+                        if (playing) Text(if (playback.preparing) "正在生成试听…" else "正在试听", style = MiuixTheme.textStyles.footnote1)
                         Row {
                             TextButton(enabled = playing || (bound != null && sample.isNotBlank() && !playback.recording), onClick = {
                                 TouchHaptics.click(view); SpeechPlayback.previewMimo(context, voice, sample)

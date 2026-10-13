@@ -1,4 +1,5 @@
 package io.github.mangi.eta.ui
+import io.github.mangi.eta.ui.components.etaRippleConfiguration
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -69,7 +70,7 @@ internal fun AgentTaskPreferenceScreen(
 
     val view = LocalView.current
     var selected by remember { mutableStateOf(AgentTaskSurface.stored()) }
-    CompositionLocalProvider(LocalRippleConfiguration provides null) {
+    CompositionLocalProvider(LocalRippleConfiguration provides etaRippleConfiguration()) {
         WithoutPressRipple {
             Scaffold(
                 modifier = Modifier.fillMaxSize(),
@@ -147,7 +148,7 @@ internal fun AgentTaskPreferenceScreen(
                                                 AgentTaskSurface.save(mode)
                                             },
                                         ),
-                                        headlineContent = {
+                                        content = {
                                             Text(
                                                 stringResource(mode.labelRes),
                                                 maxLines = 1,

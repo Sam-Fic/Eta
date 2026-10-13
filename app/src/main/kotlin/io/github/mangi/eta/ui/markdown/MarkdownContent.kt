@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckBox
@@ -64,15 +65,51 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.components.StatusSuccess
 import io.github.mangi.eta.ui.components.StatusWarning
 import kotlinx.coroutines.delay
-import top.yukonga.miuix.kmp.basic.Icon
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.IconButton as M3IconButton
+import androidx.compose.material3.IconButtonDefaults
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.squircle.squircleBorder
 import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+
+/** 代码块 / 提示块 / 表格容器的圆角：M3 走官方 shapes 令牌，miuix 保持 12dp。 */
+@Composable
+private fun markdownBlockShape(): androidx.compose.ui.graphics.Shape =
+    if (isMaterial3Theme()) MaterialTheme.shapes.medium else RoundedCornerShape(12.dp)
+
+/** 强调色：M3 取官方 primary 角色。 */
+@Composable
+private fun markdownAccentColor(): Color =
+    if (isMaterial3Theme()) MaterialTheme.colorScheme.primary else MiuixTheme.colorScheme.primary
+
+/** 危险提示色：M3 取官方 error 角色。 */
+@Composable
+private fun markdownErrorColor(): Color =
+    if (isMaterial3Theme()) MaterialTheme.colorScheme.error else MiuixTheme.colorScheme.error
+
+/** 代码块顶部语言标签与列表勾选标记的排版：M3 取官方 labelMedium。 */
+@Composable
+private fun markdownLabelStyle(): TextStyle =
+    if (isMaterial3Theme()) MaterialTheme.typography.labelMedium else MiuixTheme.textStyles.footnote2
+
+/** 提示块标题排版：M3 取官方 labelLarge。 */
+@Composable
+private fun markdownAlertTitleStyle(): TextStyle =
+    if (isMaterial3Theme()) {
+        MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
+    } else {
+        MiuixTheme.textStyles.body2.copy(fontWeight = FontWeight.SemiBold)
+    }
 
 /**
  * 绘制一份已解析的 [MarkdownDocument]。
@@ -142,13 +179,20 @@ private fun MarkdownBlockView(block: MarkdownBlock, scope: MarkdownRenderScope) 
         is MarkdownList -> MarkdownListBlock(block, scope)
         is MarkdownTable -> MarkdownTableBlock(block, scope)
         is MarkdownTableCell -> MarkdownText(block, scope.style.table, scope)
-        is MarkdownRule -> Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp)
-                .height(0.5.dp)
-                .background(scope.style.dividerColor),
-        )
+        is MarkdownRule ->
+            // M3 Expressive：官方 HorizontalDivider 承担分隔线（官方 DividerDefaults 厚度与颜色）；
+            // miuix 主题族保留原来的自绘发丝线。
+            if (isMaterial3Theme()) {
+                HorizontalDivider(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                        .height(0.5.dp)
+                        .background(scope.style.dividerColor),
+                )
+            }
     }
 }
 
@@ -221,20 +265,16 @@ private fun DocumentText(
 @Composable
 private fun MarkdownCodeBlock(block: MarkdownCode, scope: MarkdownRenderScope) {
     val style = scope.style
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .squircleSurface(color = style.codeBackground, cornerRadius = 12.dp),
-    ) {
+    val codeBody: @Composable () -> Unit = {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 14.dp, end = 4.dp, top = 2.dp),
+                .padding(start = 12.dp, end = 4.dp, top = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = block.language ?: stringResource(R.string.markdown_code_block),
-                style = MiuixTheme.textStyles.footnote2,
+                style = markdownLabelStyle(),
                 color = style.secondaryColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -247,10 +287,27 @@ private fun MarkdownCodeBlock(block: MarkdownCode, scope: MarkdownRenderScope) {
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState())
-                .padding(start = 14.dp, end = 14.dp, bottom = 12.dp),
+                .padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
         ) {
             MarkdownText(block, style.code, scope, softWrap = false)
         }
+    }
+    // M3 Expressive：官方 Surface 承担代码块容器、形状与颜色；miuix 沿用 squircle 表面。
+    if (isMaterial3Theme()) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = markdownBlockShape(),
+            color = style.codeBackground,
+        ) {
+            Column(content = { codeBody() })
+        }
+    } else {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .squircleSurface(color = style.codeBackground, cornerRadius = 12.dp),
+            content = { codeBody() },
+        )
     }
 }
 
@@ -270,26 +327,41 @@ private fun CopyButton(text: String, tint: Color) {
     // records per scroll pass. This button is transparent, so the mask only ever carved
     // invisible pixels: keep the same 32dp hit target, role, interaction and icon, and
     // let it draw as a plain button.
-    Box(
-        modifier = Modifier
-            .defaultMinSize(minWidth = 32.dp, minHeight = 32.dp)
-            .clickable(
-                role = Role.Button,
-                indication = null,
-                interactionSource = remember { MutableInteractionSource() },
-                onClick = {
-                    @Suppress("DEPRECATION")
-                    clipboard.setText(AnnotatedString(text))
-                    copied = true
-                },
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
+    val copyAction: () -> Unit = {
+        @Suppress("DEPRECATION")
+        clipboard.setText(AnnotatedString(text))
+        copied = true
+    }
+    val iconTint = if (copied) markdownAccentColor() else tint
+    val copyIcon: @Composable () -> Unit = {
         Icon(
             imageVector = if (copied) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
             contentDescription = stringResource(if (copied) R.string.copy_copied else R.string.copy_code),
-            modifier = Modifier.size(14.dp),
-            tint = if (copied) MiuixTheme.colorScheme.primary else tint,
+            modifier = Modifier.size(16.dp),
+            tint = iconTint,
+        )
+    }
+    // M3 Expressive：复制动作走官方 IconButton（官方涟漪、Role 与图标槽位）。
+    // miuix 主题族继续用零 indication 的紧凑命中区，维持流式滚动性能。
+    if (isMaterial3Theme()) {
+        // 尺寸取官方 extraSmall 图标按钮令牌（容器 32dp / 图标 20dp）。
+        M3IconButton(
+            onClick = copyAction,
+            modifier = Modifier.size(IconButtonDefaults.extraSmallContainerSize()),
+            content = copyIcon,
+        )
+    } else {
+        Box(
+            modifier = Modifier
+                .defaultMinSize(minWidth = 32.dp, minHeight = 32.dp)
+                .clickable(
+                    role = Role.Button,
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() },
+                    onClick = copyAction,
+                ),
+            contentAlignment = Alignment.Center,
+            content = { copyIcon() },
         )
     }
 }
@@ -316,19 +388,14 @@ private fun MarkdownQuoteBlock(block: MarkdownQuote, scope: MarkdownRenderScope)
                     cap = StrokeCap.Round,
                 )
             }
-            .padding(start = 14.dp),
+            .padding(start = 12.dp),
     )
 }
 
 @Composable
 private fun MarkdownAlertBlock(block: MarkdownAlert, scope: MarkdownRenderScope) {
     val accent = block.kind.accentColor()
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .squircleSurface(color = accent.copy(alpha = 0.08f), cornerRadius = 12.dp)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-    ) {
+    val alertBody: @Composable () -> Unit = {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = block.kind.icon,
@@ -336,17 +403,38 @@ private fun MarkdownAlertBlock(block: MarkdownAlert, scope: MarkdownRenderScope)
                 modifier = Modifier.size(16.dp),
                 tint = accent,
             )
-            Spacer(Modifier.width(6.dp))
+            Spacer(Modifier.width(8.dp))
             Text(
                 text = stringResource(block.kind.label),
-                style = MiuixTheme.textStyles.body2.copy(fontWeight = FontWeight.SemiBold),
+                style = markdownAlertTitleStyle(),
                 color = accent,
             )
         }
         if (block.blocks.isNotEmpty()) {
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(8.dp))
             MarkdownBlockColumn(blocks = block.blocks, scope = scope, compact = false)
         }
+    }
+    // M3 Expressive：官方 Surface 承担提示底板；颜色仍是语义强调色的 8% 淡色。
+    if (isMaterial3Theme()) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = markdownBlockShape(),
+            color = accent.copy(alpha = 0.08f),
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+                content = { alertBody() },
+            )
+        }
+    } else {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .squircleSurface(color = accent.copy(alpha = 0.08f), cornerRadius = 12.dp)
+                .padding(horizontal = 12.dp, vertical = 12.dp),
+            content = { alertBody() },
+        )
     }
 }
 
@@ -368,15 +456,34 @@ private val MarkdownAlertKind.label: Int
         MarkdownAlertKind.Caution -> R.string.markdown_alert_caution
     }
 
+/**
+ * 提示框强调色。
+ *
+ * Material 3 Expressive 的 `colorScheme` 没有 success / warning / important 语义角色，
+ * 一律映射到官方角色（`primary` / `tertiary` / `error` / `onSurfaceVariant`），因此 M3 下
+ * 不会出现任何本地写死的颜色常量；miuix 主题族保留 StatusColors 与 AlertImportantColor 原值。
+ */
 @Composable
-private fun MarkdownAlertKind.accentColor(): Color = when (this) {
-    MarkdownAlertKind.Note -> MiuixTheme.colorScheme.primary
-    MarkdownAlertKind.Tip -> StatusSuccess
-    MarkdownAlertKind.Important -> AlertImportantColor
-    MarkdownAlertKind.Warning -> StatusWarning
-    MarkdownAlertKind.Caution -> MiuixTheme.colorScheme.error
+private fun MarkdownAlertKind.accentColor(): Color {
+    if (!isMaterial3Theme()) {
+        return when (this) {
+            MarkdownAlertKind.Note -> markdownAccentColor()
+            MarkdownAlertKind.Tip -> StatusSuccess
+            MarkdownAlertKind.Important -> AlertImportantColor
+            MarkdownAlertKind.Warning -> StatusWarning
+            MarkdownAlertKind.Caution -> markdownErrorColor()
+        }
+    }
+    return when (this) {
+        MarkdownAlertKind.Note -> MaterialTheme.colorScheme.primary
+        MarkdownAlertKind.Tip -> MaterialTheme.colorScheme.tertiary
+        MarkdownAlertKind.Important -> MaterialTheme.colorScheme.tertiary
+        MarkdownAlertKind.Warning -> MaterialTheme.colorScheme.tertiary
+        MarkdownAlertKind.Caution -> MaterialTheme.colorScheme.error
+    }
 }
 
+/** miuix 主题族沿用的历史强调色（仅在非 M3 分支读取）。 */
 private val AlertImportantColor = Color(0xFF8B5CF6)
 
 // ── 列表 ────────────────────────────────────────────────────────────────
@@ -453,7 +560,7 @@ private fun RowScope.ListMarker(
                     imageVector = if (item.checked) Icons.Rounded.CheckBox else Icons.Rounded.CheckBoxOutlineBlank,
                     contentDescription = null,
                     modifier = Modifier.size(18.dp),
-                    tint = if (item.checked) MiuixTheme.colorScheme.primary else style.markerColor,
+                    tint = if (item.checked) markdownAccentColor() else style.markerColor,
                 )
             }
         }
@@ -511,31 +618,24 @@ private fun MarkdownTableBlock(block: MarkdownTable, scope: MarkdownRenderScope)
 
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val availableWidth = constraints.maxWidth
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-        ) {
+        val tableGrid: @Composable (Modifier) -> Unit = { layoutModifier ->
             Layout(
-                modifier = Modifier
-                    .squircleBorder(width = 0.5.dp, color = lineColor, cornerRadius = 12.dp)
-                    .squircleClip(cornerRadius = 12.dp)
-                    .drawBehind {
-                        val current = grid
-                        val headerHeight = current.rowHeights.firstOrNull() ?: return@drawBehind
-                        drawRect(headerColor, size = Size(size.width, headerHeight.toFloat()))
-                        val stroke = 0.5.dp.toPx()
-                        var y = 0f
-                        current.rowHeights.dropLast(1).forEach { height ->
-                            y += height
-                            drawLine(lineColor, Offset(0f, y), Offset(size.width, y), stroke)
-                        }
-                        var x = 0f
-                        current.columnWidths.dropLast(1).forEach { width ->
-                            x += width
-                            drawLine(lineColor, Offset(x, 0f), Offset(x, size.height), stroke)
-                        }
-                    },
+                modifier = layoutModifier.drawBehind {
+                    val current = grid
+                    val headerHeight = current.rowHeights.firstOrNull() ?: return@drawBehind
+                    drawRect(headerColor, size = Size(size.width, headerHeight.toFloat()))
+                    val stroke = 0.5.dp.toPx()
+                    var y = 0f
+                    current.rowHeights.dropLast(1).forEach { height ->
+                        y += height
+                        drawLine(lineColor, Offset(0f, y), Offset(size.width, y), stroke)
+                    }
+                    var x = 0f
+                    current.columnWidths.dropLast(1).forEach { width ->
+                        x += width
+                        drawLine(lineColor, Offset(x, 0f), Offset(x, size.height), stroke)
+                    }
+                },
                 content = {
                     rows.forEachIndexed { rowIndex, row ->
                         row.forEachIndexed { column, cell ->
@@ -594,6 +694,29 @@ private fun MarkdownTableBlock(block: MarkdownTable, scope: MarkdownRenderScope)
                         y += heights[row]
                     }
                 }
+            }
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+        ) {
+            // M3 Expressive：官方 Surface 承担表格外框、圆角与描边（outlineVariant 角色）。
+            // miuix 主题族保留 squircle 描边 + 遮罩的原有组合。
+            if (isMaterial3Theme()) {
+                Surface(
+                    shape = markdownBlockShape(),
+                    color = Color.Transparent,
+                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
+                ) {
+                    tableGrid(Modifier)
+                }
+            } else {
+                tableGrid(
+                    Modifier
+                        .squircleBorder(width = 0.5.dp, color = lineColor, cornerRadius = 12.dp)
+                        .squircleClip(cornerRadius = 12.dp),
+                )
             }
         }
     }

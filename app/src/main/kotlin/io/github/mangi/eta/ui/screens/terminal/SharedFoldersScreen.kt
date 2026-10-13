@@ -8,8 +8,8 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -42,19 +42,23 @@ import io.github.mangi.eta.agent.terminal.TerminalEnvironment
 import io.github.mangi.eta.agent.terminal.TerminalRuntime
 import io.github.mangi.eta.agent.terminal.runOneShotShell
 import io.github.mangi.eta.agent.terminal.shellQuote
-import io.github.mangi.eta.ui.components.MiuixDialogActions
-import io.github.mangi.eta.ui.components.MiuixScaffoldPage
+import io.github.mangi.eta.ui.adaptive.EtaCard
+import io.github.mangi.eta.ui.adaptive.EtaClickableRow
+import io.github.mangi.eta.ui.adaptive.EtaDialog
+import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
+import io.github.mangi.eta.ui.adaptive.EtaText
+import io.github.mangi.eta.ui.adaptive.EtaTextButton
+import io.github.mangi.eta.ui.adaptive.EtaTextStyle
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.Card
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text as M3Text
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowDialog
 
 /**
  * 共享文件夹管理：把 Android 目录配置为 Linux 环境 /workspace/mounts/ 下的挂载点。
@@ -102,25 +106,27 @@ internal fun SharedFoldersScreen(
 
     LaunchedEffect(Unit) { refreshSources(mounts) }
 
-    MiuixScaffoldPage(
+    EtaScaffoldPage(
         title = stringResource(R.string.shared_folders_title),
         onBack = onBack,
     ) {
         item(key = "mounts-card") {
-            Card(
+            EtaCard(
                 modifier = Modifier
                     .padding(horizontal = 12.dp)
                     .padding(bottom = 12.dp),
             ) {
                 if (mounts.isEmpty()) {
-                    BasicComponent(
+                    EtaClickableRow(
                         title = stringResource(R.string.shared_folders_empty),
                         summary = stringResource(R.string.shared_folders_entry_summary),
+                        onClick = null,
+                        showChevron = false,
                     )
                 }
                 mounts.forEach { mount ->
                     val missing = sourceExists[mount.sourcePath] == false
-                    BasicComponent(
+                    EtaClickableRow(
                         title = mount.name,
                         summary = buildString {
                             append(mount.sourcePath)
@@ -136,19 +142,17 @@ internal fun SharedFoldersScreen(
                                 append(context.getString(R.string.shared_folders_source_missing))
                             }
                         },
+                        onClick = null,
+                        showChevron = false,
                         endActions = {
-                            TextButton(
+                            EtaTextButton(
                                 text = stringResource(R.string.action_delete),
                                 onClick = { removeTarget = mount },
-                                colors = ButtonDefaults.textButtonColorsPrimary(
-                                    color = MiuixTheme.colorScheme.error,
-                                    textColor = MiuixTheme.colorScheme.onError,
-                                ),
                             )
                         },
                     )
                 }
-                BasicComponent(
+                EtaClickableRow(
                     title = stringResource(R.string.shared_folders_add),
                     onClick = {
                         if (TerminalRuntime.rootAvailable || Environment.isExternalStorageManager()) {
@@ -168,21 +172,25 @@ internal fun SharedFoldersScreen(
             }
         }
         item(key = "footer-note") {
-            Text(
+            EtaText(
                 text = stringResource(R.string.shared_folders_footer),
-                style = MiuixTheme.textStyles.footnote1,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                style = EtaTextStyle.Footnote,
+                secondary = true,
                 modifier = Modifier.padding(horizontal = 24.dp),
             )
         }
         notice?.let { message ->
             item(key = "notice-card") {
-                Card(
+                EtaCard(
                     modifier = Modifier
                         .padding(horizontal = 12.dp)
                         .padding(top = 12.dp),
                 ) {
-                    BasicComponent(title = message)
+                    EtaClickableRow(
+                        title = message,
+                        onClick = null,
+                        showChevron = false,
+                    )
                 }
             }
         }
@@ -209,13 +217,17 @@ internal fun SharedFoldersScreen(
     }
 
     removeTarget?.let { target ->
-        WindowDialog(
+        EtaDialog(
             show = true,
             title = stringResource(R.string.shared_folders_remove_title),
-            summary = stringResource(R.string.shared_folders_remove_message, target.name, target.sourcePath),
+            summary = stringResource(
+                R.string.shared_folders_remove_message,
+                target.name,
+                target.sourcePath,
+            ),
             onDismissRequest = { removeTarget = null },
         ) {
-            MiuixDialogActions(
+            EtaDialogActions(
                 confirmText = stringResource(R.string.action_delete),
                 destructive = true,
                 onCancel = { removeTarget = null },
@@ -320,26 +332,43 @@ private fun SharedFolderPickerDialog(
         }
     }
 
-    WindowDialog(
+    EtaDialog(
         show = true,
         title = stringResource(R.string.shared_folders_picker_title),
         onDismissRequest = onDismiss,
     ) {
         Column {
-            TextField(
-                value = pathInput,
-                onValueChange = { pathInput = it },
-                label = stringResource(R.string.shared_folders_path_label),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                keyboardActions = KeyboardActions(onGo = { navigateTo(pathInput) }),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            if (browseError != null) {
-                Text(
-                    text = browseError.orEmpty(),
-                    style = MiuixTheme.textStyles.footnote1,
-                    color = MiuixTheme.colorScheme.error,
+            val pathLabel = stringResource(R.string.shared_folders_path_label)
+            if (isMaterial3Theme()) {
+                // 官方 OutlinedTextField + keyboardActions(onGo)。
+                androidx.compose.material3.OutlinedTextField(
+                    value = pathInput,
+                    onValueChange = { pathInput = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { M3Text(pathLabel) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                    keyboardActions = KeyboardActions(onGo = { navigateTo(pathInput) }),
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = FontFamily.Monospace,
+                    ),
+                )
+            } else {
+                TextField(
+                    value = pathInput,
+                    onValueChange = { pathInput = it },
+                    label = pathLabel,
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                    keyboardActions = KeyboardActions(onGo = { navigateTo(pathInput) }),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            browseError?.let { error ->
+                EtaText(
+                    text = error,
+                    style = EtaTextStyle.Footnote,
+                    color = terminalErrorColor(),
                     modifier = Modifier.padding(top = 4.dp),
                 )
             }
@@ -366,33 +395,49 @@ private fun SharedFolderPickerDialog(
                     )
                 }
             }
-            Text(
-                text = stringResource(R.string.shared_folders_selected_source, path),
-                style = MiuixTheme.textStyles.footnote1.copy(fontFamily = FontFamily.Monospace),
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            TerminalMonoText(
+                text = androidx.compose.ui.text.AnnotatedString(
+                    stringResource(R.string.shared_folders_selected_source, path),
+                ),
                 modifier = Modifier.padding(top = 8.dp),
             )
-            TextField(
-                value = nameInput,
-                onValueChange = {
-                    nameInput = it
-                    nameTouched = true
-                },
-                label = stringResource(R.string.shared_folders_name_label),
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-            )
+            val nameLabel = stringResource(R.string.shared_folders_name_label)
+            if (isMaterial3Theme()) {
+                androidx.compose.material3.OutlinedTextField(
+                    value = nameInput,
+                    onValueChange = {
+                        nameInput = it
+                        nameTouched = true
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    label = { M3Text(nameLabel) },
+                    singleLine = true,
+                )
+            } else {
+                TextField(
+                    value = nameInput,
+                    onValueChange = {
+                        nameInput = it
+                        nameTouched = true
+                    },
+                    label = nameLabel,
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                )
+            }
             formError?.let { error ->
-                Text(
+                EtaText(
                     text = error,
-                    style = MiuixTheme.textStyles.footnote1,
-                    color = MiuixTheme.colorScheme.error,
+                    style = EtaTextStyle.Footnote,
+                    color = terminalErrorColor(),
                     modifier = Modifier.padding(top = 4.dp),
                 )
             }
-            MiuixDialogActions(
+            EtaDialogActions(
                 confirmText = stringResource(R.string.shared_folders_add),
                 onCancel = onDismiss,
                 onConfirm = {
@@ -431,14 +476,28 @@ private fun SharedFolderPickerDialog(
     }
 }
 
+/** 目录选择行：M3 用官方可交互 ListItem，MIUI X 保留原手写行。 */
 @Composable
 private fun PickerRow(label: String, onClick: () -> Unit) {
+    if (isMaterial3Theme()) {
+        androidx.compose.material3.ListItem(
+            onClick = onClick,
+            modifier = Modifier.fillMaxWidth(),
+            content = {
+                M3Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
+                )
+            },
+        )
+        return
+    }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 10.dp, horizontal = 4.dp),
+            .padding(vertical = 8.dp, horizontal = 4.dp),
     ) {
         Text(
             text = label,

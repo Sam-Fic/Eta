@@ -191,6 +191,10 @@
   <string name="appearance_icon_cat">Cat</string>
   <string name="appearance_icon_apply">Apply</string>
   <string name="appearance_group_interface">Interface &amp; Effects</string>
+  <string name="appearance_theme_family">Theme style</string>
+  <string name="appearance_theme_family_miui">MIUI X</string>
+  <string name="appearance_theme_family_material3">Material Design 3</string>
+  <string name="appearance_theme_family_summary">Switch the whole app between MIUI X and Material Design 3 Expressive</string>
   <string name="appearance_theme_mode">Theme mode</string>
   <string name="appearance_theme_system">Follow system</string>
   <string name="appearance_theme_light">Light</string>
@@ -1567,4 +1571,14 @@
     <string name="markdown_alert_important">Important</string>
     <string name="markdown_alert_warning">Warning</string>
     <string name="markdown_alert_caution">Caution</string>
+
+    <!-- M3 Expressive 输入区 -->
+    <string name="composer_schedule_send">Schedule send</string>
+    <string name="composer_save_draft">Save draft</string>
+    <string name="composer_share">Share</string>
+    <string name="composer_schedule_title">Send at</string>
+    <string name="composer_draft_saved">Draft saved</string>
+    <string name="composer_scheduled_toast">Scheduled for %1$s</string>
+    <string name="composer_schedule_cancel">Cancel scheduled send</string>
+    <string name="composer_schedule_none">No scheduled message</string>
 </resources>

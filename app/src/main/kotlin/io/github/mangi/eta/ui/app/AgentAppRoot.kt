@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.collectAsState
@@ -60,13 +62,14 @@ import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 import io.github.mangi.eta.ui.AgentTaskPreferenceScreen
 import io.github.mangi.eta.ui.AgentTaskSurfacePrompt
 import io.github.mangi.eta.ui.AppearanceSettingsScreen
+import io.github.mangi.eta.ui.adaptive.EtaDialog
+import io.github.mangi.eta.ui.adaptive.EtaDialogActions
 import io.github.mangi.eta.ui.WhaleMaidSettingsScreen
 import io.github.mangi.eta.ui.HapticsSettingsScreen
 import io.github.mangi.eta.ui.ErrorReconnectSettingsScreen
 import io.github.mangi.eta.ui.ContextCompressionSettingsScreen
 import io.github.mangi.eta.ui.SettingsScreen
 import io.github.mangi.eta.ui.components.AppUpdateDialog
-import io.github.mangi.eta.ui.components.MiuixDialogActions
 import io.github.mangi.eta.ui.components.AgentPendingChildStopDialog
 import io.github.mangi.eta.ui.model.AgentChatAction
 import io.github.mangi.eta.ui.model.AgentHomeAction
@@ -116,7 +119,6 @@ import top.yukonga.miuix.kmp.nav.core.NavDisplayEffects
 import top.yukonga.miuix.kmp.nav.core.rememberNavBackStack
 import top.yukonga.miuix.kmp.nav.core.rememberNavSystemCornerRadius
 import top.yukonga.miuix.kmp.nav.transition.NavSwipeDirection
-import top.yukonga.miuix.kmp.window.WindowDialog
 
 /**
  * Agent App 根组件：持有本地导航栈，并把 Screen actions 交给 [AgentAppState]。
@@ -238,6 +240,22 @@ fun AgentAppRoot(
     var conversationDeleteTarget by remember { mutableStateOf<ConversationSummaryUi?>(null) }
     var conversationMoveTarget by remember { mutableStateOf<ConversationSummaryUi?>(null) }
     var conversationExportId by rememberSaveable { mutableStateOf<String?>(null) }
+
+    // 定时发送：应用在前台且正停留在目标会话时，到点的消息自动发出。
+    val scheduledSendContext = androidx.compose.ui.platform.LocalContext.current
+    val scheduledSends by io.github.mangi.eta.data.repository.ComposerQueueStore
+        .scheduledSendsFlow(scheduledSendContext)
+        .collectAsState(initial = emptyList())
+    val selectedConversationId = agentState.conversationPaneState.selectedConversationId
+    LaunchedEffect(scheduledSends, selectedConversationId) {
+        val due = scheduledSends.firstOrNull {
+            it.conversationId == selectedConversationId &&
+                it.dueAtMillis <= System.currentTimeMillis()
+        } ?: return@LaunchedEffect
+        io.github.mangi.eta.data.repository.ComposerQueueStore
+            .clearScheduled(scheduledSendContext, due.conversationId)
+        agentState.sendCurrentMessage(due.text)
+    }
     var conversationExportTitle by rememberSaveable { mutableStateOf("") }
     var conversationExportBusy by remember { mutableStateOf(false) }
     var conversationExportConfirmation by rememberSaveable { mutableStateOf(false) }
@@ -1064,20 +1082,21 @@ fun AgentAppRoot(
 
     conversationRenameTarget?.let { conversation ->
         var renameInput by remember(conversation.id) { mutableStateOf(conversation.title) }
-        WindowDialog(
+        EtaDialog(
             show = true,
             title = stringResource(R.string.conversation_rename_title),
             onDismissRequest = { conversationRenameTarget = null },
+            icon = Icons.Rounded.Info,
         ) {
             Column {
-                TextField(
+                io.github.mangi.eta.ui.adaptive.EtaTextField(
                     value = renameInput,
                     onValueChange = { renameInput = it },
                     label = stringResource(R.string.conversation_rename_hint),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                MiuixDialogActions(
+                EtaDialogActions(
                     confirmText = stringResource(R.string.action_save),
                     confirmEnabled = renameInput.isNotBlank(),
                     onCancel = { conversationRenameTarget = null },
@@ -1103,7 +1122,7 @@ fun AgentAppRoot(
     }
 
     if (conversationExportConfirmation) {
-        WindowDialog(
+        EtaDialog(
             show = true,
             title = stringResource(R.string.conversation_export_title),
             summary = stringResource(R.string.conversation_export_summary),
@@ -1112,7 +1131,7 @@ fun AgentAppRoot(
                 conversationExportId = null
             },
         ) {
-            MiuixDialogActions(
+            EtaDialogActions(
                 confirmText = stringResource(R.string.conversation_export_choose_location),
                 onCancel = {
                     conversationExportConfirmation = false
@@ -1129,13 +1148,13 @@ fun AgentAppRoot(
     }
 
     conversationDeleteTarget?.let { conversation ->
-        WindowDialog(
+        EtaDialog(
             show = true,
             title = stringResource(R.string.conversation_delete_title),
             summary = stringResource(R.string.conversation_delete_message),
             onDismissRequest = { conversationDeleteTarget = null },
         ) {
-            MiuixDialogActions(
+            EtaDialogActions(
                 confirmText = stringResource(R.string.action_delete),
                 destructive = true,
                 onCancel = { conversationDeleteTarget = null },
@@ -1148,7 +1167,7 @@ fun AgentAppRoot(
     }
 
     conversationMoveTarget?.let { conversation ->
-        WindowDialog(
+        EtaDialog(
             show = true,
             title = stringResource(R.string.drawer_move_to_folder),
             onDismissRequest = { conversationMoveTarget = null },
@@ -1178,7 +1197,7 @@ fun AgentAppRoot(
     }
 
     messageDeleteTarget?.let { target ->
-        WindowDialog(
+        EtaDialog(
             show = true,
             title = stringResource(R.string.conversation_delete_message_title),
             summary = if (target.laterTurnCount == 0) {
@@ -1192,7 +1211,7 @@ fun AgentAppRoot(
             },
             onDismissRequest = { messageDeleteTarget = null },
         ) {
-            MiuixDialogActions(
+            EtaDialogActions(
                 confirmText = stringResource(R.string.action_delete),
                 destructive = true,
                 onCancel = { messageDeleteTarget = null },
@@ -1211,7 +1230,7 @@ fun AgentAppRoot(
     )
 
     messageRegenerateTarget?.let { target ->
-        WindowDialog(
+        EtaDialog(
             show = true,
             title = stringResource(R.string.conversation_regenerate_title),
             summary = if (target.laterTurnCount == 0) {
@@ -1225,7 +1244,7 @@ fun AgentAppRoot(
             },
             onDismissRequest = { messageRegenerateTarget = null },
         ) {
-            MiuixDialogActions(
+            EtaDialogActions(
                 confirmText = stringResource(R.string.action_regenerate),
                 destructive = true,
                 onCancel = { messageRegenerateTarget = null },

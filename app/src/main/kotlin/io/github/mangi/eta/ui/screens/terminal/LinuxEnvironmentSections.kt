@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -14,8 +15,14 @@ import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.terminal.LinuxDistribution
 import io.github.mangi.eta.agent.terminal.LinuxExecutionBackend
+import io.github.mangi.eta.ui.adaptive.EtaCard
+import io.github.mangi.eta.ui.adaptive.EtaClickableRow
+import io.github.mangi.eta.ui.adaptive.EtaDropdownRow
+import io.github.mangi.eta.ui.adaptive.EtaText
+import io.github.mangi.eta.ui.adaptive.EtaTextButton
+import io.github.mangi.eta.ui.adaptive.EtaTextStyle
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
@@ -35,45 +42,33 @@ internal fun LinuxEnvironmentStatusCard(
     actionEnabled: Boolean,
     onAction: () -> Unit,
 ) {
-    Card(
-        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-        insideMargin = PaddingValues(16.dp),
-    ) {
+    EtaCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(text = title, style = MiuixTheme.textStyles.headline1)
-                Text(
-                    text = mode,
-                    style = MiuixTheme.textStyles.footnote1,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                )
+                EtaText(text = title, style = EtaTextStyle.Title)
+                EtaText(text = mode, style = EtaTextStyle.Footnote, secondary = true)
             }
             Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (busy) InfiniteProgressIndicator(size = 20.dp)
-                Text(
+                if (busy) TerminalBusyIndicator(size = 20.dp)
+                EtaText(
                     text = summary,
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    style = EtaTextStyle.Body,
+                    secondary = true,
                     modifier = Modifier.weight(1f),
                 )
             }
             message?.let {
-                Text(
-                    text = it,
-                    style = MiuixTheme.textStyles.footnote1,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                )
+                EtaText(text = it, style = EtaTextStyle.Footnote, secondary = true)
             }
             actionText?.let {
-                TextButton(
+                EtaTextButton(
                     text = it,
                     enabled = actionEnabled,
                     onClick = onAction,
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
                 )
             }
         }
@@ -91,7 +86,54 @@ internal fun LinuxEnvironmentConfiguration(
 ) {
     val distributions = LinuxDistribution.entries
     val backends = listOf(LinuxExecutionBackend.PROOT, LinuxExecutionBackend.CHROOT)
-    Card(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
+    val backendSummaries = backends.map {
+        stringResource(
+            when (it) {
+                LinuxExecutionBackend.PROOT -> R.string.capability_linux_proot_summary
+                LinuxExecutionBackend.CHROOT -> R.string.capability_linux_chroot_summary
+            },
+        )
+    }
+    val backendLabels = backends.map { it.displayName() }
+
+    if (isMaterial3Theme()) {
+        // M3：官方 Card + 官方 ExposedDropdownMenuBox 列表项（见 EtaDropdownRow），
+        // 选中项的副标题即当前取值的说明。
+        EtaCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+            EtaDropdownRow(
+                title = stringResource(R.string.linux_distribution_title),
+                summary = distribution.displayName(),
+                items = distributions.map { it.displayName() },
+                selectedIndex = distributions.indexOf(distribution),
+                enabled = enabled,
+                onSelectedIndexChange = { onDistributionSelected(distributions[it]) },
+            )
+            if (rootGranted || backend == LinuxExecutionBackend.CHROOT) {
+                EtaDropdownRow(
+                    title = stringResource(R.string.capability_linux_backend),
+                    summary = backendLabels[
+                        backends.indexOf(backend).coerceAtLeast(0)
+                    ] + " · " + backendSummaries[
+                        backends.indexOf(backend).coerceAtLeast(0)
+                    ],
+                    items = backendLabels,
+                    selectedIndex = backends.indexOf(backend),
+                    enabled = enabled,
+                    onSelectedIndexChange = { onBackendSelected(backends[it]) },
+                )
+            } else {
+                EtaClickableRow(
+                    title = stringResource(R.string.capability_linux_backend),
+                    summary = backend.displayName(),
+                    onClick = null,
+                    showChevron = false,
+                )
+            }
+        }
+        return
+    }
+
+    Card(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
         WindowSpinnerPreference(
             title = stringResource(R.string.linux_distribution_title),
             items = distributions.map {

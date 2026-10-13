@@ -20,11 +20,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.mcp.McpServerManager
@@ -34,25 +36,32 @@ import io.github.mangi.eta.data.model.McpProtocolMode
 import io.github.mangi.eta.data.model.McpServerSetting
 import io.github.mangi.eta.data.model.McpToolDefinition
 import io.github.mangi.eta.data.repository.McpServerRepository
+import io.github.mangi.eta.ui.adaptive.EtaCard
+import io.github.mangi.eta.ui.adaptive.EtaDialog
+import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
+import io.github.mangi.eta.ui.adaptive.EtaSectionTitle
+import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
+import io.github.mangi.eta.ui.adaptive.EtaTextButton
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.components.ListEmptyState
-import io.github.mangi.eta.ui.components.MiuixDialogActions
-import io.github.mangi.eta.ui.components.MiuixScaffoldPage
 import io.github.mangi.eta.ui.navigation.AppRoute
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.Icon
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton as M3IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text as M3Text
 import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.Text as MiuixText
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowDialog
+
 
 @Composable
 internal fun McpServersScreen(
@@ -70,27 +79,26 @@ internal fun McpServersScreen(
     var working by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    MiuixScaffoldPage(
+    EtaScaffoldPage(
         title = stringResource(R.string.route_mcp_servers),
         onBack = onBack,
         actions = {
-            IconButton(onClick = { showAdd = true }) {
-                Icon(
-                    imageVector = Icons.Rounded.Add,
-                    contentDescription = stringResource(R.string.mcp_add_server),
-                )
-            }
+            McpActionIcon(
+                icon = Icons.Rounded.Add,
+                contentDescription = stringResource(R.string.mcp_add_server),
+                onClick = { showAdd = true },
+            )
         },
     ) {
         item(key = "servers") {
-            SmallTitle(stringResource(R.string.mcp_configured_servers, servers.size))
-            Card(modifier = Modifier.padding(horizontal = 12.dp)) {
+            EtaSectionTitle(text = stringResource(R.string.mcp_configured_servers, servers.size))
+            EtaCard(modifier = Modifier.padding(horizontal = 12.dp)) {
                 if (servers.isEmpty()) {
                     ListEmptyState(
                         title = stringResource(R.string.mcp_empty_title),
                         summary = stringResource(R.string.mcp_empty_summary),
                         action = {
-                            TextButton(
+                            EtaTextButton(
                                 text = stringResource(R.string.mcp_add_server),
                                 onClick = { showAdd = true },
                             )
@@ -98,7 +106,7 @@ internal fun McpServersScreen(
                     )
                 } else {
                     servers.forEach { server ->
-                        ArrowPreference(
+                        McpClickableRow(
                             title = server.name,
                             summary = stringResource(
                                 R.string.mcp_server_row_summary,
@@ -113,7 +121,7 @@ internal fun McpServersScreen(
         }
     }
 
-    WindowDialog(
+    EtaDialog(
         show = showAdd,
         title = stringResource(R.string.mcp_add_server),
         onDismissRequest = { if (!working) showAdd = false },
@@ -125,41 +133,43 @@ internal fun McpServersScreen(
                 .heightIn(max = 520.dp)
                 .verticalScroll(rememberScrollState()),
         ) {
-            TextField(
+            McpTextField(
                 value = name,
                 onValueChange = { name = it },
                 label = stringResource(R.string.mcp_server_name),
-                singleLine = true,
                 enabled = !working,
-                modifier = Modifier.fillMaxWidth(),
             )
-            TextField(
+            McpTextField(
                 value = url,
                 onValueChange = { url = it },
                 label = stringResource(R.string.mcp_server_url),
-                singleLine = true,
                 enabled = !working,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                modifier = Modifier.fillMaxWidth(),
             )
-            TextField(
+            McpTextField(
                 value = token,
                 onValueChange = { token = it },
                 label = stringResource(R.string.mcp_bearer_optional),
-                singleLine = true,
                 enabled = !working,
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                modifier = Modifier.fillMaxWidth(),
             )
             error?.let {
-                Text(
-                    text = it,
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.error,
-                )
+                if (isMaterial3Theme()) {
+                    M3Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                } else {
+                    MiuixText(
+                        text = it,
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.error,
+                    )
+                }
             }
-            MiuixDialogActions(
+            EtaDialogActions(
                 confirmText = if (working) {
                     stringResource(R.string.mcp_connecting)
                 } else {
@@ -232,11 +242,13 @@ internal fun McpServerDetailScreen(
     var showToken by remember { mutableStateOf(false) }
     var token by remember { mutableStateOf("") }
 
-    MiuixScaffoldPage(
+    EtaScaffoldPage(
         title = server?.name ?: stringResource(R.string.route_mcp_server_detail),
         onBack = onBack,
         actions = {
-            IconButton(
+            McpActionIcon(
+                icon = Icons.Rounded.Refresh,
+                contentDescription = stringResource(R.string.mcp_refresh_tools),
                 enabled = server != null && !working,
                 onClick = {
                     scope.launch {
@@ -255,24 +267,19 @@ internal fun McpServerDetailScreen(
                         ).show()
                     }
                 },
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Refresh,
-                    contentDescription = stringResource(R.string.mcp_refresh_tools),
-                )
-            }
+            )
         },
     ) {
         if (server == null) {
             item(key = "missing") {
-                BasicComponent(title = stringResource(R.string.mcp_server_missing))
+                McpNoticeRow(title = stringResource(R.string.mcp_server_missing))
             }
-            return@MiuixScaffoldPage
+            return@EtaScaffoldPage
         }
         item(key = "server") {
-            SmallTitle(stringResource(R.string.mcp_server_settings))
-            Card(modifier = Modifier.padding(horizontal = 12.dp)) {
-                SwitchPreference(
+            EtaSectionTitle(text = stringResource(R.string.mcp_server_settings))
+            EtaCard(modifier = Modifier.padding(horizontal = 12.dp)) {
+                EtaSwitchRow(
                     title = stringResource(R.string.mcp_enable_server),
                     summary = server.url,
                     checked = server.enabled,
@@ -282,8 +289,7 @@ internal fun McpServerDetailScreen(
                         }
                     },
                 )
-
-                ArrowPreference(
+                McpClickableRow(
                     title = stringResource(R.string.mcp_update_token),
                     summary = stringResource(
                         if (server.authorizationType == McpAuthorizationType.BEARER) {
@@ -297,8 +303,8 @@ internal fun McpServerDetailScreen(
             }
         }
         item(key = "tools") {
-            SmallTitle(stringResource(R.string.mcp_tools_count, server.tools.size))
-            Card(modifier = Modifier.padding(horizontal = 12.dp)) {
+            EtaSectionTitle(text = stringResource(R.string.mcp_tools_count, server.tools.size))
+            EtaCard(modifier = Modifier.padding(horizontal = 12.dp)) {
                 if (server.tools.isEmpty()) {
                     ListEmptyState(
                         title = stringResource(R.string.mcp_no_tools),
@@ -307,7 +313,7 @@ internal fun McpServerDetailScreen(
                 } else {
                     server.tools.forEach { tool ->
                         val checked = tool.name in server.enabledToolNames
-                        SwitchPreference(
+                        EtaSwitchRow(
                             title = tool.title.ifBlank { tool.name },
                             summary = toolSummary(tool),
                             checked = checked,
@@ -326,8 +332,8 @@ internal fun McpServerDetailScreen(
             }
         }
         item(key = "delete") {
-            Card(modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp)) {
-                BasicComponent(
+            EtaCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp)) {
+                McpClickableRow(
                     title = stringResource(R.string.mcp_delete_server),
                     summary = stringResource(R.string.mcp_delete_server_summary),
                     onClick = { showDelete = true },
@@ -337,13 +343,13 @@ internal fun McpServerDetailScreen(
     }
 
     pendingRiskyTool?.let { tool ->
-        WindowDialog(
+        EtaDialog(
             show = true,
             title = stringResource(R.string.mcp_enable_risky_tool),
             summary = stringResource(R.string.mcp_enable_risky_tool_summary, tool.name, server?.name.orEmpty()),
             onDismissRequest = { pendingRiskyTool = null },
         ) {
-            MiuixDialogActions(
+            EtaDialogActions(
                 confirmText = stringResource(R.string.mcp_enable_tool),
                 destructive = true,
                 onCancel = { pendingRiskyTool = null },
@@ -357,23 +363,21 @@ internal fun McpServerDetailScreen(
         }
     }
 
-    WindowDialog(
+    EtaDialog(
         show = showToken,
         title = stringResource(R.string.mcp_update_token),
         summary = stringResource(R.string.mcp_update_token_summary),
         onDismissRequest = { showToken = false },
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            TextField(
+            McpTextField(
                 value = token,
                 onValueChange = { token = it },
                 label = stringResource(R.string.mcp_bearer_token),
-                singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                modifier = Modifier.fillMaxWidth(),
             )
-            MiuixDialogActions(
+            EtaDialogActions(
                 confirmText = stringResource(R.string.action_save),
                 onCancel = { showToken = false },
                 onConfirm = {
@@ -398,13 +402,13 @@ internal fun McpServerDetailScreen(
         }
     }
 
-    WindowDialog(
+    EtaDialog(
         show = showDelete,
         title = stringResource(R.string.mcp_delete_server),
         summary = stringResource(R.string.mcp_delete_confirm, server?.name.orEmpty()),
         onDismissRequest = { showDelete = false },
     ) {
-        MiuixDialogActions(
+        EtaDialogActions(
             confirmText = stringResource(R.string.ui_delete_3755f5),
             destructive = true,
             onCancel = { showDelete = false },
@@ -422,4 +426,101 @@ internal fun McpServerDetailScreen(
 private fun toolSummary(tool: McpToolDefinition): String = when {
     tool.readOnlyHint == true -> tool.description.ifBlank { stringResource(R.string.mcp_read_only_tool) }
     else -> tool.description.ifBlank { stringResource(R.string.mcp_may_modify_data) }
+}
+
+/** 顶栏动作：M3 用官方 [M3IconButton]，MIUI X 保持原有图标按钮。 */
+@Composable
+private fun McpActionIcon(
+    icon: ImageVector,
+    contentDescription: String,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
+    if (isMaterial3Theme()) {
+        M3IconButton(onClick = onClick, enabled = enabled) {
+            Icon(imageVector = icon, contentDescription = contentDescription)
+        }
+    } else {
+        IconButton(onClick = onClick, enabled = enabled) {
+            Icon(imageVector = icon, contentDescription = contentDescription)
+        }
+    }
+}
+
+/** 可点击设置行：M3 用官方 [ListItem]（onClick 重载自带涟漪与语义），MIUI X 保持原有 [ArrowPreference]。 */
+@Composable
+private fun McpClickableRow(
+    title: String,
+    summary: String,
+    onClick: () -> Unit,
+) {
+    if (isMaterial3Theme()) {
+        ListItem(
+            onClick = onClick,
+            modifier = Modifier.fillMaxWidth(),
+            content = { M3Text(text = title, style = MaterialTheme.typography.bodyLarge) },
+            supportingContent = {
+                M3Text(
+                    text = summary,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+        )
+    } else {
+        ArrowPreference(
+            title = title,
+            summary = summary,
+            onClick = onClick,
+        )
+    }
+}
+
+/** 纯提示行：M3 用官方 [ListItem]，MIUI X 保持原有 [BasicComponent]。 */
+@Composable
+private fun McpNoticeRow(title: String) {
+    if (isMaterial3Theme()) {
+        ListItem(
+            modifier = Modifier.fillMaxWidth(),
+            content = { M3Text(text = title, style = MaterialTheme.typography.bodyLarge) },
+        )
+    } else {
+        BasicComponent(title = title)
+    }
+}
+
+/** 输入框：M3 用官方 [OutlinedTextField]，MIUI X 保持原有 [TextField]。 */
+@Composable
+private fun McpTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    enabled: Boolean = true,
+    singleLine: Boolean = true,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+) {
+    if (isMaterial3Theme()) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = enabled,
+            label = { M3Text(text = label) },
+            singleLine = singleLine,
+            keyboardOptions = keyboardOptions,
+            visualTransformation = visualTransformation,
+        )
+    } else {
+        TextField(
+            value = value,
+            onValueChange = onValueChange,
+            label = label,
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = singleLine,
+            enabled = enabled,
+            keyboardOptions = keyboardOptions,
+            visualTransformation = visualTransformation,
+        )
+    }
 }

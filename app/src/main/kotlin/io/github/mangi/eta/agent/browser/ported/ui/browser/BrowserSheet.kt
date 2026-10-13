@@ -33,17 +33,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Computer
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.PhoneAndroid
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Computer
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.PhoneAndroid
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -147,9 +147,9 @@ fun BrowserSheet(
             IconButton(onClick = { showSettings = true }) {
                 Icon(
                     when (userAgentProfile) {
-                        UserAgentProfile.MOBILE_CHROME -> Icons.Default.PhoneAndroid
-                        UserAgentProfile.DESKTOP_CHROME -> Icons.Default.Computer
-                        UserAgentProfile.CUSTOM -> Icons.Default.Edit
+                        UserAgentProfile.MOBILE_CHROME -> Icons.Rounded.PhoneAndroid
+                        UserAgentProfile.DESKTOP_CHROME -> Icons.Rounded.Computer
+                        UserAgentProfile.CUSTOM -> Icons.Rounded.Edit
                     },
                     contentDescription = stringResource(R.string.om_browser_settings_title),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -173,13 +173,13 @@ fun BrowserSheet(
                     enabled = tabs.size < 3 && !isAgentBusy,
                     modifier = Modifier.size(36.dp),
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = stringResource(R.string.om_browser_new_tab), modifier = Modifier.size(20.dp))
+                    Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.om_browser_new_tab), modifier = Modifier.size(20.dp))
                 }
                 LazyRow(
                     modifier = Modifier
                         .weight(1f)
                         .padding(horizontal = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     items(tabs, key = { it.id }) { tab ->
@@ -215,7 +215,7 @@ fun BrowserSheet(
                     enabled = !isAgentBusy,
                     modifier = Modifier.size(36.dp),
                 ) {
-                    Icon(Icons.Default.History, contentDescription = stringResource(R.string.om_browser_history_action), modifier = Modifier.size(20.dp))
+                    Icon(Icons.Rounded.History, contentDescription = stringResource(R.string.om_browser_history_action), modifier = Modifier.size(20.dp))
                 }
             }
 
@@ -226,20 +226,20 @@ fun BrowserSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(secondaryBg)
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(36.dp)
-                        .background(tertiaryBg, RoundedCornerShape(10.dp))
+                        .background(tertiaryBg, RoundedCornerShape(12.dp))
                         .border(
                             0.5.dp,
                             MaterialTheme.colorScheme.outlineVariant,
-                            RoundedCornerShape(10.dp),
+                            RoundedCornerShape(12.dp),
                         )
-                        .padding(horizontal = 10.dp),
+                        .padding(horizontal = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     BrowserAddressBarIcon(isLoading = isLoading, accent = accent)
@@ -285,9 +285,9 @@ fun BrowserSheet(
                             modifier = Modifier.size(28.dp),
                         ) {
                             Icon(
-                                Icons.Default.Close,
+                                Icons.Rounded.Close,
                                 contentDescription = stringResource(R.string.om_browser_stop),
-                                modifier = Modifier.size(14.dp),
+                                modifier = Modifier.size(16.dp),
                             )
                         }
                     }
@@ -355,7 +355,7 @@ fun BrowserSheet(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Icon(
-                        Icons.Default.Download,
+                        Icons.Rounded.Download,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
                         tint = accent,
@@ -385,18 +385,18 @@ fun BrowserSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(secondaryBg)
-                    .padding(vertical = 10.dp),
+                    .padding(vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 ToolbarIcon(
-                    icon = Icons.AutoMirrored.Filled.ArrowBack,
+                    icon = Icons.AutoMirrored.Rounded.ArrowBack,
                     contentDesc = stringResource(R.string.om_browser_nav_back),
                     enabled = canGoBack && !isAgentBusy,
                     onClick = { selectedTab?.manager?.goBack() },
                 )
                 ToolbarIcon(
-                    icon = Icons.AutoMirrored.Filled.ArrowForward,
+                    icon = Icons.AutoMirrored.Rounded.ArrowForward,
                     contentDesc = stringResource(R.string.om_browser_nav_forward),
                     enabled = canGoForward && !isAgentBusy,
                     onClick = { selectedTab?.manager?.goForward() },
@@ -415,7 +415,7 @@ fun BrowserSheet(
                         },
                     ) {
                         ToolbarIcon(
-                            icon = Icons.Default.Download,
+                            icon = Icons.Rounded.Download,
                             contentDesc = stringResource(R.string.om_browser_downloads_title),
                             enabled = true,
                             tint = accent,
@@ -425,7 +425,7 @@ fun BrowserSheet(
                 }
                 if (isLoading) {
                     ToolbarIcon(
-                        icon = Icons.Default.Close,
+                        icon = Icons.Rounded.Close,
                         contentDesc = stringResource(R.string.om_browser_stop),
                         enabled = !isAgentBusy,
                         tint = accent,
@@ -433,7 +433,7 @@ fun BrowserSheet(
                     )
                 } else {
                     ToolbarIcon(
-                        icon = Icons.Default.Refresh,
+                        icon = Icons.Rounded.Refresh,
                         contentDesc = stringResource(R.string.om_browser_reload),
                         enabled = !isAgentBusy,
                         tint = accent,
@@ -495,7 +495,7 @@ private fun TabChip(
             .background(bg, CircleShape)
             .border(1.dp, borderColor, CircleShape)
             .clickable(onClick = onClick)
-            .padding(start = 10.dp, end = if (showClose) 6.dp else 10.dp, top = 5.dp, bottom = 5.dp),
+            .padding(start = 8.dp, end = if (showClose) 6.dp else 10.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -513,9 +513,9 @@ private fun TabChip(
                 modifier = Modifier.size(16.dp),
             ) {
                 Icon(
-                    Icons.Default.Close,
+                    Icons.Rounded.Close,
                     contentDescription = stringResource(R.string.om_browser_close_tab),
-                    modifier = Modifier.size(10.dp),
+                    modifier = Modifier.size(12.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -535,7 +535,7 @@ private fun ToolbarIcon(
         Icon(
             icon,
             contentDescription = contentDesc,
-            modifier = Modifier.size(22.dp),
+            modifier = Modifier.size(20.dp),
             tint = if (!enabled) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
                 else tint ?: MaterialTheme.colorScheme.onSurface,
         )
@@ -556,15 +556,15 @@ private fun BrowserAddressBarIcon(isLoading: Boolean, accent: Color) {
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            Icons.Default.Language,
+            Icons.Rounded.Language,
             contentDescription = null,
-            modifier = Modifier.size(14.dp),
+            modifier = Modifier.size(16.dp),
             tint = if (isLoading) accent else MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (isLoading) {
             CircularProgressIndicator(
                 modifier = Modifier
-                    .size(22.dp)
+                    .size(20.dp)
                     .rotate(angle),
                 color = accent,
                 strokeWidth = 1.5.dp,
@@ -593,7 +593,7 @@ private fun AgentBrowsingOverlay(accent: Color, onTakeover: () -> Unit) {
         Row(
             modifier = Modifier
                 .background(Color.Black.copy(alpha = 0.7f), CircleShape)
-                .padding(horizontal = 20.dp, vertical = 12.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(

@@ -19,6 +19,7 @@ import android.view.View
 import android.view.WindowManager
 import android.view.WindowInsets
 import androidx.compose.runtime.Composable
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.derivedStateOf
@@ -1216,7 +1217,12 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
                 MiuixTheme(colors = if (isNightMode()) darkColorScheme() else lightColorScheme()) {
                     // 部分 ROM 会给 TYPE_ACCESSIBILITY_OVERLAY 分配软件 Canvas；Miuix 的
                     // RuntimeShader 只检查系统版本，因此系统浮层统一使用其普通圆角回退。
-                    CompositionLocalProvider(LocalSquircleEnabled provides false) {
+                    CompositionLocalProvider(
+                        LocalSquircleEnabled provides false,
+                        // 系统浮层另起一套 MiuixTheme，不经过 AgentAppTheme，
+                        // 而 Material3 的 Icon/Text 默认取 LocalContentColor，需在此补上。
+                        LocalContentColor provides MiuixTheme.colorScheme.onSurface,
+                    ) {
                         content()
                     }
                 }

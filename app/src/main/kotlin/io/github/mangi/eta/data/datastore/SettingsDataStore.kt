@@ -14,6 +14,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import io.github.mangi.eta.data.model.AppearanceAccentColor
 import io.github.mangi.eta.data.model.AppearancePaletteStyle
 import io.github.mangi.eta.data.model.AppearanceSettings
+import io.github.mangi.eta.data.model.AppearanceThemeFamily
 import io.github.mangi.eta.data.model.AppearanceThemeMode
 import io.github.mangi.eta.data.model.AppearanceTopBarBlurStyle
 import io.github.mangi.eta.data.model.ErrorReconnectPolicy
@@ -38,6 +39,7 @@ internal object SettingsDataStore {
     private val FILE_LOGGING_ENABLED = booleanPreferencesKey("file_logging_enabled")
     private val LINUX_DISTRIBUTION = stringPreferencesKey("linux_distribution")
     private val APPEARANCE_THEME_MODE = stringPreferencesKey("appearance_theme_mode")
+    private val APPEARANCE_THEME_FAMILY = stringPreferencesKey("appearance_theme_family")
     private val APPEARANCE_MONET_ENABLED = booleanPreferencesKey("appearance_monet_enabled")
     private val APPEARANCE_PALETTE_STYLE = stringPreferencesKey("appearance_palette_style")
     private val APPEARANCE_ACCENT_COLOR = stringPreferencesKey("appearance_accent_color")
@@ -563,6 +565,7 @@ internal object SettingsDataStore {
         ),
         appearance = AppearanceSettings(
             themeMode = AppearanceThemeMode.fromPersistedValue(this[APPEARANCE_THEME_MODE]),
+            themeFamily = AppearanceThemeFamily.fromPersistedValue(this[APPEARANCE_THEME_FAMILY]),
             monetEnabled = true,
             paletteStyle = AppearancePaletteStyle.fromPersistedValue(this[APPEARANCE_PALETTE_STYLE]),
             accentColor = AppearanceAccentColor.fromPersistedValue(this[APPEARANCE_ACCENT_COLOR]),
@@ -585,6 +588,7 @@ internal object SettingsDataStore {
 
     private fun MutablePreferences.putAppearance(settings: AppearanceSettings) {
         this[APPEARANCE_THEME_MODE] = settings.themeMode.persistedValue
+        this[APPEARANCE_THEME_FAMILY] = settings.themeFamily.persistedValue
         this[APPEARANCE_MONET_ENABLED] = settings.monetEnabled
         this[APPEARANCE_PALETTE_STYLE] = settings.paletteStyle.persistedValue
         this[APPEARANCE_ACCENT_COLOR] = settings.accentColor.persistedValue

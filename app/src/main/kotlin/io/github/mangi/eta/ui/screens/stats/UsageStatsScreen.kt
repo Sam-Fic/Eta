@@ -3,7 +3,6 @@ package io.github.mangi.eta.ui.screens.stats
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,11 +39,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.mangi.eta.R
@@ -56,7 +58,9 @@ import io.github.mangi.eta.data.repository.formatStatCount
 import io.github.mangi.eta.data.repository.formatTokenCount
 import io.github.mangi.eta.data.repository.heatmapAlpha
 import io.github.mangi.eta.data.repository.heatmapQuartiles
-import io.github.mangi.eta.ui.components.MiuixScaffoldPage
+import io.github.mangi.eta.ui.adaptive.EtaCard
+import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -67,10 +71,19 @@ import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.TextButton as M3TextButton
+import androidx.compose.material3.Text as M3Text
 
 private enum class UsageStatsTab { Overview, Models }
 
@@ -87,7 +100,7 @@ internal fun UsageStatsScreen(onBack: () -> Unit) {
         }
     }
 
-    MiuixScaffoldPage(
+    EtaScaffoldPage(
         title = stringResource(R.string.stats_page_title),
         onBack = onBack,
     ) {
@@ -108,7 +121,11 @@ internal fun UsageStatsScreen(onBack: () -> Unit) {
                         .padding(vertical = 48.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    InfiniteProgressIndicator()
+                    if (isMaterial3Theme()) {
+                        CircularProgressIndicator()
+                    } else {
+                        InfiniteProgressIndicator()
+                    }
                 }
             }
         } else if (selectedTab == UsageStatsTab.Models) {
@@ -120,33 +137,30 @@ internal fun UsageStatsScreen(onBack: () -> Unit) {
             }
         } else {
             item(key = "heatmap") {
-                Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
+                EtaCard(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
                     Column(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        Text(
-                            text = stringResource(R.string.stats_page_heatmap_title),
-                            style = MiuixTheme.textStyles.headline1,
-                        )
+                        StatsTitle(text = stringResource(R.string.stats_page_heatmap_title))
                         ChatHeatmap(conversationsPerDay = stats.conversationsPerDay)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(
+                            StatsLabel(
                                 text = stringResource(R.string.stats_page_heatmap_less),
-                                fontSize = 11.sp,
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                tier = StatsTextTier.Legend,
+                                maxLines = 1,
                             )
                             listOf(0f, 0.25f, 0.5f, 0.75f, 1f).forEach { alpha ->
                                 HeatmapCell(alpha = alpha, sizeDp = 10)
                             }
-                            Text(
+                            StatsLabel(
                                 text = stringResource(R.string.stats_page_heatmap_more),
-                                fontSize = 11.sp,
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                tier = StatsTextTier.Legend,
+                                maxLines = 1,
                             )
                         }
                     }
@@ -162,27 +176,48 @@ internal fun UsageStatsScreen(onBack: () -> Unit) {
     }
 }
 
+/**
+ * 概览 / 模型视图切换。
+ *
+ * Material 3 走官方单选分段按钮 [SingleChoiceSegmentedButtonRow] + [SegmentedButton]
+ * （形状取官方 [SegmentedButtonDefaults]，配色/行高/字阶均使用官方默认值）。
+ */
 @Composable
 private fun UsageStatsTabs(
     selected: UsageStatsTab,
     onSelect: (UsageStatsTab) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        UsageTabButton(
-            label = stringResource(R.string.stats_tab_overview),
-            selected = selected == UsageStatsTab.Overview,
-            onClick = { onSelect(UsageStatsTab.Overview) },
-        )
-        UsageTabButton(
-            label = stringResource(R.string.stats_tab_models),
-            selected = selected == UsageStatsTab.Models,
-            onClick = { onSelect(UsageStatsTab.Models) },
-        )
+    val tabs = listOf(
+        stringResource(R.string.stats_tab_overview) to UsageStatsTab.Overview,
+        stringResource(R.string.stats_tab_models) to UsageStatsTab.Models,
+    )
+    if (isMaterial3Theme()) {
+        SingleChoiceSegmentedButtonRow(modifier = modifier.fillMaxWidth()) {
+            tabs.forEachIndexed { index, (label, tab) ->
+                SegmentedButton(
+                    selected = selected == tab,
+                    onClick = { onSelect(tab) },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = tabs.size),
+                ) {
+                    M3Text(text = label)
+                }
+            }
+        }
+    } else {
+        Row(
+            modifier = modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            tabs.forEach { (label, tab) ->
+                UsageTabButton(
+                    label = label,
+                    selected = selected == tab,
+                    onClick = { onSelect(tab) },
+                )
+            }
+        }
     }
 }
 
@@ -200,7 +235,7 @@ private fun RowScope.UsageTabButton(
             .height(44.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(if (selected) colors.primary else colors.primaryContainer)
-            .clickableNoRipple {
+            .clickable {
                 TouchHaptics.click(view)
                 onClick()
             },
@@ -214,14 +249,62 @@ private fun RowScope.UsageTabButton(
     }
 }
 
-
 @Composable
-private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier =
-    clickable(
-        interactionSource = remember { MutableInteractionSource() },
-        indication = null,
-        onClick = onClick,
-    )
+private fun StatsTitle(text: String) {
+    if (isMaterial3Theme()) {
+        M3Text(text = text, style = MaterialTheme.typography.titleMedium)
+    } else {
+        Text(text = text, style = MiuixTheme.textStyles.headline1)
+    }
+}
+
+/** 说明文字档位：图例 / 次要说明 / 主要数值。 */
+private enum class StatsTextTier { Legend, Secondary, Primary }
+
+/**
+ * 统计页的说明文字。
+ *
+ * Material 3 走官方字阶（labelMedium / bodyMedium / bodyLarge）与官方颜色角色；
+ * miuix 主题族保留原来的 footnote2 / body2 / body1 字阶，不共用一套。
+ */
+@Composable
+private fun StatsLabel(
+    text: String,
+    modifier: Modifier = Modifier,
+    tier: StatsTextTier = StatsTextTier.Secondary,
+    maxLines: Int = Int.MAX_VALUE,
+) {
+    if (isMaterial3Theme()) {
+        M3Text(
+            text = text,
+            modifier = modifier,
+            style = when (tier) {
+                StatsTextTier.Legend -> MaterialTheme.typography.labelMedium
+                StatsTextTier.Secondary -> MaterialTheme.typography.bodyMedium
+                StatsTextTier.Primary -> MaterialTheme.typography.bodyLarge
+            },
+            color = when (tier) {
+                StatsTextTier.Legend -> MaterialTheme.colorScheme.onSurfaceVariant
+                StatsTextTier.Secondary -> MaterialTheme.colorScheme.onSurfaceVariant
+                StatsTextTier.Primary -> MaterialTheme.colorScheme.onSurface
+            },
+            maxLines = maxLines,
+            overflow = TextOverflow.Ellipsis,
+        )
+    } else {
+        Text(
+            text = text,
+            modifier = modifier,
+            style = when (tier) {
+                StatsTextTier.Legend -> MiuixTheme.textStyles.footnote2
+                StatsTextTier.Secondary -> MiuixTheme.textStyles.body2
+                StatsTextTier.Primary -> MiuixTheme.textStyles.body1
+            },
+            maxLines = maxLines,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
 
 @Composable
 private fun ModelUsagePane(
@@ -248,15 +331,12 @@ private fun ModelUsagePane(
                 endBound = UsageTimeBound()
             },
         )
-        Card {
+        EtaCard {
             Column(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text(
-                    text = stringResource(R.string.stats_model_total_title),
-                    style = MiuixTheme.textStyles.headline1,
-                )
+                StatsTitle(text = stringResource(R.string.stats_model_total_title))
                 ModelMetricRow(
                     label = stringResource(R.string.stats_page_token_total),
                     value = formatTokenCount(filtered.totalTokens),
@@ -286,7 +366,7 @@ private fun ModelUsagePane(
             }
         }
         if (filtered.providers.isEmpty()) {
-            Text(
+            StatsLabel(
                 text = stringResource(
                     if (startBound.isSet || endBound.isSet) {
                         R.string.stats_model_filter_empty
@@ -294,13 +374,11 @@ private fun ModelUsagePane(
                         R.string.stats_model_empty
                     },
                 ),
-                style = MiuixTheme.textStyles.body2,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
             )
         } else {
             filtered.providers.forEach { provider ->
-                Card {
+                EtaCard {
                     Column(modifier = Modifier.padding(vertical = 8.dp)) {
                         Row(
                             modifier = Modifier
@@ -308,11 +386,19 @@ private fun ModelUsagePane(
                                 .padding(horizontal = 16.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(
-                                text = provider.name,
-                                style = MiuixTheme.textStyles.title3,
-                                modifier = Modifier.weight(1f),
-                            )
+                            if (isMaterial3Theme()) {
+                                M3Text(
+                                    text = provider.name,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.weight(1f),
+                                )
+                            } else {
+                                Text(
+                                    text = provider.name,
+                                    style = MiuixTheme.textStyles.title3,
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
                         }
                         provider.models.forEach { model ->
                             val key = "${provider.id}/${model.id}"
@@ -355,43 +441,77 @@ private fun ModelUsageFilterCard(
     }
     val summary = filterSummaryText(start, end, matchedPreset)
         ?: stringResource(R.string.stats_model_filter_collapsed)
-    Card {
+    val titleText = stringResource(R.string.stats_model_filter_title)
+    val expandIcon = if (expanded) Icons.Rounded.ExpandMore else Icons.Rounded.ChevronRight
+    EtaCard {
         Column {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickableNoRipple {
+            if (isMaterial3Theme()) {
+                // M3：官方可点击 ListItem 承担展开/收起，替掉「Row + clickable(无涟漪)」。
+                val supportingText = summary
+                val supporting: (@Composable () -> Unit)? = if (supportingText != null) {
+                    {
+                        M3Text(
+                            text = supportingText,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                        )
+                    }
+                } else {
+                    null
+                }
+                ListItem(
+                    onClick = {
                         TouchHaptics.click(view)
                         expanded = !expanded
-                    }
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = stringResource(R.string.stats_model_filter_title),
-                    style = MiuixTheme.textStyles.headline1,
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    content = { M3Text(text = titleText, style = MaterialTheme.typography.bodyLarge) },
+                    supportingContent = supporting,
+                    trailingContent = {
+                        Icon(
+                            imageVector = expandIcon,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
                 )
-                Text(
-                    text = summary,
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    maxLines = 1,
-                    textAlign = TextAlign.End,
+            } else {
+                Row(
                     modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 12.dp, end = 4.dp),
-                )
-                androidx.compose.material3.Icon(
-                    imageVector = if (expanded) Icons.Rounded.ExpandMore else Icons.Rounded.ChevronRight,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                    tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                )
+                        .fillMaxWidth()
+                        .clickable {
+                            TouchHaptics.click(view)
+                            expanded = !expanded
+                        }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = titleText,
+                        style = MiuixTheme.textStyles.headline1,
+                    )
+                    Text(
+                        text = summary.orEmpty(),
+                        style = MiuixTheme.textStyles.body2,
+                        maxLines = 1,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(start = 12.dp, end = 4.dp),
+                    )
+                    Icon(
+                        imageVector = expandIcon,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    )
+                }
             }
             AnimatedVisibility(visible = expanded) {
                 Column(
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     UsageBoundRow(
                         label = stringResource(R.string.stats_model_filter_start),
@@ -420,18 +540,29 @@ private fun ModelUsageFilterCard(
                         },
                     )
                     if (start.isSet || end.isSet) {
-                        Text(
-                            text = stringResource(R.string.stats_model_filter_clear),
-                            style = MiuixTheme.textStyles.body2,
-                            color = MiuixTheme.colorScheme.primary,
-                            modifier = Modifier
-                                .clickableNoRipple {
+                        if (isMaterial3Theme()) {
+                            M3TextButton(
+                                onClick = {
                                     TouchHaptics.click(view)
                                     selectedPreset = null
                                     onClear()
-                                }
-                                .padding(top = 2.dp),
-                        )
+                                },
+                            ) {
+                                M3Text(text = stringResource(R.string.stats_model_filter_clear))
+                            }
+                        } else {
+                            Text(
+                                text = stringResource(R.string.stats_model_filter_clear),
+                                style = MiuixTheme.textStyles.body2,
+                                modifier = Modifier
+                                    .clickable {
+                                        TouchHaptics.click(view)
+                                        selectedPreset = null
+                                        onClear()
+                                    }
+                                    .padding(top = 2.dp),
+                            )
+                        }
                     }
                 }
             }
@@ -462,17 +593,13 @@ private fun UsageBoundRow(
     bound: UsageTimeBound,
     onClick: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            text = label,
-            style = MiuixTheme.textStyles.body2,
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-        )
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        StatsLabel(text = label)
         UsageBoundChip(
             text = formatUsageDate(bound)
                 ?: stringResource(R.string.stats_model_filter_datetime_placeholder),
             modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.CenterStart,
+            fullWidth = true,
             onClick = onClick,
         )
     }
@@ -493,8 +620,8 @@ private fun UsageFilterPresetRow(
     )
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items.forEach { (preset, labelRes) ->
             UsageBoundChip(
@@ -506,22 +633,37 @@ private fun UsageFilterPresetRow(
     }
 }
 
+/**
+ * 时间筛选胶囊。
+ *
+ * Material 3 走官方 [FilterChip]（自带选中态、涟漪与语义，形状/配色/字阶均为官方默认值），
+ * 替掉「Box + clip + background + 无涟漪 clickable」；MIUI X 保持原有绘制。
+ */
 @Composable
 private fun UsageBoundChip(
     text: String,
     modifier: Modifier = Modifier,
     selected: Boolean = false,
-    contentAlignment: Alignment = Alignment.Center,
+    fullWidth: Boolean = false,
     onClick: () -> Unit,
 ) {
+    if (isMaterial3Theme()) {
+        FilterChip(
+            selected = selected,
+            onClick = onClick,
+            label = { M3Text(text = text) },
+            modifier = if (fullWidth) modifier.fillMaxWidth() else modifier,
+        )
+        return
+    }
     val colors = MiuixTheme.colorScheme
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
             .background(if (selected) colors.primary else colors.primaryContainer)
-            .clickableNoRipple(onClick = onClick)
+            .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 8.dp),
-        contentAlignment = contentAlignment,
+        contentAlignment = if (fullWidth) Alignment.CenterStart else Alignment.Center,
     ) {
         Text(
             text = text,
@@ -562,6 +704,7 @@ private fun filterSummaryText(
     }
 }
 
+/** 单个模型的折叠行：M3 用官方可点击 [ListItem]，MIUI X 保持原有可点击行。 */
 @Composable
 private fun ModelUsageRow(
     model: ModelUsageModelUi,
@@ -570,34 +713,54 @@ private fun ModelUsageRow(
 ) {
     val view = LocalView.current
     Column {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickableNoRipple {
+        if (isMaterial3Theme()) {
+            ListItem(
+                onClick = {
                     TouchHaptics.click(view)
                     onToggle()
-                }
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = model.displayName,
-                style = MiuixTheme.textStyles.body1,
-                modifier = Modifier.weight(1f),
+                },
+                modifier = Modifier.fillMaxWidth(),
+                content = {
+                    M3Text(text = model.displayName, style = MaterialTheme.typography.bodyLarge)
+                },
+                trailingContent = {
+                    Icon(
+                        imageVector = if (expanded) Icons.Rounded.ExpandMore else Icons.Rounded.ChevronRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
             )
-            androidx.compose.material3.Icon(
-                imageVector = if (expanded) Icons.Rounded.ExpandMore else Icons.Rounded.ChevronRight,
-                contentDescription = null,
+        } else {
+            Row(
                 modifier = Modifier
-                    .padding(start = 6.dp)
-                    .size(18.dp),
-                tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            )
+                    .fillMaxWidth()
+                    .clickable {
+                        TouchHaptics.click(view)
+                        onToggle()
+                    }
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = model.displayName,
+                    style = MiuixTheme.textStyles.body1,
+                    modifier = Modifier.weight(1f),
+                )
+                Icon(
+                    imageVector = if (expanded) Icons.Rounded.ExpandMore else Icons.Rounded.ChevronRight,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .padding(start = 8.dp)
+                        .size(18.dp),
+                    tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
+            }
         }
         AnimatedVisibility(visible = expanded) {
             Column(
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 ModelMetricRow(
                     label = stringResource(R.string.stats_page_token_total),
@@ -651,15 +814,8 @@ private fun ModelMetricRow(label: String, value: String) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = label,
-            style = MiuixTheme.textStyles.body2,
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-        )
-        Text(
-            text = value,
-            style = MiuixTheme.textStyles.body1,
-        )
+        StatsLabel(text = label)
+        StatsLabel(text = value, tier = StatsTextTier.Primary, maxLines = 1)
     }
 }
 
@@ -684,7 +840,11 @@ private fun ChatHeatmap(conversationsPerDay: Map<LocalDate, Int>) {
         "",
     )
     val scrollState = rememberScrollState(initial = Int.MAX_VALUE)
-    val colors = MiuixTheme.colorScheme
+    val onSurfaceVariant = if (isMaterial3Theme()) {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    } else {
+        MiuixTheme.colorScheme.onSurfaceVariantSummary
+    }
 
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         Column(
@@ -701,7 +861,7 @@ private fun ChatHeatmap(conversationsPerDay: Map<LocalDate, Int>) {
                         Text(
                             text = label,
                             fontSize = 8.sp,
-                            color = colors.onSurfaceVariantSummary,
+                            color = onSurfaceVariant,
                         )
                     }
                 }
@@ -732,7 +892,7 @@ private fun ChatHeatmap(conversationsPerDay: Map<LocalDate, Int>) {
                                 },
                                 modifier = Modifier.wrapContentWidth(unbounded = true),
                                 fontSize = 9.sp,
-                                color = colors.onSurfaceVariantSummary,
+                                color = onSurfaceVariant,
                                 maxLines = 1,
                             )
                         }
@@ -758,18 +918,30 @@ private fun ChatHeatmap(conversationsPerDay: Map<LocalDate, Int>) {
     }
 }
 
+/** 热力图色块：非交互数据可视化，颜色只取主题角色。 */
 @Composable
 private fun HeatmapCell(alpha: Float, sizeDp: Int) {
-    val colors = MiuixTheme.colorScheme
-    val color = when {
-        alpha < 0f -> colors.surfaceVariant.copy(alpha = 0.3f)
-        alpha == 0f -> colors.surfaceVariant
-        else -> colors.primary.copy(alpha = alpha)
+    val surfaceVariant: Color
+    val primary: Color
+    if (isMaterial3Theme()) {
+        surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
+        primary = MaterialTheme.colorScheme.primary
+    } else {
+        surfaceVariant = MiuixTheme.colorScheme.surfaceVariant
+        primary = MiuixTheme.colorScheme.primary
     }
+    val color = when {
+        alpha < 0f -> surfaceVariant.copy(alpha = 0.3f)
+        alpha == 0f -> surfaceVariant
+        else -> primary.copy(alpha = alpha)
+    }
+    // M3 走官方形状令牌里最小的一档；miuix 主题族保留原来的 2dp。
+    val cellShape: Shape =
+        if (isMaterial3Theme()) MaterialTheme.shapes.extraSmall else RoundedCornerShape(2.dp)
     Box(
         modifier = Modifier
             .size(sizeDp.dp)
-            .clip(RoundedCornerShape(2.dp))
+            .clip(cellShape)
             .background(color),
     )
 }
@@ -865,26 +1037,23 @@ private fun StatCard(
     label: String,
     value: String,
 ) {
-    Card(modifier = modifier) {
+    EtaCard(modifier = modifier) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            androidx.compose.material3.Icon(
+            Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = MiuixTheme.colorScheme.primary,
+                tint = if (isMaterial3Theme()) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MiuixTheme.colorScheme.primary
+                },
                 modifier = Modifier.size(20.dp),
             )
-            Text(
-                text = value,
-                style = MiuixTheme.textStyles.headline1,
-            )
-            Text(
-                text = label,
-                style = MiuixTheme.textStyles.body2,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            )
+            StatsTitle(text = value)
+            StatsLabel(text = label)
         }
     }
 }

@@ -41,3 +41,8 @@ google-services.json
 
 # Runtime-owned collaboration workspaces and artifacts
 /.agent/
+
+/.codebuddy/
+
+# Python bytecode caches
+__pycache__/

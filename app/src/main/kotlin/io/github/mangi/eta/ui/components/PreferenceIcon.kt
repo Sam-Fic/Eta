@@ -6,7 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
-import top.yukonga.miuix.kmp.basic.Icon
+import androidx.compose.material3.Icon
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -18,7 +18,7 @@ internal fun PreferenceIcon(
     Icon(
         imageVector = icon,
         contentDescription = null,
-        modifier = modifier.padding(end = 6.dp).size(24.dp),
+        modifier = modifier.padding(end = 8.dp).size(24.dp),
         tint = if (enabled) MiuixTheme.colorScheme.onBackground
             else MiuixTheme.colorScheme.disabledOnSurface,
     )

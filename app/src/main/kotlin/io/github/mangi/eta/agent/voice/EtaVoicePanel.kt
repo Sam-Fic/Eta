@@ -96,7 +96,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.anim.folmeSpring
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
-import top.yukonga.miuix.kmp.basic.Icon
+import androidx.compose.material3.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.squircle.squircleBackground
@@ -514,7 +514,7 @@ private fun BoxScope.AssistantPanel(
 
     val bottomInset = with(density) { bottomInsetPx.toDp() }
     val messageRevealOffsetPx = with(density) { 12.dp.toPx() }
-    val sheetShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+    val sheetShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     Column(
         modifier = Modifier
             .align(Alignment.BottomCenter)
@@ -620,7 +620,7 @@ private fun AssistantComposer(
             onRemove = onScreenContextRemove,
         )
         if (state.screenContext.phase != EtaScreenContextPhase.CONSUMED) {
-            Spacer(Modifier.height(7.dp))
+            Spacer(Modifier.height(8.dp))
         }
         AssistantInputBar(
             state = state,
@@ -673,7 +673,7 @@ private fun ScreenContextAttachment(
                         .height(34.dp)
                         .squircleSurface(
                             color = colors.input.copy(alpha = 0.9f),
-                            cornerRadius = 17.dp,
+                            cornerRadius = 16.dp,
                         )
                         .clickable(enabled = available, onClick = onSelect)
                         .padding(horizontal = 12.dp),
@@ -698,7 +698,7 @@ private fun ScreenContextAttachment(
                         )
                         EtaScreenContextPhase.CONSUMED -> Unit
                     }
-                    Spacer(Modifier.size(7.dp))
+                    Spacer(Modifier.size(8.dp))
                     Text(
                         text = when (screenContext.phase) {
                             EtaScreenContextPhase.CAPTURING -> stringResource(R.string.voice_screen_preparing)
@@ -707,7 +707,7 @@ private fun ScreenContextAttachment(
                             EtaScreenContextPhase.CONSUMED -> ""
                         },
                         color = if (available) colors.inputPrimary else colors.inputSecondary,
-                        fontSize = 12.sp,
+                        fontSize = MiuixTheme.textStyles.footnote1.fontSize,
                         maxLines = 1,
                     )
                 }
@@ -728,7 +728,7 @@ private fun SelectedScreenContext(
         modifier = Modifier
             .height(60.dp)
             .squircleBackground(colors.input.copy(alpha = 0.92f), 15.dp)
-            .padding(5.dp),
+            .padding(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         previewBitmap?.let { bitmap ->
@@ -742,18 +742,18 @@ private fun SelectedScreenContext(
             )
         }
         Column(
-            modifier = Modifier.padding(start = 10.dp, end = 6.dp),
+            modifier = Modifier.padding(start = 8.dp, end = 8.dp),
         ) {
             Text(
                 text = stringResource(R.string.voice_screen_title),
                 color = colors.inputPrimary,
-                fontSize = 13.sp,
+                fontSize = MiuixTheme.textStyles.footnote1.fontSize,
                 maxLines = 1,
             )
             Text(
                 text = stringResource(R.string.voice_screen_context_summary),
                 color = colors.inputSecondary,
-                fontSize = 11.sp,
+                fontSize = MiuixTheme.textStyles.footnote2.fontSize,
                 maxLines = 1,
             )
         }
@@ -762,12 +762,12 @@ private fun SelectedScreenContext(
             enabled = enabled,
             minWidth = 30.dp,
             minHeight = 30.dp,
-            cornerRadius = 15.dp,
+            cornerRadius = 16.dp,
         ) {
             Icon(
                 imageVector = Icons.Rounded.Close,
                 contentDescription = stringResource(R.string.voice_screen_remove),
-                modifier = Modifier.size(14.dp),
+                modifier = Modifier.size(16.dp),
                 tint = if (enabled) colors.inputSecondary else colors.inputTertiary,
             )
         }
@@ -820,12 +820,12 @@ private fun AssistantInputBar(
             onValueChange = onInputChange,
             modifier = Modifier
                 .weight(1f)
-                .padding(vertical = 6.dp)
+                .padding(vertical = 8.dp)
                 .focusRequester(focusRequester),
             enabled = state.phase != EtaVoicePhase.PROCESSING,
             textStyle = TextStyle(
                 color = colors.inputPrimary,
-                fontSize = 14.sp,
+                fontSize = MiuixTheme.textStyles.body2.fontSize,
                 lineHeight = 20.sp,
             ),
             cursorBrush = SolidColor(MiuixTheme.colorScheme.primary),
@@ -839,7 +839,7 @@ private fun AssistantInputBar(
                         Text(
                             text = stringResource(R.string.voice_input_hint),
                             color = colors.inputTertiary,
-                            fontSize = 14.sp,
+                            fontSize = MiuixTheme.textStyles.body2.fontSize,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -853,13 +853,13 @@ private fun AssistantInputBar(
                 onClick = onStop,
                 minWidth = 36.dp,
                 minHeight = 36.dp,
-                cornerRadius = 18.dp,
+                cornerRadius = 16.dp,
                 backgroundColor = MiuixTheme.colorScheme.error,
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Stop,
                     contentDescription = stringResource(R.string.action_stop),
-                    modifier = Modifier.size(15.dp),
+                    modifier = Modifier.size(16.dp),
                     tint = Color.White,
                 )
             }
@@ -869,7 +869,7 @@ private fun AssistantInputBar(
                 enabled = canSubmit,
                 minWidth = 36.dp,
                 minHeight = 36.dp,
-                cornerRadius = 18.dp,
+                cornerRadius = 16.dp,
                 backgroundColor = if (canSubmit) {
                     MiuixTheme.colorScheme.primary
                 } else {
@@ -879,7 +879,7 @@ private fun AssistantInputBar(
                 Icon(
                     imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
                     contentDescription = stringResource(R.string.voice_send),
-                    modifier = Modifier.size(17.dp),
+                    modifier = Modifier.size(16.dp),
                     tint = if (canSubmit) Color.White else colors.inputSecondary,
                 )
             }

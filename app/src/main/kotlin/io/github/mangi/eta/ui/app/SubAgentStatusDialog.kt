@@ -1,5 +1,6 @@
 package io.github.mangi.eta.ui.app
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -39,7 +40,7 @@ internal fun SubAgentStatusDialog(
             if (ordered.isEmpty()) {
                 Text(
                     text = stringResource(R.string.sub_agent_status_empty),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MiuixTheme.textStyles.body2,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
@@ -57,19 +58,19 @@ internal fun SubAgentStatusDialog(
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = agent.contextLabel(),
-                                        style = MaterialTheme.typography.bodyLarge,
+                                        style = MiuixTheme.textStyles.body1,
                                         maxLines = 2,
                                         overflow = TextOverflow.Ellipsis,
                                     )
                                     Text(
                                         text = agent.modelName.ifBlank { agent.model },
-                                        style = MaterialTheme.typography.bodySmall,
+                                        style = MiuixTheme.textStyles.footnote1,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
@@ -77,7 +78,7 @@ internal fun SubAgentStatusDialog(
                                 }
                                 Text(
                                     text = agent.contextStatusLabel(),
-                                    style = MaterialTheme.typography.labelLarge,
+                                    style = MiuixTheme.textStyles.body2,
                                     color = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.padding(start = 12.dp),
                                 )

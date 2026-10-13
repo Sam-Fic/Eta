@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -23,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.EtaApp
@@ -33,20 +36,26 @@ import io.github.mangi.eta.data.repository.AgentMemoryRepository
 import io.github.mangi.eta.data.repository.AgentMemoryStore
 import io.github.mangi.eta.data.repository.AssistantRepository
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
+import io.github.mangi.eta.ui.adaptive.EtaCard
+import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
+import io.github.mangi.eta.ui.adaptive.EtaSectionTitle
+import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.components.AssistantAvatar
 import io.github.mangi.eta.ui.components.rememberAssistantAvatarBitmap
-import io.github.mangi.eta.ui.components.MiuixScaffoldPage
 import io.github.mangi.eta.ui.model.SkillItemUi
 import io.github.mangi.eta.ui.screens.skills.SkillSwitchRow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton as M3TextButton
+import androidx.compose.material3.Text as M3Text
 
 @Composable
 internal fun AssistantEditScreen(
@@ -105,6 +114,11 @@ internal fun AssistantEditScreen(
         if (uri == null) return@rememberLauncherForActivityResult
         cropBitmap = decodeAvatarBitmap(context, uri)
     }
+    val pickAvatar = {
+        picker.launch(
+            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+        )
+    }
 
     fun persistAssistantToggles(nextMemory: Boolean = memoryEnabled, nextSkills: Set<String> = enabledSkillIds) {
         scope.launch {
@@ -148,28 +162,36 @@ internal fun AssistantEditScreen(
         }
     }
 
-    MiuixScaffoldPage(
+    val saveEnabled = dirty && !saving && !memoryOverLimit
+    EtaScaffoldPage(
         title = stringResource(R.string.assistant_edit_title),
         onBack = onBack,
         actions = {
-            Text(
-                text = stringResource(R.string.action_save),
-                color = if (dirty && !saving && !memoryOverLimit) {
-                    MiuixTheme.colorScheme.primary
-                } else {
-                    MiuixTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                },
-                modifier = Modifier
-                    .padding(end = 12.dp)
-                    .clickable(enabled = dirty && !saving && !memoryOverLimit, onClick = ::save),
-            )
+            // M3 下用官方 TextButton（自带涟漪与禁用态），替掉手搓的「文本 + clickable」。
+            if (isMaterial3Theme()) {
+                M3TextButton(onClick = ::save, enabled = saveEnabled) {
+                    M3Text(text = stringResource(R.string.action_save))
+                }
+            } else {
+                Text(
+                    text = stringResource(R.string.action_save),
+                    color = if (saveEnabled) {
+                        MiuixTheme.colorScheme.primary
+                    } else {
+                        MiuixTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    },
+                    modifier = Modifier
+                        .padding(end = 12.dp)
+                        .clickable(enabled = saveEnabled, onClick = ::save),
+                )
+            }
         },
     ) {
         item(key = "preview_title") {
-            SmallTitle(stringResource(R.string.assistant_preview))
+            EtaSectionTitle(text = stringResource(R.string.assistant_preview))
         }
         item(key = "preview") {
-            Card(
+            EtaCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp)
@@ -178,61 +200,72 @@ internal fun AssistantEditScreen(
                 Row(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    AssistantAvatar(
-                        bitmap = avatarBitmap,
-                        size = 56.dp,
-                        modifier = Modifier.clickable {
-                            picker.launch(
-                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-                            )
-                        },
-                    )
-                    Text(
-                        text = name.trim().ifBlank { stringResource(R.string.assistant_unnamed) },
-                        style = MiuixTheme.textStyles.title3,
-                    )
+                    if (isMaterial3Theme()) {
+                        // 官方可点击 Surface，自带涟漪与按压语义。
+                        Surface(
+                            onClick = pickAvatar,
+                            shape = CircleShape,
+                            modifier = Modifier.size(56.dp),
+                        ) {
+                            AssistantAvatar(bitmap = avatarBitmap, size = 56.dp)
+                        }
+                    } else {
+                        AssistantAvatar(
+                            bitmap = avatarBitmap,
+                            size = 56.dp,
+                            modifier = Modifier.clickable(onClick = pickAvatar),
+                        )
+                    }
+                    if (isMaterial3Theme()) {
+                        M3Text(
+                            text = name.trim().ifBlank { stringResource(R.string.assistant_unnamed) },
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                    } else {
+                        Text(
+                            text = name.trim().ifBlank { stringResource(R.string.assistant_unnamed) },
+                            style = MiuixTheme.textStyles.title3,
+                        )
+                    }
                 }
             }
         }
         item(key = "identity_title") {
-            SmallTitle(stringResource(R.string.assistant_identity))
+            EtaSectionTitle(text = stringResource(R.string.assistant_identity))
         }
         item(key = "identity") {
-            Card(
+            EtaCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp)
                     .padding(bottom = 12.dp),
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    TextField(
+                    AssistantField(
                         value = name,
                         onValueChange = { name = it },
                         label = stringResource(R.string.assistant_name),
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
                     )
                 }
             }
         }
         item(key = "prompt_title") {
-            SmallTitle(stringResource(R.string.assistant_prompt_title))
+            EtaSectionTitle(text = stringResource(R.string.assistant_prompt_title))
         }
         item(key = "prompt") {
-            Card(
+            EtaCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp)
                     .padding(bottom = 12.dp),
             ) {
-                TextField(
+                AssistantField(
                     value = prompt,
                     onValueChange = { prompt = it },
                     label = "",
                     modifier = Modifier
-                        .fillMaxWidth()
                         .padding(16.dp)
                         .height(240.dp),
                     singleLine = false,
@@ -240,16 +273,16 @@ internal fun AssistantEditScreen(
             }
         }
         item(key = "memory_title") {
-            SmallTitle(stringResource(R.string.ui_memory_b55ff5))
+            EtaSectionTitle(text = stringResource(R.string.ui_memory_b55ff5))
         }
         item(key = "memory") {
-            Card(
+            EtaCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp)
                     .padding(bottom = 12.dp),
             ) {
-                SwitchPreference(
+                EtaSwitchRow(
                     title = stringResource(R.string.ui_enable_memory_4b69b7),
                     summary = stringResource(R.string.assistant_memory_summary),
                     checked = memoryEnabled,
@@ -257,9 +290,10 @@ internal fun AssistantEditScreen(
                         memoryEnabled = it
                         persistAssistantToggles(nextMemory = it)
                     },
+                    enabled = !saving,
                 )
                 Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                    TextField(
+                    AssistantField(
                         value = memoryDraft,
                         onValueChange = { memoryDraft = it },
                         label = "MEMORY.md",
@@ -267,43 +301,67 @@ internal fun AssistantEditScreen(
                         singleLine = false,
                         minLines = 6,
                         maxLines = 12,
-                        textStyle = MiuixTheme.textStyles.body2.copy(fontFamily = FontFamily.Monospace),
-                        modifier = Modifier.fillMaxWidth(),
+                        monospace = true,
                     )
                     if (memoryOverLimit) {
-                        Text(
-                            text = stringResource(R.string.memory_over_limit),
-                            color = MiuixTheme.colorScheme.error,
-                            style = MiuixTheme.textStyles.footnote1,
-                            modifier = Modifier.padding(top = 8.dp),
-                        )
+                        if (isMaterial3Theme()) {
+                            M3Text(
+                                text = stringResource(R.string.memory_over_limit),
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(top = 8.dp),
+                            )
+                        } else {
+                            Text(
+                                text = stringResource(R.string.memory_over_limit),
+                                color = MiuixTheme.colorScheme.error,
+                                style = MiuixTheme.textStyles.footnote1,
+                                modifier = Modifier.padding(top = 8.dp),
+                            )
+                        }
                     }
                 }
             }
         }
         item(key = "skills_title") {
-            SmallTitle(stringResource(R.string.route_skills))
+            EtaSectionTitle(text = stringResource(R.string.route_skills))
         }
         item(key = "skills") {
-            Card(
+            EtaCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp)
                     .padding(bottom = 12.dp),
             ) {
-                Text(
-                    text = stringResource(R.string.assistant_skills_summary),
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                )
-                if (installedSkills.isEmpty()) {
-                    Text(
-                        text = stringResource(R.string.ui_no_skills_installed_yet_4e960f),
-                        style = MiuixTheme.textStyles.body2,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                if (isMaterial3Theme()) {
+                    M3Text(
+                        text = stringResource(R.string.assistant_skills_summary),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                     )
+                } else {
+                    Text(
+                        text = stringResource(R.string.assistant_skills_summary),
+                        style = MiuixTheme.textStyles.body2,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    )
+                }
+                if (installedSkills.isEmpty()) {
+                    if (isMaterial3Theme()) {
+                        M3Text(
+                            text = stringResource(R.string.ui_no_skills_installed_yet_4e960f),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        )
+                    } else {
+                        Text(
+                            text = stringResource(R.string.ui_no_skills_installed_yet_4e960f),
+                            style = MiuixTheme.textStyles.body2,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        )
+                    }
                 } else {
                     installedSkills.forEach { skill ->
                         SkillSwitchRow(
@@ -340,6 +398,65 @@ internal fun AssistantEditScreen(
                     if (cropped !== bitmap) cropped.recycle()
                     bitmap.recycle()
                 }
+            },
+        )
+    }
+}
+
+/**
+ * 助手表单输入框。
+ *
+ * Material 3 走官方 [OutlinedTextField]（形状、配色、指示器全部使用官方默认值）；
+ * MIUI X 保持原有 [TextField]。
+ */
+@Composable
+private fun AssistantField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    singleLine: Boolean = true,
+    useLabelAsPlaceholder: Boolean = false,
+    minLines: Int = 1,
+    maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
+    monospace: Boolean = false,
+) {
+    if (isMaterial3Theme()) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = modifier.fillMaxWidth(),
+            singleLine = singleLine,
+            minLines = minLines,
+            maxLines = maxLines,
+            textStyle = if (monospace) {
+                MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace)
+            } else {
+                MaterialTheme.typography.bodyLarge
+            },
+            label = if (useLabelAsPlaceholder) null else {
+                { M3Text(text = label) }
+            },
+            placeholder = if (useLabelAsPlaceholder) {
+                { M3Text(text = label) }
+            } else {
+                null
+            },
+        )
+    } else {
+        TextField(
+            value = value,
+            onValueChange = onValueChange,
+            label = label,
+            modifier = modifier.fillMaxWidth(),
+            singleLine = singleLine,
+            useLabelAsPlaceholder = useLabelAsPlaceholder,
+            minLines = minLines,
+            maxLines = maxLines,
+            textStyle = if (monospace) {
+                MiuixTheme.textStyles.body2.copy(fontFamily = FontFamily.Monospace)
+            } else {
+                MiuixTheme.textStyles.body1
             },
         )
     }

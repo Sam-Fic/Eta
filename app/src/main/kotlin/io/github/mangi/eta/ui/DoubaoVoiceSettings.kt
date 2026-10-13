@@ -1,5 +1,6 @@
 package io.github.mangi.eta.ui
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -182,7 +183,7 @@ internal fun DoubaoVoiceSettings(page: String, onBack: () -> Unit) {
                                 }
                                 if (!config.cloudAsr) Text("无需账户。上一页下载语音包后，即可离线识别。")
                                 if (config.cloudAsr) {
-                                    Text("连接豆包账户", style = MaterialTheme.typography.titleSmall)
+                                    Text("连接豆包账户", style = MiuixTheme.textStyles.subtitle)
                                     Text("识别音频会发送到豆包；与朗读、实时对话分别配置。")
                                     VoiceTextField(asrKey, { asrKey = it }, label = "ASR API Key", visualTransformation = PasswordVisualTransformation(), singleLine = true, modifier = Modifier.fillMaxWidth())
                                     VoiceAction(text = if (advanced) "收起高级设置" else "高级：更换识别服务", onClick = { advanced = !advanced })
@@ -196,7 +197,7 @@ internal fun DoubaoVoiceSettings(page: String, onBack: () -> Unit) {
                                                     "volc.seedasr.sauc.concurrent" -> "识别 2.0 · 按并发"
                                                     "volc.bigasr.sauc.duration" -> "识别 1.0 · 按时长"
                                                     else -> "识别 1.0 · 按并发"
-                                                }, modifier = Modifier.padding(top = 12.dp), style = MaterialTheme.typography.bodyMedium)
+                                                }, modifier = Modifier.padding(top = 12.dp), style = MiuixTheme.textStyles.body2)
                                             }
                                         }
                                     }
@@ -206,11 +207,11 @@ internal fun DoubaoVoiceSettings(page: String, onBack: () -> Unit) {
                             }
                             if (page == "voices") {
                                 if (mode == "create") {
-                                    Text("${step + 1} / 3 · " + listOf("选择名额", "选择录音", "确认制作")[step], style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                                    Text("${step + 1} / 3 · " + listOf("选择名额", "选择录音", "确认制作")[step], style = MiuixTheme.textStyles.body2, color = MaterialTheme.colorScheme.primary)
                                     LinearProgressIndicator(progress = { (step + 1) / 3f }, modifier = Modifier.fillMaxWidth())
                                 }
                                 if (mode != null && step == 0) {
-                                    Text(if (mode == "import") "选择已有声音或填写音色 ID，仅查询导入，不会重新训练。" else "选择一个已有名额，免费赠送的也可以使用。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(if (mode == "import") "选择已有声音或填写音色 ID，仅查询导入，不会重新训练。" else "选择一个已有名额，免费赠送的也可以使用。", style = MiuixTheme.textStyles.body2, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     VoiceTextField(name, { name = it.take(80) }, enabled = !busy, label = if (mode == "import") "备注名称（可不填）" else "声音名称", singleLine = true, modifier = Modifier.fillMaxWidth())
                                     if (mode == "create") {
                                         VoiceAction(text = "高级：新建后付费音色", onClick = { advanced = !advanced })
@@ -218,7 +219,7 @@ internal fun DoubaoVoiceSettings(page: String, onBack: () -> Unit) {
                                             listOf(false to "已有/免费名额", true to "新建后付费音色").forEach { (value, label) ->
                                                 ListItem(
                                                     modifier = Modifier.selectable(selected = postpaid == value, role = Role.RadioButton, onClick = { TouchHaptics.click(view); postpaid = value; consent = false }),
-                                                    headlineContent = { Text(label) },
+                                                    content = { Text(label) },
                                                     leadingContent = { RadioButton(selected = postpaid == value, onClick = null) },
                                                 )
                                             }
@@ -227,7 +228,7 @@ internal fun DoubaoVoiceSettings(page: String, onBack: () -> Unit) {
                                     if (!postpaid || mode == "import") {
                                         val slots = voices.filter { it.account == PersonalVoices.account(config.cloneKey) && it.id.startsWith("S_") && (mode == "create" || it.showInMyVoices) }
                                             .sortedWith(compareByDescending<PersonalVoices.Voice> { it.unused }.thenBy { it.name })
-                                        Text(if (mode == "create") "选择一个音色名额" else "选择已制作的声音", style = MaterialTheme.typography.titleSmall)
+                                        Text(if (mode == "create") "选择一个音色名额" else "选择已制作的声音", style = MiuixTheme.textStyles.subtitle)
                                         if (slots.isEmpty()) {
                                             Text("还没有同步名额，不代表你的免费名额用完了。")
                                             Text("可以连接火山账户读取名额，也可以从控制台复制一次音色 ID。")
@@ -250,7 +251,7 @@ internal fun DoubaoVoiceSettings(page: String, onBack: () -> Unit) {
                                             VoiceConsoleHelp(showKeyHelp = false)
                                             VoiceTextField(slotId, { slotId = it.trim(); consent = false }, enabled = !busy, label = "粘贴复制的音色 ID", singleLine = true, modifier = Modifier.fillMaxWidth())
                                         }
-                                        if (slotId.isNotBlank()) Text(if (mode == "import") "已选择声音，点击导入即可。" else "已选择音色名额。下一步选择录音，不会立即上传。", style = MaterialTheme.typography.bodyMedium)
+                                        if (slotId.isNotBlank()) Text(if (mode == "import") "已选择声音，点击导入即可。" else "已选择音色名额。下一步选择录音，不会立即上传。", style = MiuixTheme.textStyles.body2)
                                     } else Text("需额外开通同项目的后付费音色服务；仅开通声音复刻 2.0 不足以创建自定义 ID。首次正式合成可能收取音色费用；未正式使用的音色 7 天后可能删除。")
                                     if (mode == "import") {
                                         VoiceAction(text = if (busy) "正在查询…" else "导入声音", primary = true, enabled = !busy && !importBusy && slotId.matches(Regex("S_[A-Za-z0-9_-]+")), onClick = {
@@ -262,7 +263,7 @@ internal fun DoubaoVoiceSettings(page: String, onBack: () -> Unit) {
                                             }
                                         })
                                     } else VoiceAction(text = "下一步：选择录音", primary = true, enabled = !importBusy && name.isNotBlank() && (postpaid || (slotId.matches(Regex("S_[A-Za-z0-9_-]+")) && (PersonalVoices.find(slotId, config.cloneKey)?.canTrain != false))), onClick = { step = 1; notice = "" })
-                                    if (slotId.isBlank() && !postpaid) Text("先选择上面的名额；没有列表时，点“查找我的音色名额”。", style = MaterialTheme.typography.bodyMedium)
+                                    if (slotId.isBlank() && !postpaid) Text("先选择上面的名额；没有列表时，点“查找我的音色名额”。", style = MiuixTheme.textStyles.body2)
                                 }
                                 if (mode == "create" && step == 1) {
                                     Text("选择清晰的单人录音，尽量没有音乐和噪声。支持 WAV、MP3、OGG、M4A、AAC，不超过 10 MiB。")
@@ -297,8 +298,8 @@ internal fun DoubaoVoiceSettings(page: String, onBack: () -> Unit) {
                                     if (myVoices.isEmpty()) {
                                         Column(Modifier.fillMaxWidth().padding(vertical = 48.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                             Icon(Icons.Rounded.Mic, contentDescription = null, modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                            Text("还没有声音", style = MaterialTheme.typography.titleMedium)
-                                            Text(if (config.cloneKey.isBlank()) "先配置账户，再添加自己的声音。" else "点击右下角 +，制作或导入声音。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text("还没有声音", style = MiuixTheme.textStyles.headline2)
+                                            Text(if (config.cloneKey.isBlank()) "先配置账户，再添加自己的声音。" else "点击右下角 +，制作或导入声音。", style = MiuixTheme.textStyles.body2, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                             if (config.cloneKey.isBlank()) VoiceAction(text = "配置账户", onClick = { showAccount = true })
                                         }
                                     }
@@ -321,7 +322,7 @@ internal fun DoubaoVoiceSettings(page: String, onBack: () -> Unit) {
                                 }
                             }
                         }
-                        if (notice.isNotBlank()) Text(notice, style = MaterialTheme.typography.bodyMedium)
+                        if (notice.isNotBlank()) Text(notice, style = MiuixTheme.textStyles.body2)
                     }
                 }
             }
@@ -335,7 +336,7 @@ private fun VoiceConsoleHelp(showKeyHelp: Boolean = true) {
     VoiceAction(text = "打开豆包控制台", onClick = {
         context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://console.volcengine.com/speech/new/overview?projectName=default")))
     })
-    if (showKeyHelp) Text("获取 Key：控制台 → API Key。获取音色 ID：控制台 → 音色库。二者需属于同一项目。", style = MaterialTheme.typography.bodyMedium)
+    if (showKeyHelp) Text("获取 Key：控制台 → API Key。获取音色 ID：控制台 → 音色库。二者需属于同一项目。", style = MiuixTheme.textStyles.body2)
 }
 
 @Composable
@@ -359,11 +360,11 @@ private fun VoiceSlotSync(apiKey: String, onBusy: (Boolean) -> Unit, onResult: (
     var busy by remember { mutableStateOf(false) }
     DisposableEffect(Unit) { onDispose { onBusy(false) } }
     val working = busy || projectLoading
-    Text("使用火山访问密钥读取音色名额，不会购买或训练。AK / SK 与豆包 API Key 不同。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text("使用火山访问密钥读取音色名额，不会购买或训练。AK / SK 与豆包 API Key 不同。", style = MiuixTheme.textStyles.body2, color = MaterialTheme.colorScheme.onSurfaceVariant)
     VoiceAction(text = "打开火山访问密钥管理", onClick = {
         context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://console.volcengine.com/iam/keymanage/")))
     })
-    Text("在密钥管理中复制 AK 和 SK，分别填写。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text("在密钥管理中复制 AK 和 SK，分别填写。", style = MiuixTheme.textStyles.footnote1, color = MaterialTheme.colorScheme.onSurfaceVariant)
     VoiceTextField(ak, {
         if (it.trim() != ak.trim()) {
             runCatching { secretStore.clear() }.onFailure { storageError = "旧 SK 清除失败，请重试" }
@@ -379,7 +380,7 @@ private fun VoiceSlotSync(apiKey: String, onBusy: (Boolean) -> Unit, onResult: (
         storageError = runCatching { secretStore.save(ak, it) }.fold({ "" }, { "SK 加密保存失败；本次仍可读取名额，离开页面后需重新填写。" })
     }, label = "Secret Access Key（SK）", enabled = !working,
         visualTransformation = PasswordVisualTransformation(), singleLine = true, modifier = Modifier.fillMaxWidth())
-    Text("当前项目：${project.ifBlank { "未选择" }}", style = MaterialTheme.typography.bodyLarge)
+    Text("当前项目：${project.ifBlank { "未选择" }}", style = MiuixTheme.textStyles.body1)
     VoiceAction(text = if (projectLoading) "正在获取项目…" else if (projectsLoaded) "刷新项目列表" else "获取项目列表",
         enabled = !working && ak.isNotBlank() && sk.isNotBlank(), onClick = {
             projectLoading = true; onBusy(true); projectError = ""
@@ -405,7 +406,7 @@ private fun VoiceSlotSync(apiKey: String, onBusy: (Boolean) -> Unit, onResult: (
         })
     if (projects.isNotEmpty()) VoiceAction(text = "选择项目", enabled = !working, onClick = { projectPicker = true })
     if (projectError.isNotBlank()) Text(projectError, color = MaterialTheme.colorScheme.error)
-    Text("请选择与声音复刻 API Key 对应的项目；项目列表不能判断 Key 属于哪个项目。", style = MaterialTheme.typography.bodySmall,
+    Text("请选择与声音复刻 API Key 对应的项目；项目列表不能判断 Key 属于哪个项目。", style = MiuixTheme.textStyles.footnote1,
         color = MaterialTheme.colorScheme.onSurfaceVariant)
     VoiceAction(text = if (projectOptions) "收起手动填写" else "手动填写项目（备用）", enabled = !working,
         onClick = { projectOptions = !projectOptions })
@@ -428,10 +429,10 @@ private fun VoiceSlotSync(apiKey: String, onBusy: (Boolean) -> Unit, onResult: (
                         }).padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(selected = project == item.name, enabled = item.allowed && !working, onClick = null)
                         Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                            Text(item.displayName, style = MaterialTheme.typography.bodyLarge,
+                            Text(item.displayName, style = MiuixTheme.textStyles.body1,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (item.allowed) 1f else 0.38f))
-                            if (item.displayName != item.name) Text(item.name, style = MaterialTheme.typography.bodySmall)
-                            if (!item.allowed) Text("无此项目访问权限", style = MaterialTheme.typography.bodySmall,
+                            if (item.displayName != item.name) Text(item.name, style = MiuixTheme.textStyles.footnote1)
+                            if (!item.allowed) Text("无此项目访问权限", style = MiuixTheme.textStyles.footnote1,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
@@ -456,7 +457,7 @@ private fun VoiceSlotSync(apiKey: String, onBusy: (Boolean) -> Unit, onResult: (
     })
     if (resultText.isNotBlank()) Text(resultText, color = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
     if (storageError.isNotBlank()) Text(storageError, color = MaterialTheme.colorScheme.error)
-    Text("SK 在本机加密保存。更换 AK 会清除旧 SK，请使用配对的密钥。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text("SK 在本机加密保存。更换 AK 会清除旧 SK，请使用配对的密钥。", style = MiuixTheme.textStyles.footnote1, color = MaterialTheme.colorScheme.onSurfaceVariant)
     VoiceAction(text = "清除已记住的信息", enabled = !working, onClick = {
         runCatching { secretStore.clear() }.onSuccess {
             VoiceCatalogPreferences.clear(context); ak = ""; project = "default"; sk = ""; storageError = ""
@@ -482,7 +483,7 @@ private fun PersonalVoiceRow(
     var showError by remember { mutableStateOf(false) }
     Column {
         ListItem(
-            headlineContent = { Text(voice.name, style = MaterialTheme.typography.bodyLarge) },
+            content = { Text(voice.name, style = MiuixTheme.textStyles.body1) },
             supportingContent = { Text(if (previewLoading) "正在加载试听…" else if (previewActive) "正在试听" else when (voice.status) {
                 -2 -> "请求被拒绝"; 0 -> "服务端未找到"; 1 -> "训练中"; 2 -> "训练成功"; 3 -> "训练失败"; 4 -> "已正式使用"; else -> "请求待确认"
             }) },
@@ -536,7 +537,7 @@ private fun VoiceSlotRow(
     val quota = if (slot.remaining >= 0) "剩余 ${slot.remaining} 次" else "次数待查询"
     ListItem(
         modifier = Modifier.selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = { TouchHaptics.click(view); onClick() }),
-        headlineContent = { Text(title) },
+        content = { Text(title) },
         supportingContent = { Text("$status · $quota") },
         leadingContent = { RadioButton(selected = selected, enabled = enabled, onClick = null) },
         colors = ListItemDefaults.colors(

@@ -24,7 +24,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
-import io.github.mangi.eta.ui.components.MiuixDialogActions
+import io.github.mangi.eta.ui.adaptive.EtaDialog
+import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.components.MiuixScaffold
 import io.github.mangi.eta.ui.layout.horizontalCutoutPadding
 import io.github.mangi.eta.ui.model.AgentMemoryAction
@@ -40,7 +42,8 @@ import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
-import top.yukonga.miuix.kmp.window.WindowDialog
+import androidx.compose.material3.Text as M3Text
+import androidx.compose.material3.TextButton as M3TextButton
 import java.text.NumberFormat
 
 @Composable
@@ -176,13 +179,13 @@ internal fun AgentMemoryScreen(
     }
 
     if (showClearDialog) {
-        WindowDialog(
+        EtaDialog(
             show = true,
             title = stringResource(R.string.ui_clear_all_memory_a43bd3),
             summary = stringResource(R.string.ui_the_entire_contents_of_memory_md_will_be_deleted_and_83a8ac),
             onDismissRequest = { showClearDialog = false },
         ) {
-            MiuixDialogActions(
+            EtaDialogActions(
                 confirmText = stringResource(R.string.memory_clear),
                 destructive = true,
                 confirmEnabled = !state.isSaving,
@@ -196,17 +199,27 @@ internal fun AgentMemoryScreen(
     }
 
     state.notice?.let { notice ->
-        WindowDialog(
+        EtaDialog(
             show = true,
             title = stringResource(R.string.ui_memory_b55ff5),
             summary = notice,
             onDismissRequest = { onAction(AgentMemoryAction.DismissNotice) },
         ) {
-            TextButton(
-                text = stringResource(R.string.ui_knew_cb63c6),
-                onClick = { onAction(AgentMemoryAction.DismissNotice) },
-                modifier = Modifier.fillMaxWidth(),
-            )
+            if (isMaterial3Theme()) {
+                // 官方文字按钮：形状、行高与配色均取官方默认值。
+                M3TextButton(
+                    onClick = { onAction(AgentMemoryAction.DismissNotice) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    M3Text(text = stringResource(R.string.ui_knew_cb63c6))
+                }
+            } else {
+                TextButton(
+                    text = stringResource(R.string.ui_knew_cb63c6),
+                    onClick = { onAction(AgentMemoryAction.DismissNotice) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
     }
 }

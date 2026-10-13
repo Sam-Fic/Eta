@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CallSplit
+import androidx.compose.material.icons.automirrored.rounded.CallSplit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -43,7 +43,7 @@ internal fun SubAgentParallelLimitRow(profile: SubAgentProfile, config: AgentMod
             limit == 0 -> "不限"
             limit != null -> limit.toString()
             else -> "模型不可用"
-        }, Icons.Rounded.CallSplit, "设置${profile.name}并行上限", enabled = usable,
+        }, Icons.AutoMirrored.Rounded.CallSplit, "设置${profile.name}并行上限", enabled = usable,
             onClick = {
                 if (currentUsable && config != null && limit != null) {
                     TouchHaptics.click(view)

@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -19,12 +20,17 @@ import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.AssistantProfile
 import io.github.mangi.eta.data.repository.AssistantRepository
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
-import io.github.mangi.eta.ui.components.MiuixScaffoldPage
+import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.navigation.AppRoute
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import top.yukonga.miuix.kmp.basic.Icon
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton as M3IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text as M3Text
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.Text
@@ -53,35 +59,40 @@ internal fun AssistantsScreen(
         }
     }
 
-    MiuixScaffoldPage(
+    EtaScaffoldPage(
         title = stringResource(R.string.assistant_list_title),
         onBack = onBack,
         actions = {
-            IconButton(
-                onClick = {
-                    scope.launch {
-                        val created = withContext(Dispatchers.IO) {
-                            AssistantRepository.create()
-                        }
-                        onNavigate(AppRoute.AssistantEdit(created.id))
+            val onAdd = {
+                scope.launch {
+                    val created = withContext(Dispatchers.IO) {
+                        AssistantRepository.create()
                     }
-                },
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Add,
-                    contentDescription = stringResource(R.string.assistant_add),
-                )
+                    onNavigate(AppRoute.AssistantEdit(created.id))
+                }
+            }
+            if (isMaterial3Theme()) {
+                M3IconButton(onClick = { onAdd() }) {
+                    Icon(
+                        imageVector = Icons.Rounded.Add,
+                        contentDescription = stringResource(R.string.assistant_add),
+                    )
+                }
+            } else {
+                IconButton(onClick = { onAdd() }) {
+                    Icon(
+                        imageVector = Icons.Rounded.Add,
+                        contentDescription = stringResource(R.string.assistant_add),
+                    )
+                }
             }
         },
     ) {
         item(key = "search") {
-            InputField(
+            AssistantSearchField(
                 query = searchQuery,
                 onQueryChange = { searchQuery = it },
-                onSearch = {},
-                expanded = false,
-                onExpandedChange = {},
-                label = stringResource(R.string.assistant_search),
+                placeholder = stringResource(R.string.assistant_search),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp)
@@ -114,18 +125,26 @@ internal fun AssistantsScreen(
                     onLongClick = { actionProfile = profile },
                     modifier = Modifier
                         .padding(horizontal = 12.dp)
-                        .padding(bottom = 10.dp),
+                        .padding(bottom = 8.dp),
                 )
             }
         }
         if (filtered.isEmpty()) {
             item(key = "empty") {
-                Text(
-                    text = stringResource(R.string.assistant_empty),
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
-                )
+                if (isMaterial3Theme()) {
+                    M3Text(
+                        text = stringResource(R.string.assistant_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                    )
+                } else {
+                    Text(
+                        text = stringResource(R.string.assistant_empty),
+                        style = MiuixTheme.textStyles.body2,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                    )
+                }
             }
         }
     }
@@ -173,3 +192,35 @@ internal fun AssistantsScreen(
     }
 }
 
+/**
+ * 助手搜索框：M3 用官方 [OutlinedTextField]（只加搜索图标，形状/配色走官方默认），
+ * MIUI X 保持原有 [InputField]。
+ */
+@Composable
+internal fun AssistantSearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+) {
+    if (isMaterial3Theme()) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            modifier = modifier.fillMaxWidth(),
+            singleLine = true,
+            placeholder = { M3Text(text = placeholder) },
+            leadingIcon = { Icon(imageVector = Icons.Rounded.Search, contentDescription = null) },
+        )
+    } else {
+        InputField(
+            query = query,
+            onQueryChange = onQueryChange,
+            onSearch = {},
+            expanded = false,
+            onExpandedChange = {},
+            label = placeholder,
+            modifier = modifier.fillMaxWidth(),
+        )
+    }
+}

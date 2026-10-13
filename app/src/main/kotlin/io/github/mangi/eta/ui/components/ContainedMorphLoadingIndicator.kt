@@ -13,6 +13,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.ContainedLoadingIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -28,6 +31,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -40,14 +44,35 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
  * Material 3 ContainedLoadingIndicator 的同款动画：圆底里一块形状在变形、旋转。
  * RikkaHub 关闭「APP 图标风格」后用的就是这个。
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun ContainedMorphLoadingIndicator(
     modifier: Modifier = Modifier,
     indicatorSize: Dp = 28.dp,
     animate: Boolean = true,
-    containerColor: Color = MiuixTheme.colorScheme.primaryContainer,
-    indicatorColor: Color = MiuixTheme.colorScheme.onPrimaryContainer,
+    containerColor: Color = if (isMaterial3Theme()) {
+        MaterialTheme.colorScheme.primaryContainer
+    } else {
+        MiuixTheme.colorScheme.primaryContainer
+    },
+    indicatorColor: Color = if (isMaterial3Theme()) {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    } else {
+        MiuixTheme.colorScheme.onPrimaryContainer
+    },
 ) {
+    // Material 3 Expressive 主题下使用官方 ContainedLoadingIndicator（表达性形变动画）。
+    // 停止态（animate=false）表示「待机」，官方组件没有静态形态，继续用本地实现画出静止圆。
+    if (animate && isMaterial3Theme()) {
+        ContainedLoadingIndicator(
+            modifier = modifier.size(indicatorSize),
+            containerColor = containerColor,
+            indicatorColor = indicatorColor,
+            containerShape = CircleShape,
+        )
+        return
+    }
+
     val activityBlend = remember { Animatable(if (animate) 1f else 0f) }
     val morphProgress = remember { Animatable(0f) }
     val globalRotation = remember { Animatable(0f) }

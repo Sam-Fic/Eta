@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import io.github.mangi.eta.ui.components.EtaFormTextField
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -20,13 +19,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.voice.doubao.DoubaoVoiceConfig
-import io.github.mangi.eta.ui.components.SwitchPreference
+import io.github.mangi.eta.ui.adaptive.EtaCard
+import io.github.mangi.eta.ui.adaptive.EtaClickableRow
+import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
 import io.github.mangi.eta.agent.voice.VoiceModeController
 import io.github.mangi.eta.data.model.SpeechSynthesisModels
 import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.data.repository.ProviderRepository
-import top.yukonga.miuix.kmp.basic.Card
-import io.github.mangi.eta.ui.components.ArrowPreference
 
 @Composable
 internal fun VoiceModeSettingsScreen(onBack: () -> Unit) {
@@ -68,26 +67,26 @@ internal fun VoiceModeSettingsScreen(onBack: () -> Unit) {
 
     VoiceSettingsSectionPage(title = stringResource(R.string.voice_section_realtime), onBack = onBack) {
         item(key = "doubao") {
-            Card(Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
-                SwitchPreference(
+            EtaCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                EtaSwitchRow(
                     title = stringResource(R.string.voice_mode_doubao_enable),
                     checked = config.duplexEnabled,
                     onCheckedChange = { DoubaoVoiceConfig.save(context, config.copy(duplexEnabled = it)) },
-                    insideMargin = PaddingValues(16.dp),
+                    contentPadding = PaddingValues(16.dp),
                 )
-                ArrowPreference(
+                EtaClickableRow(
                     title = stringResource(R.string.voice_mode_doubao_provider),
                     summary = provider?.name ?: stringResource(R.string.voice_mode_doubao_provider_missing),
-                    insideMargin = PaddingValues(16.dp),
+                    contentPadding = PaddingValues(16.dp),
                     onClick = { providerPicker = true },
                 )
-                ArrowPreference(
+                EtaClickableRow(
                     title = stringResource(R.string.realtime_choose_voice),
                     summary = availableVoices.firstOrNull { it.id == voice }?.name
                         ?: stringResource(R.string.realtime_choose_voice),
                     onClick = { voicePicker = true },
                 )
-                ArrowPreference(
+                EtaClickableRow(
                     title = stringResource(if (refreshing) R.string.realtime_refreshing else R.string.realtime_refresh_voices),
                     summary = stringResource(when (catalogStatus) {
                         1 -> R.string.realtime_catalog_updated
@@ -114,7 +113,7 @@ internal fun VoiceModeSettingsScreen(onBack: () -> Unit) {
                     hint = stringResource(R.string.voice_mode_doubao_instructions),
                     minLines = 2,
                     maxLines = 5,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 )
             }
         }

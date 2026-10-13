@@ -17,9 +17,9 @@ import java.util.zip.*;
 
 @CacheableTransform
 public abstract class ComposeSemanticsAarTransform implements TransformAction<TransformParameters.None>, Opcodes {
-    public static final String VERSION = "1.12.0-rc01";
-    public static final String AAR_SHA = "99cfa4aba67d40b85af610f773142ef4567221c726741fa680822c3be0daff7c";
-    public static final String JAR_SHA = "5ebbd3d09bdb44d8681fc2287191a60930905bdea363fa2787318800c8260375";
+    public static final String VERSION = "1.13.0-alpha01";
+    public static final String AAR_SHA = "dae61a0ce78b646d112c94ca2163392a5830154b9125433ff0809f71e2ed2fb4";
+    public static final String JAR_SHA = "2a4e13582e201f7d52d20c6b268ecd3a90545d516ea57dba843e9662cdbf7340";
     private static final String P = "androidx/compose/ui/semantics/";
     private static final String SORT = P + "SemanticsSortKt", NODE = P + "SemanticsNode";
     private static final String RECT = "androidx/compose/ui/geometry/Rect", CACHE = P + "EtaSemanticsBoundsCache";
@@ -27,8 +27,8 @@ public abstract class ComposeSemanticsAarTransform implements TransformAction<Tr
     private static final String DESC = "(L" + NODE + ";Ljava/util/List;Lkotlin/jvm/functions/Function1;Landroidx/collection/IntObjectMap;)Ljava/util/List;";
     private static final String BODY = "eta$sortByGeometryGroupings$body", BOUNDS = "eta$boundsInWindow";
     public static final String MARKER = "META-INF/eta-compose-semantics-cache.properties";
-    private static final byte[] MARK = ("scheme=3\nversion=" + VERSION + "\noriginalAarSha256=" + AAR_SHA
-            + "\noriginalClassesSha256=" + JAR_SHA + "\nreplacedGetterSites=7\ntransparencyWriteSites=5\nvisibleFocusSites=1\n").getBytes(StandardCharsets.UTF_8);
+    private static final byte[] MARK = ("scheme=4\nversion=" + VERSION + "\noriginalAarSha256=" + AAR_SHA
+            + "\noriginalClassesSha256=" + JAR_SHA + "\nreplacedGetterSites=7\ntransparencyWriteSites=5\nvisibleFocusSites=0\n").getBytes(StandardCharsets.UTF_8);
 
     @InputArtifact @PathSensitive(PathSensitivity.NONE)
     public abstract Provider<FileSystemLocation> getInputArtifact();
@@ -181,8 +181,9 @@ public abstract class ComposeSemanticsAarTransform implements TransformAction<Tr
     }
     private static void requireHash(byte[] bytes, String expected) {
         try {
-            if (!HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)).equals(expected))
-                throw new GradleException("Official Compose artifact changed; patch needs review");
+            String actual = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+            if (!actual.equals(expected))
+                throw new GradleException("Official Compose artifact changed; patch needs review: expected=" + expected + " actual=" + actual);
         } catch (java.security.NoSuchAlgorithmException e) { throw new AssertionError(e); }
     }
     private static byte[] required(Map<String, byte[]> entries, String name) {

@@ -5,15 +5,13 @@ import android.content.ContextWrapper
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
-import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -22,6 +20,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -35,16 +34,17 @@ import io.github.mangi.eta.data.model.ProviderSetting
 import io.github.mangi.eta.data.repository.ProviderBalanceFetcher
 import io.github.mangi.eta.data.repository.ProviderBalanceState
 import io.github.mangi.eta.data.repository.formatBalanceDisplay
-import io.github.mangi.eta.ui.icons.MoneyBag02
+import io.github.mangi.eta.ui.adaptive.EtaSwitch
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.DropdownItem
-import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.Switch as MiuixSwitch
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.preference.WindowSpinnerPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text as M3Text
 
 /**
  * 从 UI 触发的余额刷新需要一个长生命周期协程作用域：composition 随页面销毁会取消在途请求。
@@ -83,35 +83,50 @@ internal fun ProviderBalanceOptionFields(
     val resolved = balanceOption.copy(enabled = locallyEnabled || balanceOption.enabled).resolved()
     val isNewApi = resolved.preset == BalanceOption.PRESET_NEW_API
     val switchOn = locallyEnabled || balanceOption.enabled
+    val onSwitchChange: (Boolean) -> Unit = { value ->
+        locallyEnabled = value
+        onBalanceOptionChange(balanceOption.copy(enabled = value))
+        if (value) expanded = true
+    }
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        BasicComponent(
-            title = stringResource(R.string.ui_balance_info_title),
-            summary = stringResource(R.string.ui_balance_info_summary),
-            onClick = { expanded = !expanded },
-            endActions = {
-                androidx.compose.material3.Switch(
-                    checked = switchOn,
-                    onCheckedChange = {
-                        locallyEnabled = it
-                        onBalanceOptionChange(balanceOption.copy(enabled = it))
-                        if (it) expanded = true
-                    }
-                )
-            }
-        )
+        val headerTitle = stringResource(R.string.ui_balance_info_title)
+        val headerSummary = stringResource(R.string.ui_balance_info_summary)
+        if (isMaterial3Theme()) {
+            // M3：官方可点击 ListItem 承担展开/收起，开关使用 Expressive 勾选样式。
+            ListItem(
+                onClick = { expanded = !expanded },
+                modifier = Modifier.fillMaxWidth(),
+                content = { M3Text(text = headerTitle, style = MaterialTheme.typography.bodyLarge) },
+                supportingContent = {
+                    M3Text(
+                        text = headerSummary,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
+                trailingContent = {
+                    EtaSwitch(checked = switchOn, onCheckedChange = onSwitchChange)
+                },
+            )
+        } else {
+            BasicComponent(
+                title = headerTitle,
+                summary = headerSummary,
+                onClick = { expanded = !expanded },
+                endActions = {
+                    MiuixSwitch(
+                        checked = switchOn,
+                        onCheckedChange = onSwitchChange,
+                    )
+                },
+            )
+        }
 
         AnimatedVisibility(visible = expanded) {
             Column {
                 val presetIndex = BalancePresets.indexOf(resolved.preset).coerceAtLeast(0)
-                WindowSpinnerPreference(
-                    items = listOf(
-                        DropdownItem(text = stringResource(R.string.ui_balance_preset_custom)),
-                        DropdownItem(text = stringResource(R.string.ui_balance_preset_new_api)),
-                        DropdownItem(text = stringResource(R.string.ui_balance_preset_sub2api)),
-                        DropdownItem(text = stringResource(R.string.ui_balance_preset_deepseek)),
-                    ),
-                    selectedIndex = presetIndex,
+                ProviderDropdownRow(
                     title = stringResource(R.string.ui_balance_preset),
                     summary = stringResource(
                         when (BalancePresets[presetIndex]) {
@@ -121,6 +136,13 @@ internal fun ProviderBalanceOptionFields(
                             else -> R.string.ui_balance_preset_custom_summary
                         },
                     ),
+                    items = listOf(
+                        stringResource(R.string.ui_balance_preset_custom),
+                        stringResource(R.string.ui_balance_preset_new_api),
+                        stringResource(R.string.ui_balance_preset_sub2api),
+                        stringResource(R.string.ui_balance_preset_deepseek),
+                    ),
+                    selectedIndex = presetIndex,
                     onSelectedIndexChange = { selectedIndex ->
                         onBalanceOptionChange(
                             BalanceOption.applyPreset(
@@ -132,90 +154,83 @@ internal fun ProviderBalanceOptionFields(
                 )
                 Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
                     if (isNewApi) {
-                        TextField(
+                        ProviderField(
                             value = balanceOption.accessToken,
                             onValueChange = {
                                 onBalanceOptionChange(balanceOption.copy(accessToken = it, enabled = switchOn))
                             },
                             label = stringResource(R.string.ui_balance_access_token),
-                            singleLine = true,
                             visualTransformation = if (accessTokenVisible) {
                                 VisualTransformation.None
                             } else {
                                 PasswordVisualTransformation()
                             },
                             trailingIcon = {
-                                IconButton(onClick = { accessTokenVisible = !accessTokenVisible }) {
-                                    Icon(
-                                        imageVector = if (accessTokenVisible) {
-                                            Icons.Rounded.Visibility
-                                        } else {
-                                            Icons.Rounded.VisibilityOff
-                                        },
-                                        contentDescription = if (accessTokenVisible) {
-                                            context.getString(R.string.page_hide_bb0e7e)
-                                        } else {
-                                            context.getString(R.string.page_show_71b677)
-                                        },
-                                    )
-                                }
+                                ProviderIconAction(
+                                    icon = if (accessTokenVisible) {
+                                        Icons.Rounded.Visibility
+                                    } else {
+                                        Icons.Rounded.VisibilityOff
+                                    },
+                                    contentDescription = if (accessTokenVisible) {
+                                        context.getString(R.string.page_hide_bb0e7e)
+                                    } else {
+                                        context.getString(R.string.page_show_71b677)
+                                    },
+                                    onClick = { accessTokenVisible = !accessTokenVisible },
+                                )
                             },
-                            modifier = Modifier.fillMaxWidth(),
                         )
-                        Text(
+                        BalanceHint(
                             text = stringResource(R.string.ui_balance_access_token_summary),
-                            style = MiuixTheme.textStyles.footnote2,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                            modifier = Modifier.padding(top = 6.dp, bottom = 12.dp),
+                            modifier = Modifier.padding(top = 8.dp, bottom = 12.dp),
                         )
                     } else {
-                        TextField(
+                        ProviderField(
                             value = balanceOption.apiPath,
                             onValueChange = {
                                 onBalanceOptionChange(balanceOption.copy(apiPath = it, enabled = switchOn))
                             },
                             label = stringResource(R.string.ui_balance_api_path),
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        TextField(
+                        ProviderField(
                             value = balanceOption.resultPath,
                             onValueChange = {
                                 onBalanceOptionChange(balanceOption.copy(resultPath = it, enabled = switchOn))
                             },
                             label = stringResource(R.string.ui_balance_result_path),
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.padding(top = 12.dp),
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
                     }
-                    TextButton(
+                    val onTestBalance: () -> Unit = {
+                        val currentProvider = provider
+                        if (currentProvider != null) scope.launch {
+                            isTesting = true
+                            testResult = null
+                            val option = balanceOption.copy(enabled = true).resolved()
+                            testResult = if (option.apiPath.isBlank() || option.resultPath.isBlank()) {
+                                context.getString(R.string.ui_balance_test_missing_fields)
+                            } else {
+                                ProviderBalanceFetcher.fetch(currentProvider, option)
+                                    .fold(
+                                        onSuccess = { formatBalanceDisplay(it) },
+                                        onFailure = { it.message ?: it.toString() },
+                                    )
+                            }
+                            isTesting = false
+                        }
+                    }
+                    ProviderPrimaryAction(
                         text = if (isTesting) {
                             context.getString(R.string.page_testing_f43705)
                         } else {
                             stringResource(R.string.ui_test_balance)
                         },
+                        onClick = onTestBalance,
                         enabled = switchOn && !isTesting && provider != null,
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = {
-                            val currentProvider = provider ?: return@TextButton
-                            scope.launch {
-                                isTesting = true
-                                testResult = null
-                                val option = balanceOption.copy(enabled = true).resolved()
-                                testResult = if (option.apiPath.isBlank() || option.resultPath.isBlank()) {
-                                    context.getString(R.string.ui_balance_test_missing_fields)
-                                } else {
-                                    ProviderBalanceFetcher.fetch(currentProvider, option)
-                                        .fold(
-                                            onSuccess = { formatBalanceDisplay(it) },
-                                            onFailure = { it.message ?: it.toString() },
-                                        )
-                                }
-                                isTesting = false
-                            }
-                        }
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp),
                     )
                     testResult?.let {
                         ProviderBalanceAmount(
@@ -230,29 +245,62 @@ internal fun ProviderBalanceOptionFields(
 }
 
 @Composable
+private fun BalanceHint(text: String, modifier: Modifier = Modifier) {
+    if (isMaterial3Theme()) {
+        M3Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = modifier,
+        )
+    } else {
+        Text(
+            text = text,
+            style = MiuixTheme.textStyles.footnote2,
+            modifier = modifier,
+        )
+    }
+}
+
+@Composable
 internal fun ProviderBalanceAmount(
     amount: String,
     modifier: Modifier = Modifier,
 ) {
+    val contentColor: Color = if (isMaterial3Theme()) {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    } else {
+        MiuixTheme.colorScheme.onSurfaceVariantSummary
+    }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier,
     ) {
         Icon(
-            imageVector = MoneyBag02,
+            imageVector = Icons.Rounded.Savings,
             contentDescription = null,
             modifier = Modifier
                 .padding(end = 4.dp)
                 .size(12.dp),
-            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            tint = contentColor,
         )
-        Text(
-            text = amount,
-            style = MiuixTheme.textStyles.footnote1,
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        if (isMaterial3Theme()) {
+            M3Text(
+                text = amount,
+                style = MaterialTheme.typography.labelSmall,
+                color = contentColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        } else {
+            Text(
+                text = amount,
+                style = MiuixTheme.textStyles.footnote1,
+                color = contentColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
 
@@ -271,10 +319,7 @@ internal fun hasBalanceIndicatorContent(state: ProviderBalanceState?): Boolean =
  * - 只展示最后一次成功金额；刷新继续在后台更新数字，但不再显示刷新中/已刷新等提示。
  * - 金额与图标默认使用主题中性文字色，缓存过期或刷新失败不改变颜色。
  * - 只读：不响应点击，也不弹出余额详情。
- * - [animateChanges] 为 true 时（仅顶部栏），余额变化会播放一次动画：
- *   扣费不足 1 时在金额下方飘出小号差值；扣费满 1 时数字滚动到新值、差值加粗弹出、
- *   图标抖动并短暂变红；余额上升只飘出绿色差值。动画只作用于绘制层，不改变指示器尺寸；
- *   过时事件或系统关闭动画时不播放，播放中再次变化会合并为一个差值。
+ * - [animateChanges] 为 true 时（仅顶部栏），余额变化会播放一次动画。
  */
 @Composable
 internal fun ProviderBalanceIndicator(
@@ -288,25 +333,39 @@ internal fun ProviderBalanceIndicator(
         AnimatedProviderBalanceIndicator(state = state, amount = amount, modifier = modifier)
         return
     }
-    val amountColor = MiuixTheme.colorScheme.onSurfaceVariantSummary
+    val amountColor: Color = if (isMaterial3Theme()) {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    } else {
+        MiuixTheme.colorScheme.onSurfaceVariantSummary
+    }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier,
     ) {
         Icon(
-            imageVector = MoneyBag02,
+            imageVector = Icons.Rounded.Savings,
             contentDescription = null,
             modifier = Modifier
                 .padding(end = 4.dp)
                 .size(12.dp),
             tint = amountColor,
         )
-        Text(
-            text = amount,
-            style = MiuixTheme.textStyles.footnote1,
-            color = amountColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        if (isMaterial3Theme()) {
+            M3Text(
+                text = amount,
+                style = MaterialTheme.typography.labelSmall,
+                color = amountColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        } else {
+            Text(
+                text = amount,
+                style = MiuixTheme.textStyles.footnote1,
+                color = amountColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }

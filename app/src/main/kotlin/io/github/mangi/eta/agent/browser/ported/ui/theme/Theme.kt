@@ -148,9 +148,9 @@ fun minisFabColor(): Color = LocalChatPalette.current.fabAccent
 internal val MinisShapes = Shapes(
     extraSmall = RoundedCornerShape(12.dp),   // DropdownMenu, Tooltip, OutlinedTextField default
     small = RoundedCornerShape(12.dp),        // Chip, TextField
-    medium = RoundedCornerShape(20.dp),       // Card, Snackbar
+    medium = RoundedCornerShape(16.dp),       // Card, Snackbar
     large = RoundedCornerShape(24.dp),        // NavigationDrawer
-    extraLarge = RoundedCornerShape(28.dp),   // Dialog, BottomSheet
+    extraLarge = RoundedCornerShape(24.dp),   // Dialog, BottomSheet
 )
 
 @Composable

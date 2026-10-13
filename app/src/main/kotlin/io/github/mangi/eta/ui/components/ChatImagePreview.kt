@@ -51,6 +51,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
@@ -58,10 +59,13 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
 import io.github.mangi.eta.ui.model.AgentMessageUi
@@ -73,10 +77,55 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.intellij.markdown.ast.ASTNode
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
-import top.yukonga.miuix.kmp.basic.Icon
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.CircularProgressIndicator as M3CircularProgressIndicator
+import androidx.compose.material3.Surface as M3Surface
+import androidx.compose.material3.IconButton as M3IconButton
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+
+/** M3 下取官方 surfaceContainer 角色，miuix 主题族保持原色。 */
+@Composable
+private fun previewPlaceholderColor(): Color =
+    if (isMaterial3Theme()) {
+        MaterialTheme.colorScheme.surfaceContainer
+    } else {
+        MiuixTheme.colorScheme.surfaceContainer
+    }
+
+/** 图片占位与失败提示的圆角：M3 走官方 shapes 令牌（medium = 12dp）。 */
+@Composable
+private fun previewMediaShape(): Shape =
+    if (isMaterial3Theme()) MaterialTheme.shapes.medium else RoundedCornerShape(12.dp)
+
+/** 失败提示文字：M3 走官方 bodyMedium 档位。 */
+@Composable
+private fun previewBodyStyle(): TextStyle =
+    if (isMaterial3Theme()) {
+        MaterialTheme.typography.bodyMedium
+    } else {
+        MiuixTheme.textStyles.body1
+    }
+
+/**
+ * 图片加载指示：M3 用官方 `CircularProgressIndicator`（官方颜色角色与官方笔画宽度），
+ * miuix 主题族保留原来的自绘线宽。
+ */
+@Composable
+private fun PreviewProgressIndicator(
+    size: Dp,
+    modifier: Modifier = Modifier,
+    strokeWidth: Dp = 2.dp,
+) {
+    if (isMaterial3Theme()) {
+        M3CircularProgressIndicator(modifier = modifier.size(size))
+    } else {
+        CircularProgressIndicator(modifier = modifier, size = size, strokeWidth = strokeWidth)
+    }
+}
 
 private const val MIN_ZOOM = 1f
 private const val MAX_ZOOM = 5f
@@ -171,7 +220,7 @@ internal fun ChatMarkdownImage(
         modifier
             .fillMaxWidth()
             .heightIn(max = 320.dp)
-            .clip(RoundedCornerShape(14.dp))
+            .clip(previewMediaShape())
     }
     DisableSelection {
         ChatRemoteClickableImage(
@@ -244,36 +293,55 @@ private fun ChatRemoteClickableImage(
                 }
             }
         }
-        isVideo && failed -> Box(
-            modifier = modifier
-                .heightIn(min = 180.dp)
-                .background(Color.Black)
-                .clickable {
-                    TouchHaptics.click(view)
-                    openPreview(source)
-                },
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.PlayArrow,
-                contentDescription = stringResource(R.string.chat_video_preview),
-                tint = Color.White,
-                modifier = Modifier.size(36.dp),
-            )
+        isVideo && failed -> {
+            val videoPoster: @Composable () -> Unit = {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Rounded.PlayArrow,
+                        contentDescription = stringResource(R.string.chat_video_preview),
+                        tint = Color.White,
+                        modifier = Modifier.size(36.dp),
+                    )
+                }
+            }
+            val openPreviewAction: () -> Unit = {
+                TouchHaptics.click(view)
+                openPreview(source)
+            }
+            // M3 Expressive：官方 Surface(onClick) 承担容器、形状、容器色与按压涟漪；
+            // 纯黑是视频信箱底色，属于媒体浮层固有色，不随主题变化。
+            // miuix 主题族沿用原来的 Box + 背景 + clickable 写法。
+            if (isMaterial3Theme()) {
+                M3Surface(
+                    onClick = openPreviewAction,
+                    modifier = modifier.heightIn(min = 180.dp),
+                    color = Color.Black,
+                    content = videoPoster,
+                )
+            } else {
+                Box(
+                    modifier = modifier
+                        .heightIn(min = 180.dp)
+                        .background(Color.Black)
+                        .clickable(onClick = openPreviewAction),
+                    contentAlignment = Alignment.Center,
+                    content = { videoPoster() },
+                )
+            }
         }
         failed -> Unit
         else -> Box(
             modifier = if (compactLoading) {
-                modifier.background(MiuixTheme.colorScheme.surfaceContainer)
+                modifier.background(previewPlaceholderColor())
             } else {
                 modifier
                     .fillMaxWidth()
                     .height(120.dp)
-                    .background(MiuixTheme.colorScheme.surfaceContainer)
+                    .background(previewPlaceholderColor())
             },
             contentAlignment = Alignment.Center,
         ) {
-            CircularProgressIndicator(size = 18.dp, strokeWidth = 2.dp)
+            PreviewProgressIndicator(size = 18.dp)
         }
     }
 }
@@ -337,53 +405,69 @@ private fun ChatImagePreviewDialog(
                 )
             }
             val image = loaded
-            IconButton(
-                enabled = !saving && (isVideo || image != null),
-                onClick = {
-                    TouchHaptics.click(view)
-                    saving = true
-                    scope.launch {
-                        val uri = withContext(Dispatchers.IO) {
-                            if (isVideo) {
-                                ChatImageGallery.saveVideo(context, source)
-                            } else {
-                                val payload = loaded ?: return@withContext null
-                                ChatImageGallery.save(context, payload.bytes, payload.mimeType)
-                            }
+            val saveEnabled = !saving && (isVideo || image != null)
+            val saveAction: () -> Unit = {
+                TouchHaptics.click(view)
+                saving = true
+                scope.launch {
+                    val uri = withContext(Dispatchers.IO) {
+                        if (isVideo) {
+                            ChatImageGallery.saveVideo(context, source)
+                        } else {
+                            val payload = loaded ?: return@withContext null
+                            ChatImageGallery.save(context, payload.bytes, payload.mimeType)
                         }
-                        saving = false
-                        Toast.makeText(
-                            context,
-                            context.getString(
-                                if (uri != null) {
-                                    R.string.chat_image_saved
-                                } else {
-                                    R.string.chat_image_save_failed
-                                },
-                            ),
-                            Toast.LENGTH_SHORT,
-                        ).show()
                     }
-                },
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .statusBarsPadding()
-                    .padding(8.dp),
-            ) {
+                    saving = false
+                    Toast.makeText(
+                        context,
+                        context.getString(
+                            if (uri != null) {
+                                R.string.chat_image_saved
+                            } else {
+                                R.string.chat_image_save_failed
+                            },
+                        ),
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                }
+            }
+            val saveButtonModifier = Modifier
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .padding(8.dp)
+            val saveButtonContent: @Composable () -> Unit = {
                 Icon(
                     imageVector = Icons.Rounded.Download,
                     contentDescription = stringResource(R.string.action_save),
                     tint = Color.White,
                 )
             }
+            // M3 Expressive：全屏媒体浮层上的保存动作走官方 IconButton（官方涟漪与图标槽位）。
+            // miuix 主题族仍用原来的 IconButton，命中区与配色不变。
+            if (isMaterial3Theme()) {
+                M3IconButton(
+                    onClick = saveAction,
+                    enabled = saveEnabled,
+                    modifier = saveButtonModifier,
+                    colors = IconButtonDefaults.iconButtonColors(contentColor = Color.White),
+                    content = saveButtonContent,
+                )
+            } else {
+                IconButton(
+                    enabled = saveEnabled,
+                    onClick = saveAction,
+                    modifier = saveButtonModifier,
+                    content = saveButtonContent,
+                )
+            }
             if (saving) {
-                CircularProgressIndicator(
+                PreviewProgressIndicator(
+                    size = 20.dp,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .navigationBarsPadding()
                         .padding(bottom = 24.dp),
-                    size = 20.dp,
-                    strokeWidth = 2.dp,
                 )
             }
         }
@@ -456,14 +540,14 @@ private fun ChatImagePreviewPage(
                 Text(
                     text = stringResource(R.string.chat_image_load_failed),
                     color = Color.White,
-                    style = MiuixTheme.textStyles.body1,
+                    style = previewBodyStyle(),
                     modifier = Modifier.align(Alignment.Center),
                 )
             }
             else -> {
-                CircularProgressIndicator(
-                    modifier = Modifier.align(Alignment.Center),
+                PreviewProgressIndicator(
                     size = 28.dp,
+                    modifier = Modifier.align(Alignment.Center),
                     strokeWidth = 2.5.dp,
                 )
             }
@@ -542,7 +626,7 @@ internal fun ChatDocumentImage(source: String, modifier: Modifier = Modifier) {
     DisableSelection {
         ChatRemoteClickableImage(
             source = source,
-            modifier = modifier.fillMaxWidth().heightIn(max = 320.dp).clip(RoundedCornerShape(14.dp)),
+            modifier = modifier.fillMaxWidth().heightIn(max = 320.dp).clip(previewMediaShape()),
             contentScale = ContentScale.Fit,
             compactLoading = false,
         )

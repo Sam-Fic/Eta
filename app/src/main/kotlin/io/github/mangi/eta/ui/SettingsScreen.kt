@@ -103,8 +103,11 @@ import io.github.mangi.eta.systemizer.SystemizerInstallResult
 import io.github.mangi.eta.ui.app.EnhancementSettingsHistory
 import io.github.mangi.eta.ui.app.rememberDeviceCapabilities
 import io.github.mangi.eta.ui.components.AppUpdateDialog
-import io.github.mangi.eta.ui.components.MiuixDialogActions
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
+import io.github.mangi.eta.ui.adaptive.EtaDialog
+import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.components.StreamPerformanceDiagnostics
 import io.github.mangi.eta.ui.components.streamDiagnosticMeasure
 import io.github.mangi.eta.ui.components.streamDiagnosticPlacement
@@ -122,7 +125,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.Icon
+import androidx.compose.material3.Icon
 import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.TabRow
@@ -132,7 +135,9 @@ import io.github.mangi.eta.ui.components.HapticBasicComponent
 import io.github.mangi.eta.ui.components.SwitchPreference
 import io.github.mangi.eta.ui.components.WindowSpinnerPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowDialog
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Tab
+import androidx.compose.material3.Text as M3Text
 
 /**
  * 模块配置界面。
@@ -304,7 +309,7 @@ internal fun SettingsScreen(
     }
 
     WithoutPressRipple {
-    MiuixScaffoldPage(
+    EtaScaffoldPage(
         title = stringResource(R.string.ui_set_up_7debf9),
         onBack = onBack,
         modifier = Modifier
@@ -1034,7 +1039,7 @@ internal fun SettingsScreen(
                                 contentDescription = null,
                                 modifier = Modifier
                                     .align(Alignment.CenterVertically)
-                                    .padding(end = 6.dp)
+                                    .padding(end = 8.dp)
                                     .size(16.dp),
                                 tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
                             )
@@ -1097,7 +1102,7 @@ internal fun SettingsScreen(
         )
 
         if (showClearLogsDialog) {
-            WindowDialog(
+            EtaDialog(
                 show = true,
                 title = stringResource(R.string.settings_clear_logs_confirm_title),
                 summary = stringResource(R.string.settings_clear_logs_confirm_summary),
@@ -1105,7 +1110,7 @@ internal fun SettingsScreen(
                     if (!clearingLogs) showClearLogsDialog = false
                 },
             ) {
-                MiuixDialogActions(
+                EtaDialogActions(
                     confirmText = if (clearingLogs) {
                         stringResource(R.string.settings_export_logs_working)
                     } else {
@@ -1116,7 +1121,7 @@ internal fun SettingsScreen(
                     confirmEnabled = !clearingLogs,
                     onCancel = { showClearLogsDialog = false },
                     onConfirm = {
-                        if (clearingLogs) return@MiuixDialogActions
+                        if (clearingLogs) return@EtaDialogActions
                         clearingLogs = true
                         coroutineScope.launch {
                             try {
@@ -1190,13 +1195,13 @@ private fun SystemizerConfirmDialog(
     onDismissRequest: () -> Unit,
     onConfirm: () -> Unit,
 ) {
-    WindowDialog(
+    EtaDialog(
         show = show,
         title = stringResource(R.string.ui_convert_google_apps_to_system_apps_0f6d89),
         summary = stringResource(R.string.ui_system_applications_have_voice_wake_up_permissions_f_0190f2),
         onDismissRequest = onDismissRequest,
     ) {
-        MiuixDialogActions(
+        EtaDialogActions(
             confirmText = if (installing) {
                 stringResource(R.string.status_processing)
             } else {
@@ -1325,26 +1330,52 @@ private fun isEtaAssistantActive(context: Context): Boolean =
 private fun DonateQrDialog(onDismiss: () -> Unit) {
     var wechatSelected by remember { mutableStateOf(true) }
     val view = LocalView.current
-    WindowDialog(
+    EtaDialog(
         show = true,
         title = stringResource(R.string.about_donate),
         onDismissRequest = onDismiss,
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            TabRow(
-                tabs = listOf(
-                    stringResource(R.string.about_donate_wechat),
-                    stringResource(R.string.about_donate_alipay),
-                ),
-                selectedTabIndex = if (wechatSelected) 0 else 1,
-                onTabSelected = {
-                    TouchHaptics.click(view)
-                    wechatSelected = it == 0
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp),
-            )
+            val wechatLabel = stringResource(R.string.about_donate_wechat)
+            val alipayLabel = stringResource(R.string.about_donate_alipay)
+            if (isMaterial3Theme()) {
+                // 官方标签栏：指示器动画、容器配色与字阶全部由 Material 3 提供。
+                PrimaryTabRow(
+                    selectedTabIndex = if (wechatSelected) 0 else 1,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                ) {
+                    Tab(
+                        selected = wechatSelected,
+                        onClick = {
+                            TouchHaptics.click(view)
+                            wechatSelected = true
+                        },
+                        text = { M3Text(wechatLabel) },
+                    )
+                    Tab(
+                        selected = !wechatSelected,
+                        onClick = {
+                            TouchHaptics.click(view)
+                            wechatSelected = false
+                        },
+                        text = { M3Text(alipayLabel) },
+                    )
+                }
+            } else {
+                TabRow(
+                    tabs = listOf(wechatLabel, alipayLabel),
+                    selectedTabIndex = if (wechatSelected) 0 else 1,
+                    onTabSelected = {
+                        TouchHaptics.click(view)
+                        wechatSelected = it == 0
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                )
+            }
             Image(
                 painter = painterResource(
                     if (wechatSelected) R.drawable.donate_wechat else R.drawable.donate_alipay,

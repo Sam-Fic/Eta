@@ -1,8 +1,6 @@
 package io.github.mangi.eta.ui
 
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -11,11 +9,12 @@ import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.model.ModelFeature
 import io.github.mangi.eta.agent.model.ModelFeaturePreferences
 import io.github.mangi.eta.data.repository.ProviderRepository
-import io.github.mangi.eta.ui.components.MiuixScaffoldPage
+import io.github.mangi.eta.ui.adaptive.EtaCard
+import io.github.mangi.eta.ui.adaptive.EtaClickableRow
+import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
+import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
+import io.github.mangi.eta.ui.adaptive.EtaText
 import io.github.mangi.eta.ui.model.AgentModelPickerProjector
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.preference.SwitchPreference
 
 @Composable
 internal fun ModelFeatureSettingsScreen(feature: ModelFeature, onBack: () -> Unit) {
@@ -33,15 +32,14 @@ internal fun ModelFeatureSettingsScreen(feature: ModelFeature, onBack: () -> Uni
             selectedModel = all.selectedModel?.takeIf { !it.supportsImageGeneration && !it.supportsVideoGeneration && (!vision || it.supportsVision) },
         )
     }
-    MiuixScaffoldPage(title = title, onBack = onBack) {
+    EtaScaffoldPage(title = title, onBack = onBack) {
         item {
-            Text(
-                stringResource(if (vision) R.string.vision_feature_description else R.string.title_feature_description),
+            EtaText(
+                text = stringResource(if (vision) R.string.vision_feature_description else R.string.title_feature_description),
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
-                color = MaterialTheme.colorScheme.onBackground,
             )
-            Card(Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
-                SwitchPreference(
+            EtaCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                EtaSwitchRow(
                     title = stringResource(R.string.model_feature_custom),
                     checked = selection.custom,
                     onCheckedChange = {
@@ -50,17 +48,16 @@ internal fun ModelFeatureSettingsScreen(feature: ModelFeature, onBack: () -> Uni
                     },
                 )
                 if (selection.custom) {
-                    ArrowPreference(
+                    EtaClickableRow(
                         title = stringResource(R.string.model_feature_select),
                         summary = models.selectedModel?.let { "${it.providerName} / ${it.displayName}" }
                             ?: stringResource(R.string.model_feature_missing),
                         onClick = { picker = true },
                     )
                 } else {
-                    Text(
-                        stringResource(if (vision) R.string.vision_feature_off else R.string.title_feature_default),
+                    EtaText(
+                        text = stringResource(if (vision) R.string.vision_feature_off else R.string.title_feature_default),
                         modifier = Modifier.padding(16.dp),
-                        color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
             }
