@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="execution_channel">任务运行</string>
-    <string name="execution_title">代鱼正在运行</string>
-    <string name="execution_summary">%1$d 个任务正在运行，可返回代鱼查看进度</string>
-    <string name="execution_summary_idle">没有正在执行的会话，可返回代鱼</string>
-    <string name="execution_stop">停止运行任务</string>
+    <string name="execution_channel">Task runs</string>
+    <string name="execution_title">Eta is running</string>
+    <string name="execution_summary">%1$d tasks are running. Open Eta to see progress</string>
+    <string name="execution_summary_idle">No conversations are running. Open Eta to continue</string>
+    <string name="execution_stop">Stop running tasks</string>
 </resources>
