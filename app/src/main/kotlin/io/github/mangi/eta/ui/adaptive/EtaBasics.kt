@@ -1,9 +1,12 @@
 package io.github.mangi.eta.ui.adaptive
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.Button
@@ -21,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.basic.ButtonDefaults as MiuixButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card as MiuixCard
@@ -39,18 +43,19 @@ fun EtaSectionTitle(
     modifier: Modifier = Modifier,
 ) {
     if (isMaterial3Theme()) {
+        // KernelSU 式组标题：titleSmallEmphasized + primary，起点与分段列表条目对齐（16dp）。
         M3Text(
             text = text,
-            style = MaterialTheme.typography.titleSmall,
+            style = MaterialTheme.typography.titleSmallEmphasized,
             color = MaterialTheme.colorScheme.primary,
-            modifier = modifier.padding(start = 28.dp, end = 28.dp, top = 12.dp, bottom = 8.dp),
+            modifier = modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp),
         )
     } else {
         MiuixSmallTitle(text = text, modifier = modifier)
     }
 }
 
-/** 承载一组设置项的卡片容器。 */
+/** 承载一组设置项的卡片容器（真卡片外观；分段列表容器见 EtaSegmentedList）。 */
 @Composable
 fun EtaCard(
     modifier: Modifier = Modifier,
@@ -81,6 +86,7 @@ fun EtaText(
     style: EtaTextStyle = EtaTextStyle.Body,
     secondary: Boolean = false,
     color: Color? = null,
+    textAlign: TextAlign? = null,
 ) {
     val effective = if (secondary) EtaTextStyle.Secondary else style
     if (isMaterial3Theme()) {
@@ -99,6 +105,7 @@ fun EtaText(
             modifier = modifier,
             style = textStyle,
             color = color ?: defaultColor,
+            textAlign = textAlign,
         )
     } else {
         val textStyle = when (effective) {
@@ -117,6 +124,7 @@ fun EtaText(
             modifier = modifier,
             style = textStyle,
             color = color ?: defaultColor,
+            textAlign = textAlign,
         )
     }
 }
@@ -130,21 +138,13 @@ fun EtaSwitch(
     enabled: Boolean = true,
 ) {
     if (isMaterial3Theme()) {
-        // Material 3 Expressive 开关：选中态在滑块内显示对勾图标。
-        M3Switch(
+        // KernelSU 式 Expressive 开关：拇指常驻状态图标（选中 Check / 关闭 Close）
+        // + 完整禁用态配色，见 EtaButtons.kt。
+        EtaExpressiveSwitch(
             checked = checked,
             onCheckedChange = onCheckedChange,
             modifier = modifier,
             enabled = enabled,
-            thumbContent = {
-                if (checked) {
-                    M3Icon(
-                        imageVector = Icons.Rounded.Check,
-                        contentDescription = null,
-                        modifier = Modifier.size(M3SwitchDefaults.IconSize),
-                    )
-                }
-            },
         )
     } else {
         MiuixSwitch(
@@ -229,3 +229,19 @@ fun EtaTextButton(
         )
     }
 }
+
+/** 状态圆点：8dp，[active] 为真取 primary，否则取弱化的描边色（未就绪/未授权）。 */
+@Composable
+fun EtaStatusDot(
+    active: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val color = if (isMaterial3Theme()) {
+        if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+    } else {
+        if (active) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurfaceVariantActions
+    }
+    Box(modifier = modifier.size(EtaStatusDotSize).background(color, CircleShape))
+}
+
+private val EtaStatusDotSize = 8.dp

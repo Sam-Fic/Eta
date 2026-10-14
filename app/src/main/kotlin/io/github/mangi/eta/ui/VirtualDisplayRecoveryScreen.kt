@@ -1,6 +1,5 @@
 package io.github.mangi.eta.ui
 
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -157,7 +156,7 @@ internal fun VirtualDisplayRecoveryControls(
             ) {
                 Text(
                     text = stringResource(R.string.agent_task_preference_recovery_title),
-                    style = MiuixTheme.textStyles.headline2,
+                    style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Row(
@@ -173,7 +172,7 @@ internal fun VirtualDisplayRecoveryControls(
                     }
                     Text(
                         text = stringResource(recoveryStatusRes(readable, busy, present, phase)),
-                        style = MiuixTheme.textStyles.body1,
+                        style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
@@ -183,14 +182,14 @@ internal fun VirtualDisplayRecoveryControls(
                             R.string.agent_task_preference_recovery_display_id,
                             snapshot?.optInt("displayId", -1) ?: -1,
                         ),
-                        style = MiuixTheme.textStyles.body2,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 if (readable && present && !busy && phase != RECOVERY_PHASE_PENDING) {
                     Text(
                         text = stringResource(R.string.agent_task_preference_recovery_raw_phase, phase),
-                        style = MiuixTheme.textStyles.footnote1,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -198,14 +197,14 @@ internal fun VirtualDisplayRecoveryControls(
                 if (lastError.isNotBlank()) {
                     Text(
                         text = lastError,
-                        style = MiuixTheme.textStyles.footnote1,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     val detail = snapshot?.optString("lastDetail").orEmpty()
                     if (detail.isNotBlank()) {
                         Text(
                             text = detail,
-                            style = MiuixTheme.textStyles.footnote1,
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
@@ -214,7 +213,7 @@ internal fun VirtualDisplayRecoveryControls(
                     if (receipt.optBoolean("ok") && receipt.optBoolean("released")) {
                         Text(
                             text = stringResource(R.string.vd_recovery_success),
-                            style = MiuixTheme.textStyles.body2,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                     } else {
@@ -223,14 +222,14 @@ internal fun VirtualDisplayRecoveryControls(
                                 R.string.vd_recovery_failed,
                                 receipt.optString("error", "UNKNOWN"),
                             ),
-                            style = MiuixTheme.textStyles.body2,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.error,
                         )
                         val message = receipt.optString("message")
                         if (message.isNotBlank()) {
                             Text(
                                 text = message,
-                                style = MiuixTheme.textStyles.footnote1,
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }

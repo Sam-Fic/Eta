@@ -1,6 +1,5 @@
 package io.github.mangi.eta.ui.app
 
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,6 +16,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -32,7 +32,8 @@ internal fun SubAgentStatusDialog(
     onDismiss: () -> Unit,
 ) {
     if (!show) return
-    val ordered = agents.sortedWith(compareBy({ statusRank(it.status) }, { it.contextLabel() }))
+    val context = LocalContext.current
+    val ordered = agents.sortedWith(compareBy({ statusRank(it.status) }, { it.contextLabel(context) }))
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.action_sub_agent_status)) },
@@ -40,7 +41,7 @@ internal fun SubAgentStatusDialog(
             if (ordered.isEmpty()) {
                 Text(
                     text = stringResource(R.string.sub_agent_status_empty),
-                    style = MiuixTheme.textStyles.body2,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
@@ -63,22 +64,22 @@ internal fun SubAgentStatusDialog(
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = agent.contextLabel(),
-                                        style = MiuixTheme.textStyles.body1,
+                                        text = agent.contextLabel(context),
+                                        style = MaterialTheme.typography.bodyLarge,
                                         maxLines = 2,
                                         overflow = TextOverflow.Ellipsis,
                                     )
                                     Text(
                                         text = agent.modelName.ifBlank { agent.model },
-                                        style = MiuixTheme.textStyles.footnote1,
+                                        style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
                                     )
                                 }
                                 Text(
-                                    text = agent.contextStatusLabel(),
-                                    style = MiuixTheme.textStyles.body2,
+                                    text = agent.contextStatusLabel(context),
+                                    style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.padding(start = 12.dp),
                                 )

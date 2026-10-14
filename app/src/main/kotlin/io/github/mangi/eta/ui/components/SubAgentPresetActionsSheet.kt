@@ -12,9 +12,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.delegation.SubAgentPreset
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 
@@ -27,6 +30,7 @@ internal fun SubAgentPresetActionsSheet(
     onRename: () -> Unit,
     onDelete: () -> Unit,
 ) {
+    val context = LocalContext.current
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberBottomSheetState(
@@ -38,7 +42,7 @@ internal fun SubAgentPresetActionsSheet(
     ) {
         // Wrap content instead of imposing a large sheet height, and allow short landscape windows.
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
-            .semantics { contentDescription = "子代理组操作面板" }) {
+            .semantics { contentDescription = context.getString(R.string.spa_sheet_desc) }) {
             // 官方展示型 ListItem：容器形状/内边距/排版/图标槽位均为 ListItemDefaults 默认值。
             ListItem(
                 modifier = Modifier.fillMaxWidth(),
@@ -46,8 +50,8 @@ internal fun SubAgentPresetActionsSheet(
                 content = { Text(preset.name, style = MaterialTheme.typography.titleLarge) },
             )
             HorizontalDivider()
-            SubAgentPresetActionRow("重命名组", Icons.Rounded.Edit, MaterialTheme.colorScheme.onSurface, onRename)
-            SubAgentPresetActionRow("删除组", Icons.Rounded.DeleteOutline, MaterialTheme.colorScheme.error, onDelete)
+            SubAgentPresetActionRow(stringResource(R.string.spa_rename_group), Icons.Rounded.Edit, MaterialTheme.colorScheme.onSurface, onRename)
+            SubAgentPresetActionRow(stringResource(R.string.spa_delete_group), Icons.Rounded.DeleteOutline, MaterialTheme.colorScheme.error, onDelete)
         }
     }
 }

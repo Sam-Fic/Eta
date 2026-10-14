@@ -7,6 +7,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.ime
@@ -16,6 +17,10 @@ import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ToggleButton
+import androidx.compose.material3.ToggleButtonDefaults
+import androidx.compose.material3.ToggleButtonShapes
+import androidx.compose.material3.ToggleButtonSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.LaunchedEffect
@@ -23,6 +28,8 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.res.stringResource
+import io.github.mangi.eta.R
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.getValue
@@ -41,6 +48,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import androidx.compose.ui.platform.SoftwareKeyboardController
@@ -107,10 +115,11 @@ internal fun ChatInputNonFocusableIconButton(
     modifier: Modifier = Modifier,
     contentDescription: String? = null,
     onLongClick: (() -> Unit)? = null,
-    longClickLabel: String = "协作设置",
+    longClickLabel: String = stringResource(R.string.cim_long_press_label),
     containerShape: Shape? = null,
     containerColor: Color? = null,
     containerSize: Dp = ChatInputActionSize,
+    connectedShapes: ToggleButtonShapes? = null,
     enabled: Boolean = true,
     content: @Composable () -> Unit,
 ) {
@@ -142,6 +151,31 @@ internal fun ChatInputNonFocusableIconButton(
         val click: () -> Unit = {
             TouchHaptics.click(view)
             onClick()
+        }
+        if (connectedShapes != null) {
+            // 官方连体按钮组：M3 Expressive ToggleButton + ButtonGroupDefaults 连体形状组，
+            // 自带官方按压形变动画。checked 恒为 false（菜单触发按钮没有选中态），
+            // 点击经 onCheckedChange 回调转成一次 click。
+            val tone = containerColor ?: MaterialTheme.colorScheme.secondaryContainer
+            ToggleButton(
+                checked = false,
+                onCheckedChange = { click() },
+                modifier = buttonModifier,
+                enabled = enabled,
+                buttonSize = ToggleButtonSize.Small,
+                shapes = connectedShapes,
+                // 连体组是固定 40dp 容器的图标按钮，官方文字按钮的默认水平内边距会挤压内容，
+                // 置零后由官方 Row 自身居中。
+                contentPadding = PaddingValues(0.dp),
+                colors = ToggleButtonDefaults.colors(
+                    containerColor = tone,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    checkedContainerColor = tone,
+                    checkedContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                ),
+                content = { buttonContent() },
+            )
+            return
         }
         when {
             // Standard icon button: transparent container, official shape and ripple.

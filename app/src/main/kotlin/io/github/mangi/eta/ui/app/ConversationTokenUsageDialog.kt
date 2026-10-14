@@ -4,8 +4,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
-import io.github.mangi.eta.ui.components.EtaDropdownMenu
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text as M3Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -13,10 +16,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.repository.formatTokenCount
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
+import io.github.mangi.eta.ui.components.EtaDropdownMenu
 import io.github.mangi.eta.ui.model.ConversationTokenUsageUi
 import java.text.NumberFormat
 import java.util.Locale
-import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -25,22 +29,32 @@ internal fun ConversationTokenUsageDialog(
     usage: ConversationTokenUsageUi,
     onDismiss: () -> Unit,
 ) {
-    EtaDropdownMenu(
-        expanded = show,
-        alignEnd = true,
-        minWidth = 250.dp,
-        onDismissRequest = onDismiss,
-    ) {
+    val content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit = {
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(stringResource(R.string.action_token_usage), style = MiuixTheme.textStyles.body1)
+            if (isMaterial3Theme()) {
+                M3Text(
+                    text = stringResource(R.string.action_token_usage),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+            } else {
+                M3Text(stringResource(R.string.action_token_usage), style = MiuixTheme.textStyles.body1)
+            }
             if (!usage.hasUsage) {
-                Text(
+                M3Text(
                     text = stringResource(R.string.token_usage_empty),
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    style = if (isMaterial3Theme()) {
+                        MaterialTheme.typography.bodySmall
+                    } else {
+                        MiuixTheme.textStyles.body2
+                    },
+                    color = if (isMaterial3Theme()) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MiuixTheme.colorScheme.onSurfaceVariantSummary
+                    },
                 )
             } else {
                 UsageRow(
@@ -70,6 +84,25 @@ internal fun ConversationTokenUsageDialog(
             }
         }
     }
+    if (isMaterial3Theme()) {
+        // 官方菜单容器：内容尺寸交给官方默认，与 MIUI X 版本同为 250dp 最小宽度。
+        DropdownMenu(
+            expanded = show,
+            onDismissRequest = onDismiss,
+            modifier = Modifier.widthIn(min = 250.dp),
+        ) {
+            content()
+        }
+        return
+    }
+    EtaDropdownMenu(
+        expanded = show,
+        alignEnd = true,
+        minWidth = 250.dp,
+        onDismissRequest = onDismiss,
+    ) {
+        content()
+    }
 }
 
 @Composable
@@ -79,15 +112,27 @@ private fun UsageRow(label: String, value: String) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
+        M3Text(
             text = label,
             modifier = Modifier.weight(1f).padding(end = 12.dp),
-            style = MiuixTheme.textStyles.body2,
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            style = if (isMaterial3Theme()) {
+                MaterialTheme.typography.bodySmall
+            } else {
+                MiuixTheme.textStyles.body2
+            },
+            color = if (isMaterial3Theme()) {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            } else {
+                MiuixTheme.colorScheme.onSurfaceVariantSummary
+            },
         )
-        Text(
+        M3Text(
             text = value,
-            style = MiuixTheme.textStyles.body1,
+            style = if (isMaterial3Theme()) {
+                MaterialTheme.typography.bodyMedium
+            } else {
+                MiuixTheme.textStyles.body1
+            },
         )
     }
 }

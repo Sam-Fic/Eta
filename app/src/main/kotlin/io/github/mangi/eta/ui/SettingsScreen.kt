@@ -9,12 +9,7 @@ import android.service.voice.VoiceInteractionService
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccessibilityNew
 import androidx.compose.material.icons.rounded.AccountTree
@@ -23,22 +18,18 @@ import androidx.compose.material.icons.rounded.RemoveRedEye
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.BugReport
-import androidx.compose.material.icons.rounded.Campaign
-import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.Code
-import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Dashboard
-import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.GppMaybe
-import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.HealthAndSafety
 import androidx.compose.material.icons.rounded.Hearing
 import androidx.compose.material.icons.rounded.Inventory
 import androidx.compose.material.icons.rounded.Inventory2
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Layers
@@ -53,7 +44,6 @@ import androidx.compose.material.icons.rounded.Pets
 import androidx.compose.material.icons.rounded.PowerSettingsNew
 import androidx.compose.material.icons.rounded.Psychology
 import io.github.mangi.eta.ui.icons.SubAgents
-import androidx.compose.material.icons.rounded.Restaurant
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Settings
@@ -73,12 +63,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -93,8 +79,6 @@ import io.github.mangi.eta.config.PowerAssistantTarget
 import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.core.AppFileLogger
 import io.github.mangi.eta.data.datastore.SettingsDataStore
-import io.github.mangi.eta.data.model.AppUpdateOffer
-import io.github.mangi.eta.data.repository.AppUpdateRepository
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 import io.github.mangi.eta.systemizer.GoogleAppSystemizerInstaller
@@ -102,8 +86,6 @@ import io.github.mangi.eta.systemizer.RootManager
 import io.github.mangi.eta.systemizer.SystemizerInstallResult
 import io.github.mangi.eta.ui.app.EnhancementSettingsHistory
 import io.github.mangi.eta.ui.app.rememberDeviceCapabilities
-import io.github.mangi.eta.ui.components.AppUpdateDialog
-import io.github.mangi.eta.ui.components.MiuixScaffoldPage
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
@@ -115,7 +97,6 @@ import io.github.mangi.eta.ui.components.streamDiagnosticDraw
 import io.github.mangi.eta.ui.components.settingsSectionDiagnostics
 import io.github.mangi.eta.ui.components.WithoutPressRipple
 import io.github.mangi.eta.ui.components.PreferenceIcon
-import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.navigation.AppRoute
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -124,20 +105,17 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import top.yukonga.miuix.kmp.basic.Card
-import androidx.compose.material3.Icon
 import top.yukonga.miuix.kmp.basic.DropdownItem
-import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.basic.Text
 import io.github.mangi.eta.ui.components.ArrowPreference
-import io.github.mangi.eta.ui.components.HapticBasicComponent
+import io.github.mangi.eta.ui.components.LanguagePreference
 import io.github.mangi.eta.ui.components.SwitchPreference
 import io.github.mangi.eta.ui.components.WindowSpinnerPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import androidx.compose.material3.PrimaryTabRow
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text as M3Text
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
+import androidx.compose.material3.Text as M3StatusText
+import androidx.compose.material3.MaterialTheme as M3MaterialTheme
 
 /**
  * 模块配置界面。
@@ -169,11 +147,6 @@ internal fun SettingsScreen(
     var hasUsedSystemizer by remember { mutableStateOf(enhancementHistory.hasUsedSystemizer) }
     var showSystemizerDialog by remember { mutableStateOf(false) }
     var installingSystemizer by remember { mutableStateOf(false) }
-    val currentVersion = remember { AppUpdateRepository.currentVersionName(context) }
-    var checkingUpdate by remember { mutableStateOf(false) }
-    var relayStationExpanded by remember { mutableStateOf(false) }
-    var showDonateDialog by remember { mutableStateOf(false) }
-    var updateOffer by remember { mutableStateOf<AppUpdateOffer?>(null) }
     val appSettings by remember { SettingsDataStore.settingsFlow() }.collectAsState(
         initial = io.github.mangi.eta.data.model.Settings(),
     )
@@ -320,151 +293,200 @@ internal fun SettingsScreen(
     ) {
             // ── LLM 提供商 ──────────────────────────────────────────────
             item(key = "section_agent") {
-                SmallTitle(stringResource(R.string.settings_llm_providers))
-                Card(modifier = Modifier.settingsSectionDiagnostics("agent").padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-                    SettingsProviderEntry(currentProviderId, currentModelId) {
-                        onNavigate(AppRoute.ModelProviders)
+                EtaSegmentedColumn(
+                    modifier = Modifier.settingsSectionDiagnostics("agent").padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                    title = stringResource(R.string.settings_llm_providers),
+                ) {
+                    item {
+                        SettingsProviderEntry(currentProviderId, currentModelId) {
+                            onNavigate(AppRoute.ModelProviders)
+                        }
                     }
 
-                    SwitchPref(
-                        context = context,
-                        prefs = agentPrefs,
-                        title = stringResource(R.string.ui_deep_thinking_enabled_by_default_c032d6),
-                        key = Prefs.Keys.AGENT_THINKING_ENABLED,
-                        icon = Icons.Rounded.Psychology,
-                    )
+                    item {
+                        SwitchPref(
+                            context = context,
+                            prefs = agentPrefs,
+                            title = stringResource(R.string.ui_deep_thinking_enabled_by_default_c032d6),
+                            key = Prefs.Keys.AGENT_THINKING_ENABLED,
+                            icon = Icons.Rounded.Psychology,
+                        )
+                    }
                 }
             }
 
             item(key = "section_model_features") {
-                SmallTitle(stringResource(R.string.settings_model_features))
-                Card(modifier = Modifier.settingsSectionDiagnostics("model_features").padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-                    ArrowPreference(
-                        title = stringResource(R.string.route_context_compression),
-                        startAction = {
-                            PreferenceIcon(
-                                icon = Icons.Rounded.Compress,
-                            )
-                        },
-                        onClick = { onNavigate(AppRoute.ContextCompression) },
-                    )
-                    ArrowPreference(
-                        title = stringResource(R.string.auxiliary_vision_title),
-                        startAction = { PreferenceIcon(icon = Icons.Rounded.RemoveRedEye) },
-                        onClick = { onNavigate(AppRoute.AuxiliaryVision) },
-                    )
-                    ArrowPreference(title = "子代理",
-                        startAction = { PreferenceIcon(icon = SubAgents) },
-                        onClick = { onNavigate(AppRoute.SubAgents) })
-                    ArrowPreference(
-                        title = stringResource(R.string.title_model_title),
-                        startAction = { PreferenceIcon(icon = Icons.Rounded.AutoAwesome) },
-                        onClick = { onNavigate(AppRoute.TitleModel) },
-                    )
-                    ArrowPreference(
-                        title = stringResource(R.string.error_reconnect_title),
-                        startAction = { PreferenceIcon(icon = Icons.Rounded.Refresh) },
-                        onClick = { onNavigate(AppRoute.ErrorReconnectSettings) },
-                    )
+                EtaSegmentedColumn(
+                    modifier = Modifier.settingsSectionDiagnostics("model_features").padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                    title = stringResource(R.string.settings_model_features),
+                ) {
+                    item {
+                        ArrowPreference(
+                            title = stringResource(R.string.route_context_compression),
+                            startAction = {
+                                PreferenceIcon(
+                                    icon = Icons.Rounded.Compress,
+                                )
+                            },
+                            onClick = { onNavigate(AppRoute.ContextCompression) },
+                        )
+                    }
+
+                    item {
+                        ArrowPreference(
+                            title = stringResource(R.string.auxiliary_vision_title),
+                            startAction = { PreferenceIcon(icon = Icons.Rounded.RemoveRedEye) },
+                            onClick = { onNavigate(AppRoute.AuxiliaryVision) },
+                        )
+                    }
+
+                    item {
+                        ArrowPreference(title = stringResource(R.string.settings_subagent_title),
+                            startAction = { PreferenceIcon(icon = SubAgents) },
+                            onClick = { onNavigate(AppRoute.SubAgents) })
+                    }
+
+                    item {
+                        ArrowPreference(
+                            title = stringResource(R.string.title_model_title),
+                            startAction = { PreferenceIcon(icon = Icons.Rounded.AutoAwesome) },
+                            onClick = { onNavigate(AppRoute.TitleModel) },
+                        )
+                    }
+
+                    item {
+                        ArrowPreference(
+                            title = stringResource(R.string.error_reconnect_title),
+                            startAction = { PreferenceIcon(icon = Icons.Rounded.Refresh) },
+                            onClick = { onNavigate(AppRoute.ErrorReconnectSettings) },
+                        )
+                    }
                 }
             }
 
             // ── 扩展 ────────────────────────────────────────────
             item(key = "section_context_extensions") {
-                SmallTitle(stringResource(R.string.settings_context_extensions))
-                Card(modifier = Modifier.settingsSectionDiagnostics("context_extensions").padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-                    ArrowPreference(
-                        title = stringResource(R.string.whale_maid_title),
-                        startAction = { PreferenceIcon(icon = Icons.Rounded.Pets) },
-                        onClick = { onNavigate(AppRoute.WhaleMaid) },
-                    )
+                EtaSegmentedColumn(
+                    modifier = Modifier.settingsSectionDiagnostics("context_extensions").padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                    title = stringResource(R.string.settings_context_extensions),
+                ) {
+                    item {
+                        ArrowPreference(
+                            title = stringResource(R.string.whale_maid_title),
+                            startAction = { PreferenceIcon(icon = Icons.Rounded.Pets) },
+                            onClick = { onNavigate(AppRoute.WhaleMaid) },
+                        )
+                    }
 
-                    ArrowPreference(
-                        title = stringResource(R.string.settings_assistants),
-                        startAction = {
-                            PreferenceIcon(
-                                icon = Icons.Rounded.SmartToy,
-                            )
-                        },
-                        onClick = { onNavigate(AppRoute.Assistants()) },
-                    )
+                    item {
+                        ArrowPreference(
+                            title = stringResource(R.string.settings_assistants),
+                            startAction = {
+                                PreferenceIcon(
+                                    icon = Icons.Rounded.SmartToy,
+                                )
+                            },
+                            onClick = { onNavigate(AppRoute.Assistants()) },
+                        )
+                    }
 
+                    item {
+                        ArrowPreference(
+                            title = stringResource(R.string.route_skills),
+                            startAction = {
+                                PreferenceIcon(
+                                    icon = Icons.Rounded.Extension,
+                                )
+                            },
+                            onClick = { onNavigate(AppRoute.Skills) },
+                        )
+                    }
 
-                    ArrowPreference(
-                        title = stringResource(R.string.route_skills),
-                        startAction = {
-                            PreferenceIcon(
-                                icon = Icons.Rounded.Extension,
-                            )
-                        },
-                        onClick = { onNavigate(AppRoute.Skills) },
-                    )
-
-                    ArrowPreference(
-                        title = stringResource(R.string.route_mcp_servers),
-                        startAction = {
-                            PreferenceIcon(
-                                icon = Icons.Rounded.AccountTree,
-                            )
-                        },
-                        onClick = { onNavigate(AppRoute.McpServers) },
-                    )
+                    item {
+                        ArrowPreference(
+                            title = stringResource(R.string.route_mcp_servers),
+                            startAction = {
+                                PreferenceIcon(
+                                    icon = Icons.Rounded.AccountTree,
+                                )
+                            },
+                            onClick = { onNavigate(AppRoute.McpServers) },
+                        )
+                    }
                 }
             }
 
             // ── 通用 ────────────────────────────────────────────────────
             item(key = "section_general") {
-                SmallTitle(stringResource(R.string.settings_general))
-                Card(modifier = Modifier.settingsSectionDiagnostics("general").padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-                    ArrowPreference(
-                        title = stringResource(R.string.voice_title),
-                        startAction = { PreferenceIcon(icon = Icons.Rounded.RecordVoiceOver) },
-                        onClick = { onNavigate(AppRoute.VoiceSettings) },
-                    )
+                EtaSegmentedColumn(
+                    modifier = Modifier.settingsSectionDiagnostics("general").padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                    title = stringResource(R.string.settings_general),
+                ) {
+                    item {
+                        ArrowPreference(
+                            title = stringResource(R.string.voice_title),
+                            startAction = { PreferenceIcon(icon = Icons.Rounded.RecordVoiceOver) },
+                            onClick = { onNavigate(AppRoute.VoiceSettings) },
+                        )
+                    }
 
-                    ArrowPreference(
-                        title = stringResource(R.string.appearance_title),
-                        startAction = {
-                            PreferenceIcon(
-                                icon = Icons.Rounded.Palette,
-                            )
-                        },
-                        onClick = { onNavigate(AppRoute.AppearanceSettings) },
-                    )
+                    item {
+                        ArrowPreference(
+                            title = stringResource(R.string.appearance_title),
+                            startAction = {
+                                PreferenceIcon(
+                                    icon = Icons.Rounded.Palette,
+                                )
+                            },
+                            onClick = { onNavigate(AppRoute.AppearanceSettings) },
+                        )
+                    }
 
-                    ArrowPreference(
-                        title = stringResource(R.string.stats_page_title),
-                        startAction = {
-                            PreferenceIcon(
-                                icon = Icons.Rounded.BarChart,
-                            )
-                        },
-                        onClick = { onNavigate(AppRoute.UsageStats) },
-                    )
+                    item {
+                        LanguagePreference()
+                    }
 
-                    ArrowPreference(
-                        title = stringResource(R.string.data_backup_title),
-                        startAction = {
-                            PreferenceIcon(
-                                icon = Icons.Rounded.Description,
-                            )
-                        },
-                        onClick = { onNavigate(AppRoute.DataBackup) },
-                    )
+                    item {
+                        ArrowPreference(
+                            title = stringResource(R.string.stats_page_title),
+                            startAction = {
+                                PreferenceIcon(
+                                    icon = Icons.Rounded.BarChart,
+                                )
+                            },
+                            onClick = { onNavigate(AppRoute.UsageStats) },
+                        )
+                    }
+
+                    item {
+                        ArrowPreference(
+                            title = stringResource(R.string.data_backup_title),
+                            startAction = {
+                                PreferenceIcon(
+                                    icon = Icons.Rounded.Description,
+                                )
+                            },
+                            onClick = { onNavigate(AppRoute.DataBackup) },
+                        )
+                    }
                 }
             }
 
             // ── 工具 ───────────────────────────────────────────────────
             item(key = "section_tools") {
-                SmallTitle(stringResource(R.string.ui_tool_a72ef1))
-                Card(modifier = Modifier.settingsSectionDiagnostics("tools").padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-                    ArrowPreference(
-                        title = stringResource(R.string.settings_tools_list),
-                        startAction = { PreferenceIcon(Icons.Rounded.Dashboard) },
-                        onClick = { onNavigate(AppRoute.Tools) },
-                    )
+                EtaSegmentedColumn(
+                    modifier = Modifier.settingsSectionDiagnostics("tools").padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                    title = stringResource(R.string.ui_tool_a72ef1),
+                ) {
+                    item {
+                        ArrowPreference(
+                            title = stringResource(R.string.settings_tools_list),
+                            startAction = { PreferenceIcon(Icons.Rounded.Dashboard) },
+                            onClick = { onNavigate(AppRoute.Tools) },
+                        )
+                    }
 
-                    if (taskBackendInstalled == true) {
+                    item(visible = taskBackendInstalled == true) {
                         ArrowPreference(
                             title = stringResource(R.string.agent_task_surface_title),
                             startAction = { PreferenceIcon(Icons.Rounded.Layers) },
@@ -472,105 +494,128 @@ internal fun SettingsScreen(
                         )
                     }
 
-                    SwitchPref(
-                        context = context,
-                        prefs = agentPrefs,
-                        title = stringResource(R.string.ui_enable_web_browsing_tools_8b6b03),
-                        key = Prefs.Keys.AGENT_BROWSER_TOOLS,
-                        icon = Icons.Rounded.Language,
-                    )
+                    item {
+                        SwitchPref(
+                            context = context,
+                            prefs = agentPrefs,
+                            title = stringResource(R.string.ui_enable_web_browsing_tools_8b6b03),
+                            key = Prefs.Keys.AGENT_BROWSER_TOOLS,
+                            icon = Icons.Rounded.Language,
+                        )
+                    }
 
-                    SwitchPref(
-                        context = context,
-                        prefs = agentPrefs,
-                        title = stringResource(R.string.ui_enable_device_direct_tools_e2d595),
-                        key = Prefs.Keys.AGENT_DEVICE_DIRECT_TOOLS,
-                        icon = Icons.Rounded.Smartphone,
-                    )
+                    item {
+                        SwitchPref(
+                            context = context,
+                            prefs = agentPrefs,
+                            title = stringResource(R.string.ui_enable_device_direct_tools_e2d595),
+                            key = Prefs.Keys.AGENT_DEVICE_DIRECT_TOOLS,
+                            icon = Icons.Rounded.Smartphone,
+                        )
+                    }
 
-                    SwitchPref(
-                        context = context,
-                        prefs = agentPrefs,
-                        title = stringResource(R.string.ui_allow_reading_of_sensitive_device_information_feaec0),
-                        key = Prefs.Keys.AGENT_DEVICE_SENSITIVE_READ_TOOLS,
-                        icon = Icons.Rounded.Visibility,
-                    )
+                    item {
+                        SwitchPref(
+                            context = context,
+                            prefs = agentPrefs,
+                            title = stringResource(R.string.ui_allow_reading_of_sensitive_device_information_feaec0),
+                            key = Prefs.Keys.AGENT_DEVICE_SENSITIVE_READ_TOOLS,
+                            icon = Icons.Rounded.Visibility,
+                        )
+                    }
 
-                    SwitchPref(
-                        context = context,
-                        prefs = agentPrefs,
-                        title = stringResource(R.string.ui_allow_sensitive_device_operation_3d42ea),
-                        key = Prefs.Keys.AGENT_DEVICE_SENSITIVE_ACTION_TOOLS,
-                        icon = Icons.Rounded.GppMaybe,
-                    )
+                    item {
+                        SwitchPref(
+                            context = context,
+                            prefs = agentPrefs,
+                            title = stringResource(R.string.ui_allow_sensitive_device_operation_3d42ea),
+                            key = Prefs.Keys.AGENT_DEVICE_SENSITIVE_ACTION_TOOLS,
+                            icon = Icons.Rounded.GppMaybe,
+                        )
+                    }
 
-                    SwitchPref(
-                        context = context,
-                        prefs = agentPrefs,
-                        title = stringResource(R.string.ui_enable_terminal_file_tools_18bb43),
-                        key = Prefs.Keys.AGENT_TERMINAL_TOOLS,
-                        icon = Icons.Rounded.Terminal,
-                    )
+                    item {
+                        SwitchPref(
+                            context = context,
+                            prefs = agentPrefs,
+                            title = stringResource(R.string.ui_enable_terminal_file_tools_18bb43),
+                            key = Prefs.Keys.AGENT_TERMINAL_TOOLS,
+                            icon = Icons.Rounded.Terminal,
+                        )
+                    }
 
-                    ArrowPreference(
-                        title = stringResource(R.string.ui_linux_tool_environment_314d22),
-                        startAction = {
-                            PreferenceIcon(
-                                icon = Icons.Rounded.Inventory2,
-                            )
-                        },
-                        onClick = { onNavigate(AppRoute.LinuxEnvironment) },
-                    )
+                    item {
+                        ArrowPreference(
+                            title = stringResource(R.string.ui_linux_tool_environment_314d22),
+                            startAction = {
+                                PreferenceIcon(
+                                    icon = Icons.Rounded.Inventory2,
+                                )
+                            },
+                            onClick = { onNavigate(AppRoute.LinuxEnvironment) },
+                        )
+                    }
 
-                    ArrowPreference(
-                        title = stringResource(R.string.capability_workspace),
-                        summary = stringResource(R.string.capability_workspace_summary),
-                        startAction = { PreferenceIcon(Icons.Rounded.Folder) },
-                        onClick = { onNavigate(AppRoute.Workspace) },
-                    )
+                    item {
+                        ArrowPreference(
+                            title = stringResource(R.string.capability_workspace),
+                            summary = stringResource(R.string.capability_workspace_summary),
+                            startAction = { PreferenceIcon(Icons.Rounded.Folder) },
+                            onClick = { onNavigate(AppRoute.Workspace) },
+                        )
+                    }
                 }
             }
 
             item(key = "section_haptics") {
-                SmallTitle(stringResource(R.string.haptics_title))
-                Card(modifier = Modifier.settingsSectionDiagnostics("haptics").padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-                    ArrowPreference(
-                        title = stringResource(R.string.haptics_list),
-                        summary = stringResource(R.string.haptics_entry_summary),
-                        startAction = { PreferenceIcon(Icons.Rounded.Vibration) },
-                        onClick = { onNavigate(AppRoute.Haptics) },
-                    )
+                EtaSegmentedColumn(
+                    modifier = Modifier.settingsSectionDiagnostics("haptics").padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                    title = stringResource(R.string.haptics_title),
+                ) {
+                    item {
+                        ArrowPreference(
+                            title = stringResource(R.string.haptics_list),
+                            summary = stringResource(R.string.haptics_entry_summary),
+                            startAction = { PreferenceIcon(Icons.Rounded.Vibration) },
+                            onClick = { onNavigate(AppRoute.Haptics) },
+                        )
+                    }
                 }
             }
 
             // ── 系统助手接管 ──────────────────────────────────────────────
             item(key = "section_assistant_takeover") {
-                SmallTitle(stringResource(R.string.ui_system_assistant_takes_over_f46043))
-                Card(modifier = Modifier.settingsSectionDiagnostics("assistant_takeover").padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-                    ArrowPreference(
-                        title = stringResource(R.string.ui_eta_system_assistant_003e9b),
-                        summary = stringResource(
-                            if (etaAssistantActive) {
-                                R.string.settings_default_assistant_active
-                            } else {
-                                R.string.settings_select_default_assistant
+                EtaSegmentedColumn(
+                    modifier = Modifier.settingsSectionDiagnostics("assistant_takeover").padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                    title = stringResource(R.string.ui_system_assistant_takes_over_f46043),
+                ) {
+                    item {
+                        ArrowPreference(
+                            title = stringResource(R.string.ui_eta_system_assistant_003e9b),
+                            summary = stringResource(
+                                if (etaAssistantActive) {
+                                    R.string.settings_default_assistant_active
+                                } else {
+                                    R.string.settings_select_default_assistant
+                                },
+                            ),
+                            startAction = {
+                                PreferenceIcon(
+                                    icon = Icons.Rounded.AutoAwesome,
+                                )
                             },
-                        ),
-                        startAction = {
-                            PreferenceIcon(
-                                icon = Icons.Rounded.AutoAwesome,
-                            )
-                        },
-                        onClick = openAssistantSettings,
-                    )
-                    if (prefs != null || hasConnectedFramework) {
+                            onClick = openAssistantSettings,
+                        )
+                    }
+
+                    item(visible = prefs != null || hasConnectedFramework) {
                         WindowSpinnerPreference(
                             title = stringResource(R.string.ui_long_press_the_power_button_1958d0),
                             items = powerAssistantItems,
                             selectedIndex = powerAssistantTargets.indexOf(powerAssistantTarget),
                             onSelectedIndexChange = { index ->
                                 val target = powerAssistantTargets.getOrNull(index)
-                                    ?: return@WindowSpinnerPreference
+                                ?: return@WindowSpinnerPreference
                                 val targetPrefs = prefs ?: return@WindowSpinnerPreference
                                 if (putStringSync(
                                         prefs = targetPrefs,
@@ -597,14 +642,16 @@ internal fun SettingsScreen(
                             enabled = prefs != null,
                         )
 
-                        SwitchPref(
-                            context = context,
-                            prefs = prefs,
-                            title = stringResource(R.string.ui_automatically_set_default_assistant_f86963),
-                            summary = stringResource(R.string.ui_valid_only_for_gemini_and_eta_d5b63d),
-                            key = Prefs.Keys.ASSISTANT_AUTO_CONFIG,
-                            icon = Icons.Rounded.Settings,
-                        )
+                        item(visible = prefs != null || hasConnectedFramework) {
+                            SwitchPref(
+                                context = context,
+                                prefs = prefs,
+                                title = stringResource(R.string.ui_automatically_set_default_assistant_f86963),
+                                summary = stringResource(R.string.ui_valid_only_for_gemini_and_eta_d5b63d),
+                                key = Prefs.Keys.ASSISTANT_AUTO_CONFIG,
+                                icon = Icons.Rounded.Settings,
+                            )
+                        }
                     }
                 }
             }
@@ -612,23 +659,29 @@ internal fun SettingsScreen(
             if (prefs != null || hasConnectedFramework) {
                 // ── 厂商助手兼容入口 ──────────────────────────────────────────
                 item(key = "section_oem_assistant_compatibility") {
-                    SmallTitle(stringResource(R.string.ui_xiaobu_xiaoai_compatible_entrance_ae918a))
-                    Card(modifier = Modifier.settingsSectionDiagnostics("oem_assistant_compatibility").padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-                        SwitchPref(
-                            context = context,
-                            prefs = prefs,
-                            title = stringResource(R.string.ui_enable_vendor_assistant_custom_models_c8e465),
-                            key = Prefs.Keys.AGENT_CUSTOM_MODEL,
-                            icon = Icons.Rounded.Memory,
-                        )
+                    EtaSegmentedColumn(
+                        modifier = Modifier.settingsSectionDiagnostics("oem_assistant_compatibility").padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                        title = stringResource(R.string.ui_xiaobu_xiaoai_compatible_entrance_ae918a),
+                    ) {
+                        item {
+                            SwitchPref(
+                                context = context,
+                                prefs = prefs,
+                                title = stringResource(R.string.ui_enable_vendor_assistant_custom_models_c8e465),
+                                key = Prefs.Keys.AGENT_CUSTOM_MODEL,
+                                icon = Icons.Rounded.Memory,
+                            )
+                        }
 
-                        SwitchPref(
-                            context = context,
-                            prefs = prefs,
-                            title = stringResource(R.string.ui_only_take_over_with_agent_prefix_d17556),
-                            key = Prefs.Keys.AGENT_REQUIRE_PREFIX,
-                            icon = Icons.Rounded.Code,
-                        )
+                        item {
+                            SwitchPref(
+                                context = context,
+                                prefs = prefs,
+                                title = stringResource(R.string.ui_only_take_over_with_agent_prefix_d17556),
+                                key = Prefs.Keys.AGENT_REQUIRE_PREFIX,
+                                icon = Icons.Rounded.Code,
+                            )
+                        }
                     }
                 }
             }
@@ -636,9 +689,11 @@ internal fun SettingsScreen(
             if (prefs != null || hasConnectedFramework || capabilities.root.isGranted || hasUsedSystemizer) {
                 // ── Gemini ─────────────────────────────────────────────────
                 item(key = "section_gemini") {
-                    SmallTitle("Gemini")
-                    Card(modifier = Modifier.settingsSectionDiagnostics("gemini").padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-                        if (prefs != null || hasConnectedFramework) {
+                    EtaSegmentedColumn(
+                        modifier = Modifier.settingsSectionDiagnostics("gemini").padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                        title = "Gemini",
+                    ) {
+                        item(visible = prefs != null || hasConnectedFramework) {
                             SwitchPref(
                                 context = context,
                                 prefs = prefs,
@@ -646,7 +701,9 @@ internal fun SettingsScreen(
                                 key = Prefs.Keys.HOTWORD_SELF_HEAL,
                                 icon = Icons.Rounded.Hearing,
                             )
+                        }
 
+                        item(visible = prefs != null || hasConnectedFramework) {
                             SwitchPref(
                                 context = context,
                                 prefs = prefs,
@@ -654,7 +711,9 @@ internal fun SettingsScreen(
                                 key = Prefs.Keys.LOCKSCREEN_VOICE_COMMAND,
                                 icon = Icons.Rounded.Lock,
                             )
+                        }
 
+                        item(visible = prefs != null || hasConnectedFramework) {
                             SwitchPref(
                                 context = context,
                                 prefs = prefs,
@@ -662,9 +721,9 @@ internal fun SettingsScreen(
                                 key = Prefs.Keys.SCREEN_ON_VOICE_COMMAND,
                                 icon = Icons.Rounded.Mic,
                             )
-
                         }
-                        if (capabilities.root.isGranted || hasUsedSystemizer) {
+
+                        item(visible = capabilities.root.isGranted || hasUsedSystemizer) {
                             ArrowPreference(
                                 title = stringResource(R.string.ui_convert_google_apps_to_system_apps_0f6d89),
                                 startAction = {
@@ -691,168 +750,187 @@ internal fun SettingsScreen(
             if (prefs != null || hasConnectedFramework) {
                 // ── 一圈即搜 ────────────────────────────────────────────────
                 item(key = "section_circle_to_search") {
-                    SmallTitle(stringResource(R.string.ui_search_in_one_turn_179584))
-                    Card(modifier = Modifier.settingsSectionDiagnostics("circle_to_search").padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-                        SwitchPref(
-                            context = context,
-                            prefs = prefs,
-                            title = stringResource(R.string.ui_long_press_on_the_gesture_bar_triggers_a_circle_to_s_b80117),
-                            key = Prefs.Keys.GESTURE_BAR_CIRCLE_TO_SEARCH,
-                            icon = Icons.Rounded.SwipeUp,
-                        )
+                    EtaSegmentedColumn(
+                        modifier = Modifier.settingsSectionDiagnostics("circle_to_search").padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                        title = stringResource(R.string.ui_search_in_one_turn_179584),
+                    ) {
+                        item {
+                            SwitchPref(
+                                context = context,
+                                prefs = prefs,
+                                title = stringResource(R.string.ui_long_press_on_the_gesture_bar_triggers_a_circle_to_s_b80117),
+                                key = Prefs.Keys.GESTURE_BAR_CIRCLE_TO_SEARCH,
+                                icon = Icons.Rounded.SwipeUp,
+                            )
+                        }
 
-                        SwitchPref(
-                            context = context,
-                            prefs = prefs,
-                            title = stringResource(R.string.ui_long_press_with_two_fingers_to_trigger_a_circle_sear_ab597a),
-                            key = Prefs.Keys.DOUBLE_FINGER_CIRCLE_TO_SEARCH,
-                            icon = Icons.Rounded.TouchApp,
-                        )
+                        item {
+                            SwitchPref(
+                                context = context,
+                                prefs = prefs,
+                                title = stringResource(R.string.ui_long_press_with_two_fingers_to_trigger_a_circle_sear_ab597a),
+                                key = Prefs.Keys.DOUBLE_FINGER_CIRCLE_TO_SEARCH,
+                                icon = Icons.Rounded.TouchApp,
+                            )
+                        }
                     }
                 }
             }
 
             item(key = "section_diagnostics") {
-                SmallTitle(stringResource(R.string.settings_diagnostics))
-                Card(modifier = Modifier.settingsSectionDiagnostics("diagnostics").padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-                    SwitchPreference(
-                        title = stringResource(R.string.settings_file_logging),
-                        summary = stringResource(R.string.settings_file_logging_summary),
-                        checked = appSettings.fileLoggingEnabled,
-                        onCheckedChange = { enabled ->
-                            coroutineScope.launch {
-                                SettingsDataStore.setFileLoggingEnabled(enabled)
-                            }
-                        },
-                        startAction = {
-                            PreferenceIcon(icon = Icons.Rounded.BugReport)
-                        },
-                    )
-                    ArrowPreference(
-                        title = stringResource(R.string.settings_export_logs),
-                        summary = stringResource(
-                            if (exportingLogs) {
-                                R.string.settings_export_logs_working
-                            } else {
-                                R.string.settings_export_logs_summary
+                EtaSegmentedColumn(
+                    modifier = Modifier.settingsSectionDiagnostics("diagnostics").padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                    title = stringResource(R.string.settings_diagnostics),
+                ) {
+                    item {
+                        SwitchPreference(
+                            title = stringResource(R.string.settings_file_logging),
+                            summary = stringResource(R.string.settings_file_logging_summary),
+                            checked = appSettings.fileLoggingEnabled,
+                            onCheckedChange = { enabled ->
+                                coroutineScope.launch {
+                                    SettingsDataStore.setFileLoggingEnabled(enabled)
+                                }
                             },
-                        ),
-                        enabled = !exportingLogs && !clearingLogs,
-                        startAction = {
-                            PreferenceIcon(icon = Icons.Rounded.Share)
-                        },
-                        onClick = {
-                            if (exportingLogs || clearingLogs) return@ArrowPreference
-                            if (!AppFileLogger.hasLogs()) {
-                                Toast.makeText(
-                                    context.applicationContext,
-                                    context.getString(R.string.settings_export_logs_empty),
-                                    Toast.LENGTH_SHORT,
-                                ).show()
-                                return@ArrowPreference
-                            }
-                            exportLogsLauncher.launch(defaultDiagnosticLogFileName())
-                        },
-                    )
-                    ArrowPreference(
-                        title = stringResource(R.string.settings_clear_logs),
-                        summary = stringResource(R.string.settings_clear_logs_summary),
-                        enabled = !exportingLogs && !clearingLogs,
-                        startAction = {
-                            PreferenceIcon(icon = Icons.Rounded.DeleteSweep)
-                        },
-                        onClick = {
-                            if (exportingLogs || clearingLogs) return@ArrowPreference
-                            showClearLogsDialog = true
-                        },
-                    )
+                            startAction = {
+                                PreferenceIcon(icon = Icons.Rounded.BugReport)
+                            },
+                        )
+                    }
+
+                    item {
+                        ArrowPreference(
+                            title = stringResource(R.string.settings_export_logs),
+                            summary = stringResource(
+                                if (exportingLogs) {
+                                    R.string.settings_export_logs_working
+                                } else {
+                                    R.string.settings_export_logs_summary
+                                },
+                            ),
+                            enabled = !exportingLogs && !clearingLogs,
+                            startAction = {
+                                PreferenceIcon(icon = Icons.Rounded.Share)
+                            },
+                            onClick = {
+                                if (exportingLogs || clearingLogs) return@ArrowPreference
+                                if (!AppFileLogger.hasLogs()) {
+                                    Toast.makeText(
+                                        context.applicationContext,
+                                        context.getString(R.string.settings_export_logs_empty),
+                                        Toast.LENGTH_SHORT,
+                                    ).show()
+                                    return@ArrowPreference
+                                }
+                                exportLogsLauncher.launch(defaultDiagnosticLogFileName(context))
+                            },
+                        )
+                    }
+
+                    item {
+                        ArrowPreference(
+                            title = stringResource(R.string.settings_clear_logs),
+                            summary = stringResource(R.string.settings_clear_logs_summary),
+                            enabled = !exportingLogs && !clearingLogs,
+                            startAction = {
+                                PreferenceIcon(icon = Icons.Rounded.DeleteSweep)
+                            },
+                            onClick = {
+                                if (exportingLogs || clearingLogs) return@ArrowPreference
+                                showClearLogsDialog = true
+                            },
+                        )
+                    }
                 }
             }
 
             // ── 权限 ────────────────────────────────────────────────────
             item(key = "section_permissions") {
-                SmallTitle(stringResource(R.string.ui_permissions_560165))
-                Card(modifier = Modifier.settingsSectionDiagnostics("permissions").padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-                    ArrowPreference(
-                        title = stringResource(R.string.ui_permission_health_3048bb),
-                        summary = stringResource(R.string.ui_permissions_and_status_35f368),
-                        startAction = {
-                            PreferenceIcon(icon = Icons.Rounded.HealthAndSafety)
-                        },
-                        onClick = { onNavigate(AppRoute.Permissions) },
-                    )
-                    ArrowPreference(
-                        title = stringResource(R.string.capability_enhancements),
-                        summary = stringResource(R.string.capability_enhancements_summary),
-                        startAction = {
-                            PreferenceIcon(icon = Icons.Rounded.Security)
-                        },
-                        onClick = { onNavigate(AppRoute.SystemEnhance) },
-                    )
-                    ArrowPreference(
-                        title = stringResource(R.string.ui_floating_window_permissions_076b77),
-                        startAction = {
-                            PreferenceIcon(
-                                icon = Icons.Rounded.Layers,
-                            )
-                        },
-                        endActions = {
-                            Text(
-                                text = stringResource(
-                                    if (overlayGranted) R.string.status_authorized else R.string.status_unauthorized,
-                                ),
-                                fontSize = MiuixTheme.textStyles.body2.fontSize,
-                                color = if (overlayGranted) {
-                                    MiuixTheme.colorScheme.onSurfaceVariantActions
-                                } else {
-                                    MiuixTheme.colorScheme.error
-                                },
-                            )
-                        },
-                        onClick = {
-                            if (!overlayGranted) {
+                EtaSegmentedColumn(
+                    modifier = Modifier.settingsSectionDiagnostics("permissions").padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                    title = stringResource(R.string.ui_permissions_560165),
+                ) {
+                    item {
+                        ArrowPreference(
+                            title = stringResource(R.string.ui_permission_health_3048bb),
+                            summary = stringResource(R.string.ui_permissions_and_status_35f368),
+                            startAction = {
+                                PreferenceIcon(icon = Icons.Rounded.HealthAndSafety)
+                            },
+                            onClick = { onNavigate(AppRoute.Permissions) },
+                        )
+                    }
+
+                    item {
+                        ArrowPreference(
+                            title = stringResource(R.string.capability_enhancements),
+                            summary = stringResource(R.string.capability_enhancements_summary),
+                            startAction = {
+                                PreferenceIcon(icon = Icons.Rounded.Security)
+                            },
+                            onClick = { onNavigate(AppRoute.SystemEnhance) },
+                        )
+                    }
+
+                    item {
+                        ArrowPreference(
+                            title = stringResource(R.string.ui_floating_window_permissions_076b77),
+                            startAction = {
+                                PreferenceIcon(
+                                    icon = Icons.Rounded.Layers,
+                                )
+                            },
+                            endActions = {
+                                SettingsStatusText(
+                                    text = stringResource(
+                                        if (overlayGranted) R.string.status_authorized else R.string.status_unauthorized,
+                                    ),
+                                    error = !overlayGranted,
+                                )
+                            },
+                            onClick = {
+                                if (!overlayGranted) {
+                                    runCatching {
+                                        context.startActivity(
+                                            android.content.Intent(
+                                                android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                                android.net.Uri.parse("package:${context.packageName}"),
+                                            ),
+                                        )
+                                    }
+                                }
+                            },
+                        )
+                    }
+
+                    item {
+                        ArrowPreference(
+                            title = stringResource(R.string.ui_accessibility_enhancement_tools_8fd257),
+                            startAction = {
+                                PreferenceIcon(
+                                    icon = Icons.Rounded.AccessibilityNew,
+                                )
+                            },
+                            endActions = {
+                                val enabled = accessibilityGranted || AgentAccessibilityService.isAvailable()
+                                SettingsStatusText(
+                                    text = stringResource(
+                                        if (enabled) R.string.status_enabled else R.string.status_disabled,
+                                    ),
+                                    emphasized = !enabled,
+                                )
+                            },
+                            onClick = {
                                 runCatching {
                                     context.startActivity(
-                                        android.content.Intent(
-                                            android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                            android.net.Uri.parse("package:${context.packageName}"),
-                                        ),
+                                        android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS),
                                     )
                                 }
-                            }
-                        },
-                    )
+                            },
+                        )
+                    }
 
-                    ArrowPreference(
-                        title = stringResource(R.string.ui_accessibility_enhancement_tools_8fd257),
-                        startAction = {
-                            PreferenceIcon(
-                                icon = Icons.Rounded.AccessibilityNew,
-                            )
-                        },
-                        endActions = {
-                            val enabled = accessibilityGranted || AgentAccessibilityService.isAvailable()
-                            Text(
-                                text = stringResource(
-                                    if (enabled) R.string.status_enabled else R.string.status_disabled,
-                                ),
-                                fontSize = MiuixTheme.textStyles.body2.fontSize,
-                                color = if (enabled) {
-                                    MiuixTheme.colorScheme.onSurfaceVariantActions
-                                } else {
-                                    MiuixTheme.colorScheme.primary
-                                },
-                            )
-                        },
-                        onClick = {
-                            runCatching {
-                                context.startActivity(
-                                    android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS),
-                                )
-                            }
-                        },
-                    )
-                    if (prefs != null || hasConnectedFramework) {
+                    item(visible = prefs != null || hasConnectedFramework) {
                         SwitchPreference(
                             title = stringResource(R.string.ui_enforce_accessibility_55e838),
                             checked = accessibilityProtectionEnabled,
@@ -871,9 +949,9 @@ internal fun SettingsScreen(
                                     val failureMessage = when (result.status) {
                                         AccessibilityProtectionClient.ControlStatus.APPLIED -> null
                                         AccessibilityProtectionClient.ControlStatus.UNAVAILABLE ->
-                                            context.getString(R.string.accessibility_protection_unavailable)
+                                        context.getString(R.string.accessibility_protection_unavailable)
                                         AccessibilityProtectionClient.ControlStatus.REJECTED ->
-                                            context.getString(R.string.accessibility_protection_rejected)
+                                        context.getString(R.string.accessibility_protection_rejected)
                                     }
                                     if (failureMessage != null) {
                                         Toast.makeText(
@@ -898,208 +976,25 @@ internal fun SettingsScreen(
 
             // ── 关于 ────────────────────────────────────────────────────
             item(key = "section_about") {
-                SmallTitle(stringResource(R.string.ui_about_bed172))
-                Card(modifier = Modifier.settingsSectionDiagnostics("about").padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-                    ArrowPreference(
-                        title = stringResource(R.string.update_check_title),
-                        summary = if (checkingUpdate) {
-                            stringResource(R.string.update_checking)
-                        } else {
-                            stringResource(
-                                R.string.update_current_version,
-                                currentVersion.ifBlank { stringResource(R.string.update_unknown_version) },
-                            )
-                        },
-                        startAction = {
-                            PreferenceIcon(
-                                icon = Icons.Rounded.CloudDownload,
-                            )
-                        },
-                        onClick = {
-                            if (checkingUpdate) return@ArrowPreference
-                            checkingUpdate = true
-                            coroutineScope.launch {
-                                val result = AppUpdateRepository.checkForUpdate(context, force = true)
-                                checkingUpdate = false
-                                result.fold(
-                                    onSuccess = { offer ->
-                                        if (offer == null) {
-                                            Toast.makeText(
-                                                context,
-                                                context.getString(R.string.update_latest),
-                                                Toast.LENGTH_SHORT,
-                                            ).show()
-                                        } else {
-                                            updateOffer = offer
-                                        }
-                                    },
-                                    onFailure = { failure ->
-                                        Toast.makeText(
-                                            context,
-                                            failure.message?.takeIf { it.isNotBlank() }
-                                                ?: context.getString(R.string.update_check_failed),
-                                            Toast.LENGTH_SHORT,
-                                        ).show()
-                                    },
+                EtaSegmentedColumn(
+                    modifier = Modifier.settingsSectionDiagnostics("about").padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                    title = stringResource(R.string.ui_about_bed172),
+                ) {
+                    item {
+                        ArrowPreference(
+                            title = stringResource(R.string.ui_about_bed172),
+                            startAction = {
+                                PreferenceIcon(
+                                    icon = Icons.Rounded.Info,
                                 )
-                            }
-                        },
-                    )
-                    ArrowPreference(
-                        title = stringResource(R.string.about_telegram_channel),
-                        startAction = {
-                            PreferenceIcon(
-                                icon = Icons.Rounded.Campaign,
-                            )
-                        },
-                        endActions = {
-                            Text(
-                                text = "Telegram",
-                                fontSize = MiuixTheme.textStyles.body2.fontSize,
-                                color = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                            )
-                        },
-                        onClick = {
-                            openExternalUrl(
-                                context,
-                                "https://t.me/+6JhB2iRjjDExYWM1",
-                                context.getString(R.string.about_telegram_open_failed),
-                            )
-                        },
-                    )
-                    ArrowPreference(
-                        title = stringResource(R.string.about_qq_group),
-                        startAction = {
-                            PreferenceIcon(
-                                icon = Icons.Rounded.Groups,
-                            )
-                        },
-                        endActions = {
-                            Text(
-                                text = "QQ",
-                                fontSize = MiuixTheme.textStyles.body2.fontSize,
-                                color = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                            )
-                        },
-                        onClick = {
-                            val opened = runCatching {
-                                context.startActivity(
-                                    android.content.Intent(
-                                        android.content.Intent.ACTION_VIEW,
-                                        android.net.Uri.parse("mqqapi://card/show_pslcard?src_type=internal&version=1&uin=735910197&card_type=group&source=qrcode"),
-                                    )
-                                )
-                                true
-                            }.getOrDefault(false)
-                            if (!opened) {
-                                openExternalUrl(
-                                    context,
-                                    "https://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=QZmmrmSQqSAyI8Mo5NHAMc9l6TejcBrw&authKey=mQrh5avqMDc09GunNdtCmuN5tk9UynOekkjHxfuKPjhN4ELWBMJN5edaYw51UXbQ&noverify=0&group_code=735910197",
-                                    context.getString(R.string.about_qq_group_open_failed),
-                                )
-                            }
-                        },
-                    )
-                    ArrowPreference(
-                        title = stringResource(R.string.ui_source_code_740296),
-                        startAction = {
-                            PreferenceIcon(
-                                icon = Icons.Rounded.Code,
-                            )
-                        },
-                        endActions = {
-                            Text(
-                                text = "GitHub",
-                                fontSize = MiuixTheme.textStyles.body2.fontSize,
-                                color = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                            )
-                        },
-                        onClick = {
-                            val intent = android.content.Intent(
-                                android.content.Intent.ACTION_VIEW,
-                                android.net.Uri.parse("https://github.com/y2485871697/Eta"),
-                            )
-                            context.startActivity(intent)
-                        },
-                    )
-                    HapticBasicComponent(
-                        title = stringResource(R.string.about_relay_station),
-                        startAction = {
-                            PreferenceIcon(
-                                icon = Icons.Rounded.Language,
-                            )
-                        },
-                        endActions = {
-                            Icon(
-                                imageVector = if (relayStationExpanded) {
-                                    Icons.Rounded.ExpandMore
-                                } else {
-                                    Icons.Rounded.ChevronRight
-                                },
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .align(Alignment.CenterVertically)
-                                    .padding(end = 8.dp)
-                                    .size(16.dp),
-                                tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                            )
-                        },
-                        holdDownState = relayStationExpanded,
-                        onClick = { relayStationExpanded = !relayStationExpanded },
-                        bottomAction = if (relayStationExpanded) {
-                            {
-                                Column {
-                                    ArrowPreference(
-                                        title = stringResource(R.string.about_relay_station_st_api),
-                                        insideMargin = PaddingValues(0.dp),
-                                        onClick = {
-                                            openExternalUrl(
-                                                context,
-                                                "https://st.123336.xyz/join/ZKjSNbdYUh6RbF5_Kdxjrp-_AoAVcMH9",
-                                                context.getString(R.string.about_relay_station_open_failed),
-                                            )
-                                        },
-                                    )
-                                    ArrowPreference(
-                                        title = stringResource(R.string.about_relay_station_moyu),
-                                        insideMargin = PaddingValues(0.dp),
-                                        onClick = {
-                                            openExternalUrl(
-                                                context,
-                                                "https://www.u354483.nyat.app:35119/register?aff=5U8U292F5RG6",
-                                                context.getString(R.string.about_relay_station_open_failed),
-                                            )
-                                        },
-                                    )
-                                }
-                            }
-                        } else {
-                            null
-                        },
-                    )
-                    ArrowPreference(
-                        title = stringResource(R.string.about_donate),
-                        startAction = {
-                            PreferenceIcon(
-                                icon = Icons.Rounded.Restaurant,
-                            )
-                        },
-                        onClick = { showDonateDialog = true },
-                    )
+                            },
+                            onClick = { onNavigate(AppRoute.About) },
+                        )
+                    }
                 }
             }
         }
     }
-
-        if (showDonateDialog) {
-            DonateQrDialog(onDismiss = { showDonateDialog = false })
-        }
-
-        AppUpdateDialog(
-            offer = updateOffer,
-            currentVersion = currentVersion,
-            onDismiss = { updateOffer = null },
-        )
 
         if (showClearLogsDialog) {
             EtaDialog(
@@ -1282,6 +1177,33 @@ private fun SwitchPref(
  * 失败（binder RemoteException）返回 false 但本进程 map 已被改写——此时 hook 进程收不到新值。
  * 返回是否提交成功，供调用方决定是否更新 UI。
  */
+// ── 行尾状态文字（授权 / 启用 / 链接名等）：按主题取官方或 miuix 配色 ─────────────
+
+@Composable
+internal fun SettingsStatusText(text: String, error: Boolean = false, emphasized: Boolean = false) {
+    if (isMaterial3Theme()) {
+        M3StatusText(
+            text = text,
+            style = M3MaterialTheme.typography.bodyMedium,
+            color = when {
+                error -> M3MaterialTheme.colorScheme.error
+                emphasized -> M3MaterialTheme.colorScheme.primary
+                else -> M3MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        )
+    } else {
+        Text(
+            text = text,
+            fontSize = MiuixTheme.textStyles.body2.fontSize,
+            color = when {
+                error -> MiuixTheme.colorScheme.error
+                emphasized -> MiuixTheme.colorScheme.primary
+                else -> MiuixTheme.colorScheme.onSurfaceVariantActions
+            },
+        )
+    }
+}
+
 private fun putBooleanSync(
     prefs: SharedPreferences,
     key: String,
@@ -1315,94 +1237,14 @@ private fun isAgentAccessibilityEnabled(context: Context): Boolean {
     return enabledServices.split(':').any { it.equals(expected, ignoreCase = true) }
 }
 
-private fun defaultDiagnosticLogFileName(): String =
-    "代鱼-诊断日志-${SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())}.zip"
+private fun defaultDiagnosticLogFileName(context: Context): String =
+    context.getString(R.string.settings_diag_log_file_name, SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date()))
 
 private fun isEtaAssistantActive(context: Context): Boolean =
     VoiceInteractionService.isActiveService(
         context,
         ComponentName(context, EtaVoiceInteractionService::class.java),
     )
-
-
-
-@Composable
-private fun DonateQrDialog(onDismiss: () -> Unit) {
-    var wechatSelected by remember { mutableStateOf(true) }
-    val view = LocalView.current
-    EtaDialog(
-        show = true,
-        title = stringResource(R.string.about_donate),
-        onDismissRequest = onDismiss,
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            val wechatLabel = stringResource(R.string.about_donate_wechat)
-            val alipayLabel = stringResource(R.string.about_donate_alipay)
-            if (isMaterial3Theme()) {
-                // 官方标签栏：指示器动画、容器配色与字阶全部由 Material 3 提供。
-                PrimaryTabRow(
-                    selectedTabIndex = if (wechatSelected) 0 else 1,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 12.dp),
-                ) {
-                    Tab(
-                        selected = wechatSelected,
-                        onClick = {
-                            TouchHaptics.click(view)
-                            wechatSelected = true
-                        },
-                        text = { M3Text(wechatLabel) },
-                    )
-                    Tab(
-                        selected = !wechatSelected,
-                        onClick = {
-                            TouchHaptics.click(view)
-                            wechatSelected = false
-                        },
-                        text = { M3Text(alipayLabel) },
-                    )
-                }
-            } else {
-                TabRow(
-                    tabs = listOf(wechatLabel, alipayLabel),
-                    selectedTabIndex = if (wechatSelected) 0 else 1,
-                    onTabSelected = {
-                        TouchHaptics.click(view)
-                        wechatSelected = it == 0
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 12.dp),
-                )
-            }
-            Image(
-                painter = painterResource(
-                    if (wechatSelected) R.drawable.donate_wechat else R.drawable.donate_alipay,
-                ),
-                contentDescription = if (wechatSelected) {
-                    stringResource(R.string.about_donate_wechat)
-                } else {
-                    stringResource(R.string.about_donate_alipay)
-                },
-                contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp),
-            )
-        }
-    }
-}
-
-private fun openExternalUrl(context: Context, url: String, failureMessage: String) {
-    val intent = android.content.Intent(
-        android.content.Intent.ACTION_VIEW,
-        android.net.Uri.parse(url),
-    )
-    runCatching { context.startActivity(intent) }.onFailure {
-        Toast.makeText(context, failureMessage, Toast.LENGTH_SHORT).show()
-    }
-}
 
 private fun SystemizerInstallResult.toToastMessage(context: Context): String =
     when (this) {

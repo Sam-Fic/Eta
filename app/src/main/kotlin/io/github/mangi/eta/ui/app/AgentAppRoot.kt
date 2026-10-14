@@ -64,6 +64,7 @@ import io.github.mangi.eta.ui.AgentTaskSurfacePrompt
 import io.github.mangi.eta.ui.AppearanceSettingsScreen
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.WhaleMaidMemoriesScreen
 import io.github.mangi.eta.ui.WhaleMaidSettingsScreen
 import io.github.mangi.eta.ui.HapticsSettingsScreen
 import io.github.mangi.eta.ui.ErrorReconnectSettingsScreen
@@ -141,7 +142,7 @@ fun AgentAppRoot(
     fun stopMainReply() {
         val captured = agentState.captureStopRequest() ?: return
         if (!agentState.stopMainReply(captured)) {
-            Toast.makeText(context, "任务状态已变化，请重新选择要停止的任务。", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.appst_stop_selection_changed), Toast.LENGTH_SHORT).show()
         }
     }
     val usageConversationId = agentState.conversationPaneState.selectedConversationId
@@ -268,7 +269,7 @@ fun AgentAppRoot(
         conversationExportId = null
         if (uri == null) return@rememberLauncherForActivityResult
         if (id == null) {
-            Toast.makeText(context, "导出目标已丢失，未写入文件，请重新选择会话。", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, context.getString(R.string.appst_export_target_lost), Toast.LENGTH_LONG).show()
             return@rememberLauncherForActivityResult
         }
         uiScope.launch {
@@ -300,12 +301,12 @@ fun AgentAppRoot(
                     runCatching { android.provider.DocumentsContract.deleteDocument(context.contentResolver, uri) }.getOrDefault(false)
                 }
                 if (failure is kotlinx.coroutines.CancellationException) {
-                    if (!cleaned && touchedDestination) Toast.makeText(context, "导出已取消，目标文件可能不完整，请删除后重试。", Toast.LENGTH_LONG).show()
+                    if (!cleaned && touchedDestination) Toast.makeText(context, context.getString(R.string.appst_export_cancelled_partial), Toast.LENGTH_LONG).show()
                     throw failure
                 }
                 val detail = failure.message ?: context.getString(R.string.conversation_export_failed)
                 Toast.makeText(context, detail + if (!cleaned) {
-                    if (touchedDestination) "\n目标文件可能不完整，请删除后重试。" else "\n未写入备份；文件选择器创建的空文件可能仍保留。"
+                    if (touchedDestination) "\n" + context.getString(R.string.appst_export_partial_suffix) else "\n" + context.getString(R.string.appst_export_empty_suffix)
                 } else "", Toast.LENGTH_LONG).show()
             } finally {
                 kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable + Dispatchers.IO) {
@@ -493,7 +494,7 @@ fun AgentAppRoot(
             },
             onConversationExport = { conversation ->
                 if (conversationExportBusy || conversationExportId != null) {
-                    Toast.makeText(context, "已有会话导出任务，请等待完成。", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.appst_export_in_progress), Toast.LENGTH_SHORT).show()
                 } else {
                     conversationExportId = conversation.id
                     conversationExportTitle = conversation.title.ifBlank { context.getString(R.string.conversation_unnamed) }
@@ -920,6 +921,9 @@ fun AgentAppRoot(
                     currentModelId = shellHomeState.modelId,
                 )
             }
+            entry<AppRoute.About>(swipeDismiss = swipeDismiss) {
+                io.github.mangi.eta.ui.AboutScreen(onBack = ::popRoute)
+            }
             entry<AppRoute.AuxiliaryVision>(swipeDismiss = swipeDismiss) {
                 io.github.mangi.eta.ui.ModelFeatureSettingsScreen(
                     feature = io.github.mangi.eta.agent.model.ModelFeature.VISION, onBack = ::popRoute)
@@ -954,7 +958,13 @@ fun AgentAppRoot(
                 AppearanceSettingsScreen(onBack = ::popRoute)
             }
             entry<AppRoute.WhaleMaid>(swipeDismiss = swipeDismiss) {
-                WhaleMaidSettingsScreen(onBack = ::popRoute)
+                WhaleMaidSettingsScreen(
+                    onBack = ::popRoute,
+                    onNavigate = { route -> pushRoute(route) },
+                )
+            }
+            entry<AppRoute.WhaleMaidMemories>(swipeDismiss = swipeDismiss) {
+                WhaleMaidMemoriesScreen(onBack = ::popRoute)
             }
             entry<AppRoute.DataBackup>(swipeDismiss = swipeDismiss) {
                 DataBackupScreen(

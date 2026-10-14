@@ -6,6 +6,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.res.stringResource
+import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.runtime.AgentChildRunControl
 
 /** The parent is already ending and its captured children are already paused before this opens. */
@@ -17,15 +19,15 @@ internal fun AgentStopTaskDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("如何处理子代理？") },
+        title = { Text(stringResource(R.string.ast_title)) },
         text = {
-            Text("主回复已结束，未完成的子代理已请求暂停。保留暂停可供之后查询并继续；停止也会保留已有结果。返回或关闭默认保持暂停。")
+            Text(stringResource(R.string.ast_body))
         },
         confirmButton = {
-            TextButton(onClick = onStopChildren) { Text("停止子代理") }
+            TextButton(onClick = onStopChildren) { Text(stringResource(R.string.ast_stop)) }
         },
         dismissButton = {
-            TextButton(onClick = onPauseChildren) { Text("暂停子代理") }
+            TextButton(onClick = onPauseChildren) { Text(stringResource(R.string.ast_pause)) }
         },
     )
 }

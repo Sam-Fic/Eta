@@ -21,6 +21,7 @@ import io.github.mangi.eta.data.model.AssistantProfile
 import io.github.mangi.eta.data.repository.AssistantRepository
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedItem
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.navigation.AppRoute
 import kotlinx.coroutines.Dispatchers
@@ -59,6 +60,29 @@ internal fun AssistantsScreen(
         }
     }
 
+    // 浏览态进编辑页；选择态（picker）选中助手后返回。
+    val openProfile: (AssistantProfile) -> Unit = { profile ->
+        if (picker) {
+            if (onSelectAssistant != null) {
+                onSelectAssistant(profile.id)
+                onBack()
+            } else {
+                scope.launch {
+                    withContext(Dispatchers.IO) {
+                        AssistantRepository.select(profile.id)
+                        RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+                    }
+                    onBack()
+                }
+            }
+        } else {
+            onNavigate(AppRoute.AssistantEdit(profile.id))
+        }
+    }
+
+    // LazyListScope 的 content lambda 非组合上下文，主题判定需在外层解析后按值分支。
+    val material3 = isMaterial3Theme()
+
     EtaScaffoldPage(
         title = stringResource(R.string.assistant_list_title),
         onBack = onBack,
@@ -95,38 +119,51 @@ internal fun AssistantsScreen(
                 placeholder = stringResource(R.string.assistant_search),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp)
+                    // M3 与列表分组容器同为 16dp 水平边距；MIUI X 保持原有 12dp。
+                    .padding(horizontal = if (material3) 16.dp else 12.dp)
                     .padding(top = 12.dp, bottom = 8.dp),
             )
         }
-        filtered.forEach { profile ->
-            item(key = profile.id) {
-                AssistantProfileCard(
-                    profile = profile,
-                    selected = profile.id == activeId,
-                    onClick = {
-                        if (picker) {
-                            if (onSelectAssistant != null) {
-                                onSelectAssistant(profile.id)
-                                onBack()
-                            } else {
+        if (material3) {
+            // M3：所有助手合并为一个 KernelSU 式分段组，行左滑露出「复制/编辑/删除」。
+            filtered.forEachIndexed { index, profile ->
+                item(key = profile.id) {
+                    EtaSegmentedItem(index = index, count = filtered.size) {
+                        AssistantSwipeRow(
+                            profile = profile,
+                            selected = profile.id == activeId,
+                            onOpen = { openProfile(profile) },
+                            onCopy = {
                                 scope.launch {
                                     withContext(Dispatchers.IO) {
-                                        AssistantRepository.select(profile.id)
-                                        RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+                                        AssistantRepository.duplicate(profile.id)
                                     }
-                                    onBack()
                                 }
-                            }
-                        } else {
-                            onNavigate(AppRoute.AssistantEdit(profile.id))
-                        }
-                    },
-                    onLongClick = { actionProfile = profile },
-                    modifier = Modifier
-                        .padding(horizontal = 12.dp)
-                        .padding(bottom = 8.dp),
-                )
+                            },
+                            onEdit = { onNavigate(AppRoute.AssistantEdit(profile.id)) },
+                            onDelete = { deleteProfile = profile },
+                            modifier = Modifier.padding(
+                                start = 16.dp,
+                                end = 16.dp,
+                                bottom = if (index == filtered.lastIndex) 13.dp else 2.dp,
+                            ),
+                        )
+                    }
+                }
+            }
+        } else {
+            filtered.forEach { profile ->
+                item(key = profile.id) {
+                    AssistantProfileCard(
+                        profile = profile,
+                        selected = profile.id == activeId,
+                        onClick = { openProfile(profile) },
+                        onLongClick = { actionProfile = profile },
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = 8.dp),
+                    )
+                }
             }
         }
         if (filtered.isEmpty()) {

@@ -1,6 +1,8 @@
 package io.github.mangi.eta.ui.components
 
+import android.content.Context
 import androidx.compose.runtime.compositionLocalOf
+import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.delegation.SubAgentContextStats
 import io.github.mangi.eta.ui.model.AgentContextUsageUi
 import io.github.mangi.eta.ui.model.formatContextUsage
@@ -23,35 +25,35 @@ internal fun SubAgentContextStats.cloudContextUsage(): AgentContextUsageUi = Age
 )
 
 /** A missing child receipt is unknown, not the legacy formatter's 0K/0% placeholder. */
-internal fun SubAgentContextStats.cloudContextSummary(locale: Locale = Locale.getDefault()): String {
+internal fun SubAgentContextStats.cloudContextSummary(context: Context, locale: Locale = Locale.getDefault()): String {
     val usage = cloudContextUsage()
-    return if (usage.contextTokens == null) "上下文用量未知，等待云端统计"
-    else formatContextUsage(usage, noLimitText = "当前模型未提供上下文上限", locale = locale)
+    return if (usage.contextTokens == null) context.getString(R.string.act_context_usage_unknown)
+    else formatContextUsage(usage, noLimitText = context.getString(R.string.act_context_no_limit), unknownText = context.getString(R.string.amp_unknown), locale = locale)
 }
 
-internal fun SubAgentContextStats.contextLabel(): String {
+internal fun SubAgentContextStats.contextLabel(context: Context): String {
     val roleLabel = when (role) {
-        "implementation" -> "实现"
-        "review" -> "审查"
-        "summary" -> "总结"
-        "image_generation" -> "图片生成"
-        "video_generation" -> "视频生成"
-        else -> "研究"
+        "implementation" -> context.getString(R.string.act_role_implementation)
+        "review" -> context.getString(R.string.act_role_review)
+        "summary" -> context.getString(R.string.act_role_summary)
+        "image_generation" -> context.getString(R.string.act_role_image)
+        "video_generation" -> context.getString(R.string.act_role_video)
+        else -> context.getString(R.string.act_role_research)
     }
     return "$modelName（${agentName.ifBlank { roleLabel }} ${taskId.take(6)}）"
 }
 
-internal fun SubAgentContextStats.contextStatusLabel(): String = when {
+internal fun SubAgentContextStats.contextStatusLabel(context: Context): String = when {
     // Confirmed lifecycle state wins over a stale compaction/request flag.
-    status == "awaiting_decision" || status == "paused" -> "已暂停"
-    status == "pausing" -> "正在暂停"
-    status == "completed" -> "已完成"
-    status == "timed_out" -> "已超时"
-    status == "cancelled" -> "已取消"
-    status == "failed" -> "失败"
-    status == "queued" -> "排队中"
-    manualCompactionState == "pending" -> "等待压缩"
-    isCompacting -> "正在压缩"
-    status == "running" -> "执行中"
-    else -> "状态未知"
+    status == "awaiting_decision" || status == "paused" -> context.getString(R.string.act_status_paused)
+    status == "pausing" -> context.getString(R.string.act_status_pausing)
+    status == "completed" -> context.getString(R.string.act_status_completed)
+    status == "timed_out" -> context.getString(R.string.act_status_timed_out)
+    status == "cancelled" -> context.getString(R.string.act_status_cancelled)
+    status == "failed" -> context.getString(R.string.act_status_failed)
+    status == "queued" -> context.getString(R.string.act_status_queued)
+    manualCompactionState == "pending" -> context.getString(R.string.act_status_waiting_compaction)
+    isCompacting -> context.getString(R.string.act_status_compacting)
+    status == "running" -> context.getString(R.string.act_status_running)
+    else -> context.getString(R.string.act_status_unknown)
 }

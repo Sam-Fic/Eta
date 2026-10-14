@@ -39,6 +39,9 @@ import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 import io.github.mangi.eta.ui.adaptive.EtaCard
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
 import io.github.mangi.eta.ui.adaptive.EtaSectionTitle
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedItemContainer
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedTextField
 import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.components.AssistantAvatar
@@ -52,7 +55,6 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.TextButton as M3TextButton
 import androidx.compose.material3.Text as M3Text
@@ -123,14 +125,14 @@ internal fun AssistantEditScreen(
     fun persistAssistantToggles(nextMemory: Boolean = memoryEnabled, nextSkills: Set<String> = enabledSkillIds) {
         scope.launch {
             val result = withContext(Dispatchers.IO) { runCatching {
-                val current = requireNotNull(AssistantRepository.currentProfile(assistantId)) { "助手不存在" }
+                val current = requireNotNull(AssistantRepository.currentProfile(assistantId)) { context.getString(R.string.aes_assistant_missing) }
                 AssistantRepository.update(current.copy(memoryEnabled = nextMemory, enabledSkillIds = nextSkills.toList()))
             } }
             if (result.isSuccess) {
                 persistedMemoryEnabled = nextMemory
                 persistedSkillIds = nextSkills
             } else {
-                android.widget.Toast.makeText(context, result.exceptionOrNull()?.message ?: "技能目录发布失败，请重试", android.widget.Toast.LENGTH_LONG).show()
+                android.widget.Toast.makeText(context, result.exceptionOrNull()?.message ?: context.getString(R.string.aes_skill_catalog_publish_failed), android.widget.Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -158,7 +160,7 @@ internal fun AssistantEditScreen(
             }
             saving = false
             if (result.isSuccess) onBack()
-            else android.widget.Toast.makeText(context, result.exceptionOrNull()?.message ?: "保存失败，草稿已保留", android.widget.Toast.LENGTH_LONG).show()
+            else android.widget.Toast.makeText(context, result.exceptionOrNull()?.message ?: context.getString(R.string.aes_save_failed_draft_kept), android.widget.Toast.LENGTH_LONG).show()
         }
     }
 
@@ -187,197 +189,313 @@ internal fun AssistantEditScreen(
             }
         },
     ) {
-        item(key = "preview_title") {
-            EtaSectionTitle(text = stringResource(R.string.assistant_preview))
-        }
         item(key = "preview") {
-            EtaCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp)
-                    .padding(bottom = 12.dp),
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+            if (isMaterial3Theme()) {
+                EtaSegmentedColumn(
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                    title = stringResource(R.string.assistant_preview),
                 ) {
-                    if (isMaterial3Theme()) {
-                        // 官方可点击 Surface，自带涟漪与按压语义。
-                        Surface(
-                            onClick = pickAvatar,
-                            shape = CircleShape,
-                            modifier = Modifier.size(56.dp),
-                        ) {
-                            AssistantAvatar(bitmap = avatarBitmap, size = 56.dp)
+                    item {
+                        EtaSegmentedItemContainer {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                // 官方可点击 Surface，自带涟漪与按压语义。
+                                Surface(
+                                    onClick = pickAvatar,
+                                    shape = CircleShape,
+                                    modifier = Modifier.size(56.dp),
+                                ) {
+                                    AssistantAvatar(bitmap = avatarBitmap, size = 56.dp)
+                                }
+                                M3Text(
+                                    text = name.trim().ifBlank { stringResource(R.string.assistant_unnamed) },
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
+                            }
                         }
-                    } else {
-                        AssistantAvatar(
-                            bitmap = avatarBitmap,
-                            size = 56.dp,
-                            modifier = Modifier.clickable(onClick = pickAvatar),
-                        )
                     }
-                    if (isMaterial3Theme()) {
-                        M3Text(
-                            text = name.trim().ifBlank { stringResource(R.string.assistant_unnamed) },
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                    } else {
-                        Text(
-                            text = name.trim().ifBlank { stringResource(R.string.assistant_unnamed) },
-                            style = MiuixTheme.textStyles.title3,
-                        )
+                }
+            } else {
+                // MIUI X：还原改动前的「标题 item + 卡片 item」结构（同一 lazy item 内顺序堆叠，视觉等价）。
+                Column {
+                    EtaSectionTitle(text = stringResource(R.string.assistant_preview))
+                    EtaCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = 12.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            AssistantAvatar(
+                                bitmap = avatarBitmap,
+                                size = 56.dp,
+                                modifier = Modifier.clickable(onClick = pickAvatar),
+                            )
+                            Text(
+                                text = name.trim().ifBlank { stringResource(R.string.assistant_unnamed) },
+                                style = MiuixTheme.textStyles.title3,
+                            )
+                        }
                     }
                 }
             }
-        }
-        item(key = "identity_title") {
-            EtaSectionTitle(text = stringResource(R.string.assistant_identity))
         }
         item(key = "identity") {
-            EtaCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp)
-                    .padding(bottom = 12.dp),
-            ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    AssistantField(
-                        value = name,
-                        onValueChange = { name = it },
-                        label = stringResource(R.string.assistant_name),
-                    )
+            if (isMaterial3Theme()) {
+                EtaSegmentedColumn(
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                    title = stringResource(R.string.assistant_identity),
+                ) {
+                    item {
+                        // M3：KernelSU 式无边框输入行，直接作为分段行（与其它设置二级页一致）。
+                        AssistantField(
+                            value = name,
+                            onValueChange = { name = it },
+                            label = stringResource(R.string.assistant_name),
+                        )
+                    }
                 }
-            }
-        }
-        item(key = "prompt_title") {
-            EtaSectionTitle(text = stringResource(R.string.assistant_prompt_title))
-        }
-        item(key = "prompt") {
-            EtaCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp)
-                    .padding(bottom = 12.dp),
-            ) {
-                AssistantField(
-                    value = prompt,
-                    onValueChange = { prompt = it },
-                    label = "",
-                    modifier = Modifier
-                        .padding(16.dp)
-                        .height(240.dp),
-                    singleLine = false,
-                )
-            }
-        }
-        item(key = "memory_title") {
-            EtaSectionTitle(text = stringResource(R.string.ui_memory_b55ff5))
-        }
-        item(key = "memory") {
-            EtaCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp)
-                    .padding(bottom = 12.dp),
-            ) {
-                EtaSwitchRow(
-                    title = stringResource(R.string.ui_enable_memory_4b69b7),
-                    summary = stringResource(R.string.assistant_memory_summary),
-                    checked = memoryEnabled,
-                    onCheckedChange = {
-                        memoryEnabled = it
-                        persistAssistantToggles(nextMemory = it)
-                    },
-                    enabled = !saving,
-                )
-                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                    AssistantField(
-                        value = memoryDraft,
-                        onValueChange = { memoryDraft = it },
-                        label = "MEMORY.md",
-                        useLabelAsPlaceholder = true,
-                        singleLine = false,
-                        minLines = 6,
-                        maxLines = 12,
-                        monospace = true,
-                    )
-                    if (memoryOverLimit) {
-                        if (isMaterial3Theme()) {
-                            M3Text(
-                                text = stringResource(R.string.memory_over_limit),
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.padding(top = 8.dp),
-                            )
-                        } else {
-                            Text(
-                                text = stringResource(R.string.memory_over_limit),
-                                color = MiuixTheme.colorScheme.error,
-                                style = MiuixTheme.textStyles.footnote1,
-                                modifier = Modifier.padding(top = 8.dp),
+            } else {
+                // MIUI X：还原改动前的「标题 + 卡片」结构。
+                Column {
+                    EtaSectionTitle(text = stringResource(R.string.assistant_identity))
+                    EtaCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = 12.dp),
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            AssistantField(
+                                value = name,
+                                onValueChange = { name = it },
+                                label = stringResource(R.string.assistant_name),
                             )
                         }
                     }
                 }
             }
         }
-        item(key = "skills_title") {
-            EtaSectionTitle(text = stringResource(R.string.route_skills))
+        item(key = "prompt") {
+            if (isMaterial3Theme()) {
+                EtaSegmentedColumn(
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                    title = stringResource(R.string.assistant_prompt_title),
+                ) {
+                    item {
+                        AssistantField(
+                            value = prompt,
+                            onValueChange = { prompt = it },
+                            label = "",
+                            singleLine = false,
+                            minLines = 8,
+                            maxLines = 14,
+                        )
+                    }
+                }
+            } else {
+                // MIUI X：还原改动前的「标题 + 卡片」结构。
+                Column {
+                    EtaSectionTitle(text = stringResource(R.string.assistant_prompt_title))
+                    EtaCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = 12.dp),
+                    ) {
+                        AssistantField(
+                            value = prompt,
+                            onValueChange = { prompt = it },
+                            label = "",
+                            modifier = Modifier
+                                .padding(16.dp)
+                                .height(240.dp),
+                            singleLine = false,
+                        )
+                    }
+                }
+            }
+        }
+        item(key = "memory") {
+            if (isMaterial3Theme()) {
+                EtaSegmentedColumn(
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                    title = stringResource(R.string.ui_memory_b55ff5),
+                ) {
+                    item {
+                        EtaSwitchRow(
+                            title = stringResource(R.string.ui_enable_memory_4b69b7),
+                            summary = stringResource(R.string.assistant_memory_summary),
+                            checked = memoryEnabled,
+                            onCheckedChange = {
+                                memoryEnabled = it
+                                persistAssistantToggles(nextMemory = it)
+                            },
+                            enabled = !saving,
+                        )
+                    }
+                    item {
+                        // MEMORY.md 超限时用支持文案（supportingContent）承载错误提示。
+                        val memorySupporting: (@Composable () -> Unit)? = if (memoryOverLimit) {
+                            {
+                                M3Text(
+                                    text = stringResource(R.string.memory_over_limit),
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        } else {
+                            null
+                        }
+                        AssistantField(
+                            value = memoryDraft,
+                            onValueChange = { memoryDraft = it },
+                            label = "MEMORY.md",
+                            useLabelAsPlaceholder = true,
+                            singleLine = false,
+                            minLines = 6,
+                            maxLines = 12,
+                            monospace = true,
+                            isError = memoryOverLimit,
+                            supportingContent = memorySupporting,
+                        )
+                    }
+                }
+            } else {
+                // MIUI X：还原改动前的「标题 + 卡片」结构（开关行 + MEMORY.md 表单同卡片）。
+                Column {
+                    EtaSectionTitle(text = stringResource(R.string.ui_memory_b55ff5))
+                    EtaCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = 12.dp),
+                    ) {
+                        EtaSwitchRow(
+                            title = stringResource(R.string.ui_enable_memory_4b69b7),
+                            summary = stringResource(R.string.assistant_memory_summary),
+                            checked = memoryEnabled,
+                            onCheckedChange = {
+                                memoryEnabled = it
+                                persistAssistantToggles(nextMemory = it)
+                            },
+                            enabled = !saving,
+                        )
+                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                            AssistantField(
+                                value = memoryDraft,
+                                onValueChange = { memoryDraft = it },
+                                label = "MEMORY.md",
+                                useLabelAsPlaceholder = true,
+                                singleLine = false,
+                                minLines = 6,
+                                maxLines = 12,
+                                monospace = true,
+                            )
+                            if (memoryOverLimit) {
+                                Text(
+                                    text = stringResource(R.string.memory_over_limit),
+                                    color = MiuixTheme.colorScheme.error,
+                                    style = MiuixTheme.textStyles.footnote1,
+                                    modifier = Modifier.padding(top = 8.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
         item(key = "skills") {
-            EtaCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp)
-                    .padding(bottom = 12.dp),
-            ) {
-                if (isMaterial3Theme()) {
-                    M3Text(
-                        text = stringResource(R.string.assistant_skills_summary),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                    )
-                } else {
-                    Text(
-                        text = stringResource(R.string.assistant_skills_summary),
-                        style = MiuixTheme.textStyles.body2,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                    )
+            if (isMaterial3Theme()) {
+                EtaSegmentedColumn(
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                    title = stringResource(R.string.route_skills),
+                ) {
+                    item {
+                        EtaSegmentedItemContainer {
+                            M3Text(
+                                text = stringResource(R.string.assistant_skills_summary),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                            )
+                            if (installedSkills.isEmpty()) {
+                                M3Text(
+                                    text = stringResource(R.string.ui_no_skills_installed_yet_4e960f),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                )
+                            }
+                        }
+                    }
+                    if (installedSkills.isNotEmpty()) {
+                        installedSkills.forEach { skill ->
+                            item {
+                                SkillSwitchRow(
+                                    skill = skill.toSwitcherUi(enabledSkillIds.contains(skill.id)),
+                                    enabled = !saving,
+                                    showMenu = false,
+                                    onToggle = { enabled ->
+                                        val next = if (enabled) {
+                                            enabledSkillIds + skill.id
+                                        } else {
+                                            enabledSkillIds - skill.id
+                                        }
+                                        enabledSkillIds = next
+                                        persistAssistantToggles(nextSkills = next)
+                                    },
+                                )
+                            }
+                        }
+                    }
                 }
-                if (installedSkills.isEmpty()) {
-                    if (isMaterial3Theme()) {
-                        M3Text(
-                            text = stringResource(R.string.ui_no_skills_installed_yet_4e960f),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                        )
-                    } else {
+            } else {
+                // MIUI X：还原改动前的结构——说明文案 / 无技能文案 / 全部技能行同处一个 EtaCard。
+                Column {
+                    EtaSectionTitle(text = stringResource(R.string.route_skills))
+                    EtaCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = 12.dp),
+                    ) {
                         Text(
-                            text = stringResource(R.string.ui_no_skills_installed_yet_4e960f),
+                            text = stringResource(R.string.assistant_skills_summary),
                             style = MiuixTheme.textStyles.body2,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                         )
-                    }
-                } else {
-                    installedSkills.forEach { skill ->
-                        SkillSwitchRow(
-                            skill = skill.toSwitcherUi(enabledSkillIds.contains(skill.id)),
-                            enabled = !saving,
-                            showMenu = false,
-                            onToggle = { enabled ->
-                                val next = if (enabled) {
-                                    enabledSkillIds + skill.id
-                                } else {
-                                    enabledSkillIds - skill.id
-                                }
-                                enabledSkillIds = next
-                                persistAssistantToggles(nextSkills = next)
-                            },
-                        )
+                        if (installedSkills.isEmpty()) {
+                            Text(
+                                text = stringResource(R.string.ui_no_skills_installed_yet_4e960f),
+                                style = MiuixTheme.textStyles.body2,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                            )
+                        } else {
+                            installedSkills.forEach { skill ->
+                                SkillSwitchRow(
+                                    skill = skill.toSwitcherUi(enabledSkillIds.contains(skill.id)),
+                                    enabled = !saving,
+                                    showMenu = false,
+                                    onToggle = { enabled ->
+                                        val next = if (enabled) {
+                                            enabledSkillIds + skill.id
+                                        } else {
+                                            enabledSkillIds - skill.id
+                                        }
+                                        enabledSkillIds = next
+                                        persistAssistantToggles(nextSkills = next)
+                                    },
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -406,7 +524,7 @@ internal fun AssistantEditScreen(
 /**
  * 助手表单输入框。
  *
- * Material 3 走官方 [OutlinedTextField]（形状、配色、指示器全部使用官方默认值）；
+ * Material 3 走项目内 KernelSU 式 [EtaSegmentedTextField]（无边框输入框嵌进分段行）；
  * MIUI X 保持原有 [TextField]。
  */
 @Composable
@@ -420,12 +538,15 @@ private fun AssistantField(
     minLines: Int = 1,
     maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
     monospace: Boolean = false,
+    isError: Boolean = false,
+    supportingContent: (@Composable () -> Unit)? = null,
 ) {
     if (isMaterial3Theme()) {
-        OutlinedTextField(
+        EtaSegmentedTextField(
+            modifier = modifier.fillMaxWidth(),
+            label = if (useLabelAsPlaceholder) "" else label,
             value = value,
             onValueChange = onValueChange,
-            modifier = modifier.fillMaxWidth(),
             singleLine = singleLine,
             minLines = minLines,
             maxLines = maxLines,
@@ -434,14 +555,13 @@ private fun AssistantField(
             } else {
                 MaterialTheme.typography.bodyLarge
             },
-            label = if (useLabelAsPlaceholder) null else {
-                { M3Text(text = label) }
-            },
             placeholder = if (useLabelAsPlaceholder) {
                 { M3Text(text = label) }
             } else {
                 null
             },
+            isError = isError,
+            supportingContent = supportingContent,
         )
     } else {
         TextField(

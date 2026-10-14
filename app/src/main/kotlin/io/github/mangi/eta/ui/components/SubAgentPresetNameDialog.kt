@@ -24,7 +24,7 @@ internal fun SubAgentPresetNameDialog(
     saveEnabled: Boolean,
     onDismiss: () -> Unit,
     onSave: () -> Unit,
-    fieldHint: String = "组名称",
+    fieldHint: String = stringResource(R.string.spn_group_name),
 ) {
     EtaDialog(
         show = true,

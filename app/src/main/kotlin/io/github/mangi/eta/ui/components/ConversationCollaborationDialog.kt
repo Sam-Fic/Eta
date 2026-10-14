@@ -12,14 +12,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.delegation.ConversationSubAgentPreferences
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.ui.haptics.TouchHaptics
@@ -50,6 +53,7 @@ internal fun ConversationCollaborationDialog(
     ownerMatches: () -> Boolean = { true },
 ) {
     if (!show || !ownerMatches()) return
+    val context = LocalContext.current
     // Never rebind an already opened dialog to a different editor during asynchronous loading.
     val editor = LocalConversationSubAgentEditor.current?.takeIf { ownerMatches() }
     val state = editor?.observe()
@@ -99,29 +103,29 @@ internal fun ConversationCollaborationDialog(
                 Card(Modifier.widthIn(max = 480.dp).fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp)
                     .heightIn(max = maximumHeight).testTag("subagent-collaboration-card")) {
                     Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp)) {
-                        Text("本会话协作", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(bottom = 16.dp))
+                        Text(stringResource(R.string.ccd_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(bottom = 16.dp))
                         Column(Modifier.fillMaxWidth().weight(1f, fill = false).testTag("subagent-collaboration-body")
                             .verticalScroll(key(editor, choosing, current?.presetApplicationToken) { rememberScrollState() })
                             .padding(bottom = 8.dp).alpha(if (canChange) 1f else 0.38f)) {
                             when (state) {
                                 is SubAgentEditorState.Error -> {
-                                    Text("子代理配置读取或保存失败：${state.reason}")
-                                    TextButton(onClick = { editor?.retry() }) { Text("重试恢复配置") }
+                                    Text(stringResource(R.string.ccd_config_failed, state.reason))
+                                    TextButton(onClick = { editor?.retry() }) { Text(stringResource(R.string.sap_parallel_retry_restore)) }
                                 }
-                                SubAgentEditorState.Loading -> Text("正在读取本会话子代理配置…")
-                                else -> if (editor == null) Text("请先选择会话；未选择会话时不可编辑。")
-                                    else if (!canChange) Text("主代理尚未停止，暂不可编辑本会话配置。")
+                                SubAgentEditorState.Loading -> Text(stringResource(R.string.ccd_loading))
+                                else -> if (editor == null) Text(stringResource(R.string.ccd_select_conversation_first))
+                                    else if (!canChange) Text(stringResource(R.string.ccd_agent_not_stopped))
                             }
                             if (choosing && directory != null && editor != null && chooserPopup != null) {
                                 val (popup, ticket) = chooserPopup
-                                Text("选择子代理组", style = MaterialTheme.typography.headlineSmall)
-                                Text("应用时复制到本会话；本会话修改不会反写预设。切换会替换当前会话配置。",
+                                Text(stringResource(R.string.ccd_choose_group), style = MaterialTheme.typography.headlineSmall)
+                                Text(stringResource(R.string.ccd_apply_note),
                                     style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 12.dp))
                                 SubAgentPresetDirectoryStatus(directory)
                                 directory.entries.forEach { preset ->
                                     key(editor, preset.id) {
                                         SubAgentPresetCard(preset, canChange && directory.error == null && !directory.loading,
-                                            "应用子代理组${preset.name}", selected = current?.appliedPresetId == preset.id,
+                                            stringResource(R.string.ccd_apply_group_for, preset.name), selected = current?.appliedPresetId == preset.id,
                                             onClick = {
                                                 if (popup.isCurrent(ticket, popup) && latestOwnerMatches() && !latestTaskRunning && latestCanChange && latestChoosing) {
                                                     val result = editor.applyPreset(preset.id) {
@@ -130,7 +134,7 @@ internal fun ConversationCollaborationDialog(
                                                     if (result is ConversationSubAgentPreferences.WriteResult.Saved) {
                                                         applicationError = null
                                                         chooserOverride = false
-                                                    } else applicationError = "子代理组未应用，当前会话配置已保留；请重试。"
+                                                    } else applicationError = context.getString(R.string.ccd_apply_failed)
                                                 }
                                             })
                                         Spacer(Modifier.height(12.dp))
@@ -143,7 +147,7 @@ internal fun ConversationCollaborationDialog(
                                     CompositionLocalProvider(LocalConversationSubAgentEditor provides panelEditor) {
                                         when (panelState) {
                                             is SubAgentEditorState.Error -> {
-                                                Text("本会话配置保存或读取失败：${panelState.reason}", color = MaterialTheme.colorScheme.error)
+                                                Text(stringResource(R.string.ccd_panel_config_failed, panelState.reason), color = MaterialTheme.colorScheme.error)
                                                 TextButton(enabled = latestOwnerMatches() && !latestTaskRunning, onClick = {
                                                     if (latestOwnerMatches() && !latestTaskRunning && !latestChoosing) {
                                                         TouchHaptics.click(view)
@@ -151,17 +155,17 @@ internal fun ConversationCollaborationDialog(
                                                         editor.retry()
                                                         panelEditor.retry()
                                                     }
-                                                }) { Text("重试本会话配置") }
+                                                }) { Text(stringResource(R.string.ccd_retry_panel_config)) }
                                             }
-                                            SubAgentEditorState.Loading -> Text("正在读取本会话子代理配置…")
+                                            SubAgentEditorState.Loading -> Text(stringResource(R.string.ccd_loading))
                                             else -> Unit
                                         }
                                         (panelConfig ?: current).appliedPresetName?.let {
-                                            Text("已应用：$it", style = MaterialTheme.typography.bodyMedium)
+                                            Text(stringResource(R.string.ccd_applied_prefix, it), style = MaterialTheme.typography.bodyMedium)
                                         }
                                         // 官方 ListItem 承载整行点击与无障碍开关语义，官方 Switch 只负责呈现状态。
                                         ListItem(
-                                            supportingContent = { Text("按职责自动分配任务") },
+                                            supportingContent = { Text(stringResource(R.string.ccd_auto_assign)) },
                                             trailingContent = {
                                                 Switch(checked = panelConfig?.enabled ?: current.enabled, enabled = panelEnabled, onCheckedChange = null)
                                             },
@@ -172,7 +176,7 @@ internal fun ConversationCollaborationDialog(
                                                 },
                                             ),
                                         ) {
-                                            Text("自动委派")
+                                            Text(stringResource(R.string.ccd_auto_delegation))
                                         }
                                         HorizontalDivider(Modifier.padding(top = 12.dp))
                                         (panelConfig ?: current).profiles.forEach { profile ->
@@ -185,7 +189,7 @@ internal fun ConversationCollaborationDialog(
                                         }
                                         Row(Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 4.dp),
                                             verticalAlignment = Alignment.CenterVertically) {
-                                            Text("点按模型切换 · 长按调整思考", style = MaterialTheme.typography.labelMedium,
+                                            Text(stringResource(R.string.ccd_tap_hint), style = MaterialTheme.typography.labelMedium,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
                                             IconButton(modifier = Modifier.size(48.dp), enabled = panelEnabled, onClick = {
                                                 if (panelEnabled && panelEditor.enabled) {
@@ -194,7 +198,7 @@ internal fun ConversationCollaborationDialog(
                                                         addedDraft = it
                                                     }
                                                 }
-                                            }) { Icon(Icons.Rounded.Add, "添加子代理") }
+                                            }) { Icon(Icons.Rounded.Add, stringResource(R.string.sap_add_profile)) }
                                         }
                                         addedDraft?.let { session ->
                                             SubAgentProfileConfigDialog(session, panelEditor, providers,
@@ -226,7 +230,7 @@ internal fun ConversationCollaborationDialog(
                                         TouchHaptics.click(view)
                                         chooserOverride = false
                                     }
-                                }) { Text("使用当前配置") }
+                                }) { Text(stringResource(R.string.ccd_use_current_config)) }
                             } else if (!choosing && panelEditor != null) {
                                 TextButton(enabled = panelEnabled, modifier = Modifier.semantics { onClick {
                                     if (panelEnabled && panelEditor.enabled && latestOwnerMatches() && !latestTaskRunning && !latestChoosing) {
@@ -239,12 +243,12 @@ internal fun ConversationCollaborationDialog(
                                         TouchHaptics.click(view)
                                         chooserOverride = true
                                     }
-                                }) { Text("切换子代理组") }
+                                }) { Text(stringResource(R.string.ccd_switch_group)) }
                             }
                             Spacer(Modifier.weight(1f))
                             TextButton(enabled = !taskRunning, onClick = {
                                 if (latestOwnerMatches() && !latestTaskRunning) { TouchHaptics.click(view); onDismiss() }
-                            }) { Text("完成") }
+                            }) { Text(stringResource(R.string.action_done)) }
                         }
                     }
                 }

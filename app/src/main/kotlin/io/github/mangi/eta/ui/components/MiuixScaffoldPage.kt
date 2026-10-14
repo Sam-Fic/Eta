@@ -7,11 +7,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Dp
@@ -37,12 +39,16 @@ fun MiuixScaffoldPage(
     listState: LazyListState = rememberLazyListState(),
     topBarModifier: Modifier = Modifier,
     listModifier: Modifier = Modifier,
+    floatingActionButton: (@Composable () -> Unit)? = null,
     content: LazyListScope.() -> Unit,
 ) {
     val scrollBehavior = MiuixScrollBehavior()
     val backdrop = rememberTopBarBackdrop()
     val topBarColor = topBarContainerColor(backdrop)
 
+    // miuix 的 Scaffold 没有 FAB 槽位：在内容之上手工叠一个底部居中的浮层，
+    // 位置与原有 Material 3 Scaffold 的 `FabPosition.Center` 保持一致。
+    Box(modifier = Modifier.fillMaxSize()) {
     WithoutPressRipple {
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -83,6 +89,16 @@ fun MiuixScaffoldPage(
             }
         }
     }
+    }
+        if (floatingActionButton != null) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 16.dp),
+            ) {
+                floatingActionButton()
+            }
+        }
     }
 }
 

@@ -1,14 +1,11 @@
 package io.github.mangi.eta.ui
 
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.voice.tts.SpeechEngineResolver
 import io.github.mangi.eta.agent.voice.tts.ReadAloudVoiceHistory
@@ -19,7 +16,6 @@ import io.github.mangi.eta.agent.voice.tts.SpeechVoices
 import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.data.model.SpeechSynthesisModels
 import io.github.mangi.eta.data.repository.ProviderRepository
-import io.github.mangi.eta.ui.adaptive.EtaCard
 import io.github.mangi.eta.ui.adaptive.EtaClickableRow
 import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
 import io.github.mangi.eta.ui.model.AgentModelPickerProjector
@@ -80,14 +76,15 @@ internal fun TtsSettingsScreen(onBack: () -> Unit, conversation: Boolean = false
         ReadAloudVoiceHistory.remember(context, providerId, modelId, fallback, profile)
     }
     VoiceSettingsSectionPage(title = stringResource(if (conversation) R.string.voice_section_conversation else R.string.tts_title), onBack = onBack) {
+        // 朗读/对话共用一套分段行：云开关、模型、音色、试听按序平铺，
+        // 云相关行随开关以分段动画显隐（visible 注册），不再按条件拆多个嵌套组。
         if (conversation) item(key = "conversation_recognition") { VoiceConversationRecognitionSettings() }
-        item(key = "tts_mode") {
-            EtaCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+        voiceGroup(key = "tts") {
+            item {
                 EtaSwitchRow(
                     title = stringResource(R.string.tts_cloud),
                     summary = stringResource(R.string.tts_mode_hint),
                     checked = cloud,
-                    contentPadding = PaddingValues(16.dp),
                     onCheckedChange = {
                         TouchHaptics.click(view)
                         SpeechPlayback.stopOwned("settings") { it == previewOwner }
@@ -96,34 +93,28 @@ internal fun TtsSettingsScreen(onBack: () -> Unit, conversation: Boolean = false
                     },
                 )
             }
-        }
-        if (cloud) {
-            item(key = "tts_model") {
-                EtaCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                    EtaClickableRow(
-                        title = stringResource(R.string.tts_model),
-                        summary = models.selectedModel?.let { "${it.providerName} · ${it.displayName}" } ?: stringResource(R.string.tts_select_model),
-                        contentPadding = PaddingValues(16.dp),
-                        onClick = { TouchHaptics.click(view); picker = true },
-                    )
-                    EtaClickableRow(
-                        title = stringResource(R.string.tts_voice),
-                        summary = catalog.firstOrNull { it.id == voice }?.name
-                            ?: voice.ifBlank { stringResource(R.string.tts_select_voice) },
-                        contentPadding = PaddingValues(16.dp),
-                        enabled = models.selectedModel != null && catalog.isNotEmpty(),
-                        onClick = { TouchHaptics.click(view); voicePicker = true },
-                    )
-                }
+            item(visible = cloud) {
+                EtaClickableRow(
+                    title = stringResource(R.string.tts_model),
+                    summary = models.selectedModel?.let { "${it.providerName} · ${it.displayName}" }
+                    ?: stringResource(R.string.tts_select_model),
+                    onClick = { TouchHaptics.click(view); picker = true },
+                )
             }
-        }
-        item(key = "tts_preview") {
-            EtaCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+            item(visible = cloud) {
+                EtaClickableRow(
+                    title = stringResource(R.string.tts_voice),
+                    summary = catalog.firstOrNull { it.id == voice }?.name
+                    ?: voice.ifBlank { stringResource(R.string.tts_select_voice) },
+                    enabled = models.selectedModel != null && catalog.isNotEmpty(),
+                    onClick = { TouchHaptics.click(view); voicePicker = true },
+                )
+            }
+            item {
                 EtaClickableRow(
                     title = stringResource(if (playback.owner == previewOwner) R.string.tts_stop else R.string.tts_preview),
                     summary = playback.error ?: playback.source.takeIf { playback.owner == previewOwner && it.isNotBlank() }
-                        ?: if (playback.owner == previewOwner && playback.preparing) stringResource(R.string.tts_preparing) else null,
-                    contentPadding = PaddingValues(16.dp),
+                    ?: if (playback.owner == previewOwner && playback.preparing) stringResource(R.string.tts_preparing) else null,
                     enabled = !playback.recording && (!cloud || (models.selectedModel != null && voice.isNotBlank())),
                     onClick = { TouchHaptics.click(view); SpeechPlayback.toggle(context, previewOwner, sample, settings = profile.snapshot()) },
                 )

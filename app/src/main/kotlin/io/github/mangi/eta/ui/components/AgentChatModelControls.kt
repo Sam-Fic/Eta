@@ -67,6 +67,7 @@ import androidx.compose.material3.CircularProgressIndicator as M3CircularProgres
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider as M3HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -78,6 +79,14 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetValue
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.Stroke
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
@@ -106,6 +115,7 @@ internal fun etaOfficialMenuItemShape(index: Int, count: Int): Shape = when {
     else -> MenuDefaults.middleItemShape
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun AgentModelPickerButton(
     conversationId: String? = null,
@@ -120,6 +130,7 @@ internal fun AgentModelPickerButton(
     containerShape: androidx.compose.ui.graphics.Shape? = null,
     containerColor: androidx.compose.ui.graphics.Color? = null,
     containerSize: Dp = ChatInputActionSize,
+    connectedShapes: androidx.compose.material3.ToggleButtonShapes? = null,
 ) {
     // Draft tokens are real owners too: a nullable conversationId cannot fence a popup.
     val owner = LocalConversationSubAgentEditor.current?.owner
@@ -222,24 +233,61 @@ internal fun AgentModelPickerButton(
             containerShape = containerShape,
             containerColor = containerColor,
             containerSize = containerSize,
+            connectedShapes = connectedShapes,
             enabled = !isMaterial3Theme() || pickerAvailable,
             content = anchorContent,
         )
         if (isMaterial3Theme()) {
-            // Material 3 Expressive：官方 DropdownMenu（官方容器形状/配色/阴影/动效 + 自动滚动）。
-            DropdownMenu(
-                expanded = menuVisible,
-                onDismissRequest = onMenuDismiss,
-                modifier = Modifier.heightIn(max = popupMaxHeight),
-            ) {
-                ModelPickerMenuContentM3(
-                    state = state,
-                    query = modelQuery,
-                    onQueryChange = { modelQuery = it },
-                    expandedProviderIds = expandedProviderIds,
-                    onProviderExpandedChange = onProviderExpandedChange,
-                    onModelSelected = onPickModel,
-                )
+            // Material 3 Expressive：官方 ModalBottomSheet（布局复刻 KernelSU MultiSelectDialog：
+            // 标题行 + 关闭按钮 + 搜索框 + 可滚动列表；仅允许 Hidden↔Expanded 两态，不进半展开）。
+            if (menuVisible) {
+                ModalBottomSheet(
+                    onDismissRequest = onMenuDismiss,
+                    sheetState = rememberBottomSheetState(
+                        initialValue = SheetValue.Hidden,
+                        enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+                    ),
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp)
+                            .padding(bottom = 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            M3Text(
+                                text = stringResource(R.string.model_picker_title),
+                                style = MaterialTheme.typography.titleLarge,
+                                modifier = Modifier.weight(1f),
+                            )
+                            IconButton(onClick = onMenuDismiss) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Close,
+                                    contentDescription = stringResource(R.string.action_close),
+                                )
+                            }
+                        }
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f, fill = false)
+                                .verticalScroll(rememberScrollState()),
+                        ) {
+                            ModelPickerMenuContentM3(
+                                state = state,
+                                query = modelQuery,
+                                onQueryChange = { modelQuery = it },
+                                expandedProviderIds = expandedProviderIds,
+                                onProviderExpandedChange = onProviderExpandedChange,
+                                onModelSelected = onPickModel,
+                            )
+                        }
+                    }
+                }
             }
         } else {
             EtaDropdownMenu(
@@ -676,6 +724,7 @@ internal fun AgentContextUsageButton(
 ) {
     val menuState = rememberEtaMenuState()
     val selectorState = rememberEtaMenuState()
+    val context = LocalContext.current
     val telemetry = LocalAgentContextTelemetry.current
     val owner = LocalConversationSubAgentEditor.current?.owner
     var localSelectedTaskId by remember(owner) { mutableStateOf<String?>(null) }
@@ -692,7 +741,7 @@ internal fun AgentContextUsageButton(
         }
     }
     val displayedUsage = child?.cloudContextUsage() ?: usage
-    val selectedLabel = child?.contextLabel() ?: telemetry.mainModelName.ifBlank { "主代理" }
+    val selectedLabel = child?.contextLabel(context) ?: telemetry.mainModelName.ifBlank { stringResource(R.string.acm_main_agent) }
     val progress = displayedUsage.progress
     val progressColor = when {
         progress == null -> MiuixTheme.colorScheme.onSurfaceVariantActions
@@ -701,17 +750,18 @@ internal fun AgentContextUsageButton(
         else -> MiuixTheme.colorScheme.primary
     }
     val locale = LocalConfiguration.current.locales[0]
-    val summary = child?.cloudContextSummary(locale) ?: formatContextUsage(
+    val summary = child?.cloudContextSummary(context, locale) ?: formatContextUsage(
         usage = displayedUsage,
         noUsageText = stringResource(R.string.context_no_previous_usage),
         noLimitText = stringResource(R.string.context_no_model_limit),
+        unknownText = stringResource(R.string.amp_unknown),
         locale = locale,
     )
     val detail = when {
         sendBlocked && child == null -> "$summary\n${stringResource(R.string.context_window_send_blocked)}"
-        child?.role == "video_generation" -> "${child.contextStatusLabel()}\n视频生成任务不提供对话上下文统计。"
-        child?.role == "image_generation" -> "${child.contextStatusLabel()}\n图片生成任务不提供对话上下文统计。"
-        child != null -> "$summary\n${child.contextStatusLabel()} · 独立任务上下文"
+        child?.role == "video_generation" -> "${child.contextStatusLabel(context)}\n${stringResource(R.string.acm_video_no_context_stats)}"
+        child?.role == "image_generation" -> "${child.contextStatusLabel(context)}\n${stringResource(R.string.acm_image_no_context_stats)}"
+        child != null -> "$summary\n${child.contextStatusLabel(context)} · ${stringResource(R.string.acm_standalone_context)}"
         else -> summary
     }
     val usageDescription = stringResource(
@@ -727,7 +777,7 @@ internal fun AgentContextUsageButton(
                 selectorState.dismiss()
                 menuState.onAnchorClick()
             },
-            longClickLabel = "选择上下文统计对象",
+            longClickLabel = stringResource(R.string.acm_select_context_target),
             onLongClick = {
                 keepIme()
                 menuState.dismiss()
@@ -822,8 +872,8 @@ internal fun AgentContextUsageButton(
                 )
             }
             val targets =
-                listOf("${telemetry.mainModelName.ifBlank { "主代理" }}（主代理）") +
-                    telemetry.children.map { "${it.contextLabel()} · ${it.contextStatusLabel()}" }
+                listOf("${telemetry.mainModelName.ifBlank { stringResource(R.string.acm_main_agent) }}（${stringResource(R.string.acm_main_agent)}）") +
+                    telemetry.children.map { "${it.contextLabel(context)} · ${it.contextStatusLabel(context)}" }
             val selectedIndex = if (child == null) 0 else {
                 telemetry.children.indexOfFirst { it.taskId == selectedTaskId } + 1
             }
@@ -832,7 +882,7 @@ internal fun AgentContextUsageButton(
                 onDismissRequest = selectorState::dismiss,
                 modifier = Modifier.heightIn(max = popupMaxHeight),
             ) {
-                MenuDefaults.DropdownMenuGroupLabel { M3Text(text = "上下文统计") }
+                MenuDefaults.DropdownMenuGroupLabel { M3Text(text = stringResource(R.string.acm_context_stats)) }
                 targets.forEachIndexed { index, label ->
                     SelectableDropdownMenuItem(
                         selected = index == selectedIndex,
@@ -879,13 +929,13 @@ internal fun AgentContextUsageButton(
                 alignEnd = true, preferAbove = true, focusable = false,
                 minWidth = 220.dp, maxWidth = 260.dp, maxHeight = popupMaxHeight,
             ) {
-                Text("上下文统计", style = MiuixTheme.textStyles.footnote1,
+                Text(stringResource(R.string.acm_context_stats), style = MiuixTheme.textStyles.footnote1,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
-                ContextTargetRow("${telemetry.mainModelName.ifBlank { "主代理" }}（主代理）", child == null) {
+                ContextTargetRow("${telemetry.mainModelName.ifBlank { stringResource(R.string.acm_main_agent) }}（${stringResource(R.string.acm_main_agent)}）", child == null) {
                     selectTask(null); selectorState.dismiss()
                 }
                 telemetry.children.forEach { target ->
-                    ContextTargetRow("${target.contextLabel()} · ${target.contextStatusLabel()}", selectedTaskId == target.taskId) {
+                    ContextTargetRow("${target.contextLabel(context)} · ${target.contextStatusLabel(context)}", selectedTaskId == target.taskId) {
                         selectTask(target.taskId); selectorState.dismiss()
                     }
                 }
@@ -947,6 +997,6 @@ private fun ContextTargetRow(label: String, selected: Boolean, onClick: () -> Un
         .padding(horizontal = 8.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(label, style = MiuixTheme.textStyles.body2, maxLines = 2,
             overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-        if (selected) Icon(Icons.Rounded.Check, contentDescription = "当前统计对象", modifier = Modifier.size(18.dp))
+        if (selected) Icon(Icons.Rounded.Check, contentDescription = stringResource(R.string.acm_current_target), modifier = Modifier.size(18.dp))
     }
 }

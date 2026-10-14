@@ -727,6 +727,7 @@ internal fun AgentConversationMessages(
     onScrollToMessageConsumed: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
     // Independent, trace-gated telemetry also covers idle conversations. No frame loop.
     val scrollTraceEnabled = rememberChatScrollTraceEnabled()
     val chatListTrace = ChatScrollMonitor(state = scrollState, enabled = scrollTraceEnabled)
@@ -1804,7 +1805,7 @@ internal fun AgentConversationMessages(
                 item(key = ChatContextCompressingKey) {
                     Column {
                         if (isCompressingContext || isWaitingForCompression) ContextCompressingIndicator(
-                            modelName = "${telemetry.compactingModelName.ifBlank { telemetry.mainModelName }}（主代理）",
+                            modelName = "${telemetry.compactingModelName.ifBlank { telemetry.mainModelName }}（${stringResource(R.string.acm_main_agent)}）",
                             waiting = isWaitingForCompression && !isCompressingContext,
                             modifier = Modifier.animateItem(
                                 fadeInSpec = chatMessageFadeInSpec(),
@@ -1814,7 +1815,7 @@ internal fun AgentConversationMessages(
                         )
                         compressingChildren.forEach { child ->
                             androidx.compose.runtime.key(child.taskId) {
-                                ContextCompressingIndicator(modelName = child.contextLabel())
+                                ContextCompressingIndicator(modelName = child.contextLabel(context))
                             }
                         }
                     }
@@ -2213,7 +2214,7 @@ private fun ContextCompressingIndicator(waiting: Boolean = false, modelName: Str
             }
             Text(
                     text = if (waiting) stringResource(R.string.compress_conversation_waiting) else
-                        "${modelName.ifBlank { "主代理" }} • 正在压缩上下文",
+                        stringResource(R.string.acb_compressing, modelName.ifBlank { stringResource(R.string.acm_main_agent) }),
                     style = chatSecondaryLabelStyle(),
                     color = chatMutedLabelColor(),
                     modifier = Modifier.padding(start = 8.dp),

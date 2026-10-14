@@ -9,12 +9,13 @@ import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.model.ModelFeature
 import io.github.mangi.eta.agent.model.ModelFeaturePreferences
 import io.github.mangi.eta.data.repository.ProviderRepository
-import io.github.mangi.eta.ui.adaptive.EtaCard
 import io.github.mangi.eta.ui.adaptive.EtaClickableRow
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedItemContainer
 import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
 import io.github.mangi.eta.ui.adaptive.EtaText
 import io.github.mangi.eta.ui.model.AgentModelPickerProjector
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 
 @Composable
 internal fun ModelFeatureSettingsScreen(feature: ModelFeature, onBack: () -> Unit) {
@@ -38,27 +39,36 @@ internal fun ModelFeatureSettingsScreen(feature: ModelFeature, onBack: () -> Uni
                 text = stringResource(if (vision) R.string.vision_feature_description else R.string.title_feature_description),
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
             )
-            EtaCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                EtaSwitchRow(
-                    title = stringResource(R.string.model_feature_custom),
-                    checked = selection.custom,
-                    onCheckedChange = {
-                        selection = selection.copy(custom = it)
-                        ModelFeaturePreferences.save(feature, selection)
-                    },
-                )
-                if (selection.custom) {
+            EtaSegmentedColumn(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp)) {
+                item {
+                    EtaSwitchRow(
+                        title = stringResource(R.string.model_feature_custom),
+                        checked = selection.custom,
+                        onCheckedChange = {
+                            selection = selection.copy(custom = it)
+                            ModelFeaturePreferences.save(feature, selection)
+                        },
+                    )
+                }
+
+                // 开启时才注册「选择模型」这一段；关闭时的说明属于「非行」内容，
+                // 必须放进分段容器里。否则这段是裸文本、画不出容器，却仍占着末段位置，
+                // 于是上面的开关行被当成中间项，只剩内圆角 —— 看起来"下面还有一项"。
+                item(visible = selection.custom) {
                     EtaClickableRow(
                         title = stringResource(R.string.model_feature_select),
                         summary = models.selectedModel?.let { "${it.providerName} / ${it.displayName}" }
-                            ?: stringResource(R.string.model_feature_missing),
+                        ?: stringResource(R.string.model_feature_missing),
                         onClick = { picker = true },
                     )
-                } else {
-                    EtaText(
-                        text = stringResource(if (vision) R.string.vision_feature_off else R.string.title_feature_default),
-                        modifier = Modifier.padding(16.dp),
-                    )
+                }
+                item(visible = !selection.custom) {
+                    EtaSegmentedItemContainer {
+                        EtaText(
+                            text = stringResource(if (vision) R.string.vision_feature_off else R.string.title_feature_default),
+                            modifier = Modifier.padding(16.dp),
+                        )
+                    }
                 }
             }
         }

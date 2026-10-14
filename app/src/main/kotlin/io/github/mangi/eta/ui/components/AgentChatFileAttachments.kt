@@ -78,23 +78,28 @@ internal val ChatInputActionSize = IconButtonDefaults.smallContainerSize().heigh
 /** MIUI X 分支既有图标尺寸；Material 3 分支一律走 `etaOfficialIconButtonIconSize` 官方令牌。 */
 internal val ChatInputActionIconSize = 24.dp
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** 附件动作集：系统选择器与绝对路径输入的统一入口，由 [rememberAgentAttachmentActions] 创建。 */
+internal class AgentAttachmentActions(
+    val pickImage: () -> Unit,
+    val pickVideo: () -> Unit,
+    val pickFiles: () -> Unit,
+    val pickFolder: () -> Unit,
+    val inputPath: () -> Unit,
+)
+
+/**
+ * 创建附件动作集并托管「输入绝对路径」弹窗（按主题族选用官方 `AlertDialog` / `EtaDialog`）。
+ * 图片 / 视频选择成功后先持久化读取权限再回调；文件 / 文件夹 / 路径直接回调。
+ */
 @Composable
-internal fun AgentAttachmentPickerButton(
+internal fun rememberAgentAttachmentActions(
     onAttachImage: (String) -> Unit,
     onAttachVideo: (String) -> Unit,
     onAttachFiles: (List<String>) -> Unit,
     onAttachFolder: (String) -> Unit,
     onAttachFilePath: (String) -> Unit,
-    modifier: Modifier = Modifier,
-    icon: androidx.compose.ui.graphics.vector.ImageVector = Icons.Rounded.Add,
-    containerShape: androidx.compose.ui.graphics.Shape? = null,
-    containerColor: androidx.compose.ui.graphics.Color? = null,
-    containerSize: androidx.compose.ui.unit.Dp = ChatInputActionSize,
-) {
+): AgentAttachmentActions {
     val context = LocalContext.current
-    val view = LocalView.current
-    val menuState = rememberEtaMenuState()
     var showPathDialog by remember { mutableStateOf(false) }
     var pathInput by remember { mutableStateOf("") }
     val photoPicker = rememberLauncherForActivityResult(
@@ -134,110 +139,7 @@ internal fun AgentAttachmentPickerButton(
         if (uri != null) onAttachFolder(uri.toString())
     }
 
-    val keepIme = rememberKeepImeWhenOpeningMenu()
     val material3 = isMaterial3Theme()
-    val options = listOf(
-        Triple(stringResource(R.string.attachment_image), Icons.Rounded.Image, 0),
-        Triple(stringResource(R.string.attachment_video), Icons.Rounded.Videocam, 1),
-        Triple(stringResource(R.string.attachment_file), Icons.Rounded.Description, 2),
-        Triple(stringResource(R.string.attachment_folder), Icons.Rounded.FolderOpen, 3),
-        Triple(stringResource(R.string.attachment_enter_path), Icons.Rounded.Link, 4),
-    )
-    fun runOption(index: Int) {
-        TouchHaptics.click(view)
-        menuState.dismiss()
-        when (index) {
-            0 -> photoPicker.launch(
-                PickVisualMediaRequest(
-                    ActivityResultContracts.PickVisualMedia.ImageOnly
-                )
-            )
-            1 -> videoPicker.launch(
-                PickVisualMediaRequest(
-                    ActivityResultContracts.PickVisualMedia.VideoOnly
-                )
-            )
-            2 -> filePicker.launch(arrayOf("*/*"))
-            3 -> folderPicker.launch(null)
-            4 -> {
-                pathInput = ""
-                showPathDialog = true
-            }
-        }
-    }
-    Box(modifier = modifier) {
-        ChatInputNonFocusableIconButton(
-            onClick = {
-                keepIme()
-                menuState.onAnchorClick()
-            },
-            contentDescription = stringResource(R.string.ui_add_attachment_dba9e8),
-            containerShape = containerShape,
-            containerColor = containerColor,
-            containerSize = containerSize,
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(
-                    if (material3) {
-                        // 官方图标按钮图标尺寸令牌。
-                        etaOfficialIconButtonIconSize(containerSize)
-                    } else {
-                        ChatInputActionIconSize
-                    },
-                ),
-                tint = if (material3) {
-                    // 官方图标按钮已通过 LocalContentColor 下发内容色。
-                    LocalContentColor.current
-                } else {
-                    MiuixTheme.colorScheme.onSurface
-                },
-            )
-        }
-        if (material3) {
-            // Material 3 Expressive：官方 DropdownMenu + 官方 DropdownMenuItem，
-            // 行高 / 内边距 / 前置图标尺寸 / 行形状全部取官方默认值。
-            DropdownMenu(
-                expanded = menuState.expanded,
-                onDismissRequest = menuState::dismiss,
-            ) {
-                options.forEachIndexed { index, (label, optionIcon, action) ->
-                    DropdownMenuItem(
-                        text = { M3Text(text = label) },
-                        leadingIcon = { Icon(imageVector = optionIcon, contentDescription = null) },
-                        shape = etaOfficialMenuItemShape(index, options.size),
-                        onClick = { runOption(action) },
-                    )
-                }
-            }
-        } else {
-            EtaDropdownMenu(
-                expanded = menuState.expanded,
-                onDismissRequest = menuState::dismiss,
-                preferAbove = true,
-                minWidth = 0.dp,
-                focusable = false,
-            ) {
-                options.forEach { (option, icon, index) ->
-                    DropdownMenuItem(
-                        modifier = Modifier.height(40.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp),
-                        text = { M3Text(option) },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = icon,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp),
-                            )
-                        },
-                        onClick = { runOption(index) },
-                    )
-                }
-            }
-        }
-    }
-
     if (material3) {
         if (showPathDialog) {
             AlertDialog(
@@ -311,6 +213,142 @@ internal fun AgentAttachmentPickerButton(
                     },
                     modifier = Modifier.padding(top = 16.dp),
                 )
+            }
+        }
+    }
+
+    return AgentAttachmentActions(
+        pickImage = {
+            photoPicker.launch(
+                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+            )
+        },
+        pickVideo = {
+            videoPicker.launch(
+                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)
+            )
+        },
+        pickFiles = { filePicker.launch(arrayOf("*/*")) },
+        pickFolder = { folderPicker.launch(null) },
+        inputPath = {
+            pathInput = ""
+            showPathDialog = true
+        },
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun AgentAttachmentPickerButton(
+    onAttachImage: (String) -> Unit,
+    onAttachVideo: (String) -> Unit,
+    onAttachFiles: (List<String>) -> Unit,
+    onAttachFolder: (String) -> Unit,
+    onAttachFilePath: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    icon: androidx.compose.ui.graphics.vector.ImageVector = Icons.Rounded.Add,
+    containerShape: androidx.compose.ui.graphics.Shape? = null,
+    containerColor: androidx.compose.ui.graphics.Color? = null,
+    containerSize: androidx.compose.ui.unit.Dp = ChatInputActionSize,
+) {
+    val view = LocalView.current
+    val menuState = rememberEtaMenuState()
+    val keepIme = rememberKeepImeWhenOpeningMenu()
+    val actions = rememberAgentAttachmentActions(
+        onAttachImage = onAttachImage,
+        onAttachVideo = onAttachVideo,
+        onAttachFiles = onAttachFiles,
+        onAttachFolder = onAttachFolder,
+        onAttachFilePath = onAttachFilePath,
+    )
+    val material3 = isMaterial3Theme()
+    val options = listOf(
+        Triple(stringResource(R.string.attachment_image), Icons.Rounded.Image, 0),
+        Triple(stringResource(R.string.attachment_video), Icons.Rounded.Videocam, 1),
+        Triple(stringResource(R.string.attachment_file), Icons.Rounded.Description, 2),
+        Triple(stringResource(R.string.attachment_folder), Icons.Rounded.FolderOpen, 3),
+        Triple(stringResource(R.string.attachment_enter_path), Icons.Rounded.Link, 4),
+    )
+    fun runOption(index: Int) {
+        TouchHaptics.click(view)
+        menuState.dismiss()
+        when (index) {
+            0 -> actions.pickImage()
+            1 -> actions.pickVideo()
+            2 -> actions.pickFiles()
+            3 -> actions.pickFolder()
+            4 -> actions.inputPath()
+        }
+    }
+    Box(modifier = modifier) {
+        ChatInputNonFocusableIconButton(
+            onClick = {
+                keepIme()
+                menuState.onAnchorClick()
+            },
+            contentDescription = stringResource(R.string.ui_add_attachment_dba9e8),
+            containerShape = containerShape,
+            containerColor = containerColor,
+            containerSize = containerSize,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(
+                    if (material3) {
+                        // 官方图标按钮图标尺寸令牌。
+                        etaOfficialIconButtonIconSize(containerSize)
+                    } else {
+                        ChatInputActionIconSize
+                    },
+                ),
+                tint = if (material3) {
+                    // 官方图标按钮已通过 LocalContentColor 下发内容色。
+                    LocalContentColor.current
+                } else {
+                    MiuixTheme.colorScheme.onSurface
+                },
+            )
+        }
+        if (material3) {
+            // Material 3 Expressive：官方 DropdownMenu + 官方 DropdownMenuItem，
+            // 行高 / 内边距 / 前置图标尺寸 / 行形状全部取官方默认值。
+            DropdownMenu(
+                expanded = menuState.expanded,
+                onDismissRequest = menuState::dismiss,
+            ) {
+                options.forEachIndexed { index, (label, optionIcon, action) ->
+                    DropdownMenuItem(
+                        text = { M3Text(text = label) },
+                        leadingIcon = { Icon(imageVector = optionIcon, contentDescription = null) },
+                        shape = etaOfficialMenuItemShape(index, options.size),
+                        onClick = { runOption(action) },
+                    )
+                }
+            }
+        } else {
+            EtaDropdownMenu(
+                expanded = menuState.expanded,
+                onDismissRequest = menuState::dismiss,
+                preferAbove = true,
+                minWidth = 0.dp,
+                focusable = false,
+            ) {
+                options.forEach { (option, icon, index) ->
+                    DropdownMenuItem(
+                        modifier = Modifier.height(40.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp),
+                        text = { M3Text(option) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        },
+                        onClick = { runOption(index) },
+                    )
+                }
             }
         }
     }

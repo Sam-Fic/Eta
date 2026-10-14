@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 import io.github.mangi.eta.ui.adaptive.EtaSwitch
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.components.ItemDescriptionDialog
@@ -37,7 +38,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.basic.Text
@@ -56,8 +56,8 @@ internal fun SkillSwitchRow(
     var showDescription by remember(skill.id) { mutableStateOf(false) }
     val description = skill.description.ifBlank { stringResource(R.string.skills_no_description) }
     if (isMaterial3Theme()) {
-        // M3：官方 ListItem + 官方图标按钮 / 下拉菜单 / Expressive 开关。
-        ListItem(
+        // KernelSU 式分段行：形状/容器色取自外层分段组，独立使用时退化为单条目形状。
+        EtaSegmentedRow(
             modifier = Modifier.fillMaxWidth(),
             enabled = enabled,
             leadingContent = {

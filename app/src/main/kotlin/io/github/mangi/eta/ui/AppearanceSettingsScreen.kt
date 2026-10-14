@@ -1,29 +1,61 @@
 package io.github.mangi.eta.ui
 
+import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Brightness3
+import androidx.compose.material.icons.filled.Brightness4
+import androidx.compose.material.icons.filled.Brightness7
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.rounded.AspectRatio
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Circle
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material3.ButtonGroupDefaults
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -35,10 +67,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
@@ -52,25 +92,34 @@ import io.github.mangi.eta.data.model.MAX_INTERFACE_SCALE
 import io.github.mangi.eta.data.model.MIN_INTERFACE_SCALE
 import io.github.mangi.eta.data.model.normalizeInterfaceScale
 import io.github.mangi.eta.data.repository.AppearanceSettingsRepository
-import io.github.mangi.eta.ui.adaptive.EtaCard
 import io.github.mangi.eta.ui.adaptive.EtaClickableRow
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
-import io.github.mangi.eta.ui.adaptive.EtaDropdownRow
+import io.github.mangi.eta.ui.adaptive.EtaExpressiveToggleButton
+import io.github.mangi.eta.ui.adaptive.EtaGroupHorizontalPadding
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
-import io.github.mangi.eta.ui.adaptive.EtaSectionTitle
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedDropdownRow
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedGroupSpacing
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedItemContainer
 import io.github.mangi.eta.ui.adaptive.EtaSlider
 import io.github.mangi.eta.ui.adaptive.EtaSwitch
 import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
 import io.github.mangi.eta.ui.adaptive.EtaText
 import io.github.mangi.eta.ui.adaptive.EtaTextButton
 import io.github.mangi.eta.ui.adaptive.EtaTextField
+import io.github.mangi.eta.ui.adaptive.EtaTonalCard
 import io.github.mangi.eta.ui.adaptive.etaOnSurfaceVariant
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.app.LocalAppearanceSettings
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
+import top.yukonga.miuix.kmp.theme.ColorSchemeMode
+import top.yukonga.miuix.kmp.theme.ThemeColorSpec
+import top.yukonga.miuix.kmp.theme.ThemeController
+import top.yukonga.miuix.kmp.theme.ThemePaletteStyle
+import top.yukonga.miuix.kmp.theme.platformDynamicColors
 import kotlin.math.roundToInt
 
 @Composable
@@ -155,248 +204,319 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
         stringResource(R.string.appearance_blur_style_progressive_summary),
     )
 
+    // LazyListScope 的 content lambda 非组合上下文，主题判定需在外层解析后按值分支。
+    val material3 = isMaterial3Theme()
+
     EtaScaffoldPage(
         title = stringResource(R.string.appearance_title),
         onBack = onBack,
     ) {
-        item(key = "appearance_color_title") {
-            EtaSectionTitle(text = stringResource(R.string.appearance_group_color))
-        }
-        item(key = "appearance_color_card") {
-            EtaCard(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-                EtaDropdownRow(
-                    title = stringResource(R.string.appearance_theme_family),
-                    summary = themeFamilyLabels[appearance.themeFamily.ordinal],
-                    items = themeFamilyLabels,
-                    selectedIndex = appearance.themeFamily.ordinal,
-                    onSelectedIndexChange = { index ->
-                        themeFamilies.getOrNull(index)?.let { family ->
-                            update { current -> current.copy(themeFamily = family) }
-                        }
-                    },
-                )
-                EtaDropdownRow(
-                    title = stringResource(R.string.appearance_theme_mode),
-                    summary = themeModeLabels[appearance.themeMode.ordinal],
-                    items = themeModeLabels,
-                    selectedIndex = appearance.themeMode.ordinal,
-                    onSelectedIndexChange = { index ->
-                        themeModes.getOrNull(index)?.let { mode ->
-                            update { current -> current.copy(themeMode = mode) }
-                        }
-                    },
-                )
-                EtaDropdownRow(
-                    title = stringResource(R.string.appearance_palette_style),
-                    summary = paletteLabels[appearance.paletteStyle.ordinal],
-                    items = paletteLabels,
-                    selectedIndex = appearance.paletteStyle.ordinal,
-                    onSelectedIndexChange = { index ->
-                        paletteStyles.getOrNull(index)?.let { style ->
-                            update { current -> current.copy(paletteStyle = style) }
-                        }
-                    },
-                )
-                EtaDropdownRow(
-                    title = stringResource(R.string.appearance_accent_color),
-                    summary = accentLabels[appearance.accentColor.ordinal],
-                    items = accentLabels,
-                    selectedIndex = appearance.accentColor.ordinal,
-                    onSelectedIndexChange = { index ->
-                        accentColors.getOrNull(index)?.let { accent ->
-                            update { current -> current.copy(accentColor = accent) }
-                        }
-                    },
-                )
-                EtaSwitchRow(
-                    title = stringResource(R.string.appearance_pure_black),
-                    summary = stringResource(R.string.appearance_pure_black_summary),
-                    checked = appearance.pureBlackEnabled,
-                    onCheckedChange = { enabled ->
-                        update { current -> current.copy(pureBlackEnabled = enabled) }
-                    },
-                )
-                EtaClickableRow(
-                    title = stringResource(R.string.appearance_icon),
-                    summary = stringResource(R.string.appearance_icon_summary),
-                    showChevron = false,
-                    onClick = {
-                        TouchHaptics.click(view)
-                        iconExpanded = !iconExpanded
-                    },
-                    holdDownState = iconExpanded,
-                    endActions = {
-                        Icon(
-                            imageVector = if (iconExpanded) Icons.Rounded.ExpandMore else Icons.Rounded.ChevronRight,
-                            contentDescription = null,
-                            modifier = Modifier.align(Alignment.CenterVertically),
-                            tint = etaOnSurfaceVariant(),
-                        )
-                    },
-                    bottomAction = if (iconExpanded) {
-                        {
-                            IconAppearanceEditor(
-                                light = appearance.iconLightColor,
-                                dark = appearance.iconDarkColor,
-                                cat = appearance.iconCatColor,
-                                onConfirm = ::confirmIcon,
-                            )
-                        }
-                    } else {
-                        null
-                    },
-                )
-            }
-        }
-
-        item(key = "appearance_interface_title") {
-            EtaSectionTitle(text = stringResource(R.string.appearance_group_interface))
-        }
-        item(key = "appearance_interface_card") {
-            EtaCard(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-                EtaSwitchRow(
-                    title = stringResource(R.string.appearance_message_timestamps),
-                    summary = stringResource(R.string.appearance_message_timestamps_summary),
-                    checked = appearance.messageTimestampsEnabled,
-                    onCheckedChange = { enabled ->
-                        update { current -> current.copy(messageTimestampsEnabled = enabled) }
-                    },
-                )
-                // Material 3 模式使用不透明表面，毛玻璃相关设置不适用，直接隐藏。
-                if (!isMaterial3Theme()) {
-                    EtaSwitchRow(
-                        title = stringResource(R.string.appearance_blur),
-                        summary = stringResource(R.string.appearance_blur_summary),
-                        checked = appearance.blurEnabled && blurSupported,
-                        onCheckedChange = { enabled ->
-                            update { current -> current.copy(blurEnabled = enabled) }
-                        },
-                        enabled = blurSupported,
-                    )
-                    AnimatedVisibility(
-                        visible = appearance.blurEnabled && blurSupported,
-                        enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
-                        exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut(),
-                    ) {
-                        EtaDropdownRow(
-                            title = stringResource(R.string.appearance_blur_style),
-                            summary = blurStyleSummaries[appearance.topBarBlurStyle.ordinal],
-                            items = blurStyleLabels,
-                            selectedIndex = appearance.topBarBlurStyle.ordinal,
-                            onSelectedIndexChange = { index ->
-                                blurStyles.getOrNull(index)?.let { style ->
-                                    update { current -> current.copy(topBarBlurStyle = style) }
+        if (material3) {
+            // Material 3：KernelSU ColorPalette 式布局 —— 预览卡、色板按钮行、
+            // 主题模式连接按钮组、分段下拉组、滑杆卡。
+            appearanceMaterial3Content(
+                appearance = appearance,
+                themeModes = themeModes,
+                themeModeLabels = themeModeLabels,
+                paletteStyles = paletteStyles,
+                paletteLabels = paletteLabels,
+                themeFamilyLabels = themeFamilyLabels,
+                onSetThemeFamily = { family -> update { current -> current.copy(themeFamily = family) } },
+                scaleDraft = scaleDraft,
+                onScaleDraftChange = { scaleDraft = it },
+                onCommitScale = { commitScale(it) },
+                onOpenScaleDialog = {
+                    scaleInput = scaleDraft.roundToInt().toString()
+                    showScaleDialog = true
+                },
+                morphLoadingExpanded = morphLoadingExpanded,
+                onMorphLoadingExpandedChange = { morphLoadingExpanded = it },
+                iconExpanded = iconExpanded,
+                onIconExpandedChange = { iconExpanded = it },
+                onConfirmIcon = ::confirmIcon,
+                onSetAccentColor = { accent -> update { current -> current.copy(accentColor = accent) } },
+                onSetThemeMode = { mode -> update { current -> current.copy(themeMode = mode) } },
+                onSetPaletteStyle = { style -> update { current -> current.copy(paletteStyle = style) } },
+                onSetPureBlack = { enabled -> update { current -> current.copy(pureBlackEnabled = enabled) } },
+                onSetTimestamps = { enabled -> update { current -> current.copy(messageTimestampsEnabled = enabled) } },
+                onSetMorphLoading = { enabled ->
+                    update { current -> current.copy(morphLoadingIndicator = enabled) }
+                    morphLoadingExpanded = enabled
+                },
+                onSetMorphBeforeResponse = { enabled ->
+                    update { current -> current.copy(morphLoadingBeforeResponseOnly = enabled) }
+                },
+                onSetSwipeDismiss = { enabled -> update { current -> current.copy(swipeDismissEnabled = enabled) } },
+                onSetPredictiveBack = { enabled -> update { current -> current.copy(predictiveBackEnabled = enabled) } },
+            )
+        } else {
+            // MIUI X：原分段下拉布局。
+            item(key = "appearance_color") {
+                EtaSegmentedColumn(
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                    title = stringResource(R.string.appearance_group_color),
+                ) {
+                    item {
+                        EtaSegmentedDropdownRow(
+                            title = stringResource(R.string.appearance_theme_family),
+                            items = themeFamilyLabels,
+                            selectedIndex = appearance.themeFamily.ordinal,
+                            onItemSelected = { index ->
+                                themeFamilies.getOrNull(index)?.let { family ->
+                                    update { current -> current.copy(themeFamily = family) }
                                 }
                             },
                         )
                     }
-                }
-                EtaClickableRow(
-                    title = stringResource(R.string.appearance_morph_loading),
-                    summary = when {
-                        !appearance.morphLoadingIndicator ->
-                            stringResource(R.string.appearance_morph_loading_summary)
-                        appearance.morphLoadingBeforeResponseOnly ->
-                            stringResource(R.string.appearance_morph_loading_before_response)
-                        else ->
-                            stringResource(R.string.appearance_morph_loading_during_generation)
-                    },
-                    showChevron = false,
-                    onClick = {
-                        if (appearance.morphLoadingIndicator) {
-                            morphLoadingExpanded = !morphLoadingExpanded
-                        } else {
-                            update { current -> current.copy(morphLoadingIndicator = true) }
-                            morphLoadingExpanded = true
-                        }
-                    },
-                    holdDownState = appearance.morphLoadingIndicator && morphLoadingExpanded,
-                    endActions = {
-                        if (appearance.morphLoadingIndicator) {
-                            Icon(
-                                imageVector = if (morphLoadingExpanded) {
-                                    Icons.Rounded.ExpandMore
-                                } else {
-                                    Icons.Rounded.ChevronRight
-                                },
-                                contentDescription = stringResource(
-                                    if (morphLoadingExpanded) {
-                                        R.string.appearance_morph_loading_collapse
-                                    } else {
-                                        R.string.appearance_morph_loading_expand
-                                    },
-                                ),
-                                modifier = Modifier.align(Alignment.CenterVertically),
-                                tint = etaOnSurfaceVariant(),
-                            )
-                        }
-                        EtaSwitch(
-                            checked = appearance.morphLoadingIndicator,
-                            onCheckedChange = { enabled ->
-                                update { current -> current.copy(morphLoadingIndicator = enabled) }
-                                morphLoadingExpanded = enabled
+
+                    item {
+                        EtaSegmentedDropdownRow(
+                            title = stringResource(R.string.appearance_theme_mode),
+                            items = themeModeLabels,
+                            selectedIndex = appearance.themeMode.ordinal,
+                            onItemSelected = { index ->
+                                themeModes.getOrNull(index)?.let { mode ->
+                                    update { current -> current.copy(themeMode = mode) }
+                                }
                             },
                         )
-                    },
-                    bottomAction = if (appearance.morphLoadingIndicator && morphLoadingExpanded) {
-                        {
-                            EtaSwitchRow(
-                                title = stringResource(R.string.appearance_morph_loading_before_response),
-                                summary = stringResource(R.string.appearance_morph_loading_before_response_summary),
-                                checked = appearance.morphLoadingBeforeResponseOnly,
-                                onCheckedChange = { enabled ->
-                                    update { current ->
-                                        current.copy(morphLoadingBeforeResponseOnly = enabled)
+                    }
+
+                    item {
+                        EtaSegmentedDropdownRow(
+                            title = stringResource(R.string.appearance_palette_style),
+                            items = paletteLabels,
+                            selectedIndex = appearance.paletteStyle.ordinal,
+                            onItemSelected = { index ->
+                                paletteStyles.getOrNull(index)?.let { style ->
+                                    update { current -> current.copy(paletteStyle = style) }
+                                }
+                            },
+                        )
+                    }
+
+                    item {
+                        EtaSegmentedDropdownRow(
+                            title = stringResource(R.string.appearance_accent_color),
+                            items = accentLabels,
+                            selectedIndex = appearance.accentColor.ordinal,
+                            onItemSelected = { index ->
+                                accentColors.getOrNull(index)?.let { accent ->
+                                    update { current -> current.copy(accentColor = accent) }
+                                }
+                            },
+                        )
+                    }
+
+                    item {
+                        EtaSwitchRow(
+                            title = stringResource(R.string.appearance_pure_black),
+                            summary = stringResource(R.string.appearance_pure_black_summary),
+                            checked = appearance.pureBlackEnabled,
+                            onCheckedChange = { enabled ->
+                                update { current -> current.copy(pureBlackEnabled = enabled) }
+                            },
+                        )
+                    }
+
+                    item {
+                        EtaClickableRow(
+                            title = stringResource(R.string.appearance_icon),
+                            summary = stringResource(R.string.appearance_icon_summary),
+                            showChevron = false,
+                            onClick = {
+                                TouchHaptics.click(view)
+                                iconExpanded = !iconExpanded
+                            },
+                            holdDownState = iconExpanded,
+                            endActions = {
+                                Icon(
+                                    imageVector = if (iconExpanded) Icons.Rounded.ExpandMore else Icons.Rounded.ChevronRight,
+                                    contentDescription = null,
+                                    modifier = Modifier.align(Alignment.CenterVertically),
+                                    tint = etaOnSurfaceVariant(),
+                                )
+                            },
+                            bottomAction = if (iconExpanded) {
+                                {
+                                    IconAppearanceEditor(
+                                        light = appearance.iconLightColor,
+                                        dark = appearance.iconDarkColor,
+                                        cat = appearance.iconCatColor,
+                                        onConfirm = ::confirmIcon,
+                                    )
+                                }
+                            } else {
+                                null
+                            },
+                        )
+                    }
+                }
+            }
+
+            item(key = "appearance_interface") {
+                EtaSegmentedColumn(
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                    title = stringResource(R.string.appearance_group_interface),
+                ) {
+                    item {
+                        EtaSwitchRow(
+                            title = stringResource(R.string.appearance_message_timestamps),
+                            summary = stringResource(R.string.appearance_message_timestamps_summary),
+                            checked = appearance.messageTimestampsEnabled,
+                            onCheckedChange = { enabled ->
+                                update { current -> current.copy(messageTimestampsEnabled = enabled) }
+                            },
+                        )
+                    }
+
+                    item {
+                        EtaSwitchRow(
+                            title = stringResource(R.string.appearance_blur),
+                            summary = stringResource(R.string.appearance_blur_summary),
+                            checked = appearance.blurEnabled && blurSupported,
+                            onCheckedChange = { enabled ->
+                                update { current -> current.copy(blurEnabled = enabled) }
+                            },
+                            enabled = blurSupported,
+                        )
+                        AnimatedVisibility(
+                            visible = appearance.blurEnabled && blurSupported,
+                            enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
+                            exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut(),
+                        ) {
+                            EtaSegmentedDropdownRow(
+                                title = stringResource(R.string.appearance_blur_style),
+                                items = blurStyleLabels,
+                                selectedIndex = appearance.topBarBlurStyle.ordinal,
+                                onItemSelected = { index ->
+                                    blurStyles.getOrNull(index)?.let { style ->
+                                        update { current -> current.copy(topBarBlurStyle = style) }
                                     }
                                 },
-                                dense = true,
+                                summary = blurStyleSummaries[appearance.topBarBlurStyle.ordinal],
                             )
                         }
-                    } else {
-                        null
-                    },
-                )
-                EtaSwitchRow(
-                    title = stringResource(R.string.appearance_swipe_dismiss),
-                    summary = stringResource(R.string.appearance_swipe_dismiss_summary),
-                    checked = appearance.swipeDismissEnabled,
-                    onCheckedChange = { enabled ->
-                        update { current -> current.copy(swipeDismissEnabled = enabled) }
-                    },
-                )
-                EtaSwitchRow(
-                    title = stringResource(R.string.appearance_predictive_back),
-                    summary = stringResource(R.string.appearance_predictive_back_summary),
-                    checked = appearance.predictiveBackEnabled,
-                    onCheckedChange = { enabled ->
-                        update { current -> current.copy(predictiveBackEnabled = enabled) }
-                    },
-                )
-                EtaClickableRow(
-                    title = stringResource(R.string.appearance_interface_scale),
-                    summary = stringResource(R.string.appearance_interface_scale_summary),
-                    onClick = {
-                        scaleInput = scaleDraft.roundToInt().toString()
-                        showScaleDialog = true
-                    },
-                    holdDownState = showScaleDialog,
-                    endActions = {
-                        EtaText(text = "${scaleDraft.roundToInt()}%", secondary = true)
-                    },
-                    bottomAction = {
-                        EtaSlider(
-                            value = scaleDraft.coerceIn(
-                                MIN_INTERFACE_SCALE * 100f,
-                                MAX_INTERFACE_SCALE * 100f,
-                            ),
-                            onValueChange = { scaleDraft = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            valueRange = (MIN_INTERFACE_SCALE * 100f)..(MAX_INTERFACE_SCALE * 100f),
-                            keyPoints = listOf(80f, 90f, 100f, 110f),
-                            onValueChangeFinished = { commitScale(scaleDraft) },
+                    }
+
+                    item {
+                        EtaClickableRow(
+                            title = stringResource(R.string.appearance_morph_loading),
+                            summary = when {
+                                !appearance.morphLoadingIndicator ->
+                                stringResource(R.string.appearance_morph_loading_summary)
+                                appearance.morphLoadingBeforeResponseOnly ->
+                                stringResource(R.string.appearance_morph_loading_before_response)
+                                else ->
+                                stringResource(R.string.appearance_morph_loading_during_generation)
+                            },
+                            showChevron = false,
+                            onClick = {
+                                if (appearance.morphLoadingIndicator) {
+                                    morphLoadingExpanded = !morphLoadingExpanded
+                                } else {
+                                    update { current -> current.copy(morphLoadingIndicator = true) }
+                                    morphLoadingExpanded = true
+                                }
+                            },
+                            holdDownState = appearance.morphLoadingIndicator && morphLoadingExpanded,
+                            endActions = {
+                                if (appearance.morphLoadingIndicator) {
+                                    Icon(
+                                        imageVector = if (morphLoadingExpanded) {
+                                            Icons.Rounded.ExpandMore
+                                        } else {
+                                            Icons.Rounded.ChevronRight
+                                        },
+                                        contentDescription = stringResource(
+                                            if (morphLoadingExpanded) {
+                                                R.string.appearance_morph_loading_collapse
+                                            } else {
+                                                R.string.appearance_morph_loading_expand
+                                            },
+                                        ),
+                                        modifier = Modifier.align(Alignment.CenterVertically),
+                                        tint = etaOnSurfaceVariant(),
+                                    )
+                                }
+                                EtaSwitch(
+                                    checked = appearance.morphLoadingIndicator,
+                                    onCheckedChange = { enabled ->
+                                        update { current -> current.copy(morphLoadingIndicator = enabled) }
+                                        morphLoadingExpanded = enabled
+                                    },
+                                )
+                            },
+                            bottomAction = if (appearance.morphLoadingIndicator && morphLoadingExpanded) {
+                                {
+                                    EtaSwitchRow(
+                                        title = stringResource(R.string.appearance_morph_loading_before_response),
+                                        summary = stringResource(R.string.appearance_morph_loading_before_response_summary),
+                                        checked = appearance.morphLoadingBeforeResponseOnly,
+                                        onCheckedChange = { enabled ->
+                                            update { current ->
+                                                current.copy(morphLoadingBeforeResponseOnly = enabled)
+                                            }
+                                        },
+                                        dense = true,
+                                    )
+                                }
+                            } else {
+                                null
+                            },
                         )
-                    },
-                )
+                    }
+
+                    item {
+                        EtaSwitchRow(
+                            title = stringResource(R.string.appearance_swipe_dismiss),
+                            summary = stringResource(R.string.appearance_swipe_dismiss_summary),
+                            checked = appearance.swipeDismissEnabled,
+                            onCheckedChange = { enabled ->
+                                update { current -> current.copy(swipeDismissEnabled = enabled) }
+                            },
+                        )
+                    }
+
+                    item {
+                        EtaSwitchRow(
+                            title = stringResource(R.string.appearance_predictive_back),
+                            summary = stringResource(R.string.appearance_predictive_back_summary),
+                            checked = appearance.predictiveBackEnabled,
+                            onCheckedChange = { enabled ->
+                                update { current -> current.copy(predictiveBackEnabled = enabled) }
+                            },
+                        )
+                    }
+
+                    item {
+                        EtaClickableRow(
+                            title = stringResource(R.string.appearance_interface_scale),
+                            summary = stringResource(R.string.appearance_interface_scale_summary),
+                            onClick = {
+                                scaleInput = scaleDraft.roundToInt().toString()
+                                showScaleDialog = true
+                            },
+                            holdDownState = showScaleDialog,
+                            endActions = {
+                                EtaText(text = "${scaleDraft.roundToInt()}%", secondary = true)
+                            },
+                            bottomAction = {
+                                EtaSlider(
+                                    value = scaleDraft.coerceIn(
+                                        MIN_INTERFACE_SCALE * 100f,
+                                        MAX_INTERFACE_SCALE * 100f,
+                                    ),
+                                    onValueChange = { scaleDraft = it },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    valueRange = (MIN_INTERFACE_SCALE * 100f)..(MAX_INTERFACE_SCALE * 100f),
+                                    keyPoints = listOf(80f, 90f, 100f, 110f),
+                                    onValueChangeFinished = { commitScale(scaleDraft) },
+                                )
+                            },
+                        )
+                    }
+                }
             }
         }
     }
@@ -431,6 +551,785 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
     }
 }
 
+/**
+ * Material 3 外观页内容（KernelSU ColorPalette 式）：
+ * 主题预览卡 → 色板按钮行 → 主题模式连接按钮组 → 分段下拉组 → 滑杆卡。
+ *
+ * 以 [androidx.compose.foundation.lazy.LazyListScope] 扩展声明（非 @Composable），
+ * 各条目内容写在 `item { … }` 的可组合 lambda 内。
+ */
+private fun androidx.compose.foundation.lazy.LazyListScope.appearanceMaterial3Content(
+    appearance: AppearanceSettings,
+    themeModes: List<AppearanceThemeMode>,
+    themeModeLabels: List<String>,
+    paletteStyles: List<AppearancePaletteStyle>,
+    paletteLabels: List<String>,
+    themeFamilyLabels: List<String>,
+    onSetThemeFamily: (AppearanceThemeFamily) -> Unit,
+    scaleDraft: Float,
+    onScaleDraftChange: (Float) -> Unit,
+    onCommitScale: (Float) -> Unit,
+    onOpenScaleDialog: () -> Unit,
+    morphLoadingExpanded: Boolean,
+    onMorphLoadingExpandedChange: (Boolean) -> Unit,
+    iconExpanded: Boolean,
+    onIconExpandedChange: (Boolean) -> Unit,
+    onConfirmIcon: (Int, Int, Int) -> Unit,
+    onSetAccentColor: (AppearanceAccentColor) -> Unit,
+    onSetThemeMode: (AppearanceThemeMode) -> Unit,
+    onSetPaletteStyle: (AppearancePaletteStyle) -> Unit,
+    onSetPureBlack: (Boolean) -> Unit,
+    onSetTimestamps: (Boolean) -> Unit,
+    onSetMorphLoading: (Boolean) -> Unit,
+    onSetMorphBeforeResponse: (Boolean) -> Unit,
+    onSetSwipeDismiss: (Boolean) -> Unit,
+    onSetPredictiveBack: (Boolean) -> Unit,
+) {
+    // ① 主题预览卡（按候选配色实时渲染缩略屏幕）
+    // 页面统一节奏：每个分组自带 16dp 页边距 + 13dp 组间距，数值取自适应层令牌。
+    item(key = "m3_theme_preview") {
+        ThemePreviewCard(
+            appearance = appearance,
+            modifier = Modifier.padding(bottom = EtaSegmentedGroupSpacing),
+        )
+    }
+
+    // ② 色板按钮行（首个 = 系统动态取色，其后为固定强调色）
+    // 全宽滚动行：两端由 contentPadding 对齐页边距，间距与页边距同为 16dp（同 KernelSU 色板行）。
+    item(key = "m3_color_buttons") {
+        LazyRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = EtaSegmentedGroupSpacing),
+            contentPadding = PaddingValues(horizontal = EtaGroupHorizontalPadding),
+            horizontalArrangement = Arrangement.spacedBy(EtaGroupHorizontalPadding),
+        ) {
+            item {
+                ColorButtonM3(
+                    color = Color.Unspecified,
+                    isSelected = appearance.accentColor == AppearanceAccentColor.SYSTEM,
+                    appearance = appearance,
+                    onClick = { onSetAccentColor(AppearanceAccentColor.SYSTEM) },
+                )
+            }
+            item {
+                ColorButtonM3(
+                    color = AppearanceAccentColor.BLUE.m3Swatch(),
+                    isSelected = appearance.accentColor == AppearanceAccentColor.BLUE,
+                    appearance = appearance,
+                    onClick = { onSetAccentColor(AppearanceAccentColor.BLUE) },
+                )
+            }
+            item {
+                ColorButtonM3(
+                    color = AppearanceAccentColor.PURPLE.m3Swatch(),
+                    isSelected = appearance.accentColor == AppearanceAccentColor.PURPLE,
+                    appearance = appearance,
+                    onClick = { onSetAccentColor(AppearanceAccentColor.PURPLE) },
+                )
+            }
+            item {
+                ColorButtonM3(
+                    color = AppearanceAccentColor.PINK.m3Swatch(),
+                    isSelected = appearance.accentColor == AppearanceAccentColor.PINK,
+                    appearance = appearance,
+                    onClick = { onSetAccentColor(AppearanceAccentColor.PINK) },
+                )
+            }
+            item {
+                ColorButtonM3(
+                    color = AppearanceAccentColor.RED.m3Swatch(),
+                    isSelected = appearance.accentColor == AppearanceAccentColor.RED,
+                    appearance = appearance,
+                    onClick = { onSetAccentColor(AppearanceAccentColor.RED) },
+                )
+            }
+            item {
+                ColorButtonM3(
+                    color = AppearanceAccentColor.ORANGE.m3Swatch(),
+                    isSelected = appearance.accentColor == AppearanceAccentColor.ORANGE,
+                    appearance = appearance,
+                    onClick = { onSetAccentColor(AppearanceAccentColor.ORANGE) },
+                )
+            }
+            item {
+                ColorButtonM3(
+                    color = AppearanceAccentColor.YELLOW.m3Swatch(),
+                    isSelected = appearance.accentColor == AppearanceAccentColor.YELLOW,
+                    appearance = appearance,
+                    onClick = { onSetAccentColor(AppearanceAccentColor.YELLOW) },
+                )
+            }
+            item {
+                ColorButtonM3(
+                    color = AppearanceAccentColor.GREEN.m3Swatch(),
+                    isSelected = appearance.accentColor == AppearanceAccentColor.GREEN,
+                    appearance = appearance,
+                    onClick = { onSetAccentColor(AppearanceAccentColor.GREEN) },
+                )
+            }
+            item {
+                ColorButtonM3(
+                    color = AppearanceAccentColor.TEAL.m3Swatch(),
+                    isSelected = appearance.accentColor == AppearanceAccentColor.TEAL,
+                    appearance = appearance,
+                    onClick = { onSetAccentColor(AppearanceAccentColor.TEAL) },
+                )
+            }
+        }
+    }
+
+    // ③ 主题模式：连接按钮组（语义 Role.RadioButton）
+    item(key = "m3_theme_mode") {
+        ThemeModeButtonGroup(
+            modes = themeModes,
+            labels = themeModeLabels,
+            selectedMode = appearance.themeMode,
+            onSelectedMode = onSetThemeMode,
+        )
+    }
+
+    // ④ 主题家族与配色规格组（分段下拉行）
+    // 主题家族（MIUI X ↔ Material 3 Expressive）必须与 MIUI X 版页面同款常驻：
+    // 该下拉是切回 MIUI X 的唯一入口，缺了它切到 Material 后无法返回。
+    item(key = "m3_color_spec") {
+        EtaSegmentedColumn(
+            modifier = Modifier.padding(
+                start = EtaGroupHorizontalPadding,
+                end = EtaGroupHorizontalPadding,
+                bottom = EtaSegmentedGroupSpacing,
+            ),
+        ) {
+            item {
+                EtaSegmentedDropdownRow(
+                    title = stringResource(R.string.appearance_theme_family),
+                    items = themeFamilyLabels,
+                    selectedIndex = appearance.themeFamily.ordinal,
+                    onItemSelected = { index ->
+                        AppearanceThemeFamily.entries.getOrNull(index)?.let(onSetThemeFamily)
+                    },
+                )
+            }
+            item {
+                EtaSegmentedDropdownRow(
+                    title = stringResource(R.string.appearance_palette_style),
+                    items = paletteLabels,
+                    selectedIndex = appearance.paletteStyle.ordinal,
+                    onItemSelected = { index ->
+                        paletteStyles.getOrNull(index)?.let(onSetPaletteStyle)
+                    },
+                )
+            }
+            item {
+                EtaSwitchRow(
+                    title = stringResource(R.string.appearance_pure_black),
+                    summary = stringResource(R.string.appearance_pure_black_summary),
+                    checked = appearance.pureBlackEnabled,
+                    onCheckedChange = onSetPureBlack,
+                )
+            }
+        }
+    }
+
+    // ⑤ 图标外观组
+    item(key = "m3_icon") {
+        EtaSegmentedColumn(
+            modifier = Modifier.padding(
+                start = EtaGroupHorizontalPadding,
+                end = EtaGroupHorizontalPadding,
+                bottom = EtaSegmentedGroupSpacing,
+            ),
+        ) {
+            item {
+                EtaClickableRow(
+                    title = stringResource(R.string.appearance_icon),
+                    summary = stringResource(R.string.appearance_icon_summary),
+                    showChevron = false,
+                    onClick = {
+                        onIconExpandedChange(!iconExpanded)
+                    },
+                    holdDownState = iconExpanded,
+                    endActions = {
+                        Icon(
+                            imageVector = if (iconExpanded) Icons.Rounded.ExpandMore else Icons.Rounded.ChevronRight,
+                            contentDescription = null,
+                            modifier = Modifier.align(Alignment.CenterVertically),
+                            tint = etaOnSurfaceVariant(),
+                        )
+                    },
+                )
+            }
+            // 展开后的编辑器作为同组的下一个分段（兄弟页面 ProviderBodiesEditor / ContextCompressionSettings
+            // 同款写法）。挂在行内 bottomAction 上时它脱离分组容器，会自成一块没有边距的浮层。
+            item(visible = iconExpanded) {
+                EtaSegmentedItemContainer {
+                    IconAppearanceEditor(
+                        light = appearance.iconLightColor,
+                        dark = appearance.iconDarkColor,
+                        cat = appearance.iconCatColor,
+                        onConfirm = onConfirmIcon,
+                    )
+                }
+            }
+        }
+    }
+
+    // ⑥ 界面行为组（分段开关行）
+    item(key = "m3_interface") {
+        EtaSegmentedColumn(
+            modifier = Modifier.padding(
+                start = EtaGroupHorizontalPadding,
+                end = EtaGroupHorizontalPadding,
+                bottom = EtaSegmentedGroupSpacing,
+            ),
+        ) {
+            item {
+                EtaSwitchRow(
+                    title = stringResource(R.string.appearance_message_timestamps),
+                    summary = stringResource(R.string.appearance_message_timestamps_summary),
+                    checked = appearance.messageTimestampsEnabled,
+                    onCheckedChange = onSetTimestamps,
+                )
+            }
+            item {
+                EtaSwitchRow(
+                    title = stringResource(R.string.appearance_swipe_dismiss),
+                    summary = stringResource(R.string.appearance_swipe_dismiss_summary),
+                    checked = appearance.swipeDismissEnabled,
+                    onCheckedChange = onSetSwipeDismiss,
+                )
+            }
+            item {
+                EtaSwitchRow(
+                    title = stringResource(R.string.appearance_predictive_back),
+                    summary = stringResource(R.string.appearance_predictive_back_summary),
+                    checked = appearance.predictiveBackEnabled,
+                    onCheckedChange = onSetPredictiveBack,
+                )
+            }
+        }
+    }
+
+    // ⑦ 加载动效组（可展开子项）
+    item(key = "m3_morph_loading") {
+        EtaSegmentedColumn(
+            modifier = Modifier.padding(
+                start = EtaGroupHorizontalPadding,
+                end = EtaGroupHorizontalPadding,
+                bottom = EtaSegmentedGroupSpacing,
+            ),
+        ) {
+            item {
+                EtaClickableRow(
+                    title = stringResource(R.string.appearance_morph_loading),
+                    summary = when {
+                        !appearance.morphLoadingIndicator ->
+                        stringResource(R.string.appearance_morph_loading_summary)
+                        appearance.morphLoadingBeforeResponseOnly ->
+                        stringResource(R.string.appearance_morph_loading_before_response)
+                        else ->
+                        stringResource(R.string.appearance_morph_loading_during_generation)
+                    },
+                    showChevron = false,
+                    onClick = {
+                        if (appearance.morphLoadingIndicator) {
+                            onMorphLoadingExpandedChange(!morphLoadingExpanded)
+                        } else {
+                            onSetMorphLoading(true)
+                            onMorphLoadingExpandedChange(true)
+                        }
+                    },
+                    holdDownState = appearance.morphLoadingIndicator && morphLoadingExpanded,
+                    endActions = {
+                        if (appearance.morphLoadingIndicator) {
+                            Icon(
+                                imageVector = if (morphLoadingExpanded) {
+                                    Icons.Rounded.ExpandMore
+                                } else {
+                                    Icons.Rounded.ChevronRight
+                                },
+                                contentDescription = stringResource(
+                                    if (morphLoadingExpanded) {
+                                        R.string.appearance_morph_loading_collapse
+                                    } else {
+                                        R.string.appearance_morph_loading_expand
+                                    },
+                                ),
+                                modifier = Modifier.align(Alignment.CenterVertically),
+                                tint = etaOnSurfaceVariant(),
+                            )
+                        }
+                        EtaSwitch(
+                            checked = appearance.morphLoadingIndicator,
+                            onCheckedChange = { enabled ->
+                                onSetMorphLoading(enabled)
+                                onMorphLoadingExpandedChange(enabled)
+                            },
+                        )
+                    },
+                )
+            }
+            // 子项作为同组的下一个分段（不再 dense 嵌进行内 bottomAction），
+            // 首/末圆角由分段列按可见条目自动接管。
+            item(visible = appearance.morphLoadingIndicator && morphLoadingExpanded) {
+                EtaSwitchRow(
+                    title = stringResource(R.string.appearance_morph_loading_before_response),
+                    summary = stringResource(R.string.appearance_morph_loading_before_response_summary),
+                    checked = appearance.morphLoadingBeforeResponseOnly,
+                    onCheckedChange = onSetMorphBeforeResponse,
+                )
+            }
+        }
+    }
+
+    // ⑧ 界面缩放滑杆卡（KernelSU TonalCard + Slider 布局）
+    item(key = "m3_interface_scale") {
+        EtaTonalCard(
+            modifier = Modifier.padding(
+                start = EtaGroupHorizontalPadding,
+                end = EtaGroupHorizontalPadding,
+                bottom = EtaSegmentedGroupSpacing,
+            ),
+            // 整卡可点 → 精确输入对话框，与 MIUI X 版「点击行 → 输入框」的交互一致。
+            onClick = onOpenScaleDialog,
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Rounded.AspectRatio,
+                        contentDescription = stringResource(R.string.appearance_interface_scale),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.appearance_interface_scale),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = stringResource(R.string.appearance_interface_scale_summary),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        text = "${scaleDraft.roundToInt()}%",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                EtaSlider(
+                    value = scaleDraft.coerceIn(
+                        MIN_INTERFACE_SCALE * 100f,
+                        MAX_INTERFACE_SCALE * 100f,
+                    ),
+                    onValueChange = onScaleDraftChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    valueRange = (MIN_INTERFACE_SCALE * 100f)..(MAX_INTERFACE_SCALE * 100f),
+                    keyPoints = listOf(80f, 90f, 100f, 110f),
+                    onValueChangeFinished = { onCommitScale(scaleDraft) },
+                )
+            }
+        }
+    }
+
+}
+
+/**
+ * 主题模式连接按钮组（KernelSU `ExpressiveToggleButton` + `ButtonGroupDefaults.connected*Shapes`）。
+ */
+@Composable
+private fun ThemeModeButtonGroup(
+    modes: List<AppearanceThemeMode>,
+    labels: List<String>,
+    selectedMode: AppearanceThemeMode,
+    onSelectedMode: (AppearanceThemeMode) -> Unit,
+) {
+    val haptic = LocalHapticFeedback.current
+    // 三种主题模式恒为一行：不再按 4 个分行，也就没有额外的行间距需要手写。
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                start = EtaGroupHorizontalPadding,
+                end = EtaGroupHorizontalPadding,
+                bottom = EtaSegmentedGroupSpacing,
+            ),
+        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+    ) {
+        modes.forEachIndexed { index, mode ->
+            EtaExpressiveToggleButton(
+                checked = selectedMode == mode,
+                onCheckedChange = { checked ->
+                    if (checked) {
+                        haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                        onSelectedMode(mode)
+                    }
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .semantics { role = Role.RadioButton },
+                shapes = when (index) {
+                    0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                    modes.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                    else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+                },
+            ) {
+                Icon(
+                    imageVector = when (mode) {
+                        AppearanceThemeMode.SYSTEM -> Icons.Filled.Brightness4
+                        AppearanceThemeMode.LIGHT -> Icons.Filled.Brightness7
+                        AppearanceThemeMode.DARK -> Icons.Filled.Brightness3
+                    },
+                    contentDescription = labels[mode.ordinal],
+                )
+            }
+        }
+    }
+}
+
+/**
+ * KernelSU `ThemePreviewCard` 对应物：按候选配色渲染的缩略屏幕
+ * （顶栏 + 次级卡 + 内容卡 + 底部导航栏），全部颜色显式传入候选色板。
+ */
+@SuppressLint("ConfigurationScreenWidthHeight")
+@Composable
+private fun ThemePreviewCard(
+    appearance: AppearanceSettings,
+    modifier: Modifier = Modifier,
+) {
+    val configuration = LocalConfiguration.current
+    val screenWidth = configuration.screenWidthDp.toFloat()
+    val screenHeight = configuration.screenHeightDp.toFloat()
+    val screenRatio = screenWidth / screenHeight
+    val colorScheme = appearance.previewM3ColorScheme()
+    // 纯黑模式下预览背景同样压黑，与真实主题一致。
+    val previewDark = when (appearance.themeMode) {
+        AppearanceThemeMode.SYSTEM -> isSystemInDarkTheme()
+        AppearanceThemeMode.LIGHT -> false
+        AppearanceThemeMode.DARK -> true
+    }
+    val previewContainer = if (appearance.pureBlackEnabled && previewDark) {
+        Color.Black
+    } else {
+        colorScheme.surfaceContainer
+    }
+
+    Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth(0.4f)
+                .aspectRatio(screenRatio),
+            color = previewContainer,
+            shape = MaterialTheme.shapes.largeIncreased,
+            border = BorderStroke(1.dp, color = colorScheme.outlineVariant),
+        ) {
+            val content: @Composable ColumnScope.() -> Unit = {
+                // 顶栏
+                Box(
+                    modifier = Modifier
+                        .height(48.dp)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.TopStart,
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(start = 12.dp, top = 16.dp, bottom = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.app_name),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = colorScheme.onSurface,
+                        )
+                    }
+                }
+
+                BoxWithConstraints(modifier = Modifier.weight(1f)) {
+                    val showInfoCard = maxHeight >= 72.dp
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        EtaTonalCard(
+                            containerColor = colorScheme.secondaryContainer,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(40.dp),
+                            shape = MaterialTheme.shapes.small,
+                        ) {}
+                        if (showInfoCard) {
+                            EtaTonalCard(
+                                containerColor = colorScheme.surfaceBright,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                                shape = MaterialTheme.shapes.small,
+                            ) {}
+                        }
+                    }
+                }
+            }
+
+            Column {
+                content()
+
+                // 底部导航栏
+                Surface(
+                    color = previewContainer,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .height(40.dp)
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Icon(Icons.Filled.Home, null, tint = colorScheme.primary)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * KernelSU `ColorButtonMaterial` 对应物：72dp 色板按钮（20dp 圆角），
+ * 48dp 双半圆色轮（primaryContainer / tertiaryContainer）+ 选中态缩放、描边圆环与勾选。
+ */
+@Composable
+private fun ColorButtonM3(
+    color: Color,
+    isSelected: Boolean,
+    appearance: AppearanceSettings,
+    onClick: () -> Unit,
+) {
+    val haptic = LocalHapticFeedback.current
+    val colorScheme = appearance.previewM3ColorScheme(seedOverride = color)
+
+    Surface(
+        onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+            onClick()
+        },
+        shape = MaterialTheme.shapes.largeIncreased,
+        color = colorScheme.surfaceContainer,
+        modifier = Modifier.size(72.dp),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Canvas(modifier = Modifier.size(48.dp)) {
+                drawArc(
+                    color = colorScheme.primaryContainer,
+                    startAngle = 180f,
+                    sweepAngle = 180f,
+                    useCenter = true,
+                )
+                drawArc(
+                    color = colorScheme.tertiaryContainer,
+                    startAngle = 0f,
+                    sweepAngle = 180f,
+                    useCenter = true,
+                )
+            }
+
+            val scale by animateFloatAsState(targetValue = if (isSelected) 1.1f else 1.0f)
+            Box(
+                modifier = Modifier.graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                },
+                contentAlignment = Alignment.Center,
+            ) {
+                AnimatedVisibility(
+                    visible = isSelected,
+                    enter = fadeIn() + scaleIn(initialScale = 0.8f),
+                    exit = fadeOut() + scaleOut(targetScale = 0.8f),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .border(2.dp, colorScheme.primary, CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clip(CircleShape)
+                                .background(colorScheme.primary, CircleShape),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Check,
+                                contentDescription = null,
+                                tint = colorScheme.onPrimary,
+                                modifier = Modifier
+                                    .align(Alignment.Center)
+                                    .size(16.dp),
+                            )
+                        }
+                    }
+                }
+                AnimatedVisibility(
+                    visible = !isSelected,
+                    enter = fadeIn() + scaleIn(initialScale = 0.8f),
+                    exit = fadeOut() + scaleOut(targetScale = 0.8f),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(20.dp)
+                            .background(colorScheme.primary, CircleShape),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** 强调色的固定色样（与 AgentAppTheme 的 seedColor 定义同源）。 */
+private fun AppearanceAccentColor.m3Swatch(): Color = when (this) {
+    AppearanceAccentColor.SYSTEM -> Color.Unspecified
+    AppearanceAccentColor.BLUE -> Color(0xFF3482FF)
+    AppearanceAccentColor.PURPLE -> Color(0xFF6750A4)
+    AppearanceAccentColor.PINK -> Color(0xFFF26D9A)
+    AppearanceAccentColor.RED -> Color(0xFFBA1A1A)
+    AppearanceAccentColor.ORANGE -> Color(0xFFF27A1A)
+    AppearanceAccentColor.YELLOW -> Color(0xFFF5C542)
+    AppearanceAccentColor.GREEN -> Color(0xFF006D3B)
+    AppearanceAccentColor.TEAL -> Color(0xFF006A6A)
+}
+
+/**
+ * 候选配色：与 [io.github.mangi.eta.ui.app.AgentAppTheme] 的 M3 分支同源 ——
+ * miuix ThemeController（Spec2025）生成的动态取色，经同样的色板映射成 Material 3 色板。
+ *
+ * @param seedOverride 传入固定种子色（色板按钮）；null 时按当前强调色设置解析。
+ */
+@Composable
+private fun AppearanceSettings.previewM3ColorScheme(
+    seedOverride: Color? = null,
+): ColorScheme {
+    val systemDark = isSystemInDarkTheme()
+    val isDark = when (themeMode) {
+        AppearanceThemeMode.SYSTEM -> systemDark
+        AppearanceThemeMode.LIGHT -> false
+        AppearanceThemeMode.DARK -> true
+    }
+    val keyColor = when {
+        seedOverride != null && seedOverride != Color.Unspecified -> seedOverride
+        seedOverride == Color.Unspecified ->
+            platformDynamicColors(isDark).primary
+        accentColor == AppearanceAccentColor.SYSTEM ->
+            platformDynamicColors(isDark).primary
+        else -> accentColor.m3Swatch()
+    }
+    val controller = remember(keyColor.value, paletteStyle, isDark) {
+        ThemeController(
+            colorSchemeMode = if (isDark) ColorSchemeMode.MonetDark else ColorSchemeMode.MonetLight,
+            keyColor = keyColor,
+            colorSpec = ThemeColorSpec.Spec2025,
+            paletteStyle = paletteStyle.toMiuixPaletteStyle(),
+            isDark = isDark,
+        )
+    }
+    val colors = controller.currentColors()
+    // 与 AgentAppTheme 的色板映射逐项一致（KernelSU 式三层色阶）。
+    return if (isDark) {
+        darkColorScheme(
+            primary = colors.primary,
+            onPrimary = colors.onPrimary,
+            primaryContainer = colors.primaryContainer,
+            onPrimaryContainer = colors.onPrimaryContainer,
+            secondary = colors.secondary,
+            onSecondary = colors.onSecondary,
+            secondaryContainer = colors.secondaryContainer,
+            onSecondaryContainer = colors.onSecondaryContainer,
+            background = colors.background,
+            onBackground = colors.onBackground,
+            surface = colors.surface,
+            onSurface = colors.onSurface,
+            surfaceVariant = colors.surfaceVariant,
+            onSurfaceVariant = colors.onSurfaceSecondary,
+            error = colors.error,
+            onError = colors.onError,
+            errorContainer = colors.errorContainer,
+            onErrorContainer = colors.onErrorContainer,
+            outline = colors.outline,
+            outlineVariant = colors.outline,
+            surfaceTint = colors.primary,
+            surfaceContainer = colors.surfaceContainer,
+            surfaceContainerHigh = colors.surfaceContainerHigh,
+            surfaceContainerHighest = colors.surfaceContainerHigh,
+            surfaceContainerLow = colors.surface,
+            surfaceContainerLowest = colors.surface,
+            surfaceBright = colors.surfaceContainerHighest,
+            surfaceDim = colors.surface,
+            tertiaryContainer = colors.tertiaryContainer,
+            onTertiaryContainer = colors.onTertiaryContainer,
+        )
+    } else {
+        lightColorScheme(
+            primary = colors.primary,
+            onPrimary = colors.onPrimary,
+            primaryContainer = colors.primaryContainer,
+            onPrimaryContainer = colors.onPrimaryContainer,
+            secondary = colors.secondary,
+            onSecondary = colors.onSecondary,
+            secondaryContainer = colors.secondaryContainer,
+            onSecondaryContainer = colors.onSecondaryContainer,
+            background = colors.background,
+            onBackground = colors.onBackground,
+            surface = colors.surface,
+            onSurface = colors.onSurface,
+            surfaceVariant = colors.surfaceVariant,
+            onSurfaceVariant = colors.onSurfaceSecondary,
+            error = colors.error,
+            onError = colors.onError,
+            errorContainer = colors.errorContainer,
+            onErrorContainer = colors.onErrorContainer,
+            outline = colors.outline,
+            outlineVariant = colors.outline,
+            surfaceTint = colors.primary,
+            surfaceContainer = colors.surfaceContainer,
+            surfaceContainerHigh = colors.surfaceContainerHigh,
+            surfaceContainerHighest = colors.surfaceContainerHigh,
+            surfaceContainerLow = colors.surface,
+            surfaceContainerLowest = colors.surface,
+            surfaceBright = colors.surfaceContainerHighest,
+            surfaceDim = colors.surface,
+            tertiaryContainer = colors.tertiaryContainer,
+            onTertiaryContainer = colors.onTertiaryContainer,
+        )
+    }
+}
+
+private fun AppearancePaletteStyle.toMiuixPaletteStyle(): ThemePaletteStyle = when (this) {
+    AppearancePaletteStyle.TONAL_SPOT -> ThemePaletteStyle.TonalSpot
+    AppearancePaletteStyle.NEUTRAL -> ThemePaletteStyle.Neutral
+    AppearancePaletteStyle.VIBRANT -> ThemePaletteStyle.Vibrant
+    AppearancePaletteStyle.EXPRESSIVE -> ThemePaletteStyle.Expressive
+    AppearancePaletteStyle.RAINBOW -> ThemePaletteStyle.Rainbow
+    AppearancePaletteStyle.FRUIT_SALAD -> ThemePaletteStyle.FruitSalad
+    AppearancePaletteStyle.MONOCHROME -> ThemePaletteStyle.Monochrome
+    AppearancePaletteStyle.FIDELITY -> ThemePaletteStyle.Fidelity
+    AppearancePaletteStyle.CONTENT -> ThemePaletteStyle.Content
+}
+
 private val iconSwatches = listOf(
     0xFFF27A1A, 0xFF7B61FF, 0xFFF26D9A, 0xFF3DDC84, 0xFFF5C542, 0xFF2491FF,
     0xFFF6F7F9, 0xFF1C1C1E,
@@ -448,12 +1347,19 @@ private fun IconAppearanceEditor(
     var draftCat by remember(cat) { androidx.compose.runtime.mutableIntStateOf(cat) }
     val dirty = draftLight != light || draftDark != dark || draftCat != cat
     val view = LocalView.current
+    // MIUI X 版保持原样：整块居中 + 通栏确认按钮；只有 Material 3 版改成左对齐 + 右下角确认。
+    val material3 = isMaterial3Theme()
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+        horizontalAlignment = if (material3) Alignment.Start else Alignment.CenterHorizontally,
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        // 预览：两张 56dp 图标并排；下面的色板行统一左对齐，不再整块居中、
+        // 导致 Light / Dark / Cat 的标签与色板左边缘参差不齐。
+        Row(
+            modifier = if (material3) Modifier.fillMaxWidth() else Modifier,
+            horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
+        ) {
             LauncherIconPreview(background = draftLight, cat = draftCat)
             LauncherIconPreview(background = draftDark, cat = draftCat)
         }
@@ -463,7 +1369,8 @@ private fun IconAppearanceEditor(
         EtaTextButton(
             text = stringResource(R.string.appearance_icon_apply),
             enabled = dirty,
-            modifier = Modifier.fillMaxWidth(),
+            // 收在右下角：确认动作不再拉成一条通栏大按钮。
+            modifier = if (material3) Modifier.align(Alignment.End) else Modifier.fillMaxWidth(),
             onClick = {
                 TouchHaptics.click(view)
                 onConfirm(draftLight, draftDark, draftCat)
@@ -472,31 +1379,55 @@ private fun IconAppearanceEditor(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun IconColorChoices(title: String, selected: Int, onSelect: (Int) -> Unit) {
     val view = LocalView.current
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    val material3 = isMaterial3Theme()
+    Column(
+        modifier = if (material3) Modifier.fillMaxWidth() else Modifier,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         EtaText(text = title, secondary = true)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // 8 个色板在窄屏（360dp）一行放不下：交给 FlowRow 换行，色板不会再被挤出屏幕右侧。
+        FlowRow(
+            modifier = if (material3) Modifier.fillMaxWidth() else Modifier,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             iconSwatches.forEach { color ->
-                if (isMaterial3Theme()) {
-                    // M3 Expressive 没有取色器/色板组件：色板用官方 IconToggleButton 承载，
-                    // 选中语义、涟漪、容器形状与容器尺寸全部取 IconButtonDefaults 默认值，
-                    // 颜色本体作为图标 tint 呈现；不再 Box + clip(CircleShape) + background + clickable 拼装。
+                if (material3) {
+                    // M3 Expressive 没有取色器组件：色板用官方 IconToggleButton 承载，
+                    // 容器直接填色值本身（KernelSU ColorButtonMaterial 的紧凑版），
+                    // 选中时在色块上叠一个对比色对勾；尺寸取官方 extraSmall 档（32dp）。
+                    val swatch = Color(color)
+                    val onSwatch = if (swatch.luminance() > 0.5f) Color.Black else Color.White
                     IconToggleButton(
                         checked = color == selected,
                         onCheckedChange = {
                             TouchHaptics.click(view)
                             onSelect(color)
                         },
+                        modifier = Modifier.size(IconButtonDefaults.extraSmallContainerSize()),
+                        colors = IconButtonDefaults.iconToggleButtonColors(
+                            containerColor = swatch,
+                            contentColor = swatch,
+                            disabledContainerColor = swatch,
+                            disabledContentColor = swatch,
+                            checkedContainerColor = swatch,
+                            checkedContentColor = onSwatch,
+                        ),
                     ) {
                         Icon(
-                            Icons.Rounded.Circle,
-                            // 色板本身没有文案，M3 也没有取色器组件，这里用色值本身作无障碍名称。
+                            imageVector = if (color == selected) Icons.Rounded.Check else Icons.Rounded.Circle,
+                            // 色板没有文案：用色值作无障碍名称。
                             // 必须给：IconToggleButton 经 Surface 的 childSemantics() 合并子节点，
                             // 若这里是 contentDescription = null，8 个色块会变成「无名按钮」。
-                            contentDescription = "颜色 #%08X".format(color),
-                            tint = Color(color),
+                            contentDescription = stringResource(R.string.appearance_color_a11y, "#%08X".format(color)),
+                            modifier = Modifier.size(IconButtonDefaults.extraSmallIconSize),
+                            // 未选中时对勾位用色值本身填满（与容器同色、不可见），
+                            // 选中时换成黑/白对勾，保证任何底色上都看得清。
+                            tint = if (color == selected) onSwatch else swatch,
                         )
                     }
                 } else {

@@ -2,7 +2,6 @@ package io.github.mangi.eta.ui.pages.providers
 
 import android.content.Context
 import android.content.ContextWrapper
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -34,15 +33,13 @@ import io.github.mangi.eta.data.model.ProviderSetting
 import io.github.mangi.eta.data.repository.ProviderBalanceFetcher
 import io.github.mangi.eta.data.repository.ProviderBalanceState
 import io.github.mangi.eta.data.repository.formatBalanceDisplay
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedScope
 import io.github.mangi.eta.ui.adaptive.EtaSwitch
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.Switch as MiuixSwitch
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text as M3Text
 
@@ -67,178 +64,183 @@ private val BalancePresets = listOf(
     BalanceOption.PRESET_DEEPSEEK,
 )
 
-@Composable
-internal fun ProviderBalanceOptionFields(
+/**
+ * 余额信息组：展开行独立成段（首段），开关收在行尾（KernelSU `SegmentedDropdownItem`
+ * 同款位置），展开后的预设下拉与表单体作为隐藏段注册（[EtaSegmentedScope.item] 的
+ * `visible`），折叠时以 spring 动画收起并把末段圆角让给展开行。
+ */
+internal fun EtaSegmentedScope.ProviderBalanceOptionFields(
     balanceOption: BalanceOption,
     onBalanceOptionChange: (BalanceOption) -> Unit,
     provider: ProviderSetting? = null,
 ) {
+    item {
+        ProviderBalanceOptionHeader(
+            balanceOption = balanceOption,
+            onBalanceOptionChange = onBalanceOptionChange,
+        )
+    }
+    item(visible = balanceOption.enabled) {
+        ProviderBalanceOptionBody(
+            balanceOption = balanceOption,
+            onBalanceOptionChange = onBalanceOptionChange,
+            provider = provider,
+        )
+    }
+}
+
+@Composable
+private fun ProviderBalanceOptionHeader(
+    balanceOption: BalanceOption,
+    onBalanceOptionChange: (BalanceOption) -> Unit,
+) {
     var expanded by remember { mutableStateOf(balanceOption.enabled) }
-    var locallyEnabled by remember { mutableStateOf(balanceOption.enabled) }
+    val context = LocalContext.current
+    ProviderExpandableRow(
+        title = stringResource(R.string.ui_balance_info_title),
+        summary = stringResource(R.string.ui_balance_info_summary),
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        endActions = {
+            EtaSwitch(
+                checked = balanceOption.enabled,
+                onCheckedChange = { value ->
+                    onBalanceOptionChange(balanceOption.copy(enabled = value))
+                    if (value) expanded = true
+                },
+            )
+        },
+    )
+}
+
+@Composable
+private fun ProviderBalanceOptionBody(
+    balanceOption: BalanceOption,
+    onBalanceOptionChange: (BalanceOption) -> Unit,
+    provider: ProviderSetting?,
+) {
     val context = LocalContext.current
     var testResult by remember { mutableStateOf<String?>(null) }
     var isTesting by remember { mutableStateOf(false) }
     var accessTokenVisible by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val resolved = balanceOption.copy(enabled = locallyEnabled || balanceOption.enabled).resolved()
+    val resolved = balanceOption.resolved()
     val isNewApi = resolved.preset == BalanceOption.PRESET_NEW_API
-    val switchOn = locallyEnabled || balanceOption.enabled
-    val onSwitchChange: (Boolean) -> Unit = { value ->
-        locallyEnabled = value
-        onBalanceOptionChange(balanceOption.copy(enabled = value))
-        if (value) expanded = true
-    }
+    val switchOn = balanceOption.enabled
 
-    Column(modifier = Modifier.fillMaxWidth()) {
-        val headerTitle = stringResource(R.string.ui_balance_info_title)
-        val headerSummary = stringResource(R.string.ui_balance_info_summary)
-        if (isMaterial3Theme()) {
-            // M3：官方可点击 ListItem 承担展开/收起，开关使用 Expressive 勾选样式。
-            ListItem(
-                onClick = { expanded = !expanded },
-                modifier = Modifier.fillMaxWidth(),
-                content = { M3Text(text = headerTitle, style = MaterialTheme.typography.bodyLarge) },
-                supportingContent = {
-                    M3Text(
-                        text = headerSummary,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+    ProviderSegmentBody {
+        val presetIndex = BalancePresets.indexOf(resolved.preset).coerceAtLeast(0)
+        ProviderDropdownRow(
+            title = stringResource(R.string.ui_balance_preset),
+            summary = stringResource(
+                when (BalancePresets[presetIndex]) {
+                    BalanceOption.PRESET_NEW_API -> R.string.ui_balance_preset_new_api_summary
+                    BalanceOption.PRESET_SUB2API -> R.string.ui_balance_preset_sub2api_summary
+                    BalanceOption.PRESET_DEEPSEEK -> R.string.ui_balance_preset_deepseek_summary
+                    else -> R.string.ui_balance_preset_custom_summary
                 },
-                trailingContent = {
-                    EtaSwitch(checked = switchOn, onCheckedChange = onSwitchChange)
-                },
-            )
-        } else {
-            BasicComponent(
-                title = headerTitle,
-                summary = headerSummary,
-                onClick = { expanded = !expanded },
-                endActions = {
-                    MiuixSwitch(
-                        checked = switchOn,
-                        onCheckedChange = onSwitchChange,
-                    )
-                },
-            )
-        }
-
-        AnimatedVisibility(visible = expanded) {
-            Column {
-                val presetIndex = BalancePresets.indexOf(resolved.preset).coerceAtLeast(0)
-                ProviderDropdownRow(
-                    title = stringResource(R.string.ui_balance_preset),
-                    summary = stringResource(
-                        when (BalancePresets[presetIndex]) {
-                            BalanceOption.PRESET_NEW_API -> R.string.ui_balance_preset_new_api_summary
-                            BalanceOption.PRESET_SUB2API -> R.string.ui_balance_preset_sub2api_summary
-                            BalanceOption.PRESET_DEEPSEEK -> R.string.ui_balance_preset_deepseek_summary
-                            else -> R.string.ui_balance_preset_custom_summary
-                        },
+            ),
+            items = listOf(
+                stringResource(R.string.ui_balance_preset_custom),
+                stringResource(R.string.ui_balance_preset_new_api),
+                stringResource(R.string.ui_balance_preset_sub2api),
+                stringResource(R.string.ui_balance_preset_deepseek),
+            ),
+            selectedIndex = presetIndex,
+            onSelectedIndexChange = { selectedIndex ->
+                onBalanceOptionChange(
+                    BalanceOption.applyPreset(
+                        BalancePresets.getOrElse(selectedIndex) { BalanceOption.PRESET_CUSTOM },
+                        balanceOption,
                     ),
-                    items = listOf(
-                        stringResource(R.string.ui_balance_preset_custom),
-                        stringResource(R.string.ui_balance_preset_new_api),
-                        stringResource(R.string.ui_balance_preset_sub2api),
-                        stringResource(R.string.ui_balance_preset_deepseek),
-                    ),
-                    selectedIndex = presetIndex,
-                    onSelectedIndexChange = { selectedIndex ->
-                        onBalanceOptionChange(
-                            BalanceOption.applyPreset(
-                                BalancePresets.getOrElse(selectedIndex) { BalanceOption.PRESET_CUSTOM },
-                                balanceOption.copy(enabled = switchOn),
-                            ),
+                )
+            },
+        )
+        Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+            if (isNewApi) {
+                ProviderField(
+                    value = balanceOption.accessToken,
+                    onValueChange = {
+                        onBalanceOptionChange(balanceOption.copy(accessToken = it))
+                    },
+                    label = stringResource(R.string.ui_balance_access_token),
+                    visualTransformation = if (accessTokenVisible) {
+                        VisualTransformation.None
+                    } else {
+                        PasswordVisualTransformation()
+                    },
+                    trailingIcon = {
+                        ProviderIconAction(
+                            icon = if (accessTokenVisible) {
+                                Icons.Rounded.Visibility
+                            } else {
+                                Icons.Rounded.VisibilityOff
+                            },
+                            contentDescription = if (accessTokenVisible) {
+                                context.getString(R.string.page_hide_bb0e7e)
+                            } else {
+                                context.getString(R.string.page_show_71b677)
+                            },
+                            onClick = { accessTokenVisible = !accessTokenVisible },
                         )
                     },
                 )
-                Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
-                    if (isNewApi) {
-                        ProviderField(
-                            value = balanceOption.accessToken,
-                            onValueChange = {
-                                onBalanceOptionChange(balanceOption.copy(accessToken = it, enabled = switchOn))
-                            },
-                            label = stringResource(R.string.ui_balance_access_token),
-                            visualTransformation = if (accessTokenVisible) {
-                                VisualTransformation.None
-                            } else {
-                                PasswordVisualTransformation()
-                            },
-                            trailingIcon = {
-                                ProviderIconAction(
-                                    icon = if (accessTokenVisible) {
-                                        Icons.Rounded.Visibility
-                                    } else {
-                                        Icons.Rounded.VisibilityOff
-                                    },
-                                    contentDescription = if (accessTokenVisible) {
-                                        context.getString(R.string.page_hide_bb0e7e)
-                                    } else {
-                                        context.getString(R.string.page_show_71b677)
-                                    },
-                                    onClick = { accessTokenVisible = !accessTokenVisible },
-                                )
-                            },
-                        )
-                        BalanceHint(
-                            text = stringResource(R.string.ui_balance_access_token_summary),
-                            modifier = Modifier.padding(top = 8.dp, bottom = 12.dp),
-                        )
+                BalanceHint(
+                    text = stringResource(R.string.ui_balance_access_token_summary),
+                    modifier = Modifier.padding(top = 8.dp, bottom = 12.dp),
+                )
+            } else {
+                ProviderField(
+                    value = balanceOption.apiPath,
+                    onValueChange = {
+                        onBalanceOptionChange(balanceOption.copy(apiPath = it))
+                    },
+                    label = stringResource(R.string.ui_balance_api_path),
+                )
+                ProviderField(
+                    value = balanceOption.resultPath,
+                    onValueChange = {
+                        onBalanceOptionChange(balanceOption.copy(resultPath = it))
+                    },
+                    label = stringResource(R.string.ui_balance_result_path),
+                    modifier = Modifier.padding(top = 12.dp),
+                )
+            }
+            val onTestBalance: () -> Unit = {
+                val currentProvider = provider
+                if (currentProvider != null) scope.launch {
+                    isTesting = true
+                    testResult = null
+                    val option = balanceOption.copy(enabled = true).resolved()
+                    testResult = if (option.apiPath.isBlank() || option.resultPath.isBlank()) {
+                        context.getString(R.string.ui_balance_test_missing_fields)
                     } else {
-                        ProviderField(
-                            value = balanceOption.apiPath,
-                            onValueChange = {
-                                onBalanceOptionChange(balanceOption.copy(apiPath = it, enabled = switchOn))
-                            },
-                            label = stringResource(R.string.ui_balance_api_path),
-                        )
-                        ProviderField(
-                            value = balanceOption.resultPath,
-                            onValueChange = {
-                                onBalanceOptionChange(balanceOption.copy(resultPath = it, enabled = switchOn))
-                            },
-                            label = stringResource(R.string.ui_balance_result_path),
-                            modifier = Modifier.padding(top = 12.dp),
-                        )
+                        ProviderBalanceFetcher.fetch(currentProvider, option)
+                            .fold(
+                                onSuccess = { formatBalanceDisplay(it) },
+                                onFailure = { it.message ?: it.toString() },
+                            )
                     }
-                    val onTestBalance: () -> Unit = {
-                        val currentProvider = provider
-                        if (currentProvider != null) scope.launch {
-                            isTesting = true
-                            testResult = null
-                            val option = balanceOption.copy(enabled = true).resolved()
-                            testResult = if (option.apiPath.isBlank() || option.resultPath.isBlank()) {
-                                context.getString(R.string.ui_balance_test_missing_fields)
-                            } else {
-                                ProviderBalanceFetcher.fetch(currentProvider, option)
-                                    .fold(
-                                        onSuccess = { formatBalanceDisplay(it) },
-                                        onFailure = { it.message ?: it.toString() },
-                                    )
-                            }
-                            isTesting = false
-                        }
-                    }
-                    ProviderPrimaryAction(
-                        text = if (isTesting) {
-                            context.getString(R.string.page_testing_f43705)
-                        } else {
-                            stringResource(R.string.ui_test_balance)
-                        },
-                        onClick = onTestBalance,
-                        enabled = switchOn && !isTesting && provider != null,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 12.dp),
-                    )
-                    testResult?.let {
-                        ProviderBalanceAmount(
-                            amount = it,
-                            modifier = Modifier.padding(top = 8.dp),
-                        )
-                    }
+                    isTesting = false
                 }
+            }
+            ProviderPrimaryAction(
+                text = if (isTesting) {
+                    context.getString(R.string.page_testing_f43705)
+                } else {
+                    stringResource(R.string.ui_test_balance)
+                },
+                onClick = onTestBalance,
+                enabled = switchOn && !isTesting && provider != null,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
+            )
+            testResult?.let {
+                ProviderBalanceAmount(
+                    amount = it,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
             }
         }
     }

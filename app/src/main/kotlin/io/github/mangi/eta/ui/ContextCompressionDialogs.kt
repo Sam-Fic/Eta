@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.ListItem
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.ui.semantics.contentDescription
@@ -18,7 +19,6 @@ import android.content.ContextWrapper
 import android.content.SharedPreferences
 import android.view.ViewTreeObserver
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Api
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -66,13 +67,14 @@ import androidx.core.view.WindowInsetsCompat
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.model.AgentCompressionEndpoint
 import io.github.mangi.eta.data.model.OpenAiEndpointMode
-import io.github.mangi.eta.ui.components.WindowSpinnerPreference
-import top.yukonga.miuix.kmp.basic.DropdownItem
 import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.data.datastore.SettingsDataStore
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedDropdownRow
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.model.AgentModelOptionUi
@@ -84,12 +86,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
-import androidx.compose.material3.Icon
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 import top.yukonga.miuix.kmp.basic.TextButton
 import androidx.compose.material3.CircularProgressIndicator as M3CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider as M3HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.TextButton as M3TextButton
 
 
@@ -141,34 +142,22 @@ internal fun CompressionEndpointPreference(
         CompactCompressionEndpointPreference(selected, enabled, onSelect)
         return
     }
-    val items = listOf(
-        DropdownItem(text = "Chat Completions API"),
-        DropdownItem(text = "Responses API"),
-    )
     val index = if (selected == OpenAiEndpointMode.RESPONSES) 1 else 0
-    val horizontal = 16.dp
-    Column(modifier = Modifier.fillMaxWidth()) {
-        WindowSpinnerPreference(
-            items = items,
-            selectedIndex = index,
-            title = stringResource(R.string.ui_compress_request_api),
-            insideMargin = PaddingValues(horizontal = horizontal, vertical = 12.dp),
-            enabled = enabled,
-            onSelectedIndexChange = { selectedIndex ->
-                onSelect(
-                    if (selectedIndex == 1) OpenAiEndpointMode.RESPONSES
-                    else OpenAiEndpointMode.CHAT_COMPLETIONS,
-                )
-            },
-        )
-        Text(
-            stringResource(R.string.ui_compress_endpoint_description),
-            modifier = Modifier.fillMaxWidth().padding(start = horizontal, end = horizontal, bottom = 12.dp),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Start,
-        )
-    }
+    // 与兄弟界面（外观设置等）一致的下拉交互：点击行弹出锚定菜单二选一，选中项带 Check。
+    EtaSegmentedDropdownRow(
+        title = stringResource(R.string.ui_compress_request_api),
+        summary = stringResource(R.string.ui_compress_endpoint_description),
+        icon = Icons.Rounded.Api,
+        items = listOf("Chat Completions API", "Responses API"),
+        selectedIndex = index,
+        onItemSelected = { selectedIndex ->
+            onSelect(
+                if (selectedIndex == 1) OpenAiEndpointMode.RESPONSES
+                else OpenAiEndpointMode.CHAT_COMPLETIONS,
+            )
+        },
+        enabled = enabled,
+    )
 }
 
 /** Dialog layout intentionally avoids a setting-row spinner: long API names get a full row. */
@@ -556,14 +545,80 @@ internal fun CompressModelPickerDialog(
                         modifier = Modifier.padding(horizontal = 4.dp, vertical = 12.dp),
                     )
                 }
+            } else if (isMaterial3Theme()) {
+                // M3：KernelSU 式分段选择列表——每个提供商一组，提供商行带展开/收起指示；
+                // 模型行选中时 primary 高亮 + Check 尾标，条目形状由分段列统一接管。
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    state.providerGroups.forEach { group ->
+                        val expanded = group.providerId in expandedProviderIds
+                        EtaSegmentedColumn(modifier = Modifier.fillMaxWidth()) {
+                            item {
+                                EtaSegmentedRow(
+                                    onClick = {
+                                        TouchHaptics.click(view)
+                                        expandedProviderIds = if (expanded) {
+                                            emptySet()
+                                        } else {
+                                            setOf(group.providerId)
+                                        }
+                                    },
+                                    content = { Text(group.providerName) },
+                                    trailingContent = {
+                                        Icon(
+                                            imageVector = if (expanded) {
+                                                Icons.Rounded.ExpandMore
+                                            } else {
+                                                Icons.Rounded.ChevronRight
+                                            },
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    },
+                                )
+                            }
+                            if (expanded) {
+                                group.models.forEach { model ->
+                                    val selected = model.providerId == state.selectedModel?.providerId &&
+                                        model.id == state.selectedModel?.id
+                                    item(key = "${group.providerId}/${model.id}") {
+                                        EtaSegmentedRow(
+                                            onClick = {
+                                                TouchHaptics.click(view)
+                                                onModelSelected(model.providerId, model.id)
+                                            },
+                                            content = {
+                                                Text(
+                                                    text = model.displayName,
+                                                    color = if (selected) {
+                                                        MaterialTheme.colorScheme.primary
+                                                    } else {
+                                                        Color.Unspecified
+                                                    },
+                                                )
+                                            },
+                                            trailingContent = {
+                                                if (selected) {
+                                                    Icon(
+                                                        imageVector = Icons.Rounded.Check,
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.primary,
+                                                    )
+                                                }
+                                            },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             } else {
                 state.providerGroups.forEachIndexed { index, group ->
                     if (index > 0) {
-                        if (isMaterial3Theme()) {
-                            M3HorizontalDivider(modifier = Modifier.padding(horizontal = 4.dp))
-                        } else {
-                            HorizontalDivider(modifier = Modifier.padding(horizontal = 4.dp))
-                        }
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 4.dp))
                     }
                     val expanded = group.providerId in expandedProviderIds
                     ListItem(

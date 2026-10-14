@@ -45,6 +45,8 @@ import androidx.compose.foundation.shape.AbsoluteRoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.HealthAndSafety
 import androidx.compose.material.icons.rounded.CreateNewFolder
@@ -104,7 +106,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.EtaTextField
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
@@ -407,6 +411,7 @@ private fun ConversationPanePanel(
             state = state,
             width = width,
             drawerShape = drawerShape,
+            enableSearchFocus = enableSearchFocus,
             onSearchChange = onSearchChange,
             onConversationSelected = onConversationSelected,
             onConversationRename = onConversationRename,
@@ -815,18 +820,34 @@ private fun FolderNameDialog(
     onConfirm: (String) -> Unit,
 ) {
     var name by remember(initialName) { mutableStateOf(initialName) }
+    // 打开即聚焦并唤起输入法；键盘 Done 等价于「保存」（空名时不响应）。
+    val focusRequester = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+        keyboard?.show()
+    }
     EtaDialog(
         show = true,
         title = title,
         onDismissRequest = onDismiss,
     ) {
         Column {
-            TextField(
+            EtaTextField(
                 value = name,
                 onValueChange = { name = it },
                 label = stringResource(R.string.drawer_folder_name),
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(focusRequester),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(
+                    onDone = {
+                        keyboard?.hide()
+                        if (name.isNotBlank()) onConfirm(name)
+                    },
+                ),
             )
             EtaDialogActions(
                 confirmText = stringResource(R.string.action_save),
@@ -847,6 +868,7 @@ private fun Material3ConversationPane(
     state: ConversationPaneUiState,
     width: androidx.compose.ui.unit.Dp,
     drawerShape: AbsoluteRoundedCornerShape,
+    enableSearchFocus: Boolean,
     onSearchChange: (String) -> Unit,
     onConversationSelected: (String) -> Unit,
     onConversationRename: (ConversationSummaryUi) -> Unit,
@@ -895,15 +917,10 @@ private fun Material3ConversationPane(
                 .padding(horizontal = DrawerMetrics.PaneHorizontalPadding),
         ) {
             Spacer(modifier = Modifier.height(DrawerMetrics.TopInset))
-            // 抽屉打开时不抢焦点：只有用户主动点进搜索框才聚焦，避免一开抽屉就弹出输入法。
-            // 抽屉内容每次打开都会重新进入组合，这里的 effect 会在打开时清掉任何自动落下的焦点。
-            val drawerFocusManager = LocalFocusManager.current
-            LaunchedEffect(Unit) {
-                drawerFocusManager.clearFocus(force = true)
-            }
             Material3PaneSearchField(
                 query = state.searchQuery,
                 onSearchChange = onSearchChange,
+                enableSearchFocus = enableSearchFocus,
             )
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -934,64 +951,71 @@ private fun Material3ConversationPane(
             }
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 第二排（可横向滚动）：聊天 / [文件夹…] / 新建文件夹
-            val chipCount = 1 + folders.size + 1
+            // 第二排：左侧可横向滚动的「聊天 / [文件夹…]」，右侧固定「新建文件夹」。
+            val chipCount = 1 + folders.size
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                // 官方相连按钮组间距：ButtonGroupDefaults.ConnectedSpaceBetween = 2dp
-                horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
             ) {
-                var chipIndex = 0
-                Material3DrawerChip(
-                    text = stringResource(R.string.drawer_chats_chip),
-                    position = drawerGroupPosition(chipIndex++, chipCount),
-                    selected = state.selectedFolderId == null,
-                    leadingIcon = null,
-                    onClick = { onSelectFolder(null) },
-                )
-                folders.forEach { folder ->
-                    var showMenu by remember(folder.id) { mutableStateOf(false) }
-                    Box {
-                        Material3DrawerFolderChip(
-                            text = folder.name,
-                            position = drawerGroupPosition(chipIndex++, chipCount),
-                            selected = state.selectedFolderId == folder.id,
-                            onClick = { onSelectFolder(folder.id) },
-                            onLongClick = { showMenu = true },
-                        )
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false },
-                        ) {
-                            DrawerActionMenuItem(
-                                index = 0,
-                                count = 2,
-                                text = stringResource(R.string.action_rename),
-                                icon = Icons.Rounded.Edit,
-                                onClick = {
-                                    showMenu = false
-                                    folderToRename = folder
-                                },
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .horizontalScroll(rememberScrollState()),
+                    verticalAlignment = Alignment.CenterVertically,
+                    // 官方相连按钮组间距：ButtonGroupDefaults.ConnectedSpaceBetween = 2dp
+                    horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+                ) {
+                    var chipIndex = 0
+                    Material3DrawerChip(
+                        text = stringResource(R.string.drawer_chats_chip),
+                        position = drawerGroupPosition(chipIndex++, chipCount),
+                        selected = state.selectedFolderId == null,
+                        leadingIcon = null,
+                        onClick = { onSelectFolder(null) },
+                    )
+                    folders.forEach { folder ->
+                        var showMenu by remember(folder.id) { mutableStateOf(false) }
+                        Box {
+                            Material3DrawerFolderChip(
+                                text = folder.name,
+                                position = drawerGroupPosition(chipIndex++, chipCount),
+                                selected = state.selectedFolderId == folder.id,
+                                onClick = { onSelectFolder(folder.id) },
+                                onLongClick = { showMenu = true },
                             )
-                            DrawerActionMenuItem(
-                                index = 1,
-                                count = 2,
-                                text = stringResource(R.string.action_delete),
-                                icon = Icons.Rounded.Delete,
-                                onClick = {
-                                    showMenu = false
-                                    folderToDelete = folder
-                                },
-                            )
+                            DropdownMenu(
+                                expanded = showMenu,
+                                onDismissRequest = { showMenu = false },
+                            ) {
+                                DrawerActionMenuItem(
+                                    index = 0,
+                                    count = 2,
+                                    text = stringResource(R.string.action_rename),
+                                    icon = Icons.Rounded.Edit,
+                                    onClick = {
+                                        showMenu = false
+                                        folderToRename = folder
+                                    },
+                                )
+                                DrawerActionMenuItem(
+                                    index = 1,
+                                    count = 2,
+                                    text = stringResource(R.string.action_delete),
+                                    icon = Icons.Rounded.Delete,
+                                    onClick = {
+                                        showMenu = false
+                                        folderToDelete = folder
+                                    },
+                                )
+                            }
                         }
                     }
                 }
+                Spacer(modifier = Modifier.width(ButtonGroupDefaults.ConnectedSpaceBetween))
+                // 独立胶囊按钮（DrawerGroupPosition.Single）：始终贴右，不随文件夹列表滚动。
                 Material3DrawerChip(
                     text = stringResource(R.string.drawer_new_folder),
-                    position = drawerGroupPosition(chipIndex, chipCount),
+                    position = DrawerGroupPosition.Single,
                     selected = false,
                     leadingIcon = Icons.Rounded.CreateNewFolder,
                     onClick = { createFolder = true },
@@ -1134,36 +1158,75 @@ private fun Material3ConversationPane(
  * 官方 `TextField` + 官方 Expressive 圆角令牌（`TextFieldDefaults.roundedShape`），
  * 容器色、文字色、行高、内容内边距全部使用官方默认值，不自绘容器。
  * 清除按钮用官方 `IconButton`（原实现只画了一个不可点的关闭图标）。
+ *
+ * 焦点门控与 miuix 的 `PaneSearchRow` 一致：官方 `ModalNavigationDrawer` 一打开就会
+ * 把键盘焦点交给抽屉内第一个可聚焦元素（见 material3 `NavigationDrawer.kt` 的
+ * `focusRequester.requestFocus()`），搜索框若可聚焦就会立刻弹出输入法。
+ * 因此未激活前设 `canFocus = false`，由透明层接管点击，点进去才聚焦并唤起键盘。
  */
 @Composable
 private fun Material3PaneSearchField(
     query: String,
     onSearchChange: (String) -> Unit,
+    enableSearchFocus: Boolean,
 ) {
-    TextField(
-        value = query,
-        onValueChange = onSearchChange,
-        modifier = Modifier.fillMaxWidth(),
-        placeholder = { M3Text(text = stringResource(R.string.conversation_search_hint)) },
-        leadingIcon = {
-            Icon(
-                imageVector = Icons.Rounded.Search,
-                contentDescription = null,
-            )
-        },
-        trailingIcon = {
-            if (query.isNotEmpty()) {
-                IconButton(onClick = { onSearchChange("") }) {
-                    Icon(
-                        imageVector = Icons.Rounded.Close,
-                        contentDescription = stringResource(R.string.action_cancel),
-                    )
+    val view = LocalView.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+    val focusRequester = remember { FocusRequester() }
+    var searchActive by remember { mutableStateOf(false) }
+    LaunchedEffect(enableSearchFocus) {
+        if (!enableSearchFocus) {
+            searchActive = false
+            focusManager.clearFocus(force = true)
+        }
+    }
+    LaunchedEffect(searchActive, enableSearchFocus) {
+        if (searchActive && enableSearchFocus) {
+            showChatInputIme(focusRequester, keyboard, view)
+        }
+    }
+    Box {
+        TextField(
+            value = query,
+            onValueChange = onSearchChange,
+            modifier = Modifier
+                .fillMaxWidth()
+                .focusRequester(focusRequester)
+                .focusProperties { canFocus = enableSearchFocus && searchActive },
+            placeholder = { M3Text(text = stringResource(R.string.conversation_search_hint)) },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Rounded.Search,
+                    contentDescription = null,
+                )
+            },
+            trailingIcon = {
+                if (query.isNotEmpty()) {
+                    IconButton(onClick = { onSearchChange("") }) {
+                        Icon(
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = stringResource(R.string.action_cancel),
+                        )
+                    }
                 }
-            }
-        },
-        singleLine = true,
-        shape = TextFieldDefaults.roundedShape,
-    )
+            },
+            singleLine = true,
+            shape = TextFieldDefaults.roundedShape,
+        )
+        if (!searchActive) {
+            // 未激活时输入框不可聚焦，用透明层接管点击；点一下才真正聚焦并唤起键盘。
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .clickable(
+                        enabled = enableSearchFocus,
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) { searchActive = true },
+            )
+        }
+    }
 }
 
 /** M3 抽屉：相连按钮组里的位置，决定官方相连形状哪一侧保持完全圆角。 */

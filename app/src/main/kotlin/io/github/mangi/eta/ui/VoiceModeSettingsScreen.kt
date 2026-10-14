@@ -4,23 +4,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
 import io.github.mangi.eta.agent.voice.DoubaoRealtimeVoices
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import io.github.mangi.eta.ui.components.EtaFormTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.voice.doubao.DoubaoVoiceConfig
-import io.github.mangi.eta.ui.adaptive.EtaCard
 import io.github.mangi.eta.ui.adaptive.EtaClickableRow
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedTextField
 import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
 import io.github.mangi.eta.agent.voice.VoiceModeController
 import io.github.mangi.eta.data.model.SpeechSynthesisModels
@@ -66,32 +60,36 @@ internal fun VoiceModeSettingsScreen(onBack: () -> Unit) {
         .map { io.github.mangi.eta.agent.voice.tts.SpeechVoice(it.id, it.name, personal = true) }
 
     VoiceSettingsSectionPage(title = stringResource(R.string.voice_section_realtime), onBack = onBack) {
-        item(key = "doubao") {
-            EtaCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+        voiceGroup(key = "doubao") {
+            item {
                 EtaSwitchRow(
                     title = stringResource(R.string.voice_mode_doubao_enable),
                     checked = config.duplexEnabled,
                     onCheckedChange = { DoubaoVoiceConfig.save(context, config.copy(duplexEnabled = it)) },
-                    contentPadding = PaddingValues(16.dp),
                 )
+            }
+            item {
                 EtaClickableRow(
                     title = stringResource(R.string.voice_mode_doubao_provider),
                     summary = provider?.name ?: stringResource(R.string.voice_mode_doubao_provider_missing),
-                    contentPadding = PaddingValues(16.dp),
                     onClick = { providerPicker = true },
                 )
+            }
+            item {
                 EtaClickableRow(
                     title = stringResource(R.string.realtime_choose_voice),
                     summary = availableVoices.firstOrNull { it.id == voice }?.name
-                        ?: stringResource(R.string.realtime_choose_voice),
+                    ?: stringResource(R.string.realtime_choose_voice),
                     onClick = { voicePicker = true },
                 )
+            }
+            item {
                 EtaClickableRow(
                     title = stringResource(if (refreshing) R.string.realtime_refreshing else R.string.realtime_refresh_voices),
                     summary = stringResource(when (catalogStatus) {
-                        1 -> R.string.realtime_catalog_updated
-                        2 -> R.string.realtime_catalog_failed
-                        else -> R.string.realtime_catalog_builtin
+                            1 -> R.string.realtime_catalog_updated
+                            2 -> R.string.realtime_catalog_failed
+                            else -> R.string.realtime_catalog_builtin
                     }),
                     enabled = !refreshing,
                     onClick = {
@@ -104,16 +102,18 @@ internal fun VoiceModeSettingsScreen(onBack: () -> Unit) {
                         }
                     },
                 )
-                EtaFormTextField(
+            }
+            item {
+                // 与相邻分段行同容器：无边框输入框嵌进行内，不再是一个描边盒子套在容器里。
+                EtaSegmentedTextField(
+                    label = stringResource(R.string.voice_mode_doubao_instructions),
                     value = instructions,
                     onValueChange = {
                         instructions = it
                         Prefs.putString(Prefs.Keys.AGENT_VOICE_DOUBAO_INSTRUCTIONS, it)
                     },
-                    hint = stringResource(R.string.voice_mode_doubao_instructions),
                     minLines = 2,
                     maxLines = 5,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 )
             }
         }

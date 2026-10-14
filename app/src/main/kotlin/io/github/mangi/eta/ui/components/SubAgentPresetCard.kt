@@ -9,18 +9,22 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.delegation.ConversationSubAgentPreferences
 import io.github.mangi.eta.agent.delegation.SubAgentPreset
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.collect
+import android.content.Context
 
 /** A failed catalog read/write remains visible until an explicit retry. Never show it as an empty catalog. */
-internal class SubAgentPresetDirectory(private val repository: ConversationSubAgentPreferences) {
+internal class SubAgentPresetDirectory(private val repository: ConversationSubAgentPreferences, private val context: Context) {
     var entries by mutableStateOf<List<SubAgentPreset>>(emptyList())
         private set
     var error by mutableStateOf<String?>(null)
@@ -54,7 +58,7 @@ internal class SubAgentPresetDirectory(private val repository: ConversationSubAg
     }
     fun retry() {
         try {
-            check(repository.recoverDurability()) { "子代理组恢复失败；请重试" }
+            check(repository.recoverDurability()) { context.getString(R.string.spc_restore_failed) }
             error = null
             loading = true
             retryVersion++
@@ -63,19 +67,22 @@ internal class SubAgentPresetDirectory(private val repository: ConversationSubAg
 }
 
 @Composable
-internal fun rememberSubAgentPresetDirectory(repository: ConversationSubAgentPreferences): SubAgentPresetDirectory =
-    remember(repository) { SubAgentPresetDirectory(repository) }.also { it.observe() }
+internal fun rememberSubAgentPresetDirectory(repository: ConversationSubAgentPreferences): SubAgentPresetDirectory {
+    val context = LocalContext.current
+    return remember(repository) { SubAgentPresetDirectory(repository, context) }.also { it.observe() }
+}
 
 @Composable
 internal fun SubAgentPresetDirectoryStatus(directory: SubAgentPresetDirectory) {
     val view = LocalView.current
+    val error = directory.error
     when {
-        directory.error != null -> {
-            Text("子代理组读取或保存失败：${directory.error}", color = MaterialTheme.colorScheme.error)
-            TextButton(onClick = { TouchHaptics.click(view); directory.retry() }) { Text("重试读取子代理组") }
+        error != null -> {
+            Text(stringResource(R.string.spc_dir_error, error), color = MaterialTheme.colorScheme.error)
+            TextButton(onClick = { TouchHaptics.click(view); directory.retry() }) { Text(stringResource(R.string.spc_retry_read)) }
         }
-        directory.loading -> Text("正在读取子代理组…")
-        directory.entries.isEmpty() -> Text("还没有子代理组，可在设置中添加。")
+        directory.loading -> Text(stringResource(R.string.spc_reading))
+        directory.entries.isEmpty() -> Text(stringResource(R.string.spc_empty))
     }
 }
 
@@ -120,9 +127,10 @@ internal fun SubAgentPresetCard(
                 content = {
                     Column {
                         Text(preset.name, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Text("${preset.config.profiles.size} 个子代理 · ${if (preset.config.enabled) "自动委派已开启" else "自动委派已关闭"}",
+                        Text(stringResource(R.string.spc_profiles_summary, preset.config.profiles.size,
+                            stringResource(if (preset.config.enabled) R.string.spc_auto_on else R.string.spc_auto_off)),
                             style = MaterialTheme.typography.bodyMedium)
-                        if (selected) Text("当前使用", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        if (selected) Text(stringResource(R.string.spc_current_in_use), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                     }
                 },
             )

@@ -160,12 +160,8 @@ import io.github.mangi.eta.ui.adaptive.EtaButtonStyle
 import io.github.mangi.eta.ui.adaptive.EtaCircularProgress
 import io.github.mangi.eta.ui.adaptive.EtaConnectedGroupRow
 import io.github.mangi.eta.ui.adaptive.etaGptSpeedColor
-import io.github.mangi.eta.ui.adaptive.EtaGroupPosition
 import io.github.mangi.eta.ui.adaptive.EtaIconButton
 import io.github.mangi.eta.ui.adaptive.EtaIconSize
-import io.github.mangi.eta.ui.adaptive.etaConnectedShape
-import io.github.mangi.eta.ui.adaptive.etaSplitLeadingShape
-import io.github.mangi.eta.ui.adaptive.etaSplitTrailingShape
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Slider
@@ -1152,6 +1148,7 @@ internal fun AssistantPickerButton(
     containerShape: androidx.compose.ui.graphics.Shape? = null,
     containerColor: androidx.compose.ui.graphics.Color? = null,
     containerSize: Dp = ChatInputActionSize,
+    connectedShapes: androidx.compose.material3.ToggleButtonShapes? = null,
 ) {
     val profiles by AssistantRepository.profiles.collectAsState()
     val repositoryActiveId by AssistantRepository.activeId.collectAsState()
@@ -1171,6 +1168,7 @@ internal fun AssistantPickerButton(
         containerShape = containerShape,
         containerColor = containerColor,
         containerSize = containerSize,
+        connectedShapes = connectedShapes,
     ) {
         Box(modifier = Modifier.size(avatarSize)) {
             AssistantAvatar(

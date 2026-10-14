@@ -1,5 +1,6 @@
 package io.github.mangi.eta.ui.screens.browser
 
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -8,6 +9,7 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.res.stringResource
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.browser.ported.ui.chat.StandardChatSheet
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.agent.browser.ported.ui.theme.OpenMinisBrowserTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -39,7 +41,12 @@ internal fun AgentBrowserScreen(onDismiss: () -> Unit, conversationId: String? =
         }
     }
     // Only inherit light/dark selection; use upstream colors, shapes and typography.
-    val dark = MiuixTheme.colorScheme.surface.luminance() < 0.5f
+    // M3 下从官方 colorScheme 取表面色（MiuixTheme 此时只是回退默认值，判不准暗色）。
+    val dark = if (isMaterial3Theme()) {
+        MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    } else {
+        MiuixTheme.colorScheme.surface.luminance() < 0.5f
+    }
     OpenMinisBrowserTheme(darkTheme = dark) {
         val ready = pool
         if (ready != null) {

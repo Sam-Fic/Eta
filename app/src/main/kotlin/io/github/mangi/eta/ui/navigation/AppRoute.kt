@@ -43,6 +43,9 @@ sealed interface AppRoute : NavKey {
     data object Settings : AppRoute
 
     @Serializable
+    data object About : AppRoute
+
+    @Serializable
     data object SpeechSettings : AppRoute
 
     @Serializable
@@ -71,6 +74,9 @@ sealed interface AppRoute : NavKey {
 
     @Serializable
     data object WhaleMaid : AppRoute
+
+    @Serializable
+    data object WhaleMaidMemories : AppRoute
 
     @Serializable
     data object DataBackup : AppRoute

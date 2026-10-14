@@ -110,7 +110,7 @@ internal fun ChatSpeechIndicator(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
-                Toast.makeText(context, if (cloudConfig.cloudAsr) failure.message ?: "豆包 ASR 识别失败" else context.getString(R.string.speech_failed), Toast.LENGTH_LONG).show()
+                Toast.makeText(context, if (cloudConfig.cloudAsr) failure.message ?: context.getString(R.string.csi_doubao_asr_failed) else context.getString(R.string.speech_failed), Toast.LENGTH_LONG).show()
             } catch (_: LinkageError) {
                 Toast.makeText(context, R.string.speech_failed, Toast.LENGTH_LONG).show()
             } finally {

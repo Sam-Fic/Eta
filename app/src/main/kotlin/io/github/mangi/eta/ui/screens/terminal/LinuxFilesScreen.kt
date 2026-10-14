@@ -11,11 +11,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.InsertDriveFile
 import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text as M3Text
@@ -46,9 +49,11 @@ import io.github.mangi.eta.agent.terminal.terminalEnvironment
 import io.github.mangi.eta.agent.terminal.ShellProcessSupervisor
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedItem
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 import io.github.mangi.eta.ui.adaptive.EtaText
 import io.github.mangi.eta.ui.adaptive.EtaTextStyle
-import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import java.io.File
 import kotlinx.coroutines.CancellationException
@@ -223,6 +228,18 @@ internal fun LinuxFilesScreen(
     EtaScaffoldPage(
         title = stringResource(R.string.linux_files_title),
         onBack = { if (openFilePath != null) closeFile() else onBack() },
+        actions = {
+            // 页面级操作收进顶栏：浏览目录时可直接重新列举当前目录。
+            IconButton(
+                onClick = { listRevision++ },
+                enabled = installed && !busy && openFilePath == null,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Refresh,
+                    contentDescription = stringResource(R.string.page_refresh_38108e),
+                )
+            }
+        },
     ) {
         when {
             linuxDistribution == null -> {
@@ -238,9 +255,30 @@ internal fun LinuxFilesScreen(
             openFilePath != null -> {
                 item(key = "viewer-path") {
                     val viewing = openFilePath.orEmpty()
+                    val trailing: (@Composable () -> Unit)? = if (isMaterial3Theme()) {
+                        {
+                            EtaFileActionsButton(
+                                canExport = true,
+                                canDelete = !LinuxFileExplorer.isProtectedPath(viewing),
+                                enabled = !busy,
+                                onExport = { requestExport(viewing) },
+                                onDelete = {
+                                    pendingDelete = LinuxPendingDelete(
+                                        path = viewing,
+                                        name = viewing.substringAfterLast('/').ifBlank { viewing },
+                                        directory = false,
+                                    )
+                                },
+                            )
+                        }
+                    } else {
+                        null
+                    }
                     PathBar(
                         path = viewing,
-                        onLongClick = if (busy) null else ({
+                        trailingActions = trailing,
+                        // MIUI X 没有行尾「更多」按钮，保留长按 → 对话框。
+                        onLongClick = if (busy || isMaterial3Theme()) null else ({
                             pendingActions = FileEntryActions(
                                 path = viewing,
                                 name = viewing.substringAfterLast('/').ifBlank { viewing },
@@ -306,8 +344,8 @@ internal fun LinuxFilesScreen(
                             summary = null,
                             onClick = {
                                 currentPath = currentPath.trimEnd('/')
-                                    .substringBeforeLast('/')
-                                    .ifBlank { "/" }
+                                .substringBeforeLast('/')
+                                .ifBlank { "/" }
                             },
                         )
                     }
@@ -325,35 +363,60 @@ internal fun LinuxFilesScreen(
                         }
                     }
                     currentEntries != null -> {
-                        items(currentEntries, key = { it.name }) { entry ->
+                        itemsIndexed(currentEntries, key = { _, entry -> entry.name }) { index, entry ->
                             val target = joinLinuxPath(currentPath, entry.name)
-                            FileRow(
-                                name = entry.name,
-                                isDir = entry.isDir,
-                                summary = if (entry.isDir) {
-                                    null
-                                } else {
-                                    Formatter.formatShortFileSize(appContext, entry.sizeBytes)
-                                },
-                                enabled = !busy,
-                                onLongClick = {
-                                    val actions = FileEntryActions(
-                                        path = target,
-                                        name = entry.name,
-                                        directory = entry.isDir,
-                                        canExport = !entry.isDir,
-                                        canDelete = !LinuxFileExplorer.isProtectedPath(target),
-                                    )
-                                    if (actions.canExport || actions.canDelete) pendingActions = actions
-                                },
-                                onClick = {
-                                    if (entry.isDir) {
-                                        currentPath = target
-                                    } else {
-                                        openFilePath = target
+                            EtaSegmentedItem(index = index, count = currentEntries.size) {
+                                val canExport = !entry.isDir
+                                val canDelete = !LinuxFileExplorer.isProtectedPath(target)
+                                val trailing: (@Composable () -> Unit)? = if (isMaterial3Theme()) {
+                                    {
+                                        EtaFileActionsButton(
+                                            canExport = canExport,
+                                            canDelete = canDelete,
+                                            enabled = !busy,
+                                            onExport = { requestExport(target) },
+                                            onDelete = {
+                                                pendingDelete = LinuxPendingDelete(
+                                                    path = target,
+                                                    name = entry.name,
+                                                    directory = entry.isDir,
+                                                )
+                                            },
+                                        )
                                     }
-                                },
-                            )
+                                } else {
+                                    null
+                                }
+                                FileRow(
+                                    name = entry.name,
+                                    isDir = entry.isDir,
+                                    summary = if (entry.isDir) {
+                                        null
+                                    } else {
+                                        Formatter.formatShortFileSize(appContext, entry.sizeBytes)
+                                    },
+                                    enabled = !busy,
+                                    // MIUI X 没有行尾「更多」按钮，保留长按 → 对话框。
+                                    onLongClick = if (isMaterial3Theme()) null else ({
+                                        val actions = FileEntryActions(
+                                            path = target,
+                                            name = entry.name,
+                                            directory = entry.isDir,
+                                            canExport = canExport,
+                                            canDelete = canDelete,
+                                        )
+                                        if (actions.canExport || actions.canDelete) pendingActions = actions
+                                    }),
+                                    onClick = {
+                                        if (entry.isDir) {
+                                            currentPath = target
+                                        } else {
+                                            openFilePath = target
+                                        }
+                                    },
+                                    trailingActions = trailing,
+                                )
+                            }
                         }
                     }
                 }
@@ -361,24 +424,27 @@ internal fun LinuxFilesScreen(
         }
     }
 
-    pendingActions?.let { target ->
-        FileEntryActionsDialog(
-            target = target,
-            enabled = !busy,
-            onExport = {
-                pendingActions = null
-                requestExport(target.path)
-            },
-            onDelete = {
-                pendingActions = null
-                pendingDelete = LinuxPendingDelete(
-                    path = target.path,
-                    name = target.name,
-                    directory = target.directory,
-                )
-            },
-            onDismiss = { pendingActions = null },
-        )
+    // MIUI X 主题没有从按下位置弹出的表达性菜单，沿用对话框承载同一组操作。
+    if (!isMaterial3Theme()) {
+        pendingActions?.let { target ->
+            FileEntryActionsDialog(
+                target = target,
+                enabled = !busy,
+                onExport = {
+                    pendingActions = null
+                    requestExport(target.path)
+                },
+                onDelete = {
+                    pendingActions = null
+                    pendingDelete = LinuxPendingDelete(
+                        path = target.path,
+                        name = target.name,
+                        directory = target.directory,
+                    )
+                },
+                onDismiss = { pendingActions = null },
+            )
+        }
     }
 
     pendingDelete?.let { target ->
@@ -445,23 +511,18 @@ private fun exportLinuxFile(
 @Composable
 private fun PathBar(
     path: String,
+    trailingActions: (@Composable () -> Unit)? = null,
     onLongClick: (() -> Unit)? = null,
 ) {
     if (isMaterial3Theme()) {
-        // 官方可交互 ListItem：长按手势交给 onLongClick，自带涟漪与长按语义。
-        if (onLongClick == null) {
-            ListItem(
-                modifier = Modifier.fillMaxWidth(),
-                content = { PathMonoText(path) },
-            )
-        } else {
-            ListItem(
-                onClick = {},
-                onLongClick = onLongClick,
-                modifier = Modifier.fillMaxWidth(),
-                content = { PathMonoText(path) },
-            )
-        }
+        // KernelSU 式分段行：形状/容器色与列表条目一致；长按手势交给 onLongClick。
+        EtaSegmentedRow(
+            onClick = if (onLongClick == null) null else ({}),
+            onLongClick = onLongClick,
+            modifier = Modifier.fillMaxWidth(),
+            trailingContent = trailingActions,
+            content = { PathMonoText(path) },
+        )
         return
     }
     Text(
@@ -498,7 +559,7 @@ private fun StateMessage(message: String) {
 }
 
 @Composable
-private fun HintText(message: String) {
+internal fun HintText(message: String) {
     EtaText(
         text = message,
         style = EtaTextStyle.Footnote,
@@ -518,6 +579,7 @@ private fun FileRow(
     onClick: () -> Unit,
     enabled: Boolean = true,
     onLongClick: (() -> Unit)? = null,
+    trailingActions: (@Composable () -> Unit)? = null,
 ) {
     EtaFileRow(
         title = name,
@@ -530,14 +592,18 @@ private fun FileRow(
         enabled = enabled,
         onClick = onClick,
         onLongClick = onLongClick,
+        trailingActions = trailingActions,
     )
 }
 
 /**
  * 文件/目录列表行。
  *
- * M3：官方 `ListItem(onClick, onLongClick)` —— 涟漪、长按、语义与内边距全部来自官方默认值；
+ * M3：官方 `SegmentedListItem` —— 涟漪、长按、语义与内边距全部来自官方默认值；
+ * 行尾可挂 [trailingActions]（如「更多」按钮），子节点的点击由自身消费，不影响整行点击。
  * MIUI X：沿用 miuix `BasicComponent` + `combinedClickable`，行为不变。
+ *
+ * @param trailingActions 行尾附加内容（仅 Material 3 生效）。
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -549,6 +615,7 @@ internal fun EtaFileRow(
     enabled: Boolean = true,
     onClick: (() -> Unit)? = null,
     onLongClick: (() -> Unit)? = null,
+    trailingActions: (@Composable () -> Unit)? = null,
 ) {
     val supporting: (@Composable () -> Unit)? = summary?.let {
         {
@@ -567,29 +634,19 @@ internal fun EtaFileRow(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        if (onClick != null) {
-            ListItem(
-                onClick = onClick,
-                modifier = modifier.fillMaxWidth(),
-                enabled = enabled,
-                onLongClick = onLongClick,
-                leadingContent = leading,
-                content = {
-                    M3Text(text = title, style = MaterialTheme.typography.bodyLarge)
-                },
-                supportingContent = supporting,
-            )
-        } else {
-            ListItem(
-                modifier = modifier.fillMaxWidth(),
-                enabled = enabled,
-                leadingContent = leading,
-                content = {
-                    M3Text(text = title, style = MaterialTheme.typography.bodyLarge)
-                },
-                supportingContent = supporting,
-            )
-        }
+        // KernelSU 式分段行：形状/容器色取自外层分段组，独立使用时退化为单条目形状。
+        EtaSegmentedRow(
+            onClick = onClick,
+            onLongClick = onLongClick,
+            modifier = modifier.fillMaxWidth(),
+            enabled = enabled,
+            leadingContent = leading,
+            trailingContent = trailingActions,
+            content = {
+                M3Text(text = title, style = MaterialTheme.typography.bodyLarge)
+            },
+            supportingContent = supporting,
+        )
         return
     }
     BasicComponent(

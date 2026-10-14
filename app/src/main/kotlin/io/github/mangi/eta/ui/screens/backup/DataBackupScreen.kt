@@ -29,11 +29,9 @@ import io.github.mangi.eta.R
 import io.github.mangi.eta.data.repository.EtaBackupExportOptions
 import io.github.mangi.eta.data.repository.EtaBackupRepository
 import io.github.mangi.eta.data.repository.EtaBackupSummary
-import io.github.mangi.eta.ui.adaptive.EtaCard
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
-import io.github.mangi.eta.ui.adaptive.EtaSectionTitle
 import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import java.io.InputStream
@@ -54,6 +52,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text as M3Text
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 
 @Composable
 internal fun DataBackupScreen(
@@ -128,59 +128,67 @@ internal fun DataBackupScreen(
         onBack = onBack,
     ) {
         item(key = "warning") {
-            EtaCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                BackupNoticeRow(
-                    title = stringResource(R.string.data_backup_warning_title),
-                    summary = stringResource(R.string.data_backup_warning_summary),
-                )
+            EtaSegmentedColumn(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp)) {
+                item {
+                    BackupNoticeRow(
+                        title = stringResource(R.string.data_backup_warning_title),
+                        summary = stringResource(R.string.data_backup_warning_summary),
+                    )
+                }
             }
         }
-        item(key = "actions-title") {
-            EtaSectionTitle(text = stringResource(R.string.data_backup_actions))
-        }
         item(key = "actions-card") {
-            EtaCard(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-                EtaSwitchRow(
-                    title = stringResource(R.string.data_backup_include_linux),
-                    summary = buildString {
-                        append(stringResource(R.string.data_backup_include_linux_summary))
-                        linuxSizeLabel?.let { size ->
-                            append('\n')
-                            append(context.getString(R.string.data_backup_linux_size, size))
-                        }
-                    },
-                    checked = includeLinuxEnvironment,
-                    onCheckedChange = { includeLinuxEnvironment = it },
-                    enabled = !busy,
-                )
-                BackupActionRow(
-                    title = stringResource(R.string.data_backup_export),
-                    summary = if (exporting) {
-                        stringResource(R.string.data_backup_working)
-                    } else {
-                        stringResource(R.string.data_backup_export_summary)
-                    },
-                    icon = Icons.Rounded.Download,
-                    loading = exporting,
-                    enabled = !busy,
-                    onClick = {
-                        exportLauncher.launch(defaultBackupFileName())
-                    },
-                )
-                BackupActionRow(
-                    title = stringResource(R.string.data_backup_import),
-                    summary = if (importing) {
-                        stringResource(R.string.data_backup_working)
-                    } else {
-                        stringResource(R.string.data_backup_import_summary)
-                    },
-                    icon = Icons.Rounded.Description,
-                    loading = importing,
-                    enabled = !busy,
-                    onClick = {
-                        importLauncher.launch(arrayOf("application/zip", "application/json", "text/plain", "*/*"))
-                    },
-                )
+            EtaSegmentedColumn(
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                title = stringResource(R.string.data_backup_actions),
+            ) {
+                item {
+                    EtaSwitchRow(
+                        title = stringResource(R.string.data_backup_include_linux),
+                        summary = buildString {
+                            append(stringResource(R.string.data_backup_include_linux_summary))
+                            linuxSizeLabel?.let { size ->
+                                append('\n')
+                                append(context.getString(R.string.data_backup_linux_size, size))
+                            }
+                        },
+                        checked = includeLinuxEnvironment,
+                        onCheckedChange = { includeLinuxEnvironment = it },
+                        enabled = !busy,
+                    )
+                }
+                item {
+                    BackupActionRow(
+                        title = stringResource(R.string.data_backup_export),
+                        summary = if (exporting) {
+                            stringResource(R.string.data_backup_working)
+                        } else {
+                            stringResource(R.string.data_backup_export_summary)
+                        },
+                        icon = Icons.Rounded.Download,
+                        loading = exporting,
+                        enabled = !busy,
+                        onClick = {
+                            exportLauncher.launch(defaultBackupFileName(context))
+                        },
+                    )
+                }
+                item {
+                    BackupActionRow(
+                        title = stringResource(R.string.data_backup_import),
+                        summary = if (importing) {
+                            stringResource(R.string.data_backup_working)
+                        } else {
+                            stringResource(R.string.data_backup_import_summary)
+                        },
+                        icon = Icons.Rounded.Description,
+                        loading = importing,
+                        enabled = !busy,
+                        onClick = {
+                            importLauncher.launch(arrayOf("application/zip", "application/json", "text/plain", "*/*"))
+                        },
+                    )
+                }
             }
         }
     }
@@ -189,7 +197,7 @@ internal fun DataBackupScreen(
         EtaDialog(
             show = true,
             title = stringResource(R.string.data_backup_import_confirm_title),
-            summary = stringResource(R.string.data_backup_import_confirm_summary) + "\n如果选择单会话归档，则导入为独立新会话，不覆盖已有会话或模型配置。",
+            summary = stringResource(R.string.data_backup_import_confirm_summary) + "\n" + stringResource(R.string.data_backup_single_conversation_note),
             onDismissRequest = {
                 if (!busy) {
                     showImportDialog = false
@@ -246,7 +254,7 @@ internal fun DataBackupScreen(
 @Composable
 private fun BackupNoticeRow(title: String, summary: String) {
     if (isMaterial3Theme()) {
-        ListItem(
+        EtaSegmentedRow(
             modifier = Modifier.fillMaxWidth(),
             content = { M3Text(text = title, style = MaterialTheme.typography.bodyLarge) },
             supportingContent = {
@@ -281,7 +289,7 @@ private fun BackupActionRow(
     onClick: () -> Unit,
 ) {
     if (isMaterial3Theme()) {
-        ListItem(
+        EtaSegmentedRow(
             onClick = onClick,
             modifier = Modifier.fillMaxWidth(),
             enabled = enabled,
@@ -330,5 +338,5 @@ private fun BackupActionRow(
     }
 }
 
-private fun defaultBackupFileName(): String =
-    "代鱼-${SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())}-备份.zip"
+private fun defaultBackupFileName(context: Context): String =
+    context.getString(R.string.data_backup_file_name, SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date()))

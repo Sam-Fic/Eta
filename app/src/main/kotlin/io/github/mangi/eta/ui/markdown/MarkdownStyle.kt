@@ -1,5 +1,6 @@
 package io.github.mangi.eta.ui.markdown
 
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.remember
@@ -9,6 +10,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 正文与思考共用同一套渲染器，只在字号、颜色与留白上区分层级。 */
@@ -58,18 +60,33 @@ internal class MarkdownStyle(
 
 @Composable
 internal fun rememberMarkdownStyle(tone: MarkdownTone): MarkdownStyle {
-    val colors = MiuixTheme.colorScheme
-    val textStyles = MiuixTheme.textStyles
-    // Miuix keeps these provider objects stable and updates their state fields
-    // in place. Read immutable values outside remember so theme changes both
-    // invalidate this composition and replace the prepared inline-style target.
-    val onSurface = colors.onSurface
-    val secondaryColor = colors.onSurfaceVariantSummary
-    val primary = colors.primary
-    val outline = colors.outline
-    val surfaceContainer = colors.surfaceContainer
-    val body1 = textStyles.body1
-    val body2 = textStyles.body2
+    val material3 = isMaterial3Theme()
+    // Material 3 下从官方 colorScheme / typography 取值，避免在 M3 主题里读到
+    // MiuixTheme 的回退默认色（浮层上下文没有 MiuixTheme 提供者）。
+    val onSurface = if (material3) MaterialTheme.colorScheme.onSurface else MiuixTheme.colorScheme.onSurface
+    val secondaryColor = if (material3) {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    } else {
+        MiuixTheme.colorScheme.onSurfaceVariantSummary
+    }
+    val primary = if (material3) MaterialTheme.colorScheme.primary else MiuixTheme.colorScheme.primary
+    val outline = if (material3) MaterialTheme.colorScheme.outline else MiuixTheme.colorScheme.outline
+    val surfaceContainer = if (material3) {
+        MaterialTheme.colorScheme.surfaceContainerHighest
+    } else {
+        MiuixTheme.colorScheme.surfaceContainer
+    }
+    val body1 = if (material3) {
+        MaterialTheme.typography.bodyLarge
+    } else {
+        MiuixTheme.textStyles.body1
+    }
+    val body2 = if (material3) {
+        MaterialTheme.typography.bodyMedium
+    } else {
+        MiuixTheme.textStyles.body2
+    }
+    // 主题值在 remember 之外读取：主题切换时重组并重建样式。
     return remember(tone, onSurface, secondaryColor, primary, outline, surfaceContainer, body1, body2) {
         val answer = tone == MarkdownTone.Answer
         val textColor = if (answer) onSurface else secondaryColor

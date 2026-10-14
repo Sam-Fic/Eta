@@ -3,7 +3,6 @@ package io.github.mangi.eta.ui.pages.providers
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material.icons.Icons
@@ -12,6 +11,7 @@ import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -19,13 +19,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.SessionGatewayRule
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedItemContainer
 import io.github.mangi.eta.ui.haptics.TouchHaptics
+
+/** 分段列调用方的统一水平边距：16dp 与 KernelSU 分段列表一致。 */
+internal val EditorSectionPadding = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp)
 
 internal fun LazyListScope.providerSessionGateway(
     modelPattern: String,
@@ -38,46 +43,55 @@ internal fun LazyListScope.providerSessionGateway(
     onChange: (model: String, path: String, retention: String, source: String, field: String) -> Unit,
 ) {
     item(key = "session_gateway") {
-        ProviderSection(title = "会话 ID") {
-            ProviderExpandableRow(
-                title = "网关",
-                summary = "${modelPattern.ifBlank { SessionGatewayRule.DEFAULT_MODEL }} · ${keyField.ifBlank { SessionGatewayRule.DEFAULT_FIELD }}",
-                expanded = expanded,
-                onExpandedChange = onExpandedChange,
-            )
-            if (expanded) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    ProviderField(
-                        value = modelPattern,
-                        onValueChange = { onChange(it, pathPattern, retention, keySource, keyField) },
-                        label = "模型正则（每一行一个）",
-                    )
-                    ProviderField(
-                        value = pathPattern,
-                        onValueChange = { onChange(modelPattern, it, retention, keySource, keyField) },
-                        label = "路径正则（每一行一个）",
-                    )
-                    ProviderField(
-                        value = retention,
-                        onValueChange = { onChange(modelPattern, pathPattern, it, keySource, keyField) },
-                        label = "会话保持",
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // KernelSU 式分段列：展开行独立成段（首段），展开后的表单体作为隐藏段
+        // 注册（visible = expanded，折叠时以 spring 动画收起并把末段圆角让给展开行）。
+        EtaSegmentedColumn(
+            modifier = EditorSectionPadding,
+            title = stringResource(R.string.phe_session_id),
+        ) {
+            item {
+                ProviderExpandableRow(
+                    title = stringResource(R.string.phe_gateway),
+                    summary = "${modelPattern.ifBlank { SessionGatewayRule.DEFAULT_MODEL }} · ${keyField.ifBlank { SessionGatewayRule.DEFAULT_FIELD }}",
+                    expanded = expanded,
+                    onExpandedChange = onExpandedChange,
+                )
+            }
+            item(visible = expanded) {
+                EtaSegmentedItemContainer {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
                         ProviderField(
-                            value = keySource,
-                            onValueChange = { onChange(modelPattern, pathPattern, retention, it, keyField) },
-                            label = "Key 来源",
-                            modifier = Modifier.weight(1f),
+                            value = modelPattern,
+                            onValueChange = { onChange(it, pathPattern, retention, keySource, keyField) },
+                            label = stringResource(R.string.phe_model_regex),
                         )
                         ProviderField(
-                            value = keyField,
-                            onValueChange = { onChange(modelPattern, pathPattern, retention, keySource, it) },
-                            label = "字段",
-                            modifier = Modifier.weight(1f),
+                            value = pathPattern,
+                            onValueChange = { onChange(modelPattern, it, retention, keySource, keyField) },
+                            label = stringResource(R.string.phe_path_regex),
                         )
+                        ProviderField(
+                            value = retention,
+                            onValueChange = { onChange(modelPattern, pathPattern, it, keySource, keyField) },
+                            label = stringResource(R.string.phe_session_keep),
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ProviderField(
+                                value = keySource,
+                                onValueChange = { onChange(modelPattern, pathPattern, retention, it, keyField) },
+                                label = stringResource(R.string.phe_key_source),
+                                modifier = Modifier.weight(1f),
+                            )
+                            ProviderField(
+                                value = keyField,
+                                onValueChange = { onChange(modelPattern, pathPattern, retention, keySource, it) },
+                                label = stringResource(R.string.phe_field),
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
                     }
                 }
             }
@@ -91,36 +105,47 @@ internal fun LazyListScope.providerHeadersEditor(
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
 ) {
-    // 请求头数量很少且必须收进同一张卡片，折叠/展开态整组重排，不拆成独立 Lazy 条目。
     item(key = "custom_headers") {
-        ProviderSection(title = "自定义请求头") {
-            ProviderExpandableRow(
-                title = if (headers.isEmpty()) "未设置" else "已设置 ${headers.size} 项",
-                summary = "可覆盖 User-Agent；认证与传输请求头由系统管理。",
-                expanded = expanded,
-                onExpandedChange = onExpandedChange,
-            )
-            if (expanded) {
-                headers.forEach { row ->
-                    ProviderDivider()
-                    ProviderHeaderRow(
-                        row = row,
-                        onNameChange = { value ->
-                            onHeadersChange(headers.map {
-                                if (it.id == row.id) it.copy(header = it.header.copy(name = value)) else it
-                            })
-                        },
-                        onValueChange = { value ->
-                            onHeadersChange(headers.map {
-                                if (it.id == row.id) it.copy(header = it.header.copy(value = value)) else it
-                            })
-                        },
-                        onRemove = { onHeadersChange(headers.filterNot { it.id == row.id }) },
-                    )
-                }
-                ProviderDivider()
-                ProviderAddRow(text = "添加请求头") {
-                    onHeadersChange(headers + ProviderHeaderDraft())
+        // KernelSU 式分段列：展开行独立成段（首段），请求头编辑体与「添加」行落在
+        // 同一个隐藏段里（visible = expanded，折叠时以 spring 动画收起）。
+        EtaSegmentedColumn(
+            modifier = EditorSectionPadding,
+            title = stringResource(R.string.phe_custom_headers),
+        ) {
+            item {
+                ProviderExpandableRow(
+                    title = if (headers.isEmpty()) stringResource(R.string.prov_not_set) else stringResource(R.string.prov_set_count, headers.size),
+                    summary = stringResource(R.string.phe_headers_summary),
+                    expanded = expanded,
+                    onExpandedChange = onExpandedChange,
+                )
+            }
+            item(visible = expanded) {
+                EtaSegmentedItemContainer {
+                    Column {
+                        headers.forEach { row ->
+                            key(row.id) {
+                                ProviderHeaderRow(
+                                    row = row,
+                                    onNameChange = { value ->
+                                        onHeadersChange(headers.map {
+                                            if (it.id == row.id) it.copy(header = it.header.copy(name = value)) else it
+                                        })
+                                    },
+                                    onValueChange = { value ->
+                                        onHeadersChange(headers.map {
+                                            if (it.id == row.id) it.copy(header = it.header.copy(value = value)) else it
+                                        })
+                                    },
+                                    onRemove = { onHeadersChange(headers.filterNot { it.id == row.id }) },
+                                )
+                            }
+                        }
+                        ProviderDivider()
+                        ProviderAddRow(text = stringResource(R.string.phe_add_header)) {
+                            onHeadersChange(headers + ProviderHeaderDraft())
+                        }
+                    }
                 }
             }
         }
@@ -148,12 +173,12 @@ private fun ProviderHeaderRow(
             ProviderField(
                 value = row.header.name,
                 onValueChange = onNameChange,
-                label = "名称",
+                label = stringResource(R.string.phe_name),
             )
             ProviderField(
                 value = row.header.value,
                 onValueChange = onValueChange,
-                label = "值",
+                label = stringResource(R.string.phe_value),
                 visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
                 trailingIcon = {
                     ProviderIconAction(

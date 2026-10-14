@@ -8,7 +8,6 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.runtime.Composable
@@ -30,7 +28,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
@@ -50,29 +47,35 @@ import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 import io.github.mangi.eta.ui.adaptive.EtaCard
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
-import io.github.mangi.eta.ui.adaptive.EtaScaffold
+import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
 import io.github.mangi.eta.ui.adaptive.EtaSectionTitle
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedItem
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
+import io.github.mangi.eta.ui.components.ListEmptyState
 import io.github.mangi.eta.ui.haptics.TouchHaptics
-import io.github.mangi.eta.ui.layout.horizontalCutoutPadding
 import io.github.mangi.eta.ui.navigation.AppRoute
 import io.github.mangi.eta.ui.navigation.NewProviderType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.overScrollVertical
-import top.yukonga.miuix.kmp.utils.scrollEndHaptic
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TextButton as M3TextButton
 import androidx.compose.material3.Text as M3Text
 import top.yukonga.miuix.kmp.basic.Checkbox as MiuixCheckbox
+
+/** 分组与页面边缘的统一边距：与 KernelSU 分段列表调用方一致（水平 16dp、组间 13dp）。 */
+private val SectionEdgePadding = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp)
+
+/** 分组标题（已含上下留白）+ 分段列表的组合外边距。 */
+private val SectionGroupPadding = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 21.dp)
 
 @Composable
 internal fun ModelProviderListScreen(
@@ -130,203 +133,151 @@ internal fun ModelProviderListScreen(
         },
     )
 
-    EtaScaffold(
-        title = stringResource(R.string.ui_model_provider_e8c7f5),
-        onBack = {
-            if (selectionMode) {
-                selectionMode = false
-                selectedProviderIds = emptySet()
-            } else {
-                onBack()
-            }
-        },
-    ) { paddingValues, scrollBehavior, sidePadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .horizontalCutoutPadding()
-                .padding(top = paddingValues.calculateTopPadding()),
+    // LazyListScope 的 content lambda 非组合上下文，主题判定需在外层解析后按值分支。
+    val material3 = isMaterial3Theme()
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        EtaScaffoldPage(
+            title = stringResource(R.string.ui_model_provider_e8c7f5),
+            onBack = {
+                if (selectionMode) {
+                    selectionMode = false
+                    selectedProviderIds = emptySet()
+                } else {
+                    onBack()
+                }
+            },
         ) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .scrollEndHaptic()
-                    .overScrollVertical()
-                    .nestedScroll(scrollBehavior),
-                contentPadding = PaddingValues(
-                    start = sidePadding,
-                    end = sidePadding,
-                ),
-                overscrollEffect = null,
-            ) {
-                item(key = "search") {
-                    ProviderSearchField(
-                        query = searchQuery,
-                        onQueryChange = { searchQuery = it },
-                        placeholder = stringResource(R.string.ui_search_provider_74e049),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp)
-                            .padding(top = 12.dp, bottom = 8.dp),
-                    )
-                }
-
-                item(key = "create_section") {
-                    ProviderSection(title = stringResource(R.string.ui_add_new_provider_74df54)) {
-                        ProviderClickableRow(
-                            title = stringResource(R.string.ui_added_openai_compatible_6bd471),
-                            summary = stringResource(R.string.ui_support_chatgpt_deepseek_kimi_glm_qwen_etc_b31d02),
-                            leading = { ProviderBrandIcon(ProviderSourceTypes.OPENAI) },
-                            onClick = {
-                                TouchHaptics.click(view)
-                                onNavigate(AppRoute.ModelProviderAuthMethod(NewProviderType.OpenAiCompatible))
-                            },
-                        )
-                        ProviderClickableRow(
-                            title = stringResource(R.string.ui_new_anthropic_db6098),
-                            summary = stringResource(R.string.ui_support_anthropic_claude_official_or_compatible_api_de3f80),
-                            leading = { ProviderBrandIcon(ProviderSourceTypes.ANTHROPIC) },
-                            onClick = {
-                                TouchHaptics.click(view)
-                                onNavigate(AppRoute.ModelProviderNew(NewProviderType.Anthropic))
-                            },
-                        )
-                        ProviderClickableRow(
-                            title = stringResource(R.string.ui_new_doubao_speech),
-                            summary = stringResource(R.string.ui_new_doubao_speech_summary),
-                            leading = { ProviderBrandIcon(ProviderSourceTypes.DOUBAO_SPEECH) },
-                            onClick = {
-                                TouchHaptics.click(view)
-                                onNavigate(AppRoute.ModelProviderNew(NewProviderType.DoubaoSpeech))
-                            },
-                        )
-                    }
-                }
-
-                item(key = "list_title") {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(modifier = Modifier.weight(1f)) {
-                            EtaSectionTitle(
-                                text = pluralStringResource(
-                                    R.plurals.provider_configured_count,
-                                    filteredProviders.size,
-                                    filteredProviders.size,
-                                ),
-                            )
-                        }
-                        if (selectionMode && selectableProviders.isNotEmpty()) {
-                            val onSelectAll = {
-                                TouchHaptics.click(view)
-                                selectedProviderIds = if (
-                                    selectableProviders.isNotEmpty() &&
-                                    selectedProviderIds.containsAll(selectableProviders.map { it.id })
-                                ) {
-                                    emptySet()
-                                } else {
-                                    selectableProviders.mapTo(mutableSetOf()) { it.id }
-                                }
-                            }
-                            // M3：官方 TextButton，替掉「Text + clickable」。
-                            if (isMaterial3Theme()) {
-                                M3TextButton(onClick = onSelectAll) {
-                                    M3Text(text = stringResource(R.string.page_select_all_3e44b2))
-                                }
-                            } else {
-                                Text(
-                                    text = stringResource(R.string.page_select_all_3e44b2),
-                                    style = MiuixTheme.textStyles.body2,
-                                    modifier = Modifier
-                                        .clickable(onClick = onSelectAll)
-                                        .padding(end = 16.dp),
-                                )
-                            }
-                        }
-                    }
-                }
-
-                item(key = "list_section") {
-                    ProviderSection(title = null) {
-                        if (filteredProviders.isEmpty()) {
-                            Box(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                M3Text(
-                                    text = if (searchQuery.isBlank()) {
-                                        stringResource(R.string.provider_empty)
-                                    } else {
-                                        stringResource(R.string.provider_no_matches)
-                                    },
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
+            if (material3) {
+                materialProviderListContent(
+                    searchQuery = searchQuery,
+                    onSearchQueryChange = { searchQuery = it },
+                    filteredProviders = filteredProviders,
+                    selectableProviders = selectableProviders,
+                    selectionMode = selectionMode,
+                    selectedProviderIds = selectedProviderIds,
+                    selectedProviderId = selectedProviderId,
+                    onToggleChecked = { id ->
+                        if (id in selectedProviderIds) {
+                            selectedProviderIds - id
                         } else {
-                            filteredProviders.forEach { provider ->
-                                ProviderListItem(
-                                    provider = provider,
-                                    isCurrent = provider.id == selectedProviderId,
-                                    selectionMode = selectionMode,
-                                    checked = provider.id in selectedProviderIds,
-                                    onOpen = {
-                                        TouchHaptics.click(view)
-                                        onNavigate(AppRoute.ModelProviderDetail(provider.id))
-                                    },
-                                    onToggleChecked = {
-                                        TouchHaptics.click(view)
-                                        if (!provider.isBuiltIn) {
-                                            selectedProviderIds = if (provider.id in selectedProviderIds) {
-                                                selectedProviderIds - provider.id
-                                            } else {
-                                                selectedProviderIds + provider.id
-                                            }
-                                        }
-                                    },
-                                    onEnterSelection = {
-                                        TouchHaptics.longPress(view)
-                                        if (!provider.isBuiltIn) {
-                                            selectionMode = true
-                                            selectedProviderIds = setOf(provider.id)
-                                        }
-                                    },
-                                )
-                            }
+                            selectedProviderIds + id
                         }
-                    }
-                }
+                    },
+                    onSelectAll = {
+                        TouchHaptics.click(view)
+                        selectedProviderIds = if (
+                            selectableProviders.isNotEmpty() &&
+                            selectedProviderIds.containsAll(selectableProviders.map { it.id })
+                        ) {
+                            emptySet()
+                        } else {
+                            selectableProviders.mapTo(mutableSetOf()) { it.id }
+                        }
+                    },
+                    onOpen = { id ->
+                        TouchHaptics.click(view)
+                        onNavigate(AppRoute.ModelProviderDetail(id))
+                    },
+                    onEnterSelection = { id ->
+                        TouchHaptics.longPress(view)
+                        selectionMode = true
+                        selectedProviderIds = setOf(id)
+                    },
+                    onAddProvider = { type ->
+                        TouchHaptics.click(view)
+                        onNavigate(
+                            when (type) {
+                                NewProviderType.OpenAiCompatible -> {
+                                    AppRoute.ModelProviderAuthMethod(NewProviderType.OpenAiCompatible)
+                                }
+                                else -> AppRoute.ModelProviderNew(type)
+                            },
+                        )
+                    },
+                )
+            } else {
+                miuixProviderListContent(
+                    searchQuery = searchQuery,
+                    onSearchQueryChange = { searchQuery = it },
+                    filteredProviders = filteredProviders,
+                    selectableProviders = selectableProviders,
+                    selectionMode = selectionMode,
+                    selectedProviderIds = selectedProviderIds,
+                    selectedProviderId = selectedProviderId,
+                    onToggleChecked = { id ->
+                        if (id in selectedProviderIds) {
+                            selectedProviderIds - id
+                        } else {
+                            selectedProviderIds + id
+                        }
+                    },
+                    onSelectAll = {
+                        TouchHaptics.click(view)
+                        selectedProviderIds = if (
+                            selectableProviders.isNotEmpty() &&
+                            selectedProviderIds.containsAll(selectableProviders.map { it.id })
+                        ) {
+                            emptySet()
+                        } else {
+                            selectableProviders.mapTo(mutableSetOf()) { it.id }
+                        }
+                    },
+                    onOpen = { id ->
+                        TouchHaptics.click(view)
+                        onNavigate(AppRoute.ModelProviderDetail(id))
+                    },
+                    onEnterSelection = { id ->
+                        TouchHaptics.longPress(view)
+                        selectionMode = true
+                        selectedProviderIds = setOf(id)
+                    },
+                    onAddProvider = { type ->
+                        TouchHaptics.click(view)
+                        onNavigate(
+                            when (type) {
+                                NewProviderType.OpenAiCompatible -> {
+                                    AppRoute.ModelProviderAuthMethod(NewProviderType.OpenAiCompatible)
+                                }
+                                else -> AppRoute.ModelProviderNew(type)
+                            },
+                        )
+                    },
+                )
+            }
 
-                item(key = "bottom_spacer") {
+            // 选择模式下预留底部操作条高度；其余场景用骨架自带的底距。
+            if (selectionMode) {
+                item(key = "selection_spacer") {
                     Spacer(
                         modifier = Modifier
-                            .height(if (selectionMode) 88.dp else 24.dp)
+                            .fillMaxWidth()
+                            .height(88.dp)
                             .navigationBarsPadding(),
                     )
                 }
             }
+        }
 
-            AnimatedVisibility(
-                visible = selectionMode,
-                modifier = Modifier.align(Alignment.BottomCenter),
-                enter = slideInVertically { it } + fadeIn(),
-                exit = slideOutVertically { it } + fadeOut(),
-            ) {
-                ProviderSelectionBar(
-                    selectedCount = selectedProviderIds.size,
-                    enabled = !isDeleting,
-                    onDelete = {
-                        TouchHaptics.click(view)
-                        showBatchDeleteDialog = true
-                    },
-                    onExit = {
-                        TouchHaptics.click(view)
-                        selectionMode = false
-                        selectedProviderIds = emptySet()
-                    },
-                )
-            }
+        AnimatedVisibility(
+            visible = selectionMode,
+            modifier = Modifier.align(Alignment.BottomCenter),
+            enter = slideInVertically { it } + fadeIn(),
+            exit = slideOutVertically { it } + fadeOut(),
+        ) {
+            ProviderSelectionBar(
+                selectedCount = selectedProviderIds.size,
+                enabled = !isDeleting,
+                onDelete = {
+                    TouchHaptics.click(view)
+                    showBatchDeleteDialog = true
+                },
+                onExit = {
+                    TouchHaptics.click(view)
+                    selectionMode = false
+                    selectedProviderIds = emptySet()
+                },
+            )
         }
     }
 
@@ -375,6 +326,247 @@ internal fun ModelProviderListScreen(
                 onCancel = onCancelBatch,
                 onConfirm = onConfirmBatch,
             )
+        }
+    }
+}
+
+/**
+ * Material 3 列表内容：KernelSU 式分段列表布局 —— 搜索框、添加组标题+分段列、
+ * 已配置标题行（含全选）+ 分段供应商行；空态为无容器的居中文本。
+ */
+private fun androidx.compose.foundation.lazy.LazyListScope.materialProviderListContent(
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    filteredProviders: List<ProviderSetting>,
+    selectableProviders: List<ProviderSetting>,
+    selectionMode: Boolean,
+    selectedProviderIds: Set<String>,
+    selectedProviderId: String?,
+    onToggleChecked: (String) -> Unit,
+    onSelectAll: () -> Unit,
+    onOpen: (String) -> Unit,
+    onEnterSelection: (String) -> Unit,
+    onAddProvider: (NewProviderType) -> Unit,
+) {
+    item(key = "search") {
+        ProviderSearchField(
+            query = searchQuery,
+            onQueryChange = onSearchQueryChange,
+            placeholder = stringResource(R.string.ui_search_provider_74e049),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp),
+        )
+    }
+
+    item(key = "create_section") {
+        EtaSegmentedColumn(
+            modifier = SectionGroupPadding,
+            title = stringResource(R.string.ui_add_new_provider_74df54),
+        ) {
+            item {
+                ProviderClickableRow(
+                    title = stringResource(R.string.ui_added_openai_compatible_6bd471),
+                    summary = stringResource(R.string.ui_support_chatgpt_deepseek_kimi_glm_qwen_etc_b31d02),
+                    leading = { ProviderBrandIcon(ProviderSourceTypes.OPENAI) },
+                    onClick = { onAddProvider(NewProviderType.OpenAiCompatible) },
+                )
+            }
+            item {
+                ProviderClickableRow(
+                    title = stringResource(R.string.ui_new_anthropic_db6098),
+                    summary = stringResource(R.string.ui_support_anthropic_claude_official_or_compatible_api_de3f80),
+                    leading = { ProviderBrandIcon(ProviderSourceTypes.ANTHROPIC) },
+                    onClick = { onAddProvider(NewProviderType.Anthropic) },
+                )
+            }
+            item {
+                ProviderClickableRow(
+                    title = stringResource(R.string.ui_new_doubao_speech),
+                    summary = stringResource(R.string.ui_new_doubao_speech_summary),
+                    leading = { ProviderBrandIcon(ProviderSourceTypes.DOUBAO_SPEECH) },
+                    onClick = { onAddProvider(NewProviderType.DoubaoSpeech) },
+                )
+            }
+        }
+    }
+
+    item(key = "list_title") {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(modifier = Modifier.weight(1f)) {
+                EtaSectionTitle(
+                    text = pluralStringResource(
+                        R.plurals.provider_configured_count,
+                        filteredProviders.size,
+                        filteredProviders.size,
+                    ),
+                )
+            }
+            if (selectionMode && selectableProviders.isNotEmpty()) {
+                // M3：官方 TextButton。
+                M3TextButton(onClick = onSelectAll) {
+                    M3Text(text = stringResource(R.string.page_select_all_3e44b2))
+                }
+            }
+        }
+    }
+
+    if (filteredProviders.isEmpty()) {
+        item(key = "empty") {
+            ListEmptyState(
+                title = if (searchQuery.isBlank()) {
+                    stringResource(R.string.provider_empty)
+                } else {
+                    stringResource(R.string.provider_no_matches)
+                },
+            )
+        }
+    } else {
+        items(
+            count = filteredProviders.size,
+            key = { index -> filteredProviders[index].id },
+        ) { index ->
+            val provider = filteredProviders[index]
+            EtaSegmentedItem(
+                index = index,
+                count = filteredProviders.size,
+            ) {
+                // 分段间 2dp 露出背景缝隙（KernelSU 的 spacedBy(2.dp)），
+                // 末项补足组间距 13dp。
+                val isLast = index == filteredProviders.lastIndex
+                Column(
+                    modifier = Modifier.padding(
+                        start = 16.dp,
+                        end = 16.dp,
+                        bottom = if (isLast) 13.dp else 2.dp,
+                    ),
+                ) {
+                    ProviderListItem(
+                        provider = provider,
+                        isCurrent = provider.id == selectedProviderId,
+                        selectionMode = selectionMode,
+                        checked = provider.id in selectedProviderIds,
+                        onOpen = { onOpen(provider.id) },
+                        onToggleChecked = { onToggleChecked(provider.id) },
+                        onEnterSelection = { onEnterSelection(provider.id) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * MIUI X 列表内容：与 Material 3 分支信息架构一致 —— 搜索框、添加组标题+卡片、
+ * 已配置标题行（含全选）+ 卡片供应商行；空态同样为无容器文本。
+ */
+private fun androidx.compose.foundation.lazy.LazyListScope.miuixProviderListContent(
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    filteredProviders: List<ProviderSetting>,
+    selectableProviders: List<ProviderSetting>,
+    selectionMode: Boolean,
+    selectedProviderIds: Set<String>,
+    selectedProviderId: String?,
+    onToggleChecked: (String) -> Unit,
+    onSelectAll: () -> Unit,
+    onOpen: (String) -> Unit,
+    onEnterSelection: (String) -> Unit,
+    onAddProvider: (NewProviderType) -> Unit,
+) {
+    item(key = "search") {
+        ProviderSearchField(
+            query = searchQuery,
+            onQueryChange = onSearchQueryChange,
+            placeholder = stringResource(R.string.ui_search_provider_74e049),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp),
+        )
+    }
+
+    item(key = "create_section") {
+        Column(modifier = SectionGroupPadding) {
+            EtaSectionTitle(text = stringResource(R.string.ui_add_new_provider_74df54))
+            EtaCard {
+                ProviderClickableRow(
+                    title = stringResource(R.string.ui_added_openai_compatible_6bd471),
+                    summary = stringResource(R.string.ui_support_chatgpt_deepseek_kimi_glm_qwen_etc_b31d02),
+                    leading = { ProviderBrandIcon(ProviderSourceTypes.OPENAI) },
+                    onClick = { onAddProvider(NewProviderType.OpenAiCompatible) },
+                )
+                ProviderClickableRow(
+                    title = stringResource(R.string.ui_new_anthropic_db6098),
+                    summary = stringResource(R.string.ui_support_anthropic_claude_official_or_compatible_api_de3f80),
+                    leading = { ProviderBrandIcon(ProviderSourceTypes.ANTHROPIC) },
+                    onClick = { onAddProvider(NewProviderType.Anthropic) },
+                )
+                ProviderClickableRow(
+                    title = stringResource(R.string.ui_new_doubao_speech),
+                    summary = stringResource(R.string.ui_new_doubao_speech_summary),
+                    leading = { ProviderBrandIcon(ProviderSourceTypes.DOUBAO_SPEECH) },
+                    onClick = { onAddProvider(NewProviderType.DoubaoSpeech) },
+                )
+            }
+        }
+    }
+
+    item(key = "list_title") {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(modifier = Modifier.weight(1f)) {
+                EtaSectionTitle(
+                    text = pluralStringResource(
+                        R.plurals.provider_configured_count,
+                        filteredProviders.size,
+                        filteredProviders.size,
+                    ),
+                )
+            }
+            if (selectionMode && selectableProviders.isNotEmpty()) {
+                Text(
+                    text = stringResource(R.string.page_select_all_3e44b2),
+                    style = MiuixTheme.textStyles.body2,
+                    modifier = Modifier
+                        .clickable(onClick = onSelectAll)
+                        .padding(end = 16.dp),
+                )
+            }
+        }
+    }
+
+    if (filteredProviders.isEmpty()) {
+        item(key = "empty") {
+            ListEmptyState(
+                title = if (searchQuery.isBlank()) {
+                    stringResource(R.string.provider_empty)
+                } else {
+                    stringResource(R.string.provider_no_matches)
+                },
+            )
+        }
+    } else {
+        item(key = "list_card") {
+            Column(modifier = SectionEdgePadding) {
+                EtaCard {
+                    filteredProviders.forEach { provider ->
+                        ProviderListItem(
+                            provider = provider,
+                            isCurrent = provider.id == selectedProviderId,
+                            selectionMode = selectionMode,
+                            checked = provider.id in selectedProviderIds,
+                            onOpen = { onOpen(provider.id) },
+                            onToggleChecked = { onToggleChecked(provider.id) },
+                            onEnterSelection = { onEnterSelection(provider.id) },
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -501,7 +693,7 @@ private fun ProviderListItem(
     }
 
     if (isMaterial3Theme()) {
-        ListItem(
+        EtaSegmentedRow(
             selected = isCurrent,
             onClick = {
                 when {
@@ -528,7 +720,9 @@ private fun ProviderListItem(
                 )
             },
             supportingContent = {
-                if (isMaterial3Theme()) {
+                // 本行只会在 M3 分支组合，直接用官方样式，无需再判主题。
+                // Column 不能省：supportingContent 内多个文本若裸排会叠在同一位置。
+                Column {
                     M3Text(
                         text = provider.baseUrl,
                         style = MaterialTheme.typography.bodyMedium,
@@ -536,15 +730,8 @@ private fun ProviderListItem(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                } else {
-                    Text(
-                        text = provider.baseUrl,
-                        style = MiuixTheme.textStyles.body2,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    meta()
                 }
-                meta()
             },
             trailingContent = trailing,
         )

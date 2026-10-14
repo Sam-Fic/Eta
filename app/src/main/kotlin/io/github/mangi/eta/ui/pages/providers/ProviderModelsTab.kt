@@ -39,8 +39,8 @@ import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
@@ -86,12 +86,15 @@ import io.github.mangi.eta.data.repository.RemoteModelFetcher
 import io.github.mangi.eta.data.model.SpeechSynthesisModels
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 import io.github.mangi.eta.ui.adaptive.EtaCard
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
 import io.github.mangi.eta.ui.adaptive.EtaSectionTitle
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedCheckboxRow
 import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.haptics.TouchHaptics
+import io.github.mangi.eta.ui.components.ListEmptyState
 import io.github.mangi.eta.ui.components.PreferenceIcon
 import io.github.mangi.eta.ui.components.StatusError
 import io.github.mangi.eta.ui.components.StatusSuccess
@@ -249,7 +252,13 @@ internal fun ProviderModelsTab(
             overscrollEffect = null,
         ) {
             item(key = "actions", contentType = "section") {
-                ProviderSection(title = stringResource(R.string.ui_model_management_183414)) {
+                // KernelSU 式分段列：管理行独立成段（2dp 缝隙），消息提示落在
+                // 同组的容器段里（对应参考实现的 SegmentedItemContainer）。
+                EtaSegmentedColumn(
+                    modifier = ProviderSectionGroupPadding,
+                    title = stringResource(R.string.ui_model_management_183414),
+                ) {
+                    item {
                     ProviderClickableRow(
                         title = if (isFetching) context.getString(R.string.page_retrieving_a880c9) else context.getString(R.string.page_automatically_pull_from_remote_f883d0),
                         summary = stringResource(R.string.provider_models_endpoint_summary, provider.baseUrl),
@@ -324,46 +333,54 @@ internal fun ProviderModelsTab(
                             }
                         },
                     )
+                    }
 
-                    ProviderClickableRow(
-                        title = stringResource(R.string.ui_add_custom_model_a5ddc0),
-                        summary = stringResource(R.string.ui_manually_fill_in_the_display_name_and_model_id_077a7b),
-                        enabled = !isFetching && !isMutatingModel,
-                        leading = {
-                            Icon(imageVector = Icons.Rounded.Add, contentDescription = null)
-                        },
-                        onClick = {
-                            editorError = null
-                            isCreatingModel = true
-                            editingModel = Model(
-                                id = "",
-                                modelId = "",
-                                displayName = context.getString(R.string.page_custom_model_25be0f),
-                            )
-                        },
-                    )
-                    message?.let {
-                        // 走 ProviderDivider：M3 下是官方 HorizontalDivider，MIUI X 保持原分隔线。
-                        ProviderDivider(modifier = Modifier.padding(start = 16.dp))
-                        if (isMaterial3Theme()) {
-                            // M3：官方字阶 + 官方 error / primary 角色色（原写法读的是 MiuixTheme 与写死的 StatusSuccess）。
-                            MaterialText(
-                                text = it,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = if (it.startsWith(context.getString(R.string.page_fail_3e3c80))) {
-                                    MaterialTheme.colorScheme.error
+                    item {
+                        ProviderClickableRow(
+                            title = stringResource(R.string.ui_add_custom_model_a5ddc0),
+                            summary = stringResource(R.string.ui_manually_fill_in_the_display_name_and_model_id_077a7b),
+                            enabled = !isFetching && !isMutatingModel,
+                            leading = {
+                                Icon(imageVector = Icons.Rounded.Add, contentDescription = null)
+                            },
+                            onClick = {
+                                editorError = null
+                                isCreatingModel = true
+                                editingModel = Model(
+                                    id = "",
+                                    modelId = "",
+                                    displayName = context.getString(R.string.page_custom_model_25be0f),
+                                )
+                            },
+                        )
+                    }
+
+                    // 消息提示落在同组的容器段里（对应参考实现的 SegmentedItemContainer），
+                    // 无消息时整段以 spring 动画收起。
+                    item(visible = message != null) {
+                        ProviderSegmentBody {
+                            message?.let {
+                                if (isMaterial3Theme()) {
+                                    // M3：官方字阶 + 官方 error / primary 角色色。
+                                    MaterialText(
+                                        text = it,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = if (it.startsWith(context.getString(R.string.page_fail_3e3c80))) {
+                                            MaterialTheme.colorScheme.error
+                                        } else {
+                                            MaterialTheme.colorScheme.primary
+                                        },
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                    )
                                 } else {
-                                    MaterialTheme.colorScheme.primary
-                                },
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            )
-                        } else {
-                            Text(
-                                text = it,
-                                style = MiuixTheme.textStyles.footnote2,
-                                color = if (it.startsWith(context.getString(R.string.page_fail_3e3c80))) StatusError else StatusSuccess,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            )
+                                    Text(
+                                        text = it,
+                                        style = MiuixTheme.textStyles.footnote2,
+                                        color = if (it.startsWith(context.getString(R.string.page_fail_3e3c80))) StatusError else StatusSuccess,
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -376,8 +393,7 @@ internal fun ProviderModelsTab(
                     placeholder = stringResource(R.string.ui_search_model_df5586),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp)
-                        .padding(top = 12.dp, bottom = 8.dp),
+                        .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp),
                 )
             }
 
@@ -391,35 +407,18 @@ internal fun ProviderModelsTab(
                 )
             }
             if (provider.models.isEmpty() || filteredModels.isEmpty()) {
+                item(key = "models_title", contentType = "section_title") {
+                    EtaSectionTitle(text = modelListTitle)
+                }
                 item(key = "models_empty", contentType = "empty") {
-                    ProviderSection(
-                        title = modelListTitle,
-                        modifier = Modifier.padding(bottom = 24.dp),
-                    ) {
-                        Box(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            val emptyText = if (provider.models.isEmpty()) {
-                                context.getString(R.string.page_there_is_no_model_yet_please_pull_it_from_the_remote_ced865)
-                            } else {
-                                context.getString(R.string.page_no_matching_model_found_ae7e96)
-                            }
-                            if (isMaterial3Theme()) {
-                                MaterialText(
-                                    text = emptyText,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            } else {
-                                Text(
-                                    text = emptyText,
-                                    style = MiuixTheme.textStyles.body2,
-                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                )
-                            }
-                        }
-                    }
+                    // 与供应商列表页一致：空态是无容器的居中文本，不再塞进分段容器。
+                    ListEmptyState(
+                        title = if (provider.models.isEmpty()) {
+                            context.getString(R.string.page_there_is_no_model_yet_please_pull_it_from_the_remote_ced865)
+                        } else {
+                            context.getString(R.string.page_no_matching_model_found_ae7e96)
+                        },
+                    )
                 }
             } else {
                 item(key = "models_title", contentType = "section_title") {
@@ -730,12 +729,13 @@ private fun ModelListGroupItem(
     content: @Composable () -> Unit,
 ) {
     if (isMaterial3Theme()) {
-        // M3：不再给每一行套自拼圆角 Surface；容器底色与首尾圆角交给官方
-        // ListItem（ListItemDefaults.segmentedColors + segmentedShapes）。
+        // M3：容器底色与首尾圆角交给官方 ListItem（segmentedColors + segmentedShapes），
+        // 行间 2dp 露出背景缝隙（KernelSU 的 spacedBy(2.dp)），末项补足组间距 13dp，
+        // 水平 16dp 与供应商列表页一致。
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp),
+                .padding(start = 16.dp, end = 16.dp, bottom = if (isLast) 13.dp else 2.dp),
         ) {
             content()
         }
@@ -876,9 +876,11 @@ private fun ModelListItem(
         }
     }
     if (isMaterial3Theme()) {
-        // M3：官方 ListItem（selected + onClick + onLongClick）一次覆盖点按、长按与多选；
-        // 分组圆角与分组底色改由官方 ListItemDefaults.segmentedShapes / segmentedColors 提供。
-        ListItem(
+        // M3：官方 SegmentedListItem（selected + onClick + onLongClick）一次覆盖点按、长按与多选；
+        // 分组圆角与分组底色改由官方 ListItemDefaults.segmentedShapes / segmentedColors 提供，
+        // 容器色与 KernelSU 参考实现一致取 surfaceBright（从页面 surfaceContainer 浮出一档）。
+        SegmentedListItem(
+            verticalAlignment = Alignment.CenterVertically,
             selected = isSelected,
             onClick = onClick,
             onLongClick = onLongClick,
@@ -886,9 +888,9 @@ private fun ModelListItem(
             modifier = modifier.fillMaxWidth(),
             shapes = ListItemDefaults.segmentedShapes(index = itemIndex, count = itemCount),
             colors = ListItemDefaults.segmentedColors(
-                // 分组底色用官方 surfaceContainerLow 角色色；选中态仍由官方 selectedContainerColor 接管。
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                containerColor = MaterialTheme.colorScheme.surfaceBright,
+                disabledContainerColor = MaterialTheme.colorScheme.surfaceBright,
+                supportingContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             ),
             content = {
                 MaterialText(
@@ -899,25 +901,28 @@ private fun ModelListItem(
                 )
             },
             supportingContent = {
-                MaterialText(
-                    text = model.modelId,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                ) {
-                    capabilityTags(model).forEach { tag ->
-                        TagChip(text = tag)
-                    }
-                    if (isSelected) {
-                        TagChip(text = stringResource(R.string.ui_current_25e74d), tone = TagChipTone.Emphasized)
+                // Column 不能省：supportingContent 内 modelId 与标签行若裸排会叠在同一位置。
+                Column {
+                    MaterialText(
+                        text = model.modelId,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                    ) {
+                        capabilityTags(model).forEach { tag ->
+                            TagChip(text = tag)
+                        }
+                        if (isSelected) {
+                            TagChip(text = stringResource(R.string.ui_current_25e74d), tone = TagChipTone.Emphasized)
+                        }
                     }
                 }
             },
@@ -1132,7 +1137,8 @@ private fun ModelEditDialog(
                         modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
                     )
                 }
-                EtaCard(modifier = Modifier.fillMaxWidth()) {
+                EtaSegmentedColumn(modifier = Modifier.fillMaxWidth()) {
+                    item {
                     EtaSwitchRow(
                         checked = reasoningEnabled,
                         onCheckedChange = { enabled ->
@@ -1153,6 +1159,8 @@ private fun ModelEditDialog(
                         },
                         enabled = !isSaving,
                     )
+                    }
+                    item {
                     EtaSwitchRow(
                         checked = visionEnabled,
                         onCheckedChange = { enabled ->
@@ -1173,6 +1181,7 @@ private fun ModelEditDialog(
                         },
                         enabled = !isSaving,
                     )
+                    }
                 }
                 error?.let { message ->
                     if (isMaterial3Theme()) {
@@ -1312,9 +1321,9 @@ private fun RemoteModelPickDialog(
                     items(visible, key = { keyOf(it) }) { model ->
                         val key = keyOf(model)
                         val checked = key in selectedKeys
-                        ListItem(
+                        EtaSegmentedCheckboxRow(
                             checked = checked,
-                            onCheckedChange = { on ->
+                            onCheckedChange = { on: Boolean ->
                                 selectedKeys = if (on) selectedKeys + key else selectedKeys - key
                             },
                             modifier = Modifier.fillMaxWidth(),

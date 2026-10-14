@@ -21,8 +21,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.model.ConversationMention
 import io.github.mangi.eta.ui.model.ConversationMentionInputUi
@@ -79,7 +81,7 @@ internal fun ConversationMentionPanel(
                             ) {
                                 Icon(
                                     imageVector = Icons.Rounded.Close,
-                                    contentDescription = "移除会话引用 ${mention.title}",
+                                    contentDescription = stringResource(R.string.cmp_remove_mention, mention.title),
                                     modifier = Modifier.size(IconButtonDefaults.smallIconSize),
                                 )
                             }
@@ -102,7 +104,7 @@ internal fun ConversationMentionPanel(
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                             color = MiuixTheme.colorScheme.primary, style = MiuixTheme.textStyles.body2)
                         MiuixIconButton(onClick = { state.onRemove(mention.id) }, minWidth = 40.dp, minHeight = 48.dp) {
-                            Icon(Icons.Rounded.Close, contentDescription = "移除会话引用 ${mention.title}", modifier = Modifier.size(18.dp))
+                            Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cmp_remove_mention, mention.title), modifier = Modifier.size(18.dp))
                         }
                     }
                 }
@@ -131,9 +133,9 @@ internal fun ConversationMentionPanel(
                     content = {
                         M3Text(
                             text = if (limitReached) {
-                                "最多引用 3 个会话，请先移除一个。"
+                                stringResource(R.string.cmp_max_mentions)
                             } else {
-                                "没有匹配的其他会话"
+                                stringResource(R.string.cmp_no_match)
                             },
                             style = MaterialTheme.typography.bodyMedium,
                         )
@@ -155,7 +157,7 @@ internal fun ConversationMentionPanel(
                             },
                             supportingContent = {
                                 M3Text(
-                                    text = listOf(candidate.preview, candidate.timeLabel, if (candidate.isActiveRun) "运行中" else "")
+                                    text = listOf(candidate.preview, candidate.timeLabel, if (candidate.isActiveRun) stringResource(R.string.cmp_running) else "")
                                         .filter { it.isNotBlank() }.joinToString(" · "),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -173,16 +175,16 @@ internal fun ConversationMentionPanel(
     Column(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
         .clip(RoundedCornerShape(12.dp)).background(MiuixTheme.colorScheme.surfaceContainerHigh)) {
         if (state.pending.size >= ConversationMention.MAX_ATTACHED) {
-            Text("最多引用 3 个会话，请先移除一个。", modifier = Modifier.padding(12.dp))
+            Text(stringResource(R.string.cmp_max_mentions), modifier = Modifier.padding(12.dp))
         } else if (candidates.isEmpty()) {
-            Text("没有匹配的其他会话", modifier = Modifier.padding(12.dp))
+            Text(stringResource(R.string.cmp_no_match), modifier = Modifier.padding(12.dp))
         } else {
             LazyColumn(modifier = Modifier.heightIn(max = 220.dp)) {
                 items(candidates, key = { it.id }) { candidate ->
                     Column(modifier = Modifier.fillMaxWidth().clickable { onSelect(candidate.id) }
                         .padding(horizontal = 12.dp, vertical = 8.dp)) {
                         Text("@${candidate.title}", style = MiuixTheme.textStyles.body1, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(listOf(candidate.preview, candidate.timeLabel, if (candidate.isActiveRun) "运行中" else "")
+                        Text(listOf(candidate.preview, candidate.timeLabel, if (candidate.isActiveRun) stringResource(R.string.cmp_running) else "")
                             .filter { it.isNotBlank() }.joinToString(" · "),
                             style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             maxLines = 1, overflow = TextOverflow.Ellipsis)

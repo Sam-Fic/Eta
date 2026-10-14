@@ -9,8 +9,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
+import io.github.mangi.eta.ui.adaptive.EtaText
+import io.github.mangi.eta.ui.adaptive.EtaTextStyle
 
 @Composable
 internal fun ListEmptyState(
@@ -24,17 +24,16 @@ internal fun ListEmptyState(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(
+        // 共享空态组件：设置二级页也会用到，走双分支 EtaText，两侧行阶一致。
+        EtaText(
             text = title,
-            style = MiuixTheme.textStyles.body2,
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            style = EtaTextStyle.Secondary,
             textAlign = TextAlign.Center,
         )
         summary?.let {
-            Text(
+            EtaText(
                 text = it,
-                style = MiuixTheme.textStyles.footnote1,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                style = EtaTextStyle.Footnote,
                 textAlign = TextAlign.Center,
             )
         }

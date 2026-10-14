@@ -1,6 +1,5 @@
 package io.github.mangi.eta.ui
 import io.github.mangi.eta.ui.components.etaRippleConfiguration
-
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,7 +19,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
@@ -50,6 +48,9 @@ import io.github.mangi.eta.agent.device.AgentTaskSurfaceMode
 import io.github.mangi.eta.ui.components.WithoutPressRipple
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.layout.horizontalCutoutPadding
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedItem
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
+import io.github.mangi.eta.ui.adaptive.EtaTopBarBackButton
 
 /** Material 3 骨架：小标题顶栏 + 返回；内容可滚动并沿用已有页面的宽屏限宽。 */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -85,17 +86,14 @@ internal fun AgentTaskPreferenceScreen(
                             )
                         },
                         navigationIcon = {
-                            IconButton(
+                            EtaTopBarBackButton(
                                 onClick = {
                                     TouchHaptics.click(view)
                                     if (!recoveryWorking) onBack()
                                 },
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                                    contentDescription = stringResource(R.string.action_back),
-                                )
-                            }
+                                enabled = !recoveryWorking,
+                                contentDescription = stringResource(R.string.action_back),
+                            )
                         },
                         colors = TopAppBarDefaults.topAppBarColors(
                             containerColor = MaterialTheme.colorScheme.surface,
@@ -125,18 +123,16 @@ internal fun AgentTaskPreferenceScreen(
                             ),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            ),
+                        // KernelSU 式分段列表：一组的单选项用分段形状 + 表面底色表达，
+                        // 不再用整块 Card 包一层列表。间距取官方 SegmentedGap。
+                        Column(
+                            modifier = Modifier.selectableGroup(),
+                            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
                         ) {
-                            Column(modifier = Modifier.selectableGroup()) {
-                                AgentTaskSurfaceMode.entries.forEach { mode ->
-                                    val canSelect = AgentTaskSurface.allowsPersist(mode)
-                                    ListItem(
-                                        // ListItem 默认不透明 surface，会盖掉卡片底色。
-                                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            AgentTaskSurfaceMode.entries.forEachIndexed { index, mode ->
+                                val canSelect = AgentTaskSurface.allowsPersist(mode)
+                                EtaSegmentedItem(index = index, count = AgentTaskSurfaceMode.entries.size) {
+                                    EtaSegmentedRow(
                                         modifier = Modifier.selectable(
                                             selected = selected == mode,
                                             enabled = canSelect,

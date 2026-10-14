@@ -8,6 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
@@ -17,6 +18,7 @@ import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import io.github.mangi.eta.R
 
 /** No clickable child overlays: SelectionContainer owns long press and dragging. */
 @Composable
@@ -31,6 +33,7 @@ internal fun ChatSelectableText(
     val selectable = remember(text) { selectableLinkText(text) }
     val layout = remember { arrayOfNulls<TextLayoutResult>(1) }
     val handler = LocalUriHandler.current
+    val context = LocalContext.current
     fun open(link: LinkAnnotation) {
         if (link.linkInteractionListener != null) link.linkInteractionListener!!.onClick(link)
         else if (link is LinkAnnotation.Url) handler.openUri(link.url)
@@ -42,7 +45,7 @@ internal fun ChatSelectableText(
         modifier = modifier.then(if (links.isEmpty()) Modifier else Modifier
             .semantics {
                 customActions = links.map { range ->
-                    CustomAccessibilityAction("打开 ${text.text.substring(range.start, range.end)}") {
+                    CustomAccessibilityAction(context.getString(R.string.cst_open_label, text.text.substring(range.start, range.end))) {
                         open(range.item)
                         true
                     }

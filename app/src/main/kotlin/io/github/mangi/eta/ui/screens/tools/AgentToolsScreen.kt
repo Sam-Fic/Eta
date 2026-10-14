@@ -28,10 +28,12 @@ import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.tool.AgentToolCapabilities
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
 import io.github.mangi.eta.ui.adaptive.EtaSectionTitle
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.app.rememberDeviceCapabilities
 import io.github.mangi.eta.ui.model.AgentToolsAction
 import io.github.mangi.eta.ui.model.AgentToolsUiState
+import io.github.mangi.eta.ui.model.ToolGroupUi
 import io.github.mangi.eta.ui.model.ToolItemUi
 import io.github.mangi.eta.ui.model.projectToolGroups
 import androidx.compose.material3.Text as M3Text
@@ -52,6 +54,8 @@ fun AgentToolsScreen(
     var showAll by rememberSaveable { mutableStateOf(false) }
     val currentListState = rememberLazyListState()
     val allListState = rememberLazyListState()
+    // LazyListScope 的 content 不是组合上下文，主题判定必须在这里取一次。
+    val useSegmentedLists = isMaterial3Theme()
     val groups = projectToolGroups(state.groups, showAll, capabilities.root.isGranted, capabilities.tools.colorOs)
     EtaScaffoldPage(
         title = stringResource(R.string.ui_tool_ability_9f0f80),
@@ -71,17 +75,57 @@ fun AgentToolsScreen(
             )
         }
         groups.forEach { group ->
-            item(key = "${group.id}-title") {
-                EtaSectionTitle(text = group.title)
+            if (useSegmentedLists) {
+                item(key = "${group.id}-list") {
+                    ToolGroupSegmentedList(
+                        group = group,
+                        rootGranted = capabilities.root.isGranted,
+                        capabilities = capabilities.tools,
+                        onAction = onAction,
+                    )
+                }
+            } else {
+                item(key = "${group.id}-title") {
+                    EtaSectionTitle(text = group.title)
+                }
+                items(
+                    items = group.tools.chunked(2),
+                    key = { row -> "${group.id}-${row.joinToString(separator = "-") { it.id }}" },
+                ) { row ->
+                    ToolGridRow(
+                        tools = row,
+                        rootGranted = capabilities.root.isGranted,
+                        capabilities = capabilities.tools,
+                        onAction = onAction,
+                    )
+                }
             }
-            items(
-                items = group.tools.chunked(2),
-                key = { row -> "${group.id}-${row.joinToString(separator = "-") { it.id }}" },
-            ) { row ->
-                ToolGridRow(
-                    tools = row,
-                    rootGranted = capabilities.root.isGranted,
-                    capabilities = capabilities.tools,
+        }
+    }
+}
+
+/**
+ * 一组工具的分段列表（Material 3）：组标题 + 每个工具一条分段行，
+ * 与 KernelSU 设置页的分段列表结构一致。空组不渲染，避免留下孤立组标题。
+ */
+@Composable
+private fun ToolGroupSegmentedList(
+    group: ToolGroupUi,
+    rootGranted: Boolean,
+    capabilities: AgentToolCapabilities,
+    onAction: (AgentToolsAction) -> Unit,
+) {
+    if (group.tools.isEmpty()) return
+    EtaSegmentedColumn(
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+        title = group.title,
+    ) {
+        group.tools.forEach { tool ->
+            item(key = tool.id) {
+                ToolListRow(
+                    tool = tool,
+                    rootGranted = rootGranted,
+                    capabilities = capabilities,
                     onAction = onAction,
                 )
             }

@@ -19,18 +19,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
-import io.github.mangi.eta.ui.components.MiuixScaffoldPage
+import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
+import io.github.mangi.eta.ui.adaptive.EtaText
+import io.github.mangi.eta.ui.adaptive.EtaTextStyle
+import io.github.mangi.eta.ui.components.ArrowPreference
 import io.github.mangi.eta.ui.components.PreferenceIcon
 import io.github.mangi.eta.ui.components.color
 import io.github.mangi.eta.ui.components.label
 import io.github.mangi.eta.ui.model.PermissionHealthAction
 import io.github.mangi.eta.ui.model.PermissionHealthItemUi
 import io.github.mangi.eta.ui.model.PermissionHealthUiState
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun PermissionHealthScreen(
@@ -38,21 +37,24 @@ fun PermissionHealthScreen(
     onAction: (PermissionHealthAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    MiuixScaffoldPage(
+    EtaScaffoldPage(
         title = stringResource(R.string.ui_permission_health_3048bb),
         onBack = { onAction(PermissionHealthAction.NavigateBack) },
         modifier = modifier,
     ) {
-        item(key = "title") {
-            SmallTitle(stringResource(R.string.ui_permissions_and_status_35f368))
-        }
         item(key = "card") {
-            Card(modifier = Modifier.padding(horizontal = 12.dp)) {
+            EtaSegmentedColumn(
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                title = stringResource(R.string.ui_permissions_and_status_35f368),
+            ) {
+                // 每行注册为独立分段条目，才能拿到参考实现的首/末圆角与 2dp 缝隙动画。
                 state.items.forEach { item ->
-                    PermissionItemRow(
-                        item = item,
-                        onActionClick = { onAction(PermissionHealthAction.OpenItemAction(item.id)) },
-                    )
+                    item(key = item.id) {
+                        PermissionItemRow(
+                            item = item,
+                            onActionClick = { onAction(PermissionHealthAction.OpenItemAction(item.id)) },
+                        )
+                    }
                 }
             }
         }
@@ -86,9 +88,9 @@ private fun PermissionItemRow(
             PreferenceIcon(icon = icon)
         },
         endActions = {
-            Text(
+            EtaText(
                 text = item.status.label(),
-                fontSize = MiuixTheme.textStyles.body2.fontSize,
+                style = EtaTextStyle.Body,
                 color = item.status.color(),
             )
         },

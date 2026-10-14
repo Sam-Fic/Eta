@@ -19,11 +19,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
-import io.github.mangi.eta.ui.adaptive.EtaCard
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
-import io.github.mangi.eta.ui.adaptive.EtaSectionTitle
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 import io.github.mangi.eta.ui.adaptive.EtaTextButton
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.components.ListEmptyState
@@ -40,7 +40,6 @@ import androidx.compose.material3.Button as M3Button
 import androidx.compose.material3.ButtonDefaults as M3ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text as M3Text
 
@@ -80,87 +79,87 @@ fun AgentSkillsScreen(
         val userInstalled = installed.filter { it.canDeleteUserSkill }
         val removed = state.skills.filter { !it.installed }
 
-        item(key = "zip-import-title") { EtaSectionTitle(text = stringResource(R.string.ui_install_087db6)) }
         item(key = "zip-import-card") {
-            EtaCard(
-                modifier = Modifier
-                    .padding(horizontal = CardHorizontalPadding)
-                    .padding(bottom = CardBottomPadding),
+            EtaSegmentedColumn(
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                title = stringResource(R.string.ui_install_087db6),
             ) {
-                SkillActionRow(
-                    title = if (state.isImporting) {
-                        stringResource(R.string.skills_checking_package)
-                    } else {
-                        stringResource(R.string.skills_import_zip)
-                    },
-                    summary = if (state.isImporting) {
-                        stringResource(R.string.skills_installing_package)
-                    } else {
-                        stringResource(R.string.skills_choose_package)
-                    },
-                    icon = Icons.Rounded.FolderZip,
-                    iconLoading = state.isImporting,
-                    enabled = !operationPending,
-                    onClick = openZipPicker,
-                )
+                item {
+                    SkillActionRow(
+                        title = if (state.isImporting) {
+                            stringResource(R.string.skills_checking_package)
+                        } else {
+                            stringResource(R.string.skills_import_zip)
+                        },
+                        summary = if (state.isImporting) {
+                            stringResource(R.string.skills_installing_package)
+                        } else {
+                            stringResource(R.string.skills_choose_package)
+                        },
+                        icon = Icons.Rounded.FolderZip,
+                        iconLoading = state.isImporting,
+                        enabled = !operationPending,
+                        onClick = openZipPicker,
+                    )
+                }
             }
         }
 
         if (builtinInstalled.isNotEmpty()) {
-            item(key = "builtin-title") { EtaSectionTitle(text = stringResource(R.string.ui_built_in_skills_1ceedf)) }
             item(key = "builtin-card") {
-                EtaCard(
-                    modifier = Modifier
-                        .padding(horizontal = CardHorizontalPadding)
-                        .padding(bottom = CardBottomPadding),
+                EtaSegmentedColumn(
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                    title = stringResource(R.string.ui_built_in_skills_1ceedf),
                 ) {
                     builtinInstalled.forEach { skill ->
-                        SkillSwitchRow(
-                            skill = skill,
-                            enabled = !operationPending,
-                            showSwitch = false,
-                        )
+                        item {
+                            SkillSwitchRow(
+                                skill = skill,
+                                enabled = !operationPending,
+                                showSwitch = false,
+                            )
+                        }
                     }
                 }
             }
         }
 
         if (userInstalled.isNotEmpty()) {
-            item(key = "user-title") { EtaSectionTitle(text = stringResource(R.string.ui_user_skills_748e7f)) }
             item(key = "user-card") {
-                EtaCard(
-                    modifier = Modifier
-                        .padding(horizontal = CardHorizontalPadding)
-                        .padding(bottom = CardBottomPadding),
+                EtaSegmentedColumn(
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                    title = stringResource(R.string.ui_user_skills_748e7f),
                 ) {
                     userInstalled.forEach { skill ->
-                        SkillSwitchRow(
-                            skill = skill,
-                            enabled = !operationPending,
-                            showSwitch = false,
-                            onDelete = { deleteTarget = skill },
-                        )
+                        item {
+                            SkillSwitchRow(
+                                skill = skill,
+                                enabled = !operationPending,
+                                showSwitch = false,
+                                onDelete = { deleteTarget = skill },
+                            )
+                        }
                     }
                 }
             }
         }
 
         if (removed.isNotEmpty()) {
-            item(key = "removed-title") { EtaSectionTitle(text = stringResource(R.string.ui_removed_4e5c49)) }
             item(key = "removed-card") {
-                EtaCard(
-                    modifier = Modifier
-                        .padding(horizontal = CardHorizontalPadding)
-                        .padding(bottom = CardBottomPadding),
+                EtaSegmentedColumn(
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                    title = stringResource(R.string.ui_removed_4e5c49),
                 ) {
                     removed.forEach { skill ->
-                        SkillActionRow(
-                            title = skill.name,
-                            summary = stringResource(R.string.ui_click_to_reinstall_dc60de),
-                            icon = iconForSkill(skill.id),
-                            enabled = !operationPending,
-                            onClick = { onAction(AgentSkillsAction.ReinstallBuiltin(skill.id)) },
-                        )
+                        item {
+                            SkillActionRow(
+                                title = skill.name,
+                                summary = stringResource(R.string.ui_click_to_reinstall_dc60de),
+                                icon = iconForSkill(skill.id),
+                                enabled = !operationPending,
+                                onClick = { onAction(AgentSkillsAction.ReinstallBuiltin(skill.id)) },
+                            )
+                        }
                     }
                 }
             }
@@ -274,7 +273,7 @@ private fun SkillActionRow(
     onClick: () -> Unit,
 ) {
     if (isMaterial3Theme()) {
-        ListItem(
+        EtaSegmentedRow(
             onClick = onClick,
             modifier = Modifier.fillMaxWidth(),
             enabled = enabled,

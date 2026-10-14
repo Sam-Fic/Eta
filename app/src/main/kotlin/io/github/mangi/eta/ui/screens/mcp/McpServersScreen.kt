@@ -6,11 +6,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.Dns
+import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -23,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -36,15 +41,20 @@ import io.github.mangi.eta.data.model.McpProtocolMode
 import io.github.mangi.eta.data.model.McpServerSetting
 import io.github.mangi.eta.data.model.McpToolDefinition
 import io.github.mangi.eta.data.repository.McpServerRepository
-import io.github.mangi.eta.ui.adaptive.EtaCard
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.EtaExtendedFab
+import io.github.mangi.eta.ui.adaptive.EtaGroupHorizontalPadding
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
-import io.github.mangi.eta.ui.adaptive.EtaSectionTitle
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedGroupSpacing
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedItemContainer
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
-import io.github.mangi.eta.ui.adaptive.EtaTextButton
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
+import io.github.mangi.eta.ui.adaptive.rememberFabExpandedState
 import io.github.mangi.eta.ui.components.ListEmptyState
+import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.navigation.AppRoute
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -52,7 +62,6 @@ import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton as M3IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text as M3Text
@@ -78,43 +87,56 @@ internal fun McpServersScreen(
     var token by remember { mutableStateOf("") }
     var working by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    val view = LocalView.current
+    val listState = rememberLazyListState()
+    val fabExpanded by rememberFabExpandedState(listState)
 
     EtaScaffoldPage(
         title = stringResource(R.string.route_mcp_servers),
         onBack = onBack,
-        actions = {
-            McpActionIcon(
+        listState = listState,
+        floatingActionButton = {
+            EtaExtendedFab(
+                text = stringResource(R.string.mcp_add_server),
                 icon = Icons.Rounded.Add,
-                contentDescription = stringResource(R.string.mcp_add_server),
-                onClick = { showAdd = true },
+                expanded = fabExpanded,
+                onClick = { TouchHaptics.click(view); showAdd = true },
             )
         },
     ) {
         item(key = "servers") {
-            EtaSectionTitle(text = stringResource(R.string.mcp_configured_servers, servers.size))
-            EtaCard(modifier = Modifier.padding(horizontal = 12.dp)) {
+            EtaSegmentedColumn(
+                modifier = Modifier.padding(
+                    start = EtaGroupHorizontalPadding,
+                    end = EtaGroupHorizontalPadding,
+                    bottom = EtaSegmentedGroupSpacing,
+                ),
+                title = stringResource(R.string.mcp_configured_servers, servers.size),
+            ) {
                 if (servers.isEmpty()) {
-                    ListEmptyState(
-                        title = stringResource(R.string.mcp_empty_title),
-                        summary = stringResource(R.string.mcp_empty_summary),
-                        action = {
-                            EtaTextButton(
-                                text = stringResource(R.string.mcp_add_server),
-                                onClick = { showAdd = true },
+                    // 空态是「非行」内容，用分段容器承载；新增入口交给右下角 FAB，避免重复按钮。
+                    item {
+                        EtaSegmentedItemContainer {
+                            ListEmptyState(
+                                title = stringResource(R.string.mcp_empty_title),
+                                summary = stringResource(R.string.mcp_empty_summary),
                             )
-                        },
-                    )
+                        }
+                    }
                 } else {
                     servers.forEach { server ->
-                        McpClickableRow(
-                            title = server.name,
-                            summary = stringResource(
-                                R.string.mcp_server_row_summary,
-                                server.activeTools.size,
-                                server.tools.size,
-                            ),
-                            onClick = { onNavigate(AppRoute.McpServerDetail(server.id)) },
-                        )
+                        item(key = server.id) {
+                            McpClickableRow(
+                                title = server.name,
+                                summary = stringResource(
+                                    R.string.mcp_server_row_summary,
+                                    server.activeTools.size,
+                                    server.tools.size,
+                                ),
+                                leading = { McpLeadingIcon(Icons.Rounded.Dns) },
+                                onClick = { onNavigate(AppRoute.McpServerDetail(server.id)) },
+                            )
+                        }
                     }
                 }
             }
@@ -272,72 +294,93 @@ internal fun McpServerDetailScreen(
     ) {
         if (server == null) {
             item(key = "missing") {
-                McpNoticeRow(title = stringResource(R.string.mcp_server_missing))
+                EtaSegmentedColumn(modifier = mcpGroupModifier()) {
+                    item { McpNoticeRow(title = stringResource(R.string.mcp_server_missing)) }
+                }
             }
             return@EtaScaffoldPage
         }
         item(key = "server") {
-            EtaSectionTitle(text = stringResource(R.string.mcp_server_settings))
-            EtaCard(modifier = Modifier.padding(horizontal = 12.dp)) {
-                EtaSwitchRow(
-                    title = stringResource(R.string.mcp_enable_server),
-                    summary = server.url,
-                    checked = server.enabled,
-                    onCheckedChange = { enabled ->
-                        scope.launch(Dispatchers.IO) {
-                            McpServerRepository.update(server.copy(enabled = enabled))
-                        }
-                    },
-                )
-                McpClickableRow(
-                    title = stringResource(R.string.mcp_update_token),
-                    summary = stringResource(
-                        if (server.authorizationType == McpAuthorizationType.BEARER) {
-                            R.string.mcp_token_configured
-                        } else {
-                            R.string.mcp_no_authentication
-                        }
-                    ),
-                    onClick = { showToken = true },
-                )
+            EtaSegmentedColumn(
+                modifier = mcpGroupModifier(),
+                title = stringResource(R.string.mcp_server_settings),
+            ) {
+                item {
+                    EtaSwitchRow(
+                        title = stringResource(R.string.mcp_enable_server),
+                        summary = server.url,
+                        checked = server.enabled,
+                        leading = { McpLeadingIcon(Icons.Rounded.Dns) },
+                        onCheckedChange = { enabled ->
+                            scope.launch(Dispatchers.IO) {
+                                McpServerRepository.update(server.copy(enabled = enabled))
+                            }
+                        },
+                    )
+                }
+                item {
+                    McpClickableRow(
+                        title = stringResource(R.string.mcp_update_token),
+                        summary = stringResource(
+                            if (server.authorizationType == McpAuthorizationType.BEARER) {
+                                R.string.mcp_token_configured
+                            } else {
+                                R.string.mcp_no_authentication
+                            }
+                        ),
+                        leading = { McpLeadingIcon(Icons.Rounded.Key) },
+                        onClick = { showToken = true },
+                    )
+                }
             }
         }
         item(key = "tools") {
-            EtaSectionTitle(text = stringResource(R.string.mcp_tools_count, server.tools.size))
-            EtaCard(modifier = Modifier.padding(horizontal = 12.dp)) {
+            EtaSegmentedColumn(
+                modifier = mcpGroupModifier(),
+                title = stringResource(R.string.mcp_tools_count, server.tools.size),
+            ) {
                 if (server.tools.isEmpty()) {
-                    ListEmptyState(
-                        title = stringResource(R.string.mcp_no_tools),
-                        summary = stringResource(R.string.mcp_refresh_tools_hint),
-                    )
+                    item {
+                        EtaSegmentedItemContainer {
+                            ListEmptyState(
+                                title = stringResource(R.string.mcp_no_tools),
+                                summary = stringResource(R.string.mcp_refresh_tools_hint),
+                            )
+                        }
+                    }
                 } else {
+                    // 每个工具一条独立分段行，首末项自动接管外圆角，符合 KernelSU 分段列表约定。
                     server.tools.forEach { tool ->
-                        val checked = tool.name in server.enabledToolNames
-                        EtaSwitchRow(
-                            title = tool.title.ifBlank { tool.name },
-                            summary = toolSummary(tool),
-                            checked = checked,
-                            onCheckedChange = { enabled ->
-                                if (enabled && tool.readOnlyHint != true) {
-                                    pendingRiskyTool = tool
-                                } else {
-                                    scope.launch(Dispatchers.IO) {
-                                        McpServerRepository.setToolEnabled(serverId, tool.name, enabled)
+                        item(key = tool.name) {
+                            val checked = tool.name in server.enabledToolNames
+                            EtaSwitchRow(
+                                title = tool.title.ifBlank { tool.name },
+                                summary = toolSummary(tool),
+                                checked = checked,
+                                onCheckedChange = { enabled ->
+                                    if (enabled && tool.readOnlyHint != true) {
+                                        pendingRiskyTool = tool
+                                    } else {
+                                        scope.launch(Dispatchers.IO) {
+                                            McpServerRepository.setToolEnabled(serverId, tool.name, enabled)
+                                        }
                                     }
-                                }
-                            },
-                        )
+                                },
+                            )
+                        }
                     }
                 }
             }
         }
         item(key = "delete") {
-            EtaCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp)) {
-                McpClickableRow(
-                    title = stringResource(R.string.mcp_delete_server),
-                    summary = stringResource(R.string.mcp_delete_server_summary),
-                    onClick = { showDelete = true },
-                )
+            EtaSegmentedColumn(modifier = mcpGroupModifier()) {
+                item {
+                    McpDestructiveRow(
+                        title = stringResource(R.string.mcp_delete_server),
+                        summary = stringResource(R.string.mcp_delete_server_summary),
+                        onClick = { showDelete = true },
+                    )
+                }
             }
         }
     }
@@ -428,6 +471,23 @@ private fun toolSummary(tool: McpToolDefinition): String = when {
     else -> tool.description.ifBlank { stringResource(R.string.mcp_may_modify_data) }
 }
 
+/** 分段列表分组的统一页边距与组间距（引用项目自适应令牌，不手写数值）。 */
+private fun mcpGroupModifier(): Modifier = Modifier.padding(
+    start = EtaGroupHorizontalPadding,
+    end = EtaGroupHorizontalPadding,
+    bottom = EtaSegmentedGroupSpacing,
+)
+
+/** 分段行前导图标：统一 primary 色（MIUI X 下 MaterialTheme 与 Miuix 同源配色）。 */
+@Composable
+private fun McpLeadingIcon(icon: ImageVector) {
+    Icon(
+        imageVector = icon,
+        contentDescription = null,
+        tint = MaterialTheme.colorScheme.primary,
+    )
+}
+
 /** 顶栏动作：M3 用官方 [M3IconButton]，MIUI X 保持原有图标按钮。 */
 @Composable
 private fun McpActionIcon(
@@ -447,18 +507,63 @@ private fun McpActionIcon(
     }
 }
 
-/** 可点击设置行：M3 用官方 [ListItem]（onClick 重载自带涟漪与语义），MIUI X 保持原有 [ArrowPreference]。 */
+/** 可点击设置行：M3 用官方分段行（onClick 重载自带涟漪与语义），MIUI X 保持原有 [ArrowPreference]。 */
 @Composable
 private fun McpClickableRow(
     title: String,
     summary: String,
     onClick: () -> Unit,
+    leading: (@Composable () -> Unit)? = null,
 ) {
     if (isMaterial3Theme()) {
-        ListItem(
+        EtaSegmentedRow(
             onClick = onClick,
             modifier = Modifier.fillMaxWidth(),
+            leadingContent = leading,
             content = { M3Text(text = title, style = MaterialTheme.typography.bodyLarge) },
+            supportingContent = {
+                M3Text(
+                    text = summary,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+        )
+    } else {
+        ArrowPreference(
+            title = title,
+            summary = summary,
+            startAction = leading,
+            onClick = onClick,
+        )
+    }
+}
+
+/** 破坏性设置行（删除）：M3 用 error 色强调破坏性，MIUI X 保持原有 [ArrowPreference] 外观。 */
+@Composable
+private fun McpDestructiveRow(
+    title: String,
+    summary: String,
+    onClick: () -> Unit,
+) {
+    if (isMaterial3Theme()) {
+        EtaSegmentedRow(
+            onClick = onClick,
+            modifier = Modifier.fillMaxWidth(),
+            leadingContent = {
+                Icon(
+                    imageVector = Icons.Rounded.DeleteOutline,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                )
+            },
+            content = {
+                M3Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            },
             supportingContent = {
                 M3Text(
                     text = summary,
@@ -480,7 +585,7 @@ private fun McpClickableRow(
 @Composable
 private fun McpNoticeRow(title: String) {
     if (isMaterial3Theme()) {
-        ListItem(
+        EtaSegmentedRow(
             modifier = Modifier.fillMaxWidth(),
             content = { M3Text(text = title, style = MaterialTheme.typography.bodyLarge) },
         )

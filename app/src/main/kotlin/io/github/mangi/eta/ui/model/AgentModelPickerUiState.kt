@@ -424,6 +424,7 @@ internal fun formatContextUsage(
     usage: AgentContextUsageUi,
     noUsageText: String = "No conversation context yet",
     noLimitText: String = "The current model does not provide a context limit",
+    unknownText: String = "未知",
     locale: Locale = Locale.getDefault(),
 ): String {
     // A first-turn "0k" is a display-only label, not a measured zero.
@@ -435,7 +436,7 @@ internal fun formatContextUsage(
         // Only the numerator is unknown; the configured window the ring is measured against is
         // already known, so keep it in the same denominator format a measured reading uses.
         // The ratio stays null, so the ring is still shown unmoved for both unmeasured states.
-        val state = if (usage.firstTurn) "0k" else "未知"
+        val state = if (usage.firstTurn) "0k" else unknownText
         if (window == null || window <= 0) return state
         return "$state / ${formatCompactTokenCount(window, locale)} tokens"
     }

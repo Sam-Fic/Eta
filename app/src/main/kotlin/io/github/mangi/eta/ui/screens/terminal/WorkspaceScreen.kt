@@ -10,10 +10,24 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.InsertDriveFile
+import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.LockOpen
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material3.DropdownMenuGroup
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenuPopup
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuDefaults
+import androidx.compose.material3.Text as M3Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -28,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.terminal.LinuxEnvironmentPaths
@@ -36,24 +51,34 @@ import io.github.mangi.eta.agent.terminal.SharedFolderMounts
 import io.github.mangi.eta.agent.terminal.ShellProcessSupervisor
 import io.github.mangi.eta.agent.terminal.terminalEnvironment
 import io.github.mangi.eta.data.repository.LinuxEnvironmentSettingsRepository
-import io.github.mangi.eta.ui.app.WorkspaceEntry
-import io.github.mangi.eta.ui.app.WorkspaceFileStore
-import io.github.mangi.eta.ui.app.guestWorkspacePath
-import io.github.mangi.eta.ui.adaptive.EtaCard
 import io.github.mangi.eta.ui.adaptive.EtaClickableRow
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
-import io.github.mangi.eta.ui.adaptive.EtaSectionTitle
-import io.github.mangi.eta.ui.adaptive.EtaText
-import io.github.mangi.eta.ui.adaptive.EtaTextStyle
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedItem
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
+import io.github.mangi.eta.ui.app.WorkspaceEntry
+import io.github.mangi.eta.ui.app.WorkspaceFileStore
+import io.github.mangi.eta.ui.app.guestWorkspacePath
 import io.github.mangi.eta.ui.components.ListEmptyState
 import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
+/**
+ * 「工作区与文件」页。
+ *
+ * - 页面级操作（导入文件、公共目录访问授权）收进顶栏「更多」菜单，
+ *   写法与 KernelSU 顶栏 `IconButton + DropdownMenuPopup` 就地弹出一致；
+ * - 路径以等宽字体分段行呈现当前所在的 /workspace 位置；
+ * - 文件操作收进行尾「更多」按钮的 Material 3 Expressive 菜单（导出 / 删除），
+ *   MIUI X 主题下退回长按 + [FileEntryActionsDialog]。
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun WorkspaceScreen(onBack: () -> Unit) {
@@ -173,60 +198,124 @@ internal fun WorkspaceScreen(onBack: () -> Unit) {
             message = context.getString(R.string.capability_workspace_failed)
         }
     }
-    EtaScaffoldPage(title = stringResource(R.string.capability_workspace), onBack = onBack) {
+
+    fun requestExport(sourcePath: String, name: String) {
+        pendingExport = sourcePath
+        exportLauncher.launch(name)
+    }
+
+    fun requestDelete(sourcePath: String, name: String, directory: Boolean) {
+        pendingDelete = WorkspaceEntry(
+            path = sourcePath,
+            name = name,
+            directory = directory,
+            size = 0L,
+        )
+    }
+
+    EtaScaffoldPage(
+        title = stringResource(R.string.capability_workspace),
+        onBack = onBack,
+        actions = {
+            var menuExpanded by remember { mutableStateOf(false) }
+            IconButton(
+                onClick = { menuExpanded = true },
+                enabled = !busy,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.MoreVert,
+                    contentDescription = stringResource(R.string.action_more),
+                )
+                // KernelSU 顶栏写法：菜单挂在按钮内容里，由 DropdownMenuPopup 自动锚定到按钮。
+                DropdownMenuPopup(
+                    expanded = menuExpanded,
+                    onDismissRequest = { menuExpanded = false },
+                ) {
+                    DropdownMenuGroup(shapes = MenuDefaults.groupShape(index = 0, count = 1)) {
+                        DropdownMenuItem(
+                            onClick = {
+                                menuExpanded = false
+                                importLauncher.launch(arrayOf("*/*"))
+                            },
+                            text = { M3Text(text = stringResource(R.string.capability_workspace_import)) },
+                            shape = MenuDefaults.itemShape(index = 0, count = 2).shape,
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Rounded.FileUpload,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(MenuDefaults.LeadingIconSize),
+                                )
+                            },
+                        )
+                        DropdownMenuItem(
+                            onClick = {
+                                menuExpanded = false
+                                try {
+                                    accessLauncher.launch(
+                                        Intent(
+                                            Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                                            Uri.parse("package:${context.packageName}"),
+                                        ),
+                                    )
+                                } catch (_: android.content.ActivityNotFoundException) {
+                                    message = context.getString(R.string.capability_workspace_failed)
+                                }
+                            },
+                            text = { M3Text(text = stringResource(R.string.capability_workspace_public)) },
+                            shape = MenuDefaults.itemShape(index = 1, count = 2).shape,
+                            leadingIcon = {
+                                Icon(
+                                    // 状态用图标表达：已授权为解锁，未授权为加锁；内容色同步强调已授权。
+                                    imageVector = if (publicAccess) Icons.Rounded.LockOpen else Icons.Rounded.Lock,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(MenuDefaults.LeadingIconSize),
+                                    tint = if (publicAccess) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        LocalContentColor.current
+                                    },
+                                )
+                            },
+                        )
+                    }
+                }
+            }
+        },
+    ) {
         item(key = "workspace-info") {
             EtaClickableRow(
                 title = stringResource(R.string.capability_workspace_private),
                 summary = stringResource(R.string.capability_workspace_private_summary),
                 onClick = null,
                 showChevron = false,
+                leading = {
+                    Icon(
+                        imageVector = Icons.Rounded.Folder,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
                 contentPadding = PaddingValues(horizontal = 12.dp),
             )
         }
-        item(key = "actions") {
-            EtaCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                EtaClickableRow(
-                    title = stringResource(R.string.capability_workspace_import),
-                    enabled = !busy,
-                    onClick = { importLauncher.launch(arrayOf("*/*")) },
-                )
-
-                EtaClickableRow(
-                    title = stringResource(R.string.capability_workspace_public),
-                    summary = if (publicAccess) {
-                        stringResource(R.string.capability_workspace_public_granted)
-                    } else {
-                        stringResource(R.string.capability_workspace_public_summary)
-                    },
-                    onClick = {
-                        try {
-                            accessLauncher.launch(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-                                Uri.parse("package:${context.packageName}")))
-                        } catch (_: android.content.ActivityNotFoundException) {
-                            message = context.getString(R.string.capability_workspace_failed)
-                        }
-                    },
-                )
-            }
+        item(key = "path") {
+            WorkspacePathBar(path)
         }
         message?.let { text ->
-            item(key = "message") {
-                EtaClickableRow(title = text, onClick = null, showChevron = false)
-            }
-        }
-        item(key = "path") {
-            EtaSectionTitle(
-                if (path.isBlank()) stringResource(R.string.capability_workspace_files) else path,
-            )
+            item(key = "message") { HintText(text) }
         }
         if (path.isNotBlank()) {
             item(key = "parent") {
-                EtaCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
-                    EtaClickableRow(
-                        title = stringResource(R.string.capability_workspace_parent),
-                        onClick = { path = path.substringBeforeLast('/', "") },
-                    )
-                }
+                EtaFileRow(
+                    title = "../",
+                    summary = null,
+                    leadingIcon = Icons.Rounded.Folder,
+                    enabled = !busy,
+                    onClick = {
+                        pendingActions = null
+                        path = path.substringBeforeLast('/', "")
+                    },
+                )
             }
         }
         if (entries.isEmpty()) {
@@ -237,54 +326,73 @@ internal fun WorkspaceScreen(onBack: () -> Unit) {
                 )
             }
         }
-        items(entries, key = { it.path }) { entry ->
-            EtaFileRow(
-                title = entry.name,
-                summary = if (entry.directory) {
-                    stringResource(R.string.capability_workspace_directory)
+        itemsIndexed(entries, key = { _, entry -> entry.path }) { index, entry ->
+            EtaSegmentedItem(index = index, count = entries.size) {
+                val trailing: (@Composable () -> Unit)? = if (isMaterial3Theme()) {
+                    {
+                        EtaFileActionsButton(
+                            canExport = !entry.directory,
+                            canDelete = true,
+                            enabled = !busy,
+                            onExport = { requestExport(entry.path, entry.name) },
+                            onDelete = { requestDelete(entry.path, entry.name, entry.directory) },
+                        )
+                    }
                 } else {
-                    Formatter.formatShortFileSize(context, entry.size)
-                },
-                leadingIcon = if (entry.directory) {
-                    Icons.Rounded.Folder
-                } else {
-                    Icons.AutoMirrored.Rounded.InsertDriveFile
-                },
-                enabled = !busy,
-                onClick = { if (entry.directory) path = entry.path },
-                onLongClick = {
-                    pendingActions = FileEntryActions(
-                        path = entry.path,
-                        name = entry.name,
-                        directory = entry.directory,
-                        canExport = !entry.directory,
-                        canDelete = true,
-                    )
-                },
-            )
+                    null
+                }
+                EtaFileRow(
+                    title = entry.name,
+                    summary = if (entry.directory) {
+                        stringResource(R.string.capability_workspace_directory)
+                    } else {
+                        Formatter.formatShortFileSize(context, entry.size)
+                    },
+                    leadingIcon = if (entry.directory) {
+                        Icons.Rounded.Folder
+                    } else {
+                        Icons.AutoMirrored.Rounded.InsertDriveFile
+                    },
+                    enabled = !busy,
+                    onClick = {
+                        if (entry.directory) {
+                            pendingActions = null
+                            path = entry.path
+                        }
+                    },
+                    // MIUI X 没有行尾「更多」按钮，保留长按 → 对话框。
+                    onLongClick = if (isMaterial3Theme()) null else ({
+                        pendingActions = FileEntryActions(
+                            path = entry.path,
+                            name = entry.name,
+                            directory = entry.directory,
+                            canExport = !entry.directory,
+                            canDelete = true,
+                        )
+                    }),
+                    trailingActions = trailing,
+                )
+            }
         }
     }
 
-    pendingActions?.let { target ->
-        FileEntryActionsDialog(
-            target = target,
-            enabled = !busy,
-            onExport = {
-                pendingActions = null
-                pendingExport = target.path
-                exportLauncher.launch(target.name)
-            },
-            onDelete = {
-                pendingActions = null
-                pendingDelete = WorkspaceEntry(
-                    path = target.path,
-                    name = target.name,
-                    directory = target.directory,
-                    size = 0L,
-                )
-            },
-            onDismiss = { pendingActions = null },
-        )
+    // MIUI X 主题没有行尾「更多」表达性菜单，沿用长按 + 对话框承载同一组操作。
+    if (!isMaterial3Theme()) {
+        pendingActions?.let { target ->
+            FileEntryActionsDialog(
+                target = target,
+                enabled = !busy,
+                onExport = {
+                    pendingActions = null
+                    requestExport(target.path, target.name)
+                },
+                onDelete = {
+                    pendingActions = null
+                    requestDelete(target.path, target.name, target.directory)
+                },
+                onDismiss = { pendingActions = null },
+            )
+        }
     }
 
     pendingDelete?.let { target ->
@@ -346,6 +454,37 @@ internal fun WorkspaceScreen(onBack: () -> Unit) {
             )
         }
     }
+}
+
+/**
+ * 工作区当前位置：等宽字体分段行，显示映射到 Linux 环境的 `/workspace` 路径。
+ *
+ * M3 走分段行；MIUI X 沿用 miuix 文本，与「Linux 文件」页的路径栏保持同构。
+ */
+@Composable
+private fun WorkspacePathBar(path: String) {
+    val display = if (path.isBlank()) "/workspace" else "/workspace/${path.trim('/')}"
+    if (isMaterial3Theme()) {
+        EtaSegmentedRow(
+            modifier = Modifier.padding(horizontal = 12.dp),
+            content = {
+                M3Text(
+                    text = display,
+                    style = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+        )
+        return
+    }
+    Text(
+        text = display,
+        style = MiuixTheme.textStyles.body2.copy(fontFamily = FontFamily.Monospace),
+        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+        modifier = Modifier
+            .padding(horizontal = 24.dp)
+            .padding(bottom = 8.dp),
+    )
 }
 
 private fun exportWorkspaceLinuxFile(

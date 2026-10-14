@@ -3,9 +3,26 @@ package io.github.mangi.eta.ui.screens.terminal
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.FileDownload
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material3.DropdownMenuGroup
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenuPopup
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
@@ -103,6 +120,95 @@ internal fun FileEntryActionsDialog(
                     enabled = enabled,
                     modifier = Modifier.fillMaxWidth(),
                 )
+            }
+        }
+    }
+}
+
+/**
+ * 文件行尾「更多」按钮 + Material 3 Expressive 操作菜单。
+ *
+ * 结构照 KernelSU 顶栏 `IconButton + DropdownMenuPopup` 就地写法：菜单挂在按钮内容里，
+ * 由 `DropdownMenuPopup` 自动锚定到该按钮；条目全部带 `MenuDefaults.itemShape` 分段形状，
+ * 破坏性的「删除」用 error 色强调。
+ *
+ * MIUI X 主题没有该表达，页面改用 [FileEntryActionsDialog]，因此本组件只在 Material 3 分支挂载。
+ */
+@Composable
+internal fun EtaFileActionsButton(
+    canExport: Boolean,
+    canDelete: Boolean,
+    enabled: Boolean,
+    onExport: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val itemCount = (if (canExport) 1 else 0) + (if (canDelete) 1 else 0)
+    if (itemCount == 0) return
+
+    val haptic = LocalHapticFeedback.current
+    var expanded by remember { mutableStateOf(false) }
+
+    IconButton(
+        onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+            expanded = true
+        },
+        enabled = enabled,
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.MoreVert,
+            contentDescription = stringResource(R.string.action_more),
+        )
+        DropdownMenuPopup(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            DropdownMenuGroup(shapes = MenuDefaults.groupShape(index = 0, count = 1)) {
+                if (canExport) {
+                    DropdownMenuItem(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+                            expanded = false
+                            onExport()
+                        },
+                        text = { M3Text(text = stringResource(R.string.linux_files_export)) },
+                        shape = MenuDefaults.itemShape(index = 0, count = itemCount).shape,
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Rounded.FileDownload,
+                                contentDescription = null,
+                                modifier = Modifier.size(MenuDefaults.LeadingIconSize),
+                            )
+                        },
+                    )
+                }
+                if (canDelete) {
+                    DropdownMenuItem(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+                            expanded = false
+                            onDelete()
+                        },
+                        text = {
+                            M3Text(
+                                text = stringResource(R.string.action_delete),
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        },
+                        shape = MenuDefaults.itemShape(
+                            index = if (canExport) 1 else 0,
+                            count = itemCount,
+                        ).shape,
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Rounded.DeleteOutline,
+                                contentDescription = null,
+                                modifier = Modifier.size(MenuDefaults.LeadingIconSize),
+                                tint = MaterialTheme.colorScheme.error,
+                            )
+                        },
+                    )
+                }
             }
         }
     }

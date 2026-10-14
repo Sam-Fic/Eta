@@ -18,7 +18,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -26,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.delegation.SubAgentTaskTier
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.haptics.TouchHaptics
@@ -186,6 +189,7 @@ internal fun SubAgentTaskTierButton(
     compact: Boolean = false,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val context = LocalContext.current
     val view = LocalView.current
     val latestEnabled by rememberUpdatedState(enabled)
     val latestSelection by rememberUpdatedState(onTierSelected)
@@ -201,11 +205,11 @@ internal fun SubAgentTaskTierButton(
                         .widthIn(max = 108.dp)
                         // 触摸下限交给官方 Modifier.minimumInteractiveComponentSize()（读 LocalMinimumInteractiveComponentSize，默认 48.dp）。
                         .minimumInteractiveComponentSize()
-                        .semantics { contentDescription = "设置${label}任务分工" },
+                        .semantics { contentDescription = context.getString(R.string.stt_desc_set_for, label) },
                     enabled = enabled,
                     label = {
                         Text(
-                            text = tier?.label ?: "设置分工",
+                            text = tier?.label ?: stringResource(R.string.stt_set_short),
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -215,7 +219,7 @@ internal fun SubAgentTaskTierButton(
             } else {
                 // 32dp visible chip with a 48dp hit area; no outlined container around the agent name.
                 Box(Modifier.widthIn(min = 48.dp, max = 108.dp).heightIn(min = 48.dp)
-                    .semantics { contentDescription = "设置${label}任务分工" }
+                    .semantics { contentDescription = context.getString(R.string.stt_desc_set_for, label) }
                     .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null,
                         enabled = enabled, role = Role.Button,
                         onClick = { if (latestEnabled) { TouchHaptics.click(view); expanded = !expanded } }),
@@ -224,14 +228,14 @@ internal fun SubAgentTaskTierButton(
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (enabled) 1f else 0.38f))
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(tier?.label ?: "设置分工", modifier = Modifier.weight(1f, fill = false),
+                        Text(tier?.label ?: stringResource(R.string.stt_set_short), modifier = Modifier.weight(1f, fill = false),
                             maxLines = 2, overflow = TextOverflow.Ellipsis, style = MiuixTheme.textStyles.footnote1,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else 0.38f))
                         Icon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else 0.38f))
                     }
                 }
             }
-        } else SubAgentChoiceField(label, tier?.label ?: "未设置分工", enabled, if (label == "任务分工") "设置任务分工" else "设置${label}任务分工",
+        } else SubAgentChoiceField(label, tier?.label ?: stringResource(R.string.stt_unset), enabled, if (label == "任务分工") stringResource(R.string.stt_set_task_tier) else stringResource(R.string.stt_desc_set_for, label),
             onClick = { if (latestEnabled) { TouchHaptics.click(view); expanded = !expanded } })
         if (enabled) SubAgentDropdownMenu(
             expanded, { expanded = false }, Modifier.selectableGroup(),

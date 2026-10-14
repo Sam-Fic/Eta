@@ -1,7 +1,6 @@
 package io.github.mangi.eta.ui.screens.memory
 import io.github.mangi.eta.R
 import androidx.compose.ui.res.stringResource
-
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -31,20 +30,21 @@ import io.github.mangi.eta.ui.components.MiuixScaffold
 import io.github.mangi.eta.ui.layout.horizontalCutoutPadding
 import io.github.mangi.eta.ui.model.AgentMemoryAction
 import io.github.mangi.eta.ui.model.AgentMemoryUiState
-import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.preference.SwitchPreference
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text as M3Text
 import androidx.compose.material3.TextButton as M3TextButton
 import java.text.NumberFormat
+import io.github.mangi.eta.ui.adaptive.EtaScaffold
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedItemContainer
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
+import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 
 @Composable
 internal fun AgentMemoryScreen(
@@ -53,10 +53,10 @@ internal fun AgentMemoryScreen(
 ) {
     var showClearDialog by remember { mutableStateOf(false) }
 
-    MiuixScaffold(
+    EtaScaffold(
         title = stringResource(R.string.ui_memory_b55ff5),
         onBack = { onAction(AgentMemoryAction.NavigateBack) },
-    ) { paddingValues, scrollBehavior, sidePadding ->
+    ) { paddingValues, scrollConnection, sidePadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -70,31 +70,44 @@ internal fun AgentMemoryScreen(
                     .weight(1f, fill = false)
                     .scrollEndHaptic()
                     .overScrollVertical()
-                    .nestedScroll(scrollBehavior.nestedScrollConnection),
+                    .nestedScroll(scrollConnection),
                 contentPadding = PaddingValues(
                     start = sidePadding,
                     end = sidePadding,
                 ),
                 overscrollEffect = null,
             ) {
-                item(key = "status-title") { SmallTitle(stringResource(R.string.ui_memory_b55ff5)) }
                 item(key = "status-card") {
-                    Card(
-                        modifier = Modifier
-                            .padding(horizontal = 12.dp)
-                            .padding(bottom = 12.dp),
+                    EtaSegmentedColumn(
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                        title = stringResource(R.string.ui_memory_b55ff5),
                     ) {
-                        SwitchPreference(
-                            title = stringResource(R.string.ui_enable_memory_4b69b7),
-                            summary = stringResource(R.string.ui_after_closing_no_memory_will_be_injected_and_the_mod_db3d23),
-                            checked = state.enabled,
-                            enabled = !state.isLoading,
-                            onCheckedChange = { onAction(AgentMemoryAction.ToggleEnabled(it)) },
-                        )
-                        BasicComponent(
-                            title = stringResource(R.string.ui_core_memory_injection_budget_48b5d5),
-                            summary = stringResource(R.string.memory_budget_summary, formatNumber(state.coreBudgetChars)),
-                        )
+                        item {
+                            EtaSwitchRow(
+                                title = stringResource(R.string.ui_enable_memory_4b69b7),
+                                summary = stringResource(R.string.ui_after_closing_no_memory_will_be_injected_and_the_mod_db3d23),
+                                checked = state.enabled,
+                                enabled = !state.isLoading,
+                                onCheckedChange = { onAction(AgentMemoryAction.ToggleEnabled(it)) },
+                            )
+                        }
+                        item {
+                            EtaSegmentedRow(
+                                supportingContent = {
+                                    M3Text(
+                                        text = stringResource(R.string.memory_budget_summary, formatNumber(state.coreBudgetChars)),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                },
+                                content = {
+                                    M3Text(
+                                        text = stringResource(R.string.ui_core_memory_injection_budget_48b5d5),
+                                        style = MaterialTheme.typography.bodyLarge,
+                                    )
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -105,22 +118,21 @@ internal fun AgentMemoryScreen(
                     .imePadding()
                     .navigationBarsPadding(),
             ) {
-                SmallTitle("MEMORY.md")
-                Card(
-                    modifier = Modifier
-                        .padding(horizontal = 12.dp)
-                        .padding(bottom = 12.dp),
+                EtaSegmentedColumn(
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                    title = "MEMORY.md",
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        TextField(
+                    item {
+                        EtaSegmentedItemContainer {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                        OutlinedTextField(
                             value = state.draft,
                             onValueChange = { onAction(AgentMemoryAction.DraftChanged(it)) },
-                            label = stringResource(R.string.ui_core_memory_user_name_long_term_preferences_aa6ff9),
-                            useLabelAsPlaceholder = true,
+                            label = { M3Text(stringResource(R.string.ui_core_memory_user_name_long_term_preferences_aa6ff9)) },
                             enabled = !state.isLoading && !state.isSaving,
                             minLines = 6,
                             maxLines = 12,
-                            textStyle = MiuixTheme.textStyles.body2.copy(fontFamily = FontFamily.Monospace),
+                            textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
                             modifier = Modifier.fillMaxWidth(),
                         )
                         Spacer(modifier = Modifier.height(8.dp))
@@ -130,27 +142,24 @@ internal fun AgentMemoryScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             val overLimit = state.draftBytes > state.maxBytes
-                            Text(
+                            val statusColor = if (overLimit) {
+                                MaterialTheme.colorScheme.error
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            }
+                            M3Text(
                                 text = when {
                                     overLimit -> stringResource(R.string.memory_over_limit)
                                     state.hasUnsavedChanges -> stringResource(R.string.memory_unsaved_changes)
                                     else -> ""
                                 },
-                                color = if (overLimit) {
-                                    MiuixTheme.colorScheme.error
-                                } else {
-                                    MiuixTheme.colorScheme.onSurfaceVariantSummary
-                                },
-                                style = MiuixTheme.textStyles.footnote1,
+                                color = statusColor,
+                                style = MaterialTheme.typography.bodySmall,
                             )
-                            Text(
+                            M3Text(
                                 text = "${formatBytes(state.draftBytes)} / 1 MiB",
-                                color = if (overLimit) {
-                                    MiuixTheme.colorScheme.error
-                                } else {
-                                    MiuixTheme.colorScheme.onSurfaceVariantSummary
-                                },
-                                style = MiuixTheme.textStyles.footnote1,
+                                color = statusColor,
+                                style = MaterialTheme.typography.bodySmall,
                             )
                         }
                         Spacer(modifier = Modifier.height(12.dp))
@@ -158,19 +167,22 @@ internal fun AgentMemoryScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            TextButton(
-                                text = stringResource(R.string.ui_clear_84fcd7),
-                                enabled = !state.isLoading && !state.isSaving && state.draft.isNotEmpty(),
+                            M3TextButton(
                                 onClick = { showClearDialog = true },
+                                enabled = !state.isLoading && !state.isSaving && state.draft.isNotEmpty(),
                                 modifier = Modifier.weight(1f),
-                            )
-                            TextButton(
-                                text = if (state.isSaving) stringResource(R.string.memory_saving) else stringResource(R.string.memory_save),
-                                enabled = state.canSave,
+                            ) {
+                                M3Text(stringResource(R.string.ui_clear_84fcd7))
+                            }
+                            Button(
                                 onClick = { onAction(AgentMemoryAction.Save) },
+                                enabled = state.canSave,
                                 modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.textButtonColorsPrimary(),
-                            )
+                            ) {
+                                M3Text(if (state.isSaving) stringResource(R.string.memory_saving) else stringResource(R.string.memory_save))
+                            }
+                        }
+                        }
                         }
                     }
                 }

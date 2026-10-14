@@ -865,7 +865,7 @@ private fun UserMessageBubble(
             }
             visiblePrompt.conversations.forEach { mention ->
                 Text(
-                    text = "@${mention.title}" + if (mention.transcript.contains("[已截取：")) " · 已截取" else " · 全文",
+                    text = "@${mention.title}" + if (mention.transcript.contains("[已截取：")) stringResource(R.string.cmi_transcript_truncated) else stringResource(R.string.cmi_transcript_full),
                     style = chatSecondaryStyle(),
                     color = etaPrimary(),
                     modifier = Modifier.padding(bottom = 8.dp),

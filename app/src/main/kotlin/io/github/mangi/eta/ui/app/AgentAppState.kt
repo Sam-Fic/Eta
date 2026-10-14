@@ -283,7 +283,7 @@ internal class AgentAppState(
                 )
             }
             if (sent) contextBudgetPrompt = null
-            else Toast.makeText(appContext, "未能联系 Runtime，任务仍保持暂停。", Toast.LENGTH_LONG).show()
+            else Toast.makeText(appContext, appContext.getString(R.string.appst_runtime_unreachable_pause), Toast.LENGTH_LONG).show()
         }
     }
 
@@ -397,7 +397,7 @@ internal class AgentAppState(
         if (failure is CancellationException) throw failure
         subAgentDraftReady = false
         subAgentDraftPointerReloadPending = true
-        subAgentConfigFailure = "草稿配置读取失败；原数据未覆盖，请在子代理设置中重试。"
+        subAgentConfigFailure = appContext.getString(R.string.appst_subagent_draft_read_failed)
         SubAgentConfigKey.Draft(java.util.UUID.randomUUID().toString())
     }
 
@@ -420,7 +420,7 @@ internal class AgentAppState(
             editor.bindLifecycleState(
                 reason = {
                     if (subAgentRestoreBlocked || (owner is SubAgentConfigKey.Draft && !subAgentDraftReady))
-                        subAgentConfigFailure ?: "会话配置尚未恢复"
+                        subAgentConfigFailure ?: appContext.getString(R.string.appst_subagent_config_unrestored)
                     else null
                 },
                 recovery = { owner == subAgentConfigOwner && ensureSubAgentConfigurationReady() },
@@ -429,7 +429,7 @@ internal class AgentAppState(
 
     private fun subAgentConfigFailed(failure: Exception) {
         if (failure is CancellationException) throw failure
-        subAgentConfigFailure = "会话配置保存或读取失败；原配置已保留，请在子代理设置中重试。"
+        subAgentConfigFailure = appContext.getString(R.string.appst_subagent_config_read_failed)
         AndroidAgentLogger.warn("Sub-agent configuration unavailable: type=${failure.safeLogType()}")
         Toast.makeText(appContext, subAgentConfigFailure, Toast.LENGTH_LONG).show()
     }
@@ -442,7 +442,7 @@ internal class AgentAppState(
         if (recoveringPending && source == null) return false
         if (source is SubAgentConfigKey.Draft && !subAgentDraftReady &&
             (!recoveringPending || subAgentDraftPointerReloadPending)) {
-            Toast.makeText(appContext, "请先在子代理设置中重试恢复原草稿配置。", Toast.LENGTH_LONG).show()
+            Toast.makeText(appContext, appContext.getString(R.string.appst_subagent_retry_restore), Toast.LENGTH_LONG).show()
             return false
         }
         return try {
@@ -743,7 +743,7 @@ internal class AgentAppState(
         })
         if (ownerId == selectedConversationId && snapshot.second.any {
             it.manualCompactionState == "ended" && previous[it.taskId]?.manualCompactionState == "pending"
-        }) Toast.makeText(appContext, "子任务已结束，压缩请求已收束；结果保留，不会重启任务或压缩主代理。", Toast.LENGTH_LONG).show()
+        }) Toast.makeText(appContext, appContext.getString(R.string.appst_compact_subtask_ended), Toast.LENGTH_LONG).show()
         publishOwnerContext(ownerId)
         scheduleOwnerContextHides(ownerId)
     }
@@ -1011,7 +1011,7 @@ internal class AgentAppState(
     private fun rejectSendIfModelUnavailable(): Boolean {
         val selected = modelPickerState.selectedModel
         if (!modelPickerState.isChanging && selected != null && selected.providerId == homeState.providerId && selected.id == homeState.modelId) return false
-        Toast.makeText(appContext, "会话绑定的模型尚未就绪或已不可用，请明确选择模型后再发送。", Toast.LENGTH_LONG).show()
+        Toast.makeText(appContext, appContext.getString(R.string.appst_model_unavailable_send), Toast.LENGTH_LONG).show()
         return true
     }
 
@@ -1086,7 +1086,7 @@ internal class AgentAppState(
                         draft = snapshot.content, savedContent = snapshot.content, draftBytes = snapshot.byteSize)
                     refreshRequestOverhead()
                 }, onFailure = { error ->
-                    memoryState = memoryState.copy(isLoading = false, notice = error.message ?: "读取记忆失败")
+                    memoryState = memoryState.copy(isLoading = false, notice = error.message ?: appContext.getString(R.string.appst_memory_read_failed))
                 })
             }
         }
@@ -1104,7 +1104,7 @@ internal class AgentAppState(
             withContext(Dispatchers.Main) {
                 if (generation != memoryEditGeneration || memoryState.assistantId != owner) return@withContext
                 memoryState = if (result.isSuccess) memoryState.copy(enabled = enabled, notice = null)
-                    else memoryState.copy(notice = result.exceptionOrNull()?.message ?: "记忆开关保存失败")
+                    else memoryState.copy(notice = result.exceptionOrNull()?.message ?: appContext.getString(R.string.appst_memory_toggle_save_failed))
                 refreshRequestOverhead()
             }
         }
@@ -1122,7 +1122,7 @@ internal class AgentAppState(
         val state = memoryState
         if (state.assistantId.isBlank() || state.baseRevision.isBlank() || state.isSaving) return
         if (AssistantRepository.active().id != state.assistantId) {
-            memoryState = memoryState.copy(notice = "当前草稿属于另一助手，未保存；请返回原助手或重新读取。")
+            memoryState = memoryState.copy(notice = appContext.getString(R.string.appst_memory_foreign_draft))
             return
         }
         val generation = memoryEditGeneration
@@ -1135,10 +1135,10 @@ internal class AgentAppState(
                     val draft = if (memoryState.draft == state.draft) snapshot.content else memoryState.draft
                     memoryState = memoryState.copy(isSaving = false, baseRevision = snapshot.revision,
                         savedContent = snapshot.content, draft = draft, draftBytes = draft.toByteArray(Charsets.UTF_8).size,
-                        notice = "记忆已保存")
+                        notice = appContext.getString(R.string.appst_memory_saved))
                     refreshRequestOverhead()
                 }, onFailure = { error ->
-                    memoryState = memoryState.copy(isSaving = false, notice = error.message ?: "记忆保存失败，草稿已保留")
+                    memoryState = memoryState.copy(isSaving = false, notice = error.message ?: appContext.getString(R.string.appst_memory_save_failed))
                 })
             }
         }
@@ -1162,7 +1162,7 @@ internal class AgentAppState(
 
     private fun rejectConversationArchiveMutation(protectStoppingRun: Boolean = true): Boolean {
         if (conversationRevisionBusy) {
-            Toast.makeText(appContext, "正在恢复修订历史，请稍候。", Toast.LENGTH_SHORT).show()
+            Toast.makeText(appContext, appContext.getString(R.string.appst_restoring_revisions), Toast.LENGTH_SHORT).show()
             return true
         }
         // Stop settlement owns the current transcript, not navigation, metadata or model choice.
@@ -1172,7 +1172,7 @@ internal class AgentAppState(
             return true
         }
         if (!conversationArchiveBusy && !io.github.mangi.eta.agent.runtime.AgentExecutionService.backupMaintenance) return false
-        Toast.makeText(appContext, "正在导入或导出对话，请完成后再修改。", Toast.LENGTH_SHORT).show()
+        Toast.makeText(appContext, appContext.getString(R.string.appst_import_export_busy), Toast.LENGTH_SHORT).show()
         return true
     }
 
@@ -1404,7 +1404,7 @@ internal class AgentAppState(
                         markConversationCompleted(conversationId)
                     }
                     if (!recovery.alreadyApplied && VirtualCompletionNotice.confirmed(result)) {
-                        Toast.makeText(appContext, "任务完成", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(appContext, appContext.getString(R.string.appst_task_completed), Toast.LENGTH_SHORT).show()
                     }
                 }
                 acknowledgeAfterSave += runId
@@ -1732,7 +1732,7 @@ internal class AgentAppState(
         if (!eligible) return
         val next = GptSpeedModePolicy.cycle(rememberedGptSpeedMode(provider.id, model.id), model.modelId, eligible)
         val saved = runCatching { mainAgentSpeedDefaults.remember(provider, model, next) }.getOrElse {
-            Toast.makeText(appContext, "主代理模型速度保存失败，原设置未更改。", Toast.LENGTH_LONG).show()
+            Toast.makeText(appContext, appContext.getString(R.string.appst_gpt_speed_save_failed), Toast.LENGTH_LONG).show()
             return
         }
         if (!saved) return
@@ -1768,7 +1768,7 @@ internal class AgentAppState(
         billedOverheadTokens = null
         refreshBoundModelPicker()
         if (nextEffort != requestedEffort) Toast.makeText(appContext,
-            "已按新模型支持的档位调整当前对话的思考深度", Toast.LENGTH_SHORT).show()
+            appContext.getString(R.string.appst_reasoning_tier_adjusted), Toast.LENGTH_SHORT).show()
         if (selectedConversationId != null) persistConversations()
         replacedRun?.let { stopRun(it, reason = AgentChildControlPolicy.Reason.SETTINGS_CHANGED) }
     }
@@ -1859,7 +1859,7 @@ internal class AgentAppState(
                 throw cancelled
             } catch (failure: Exception) {
                 AndroidAgentLogger.warn("Conversation load failed: ${failure.safeLogType()}")
-                Toast.makeText(appContext, "对话加载失败，请重试。", Toast.LENGTH_SHORT).show()
+                Toast.makeText(appContext, appContext.getString(R.string.appst_conversation_load_failed), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -2056,7 +2056,7 @@ internal class AgentAppState(
                 throw cancelled
             } catch (failure: Exception) {
                 AndroidAgentLogger.warn("Delete all conversations failed: ${failure.safeLogType()}")
-                Toast.makeText(appContext, "删除未完成，请等待任务结束或稍后重试。", Toast.LENGTH_SHORT).show()
+                Toast.makeText(appContext, appContext.getString(R.string.appst_delete_incomplete), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -2120,7 +2120,7 @@ internal class AgentAppState(
     fun sendCurrentMessage(submittedText: String? = null) {
         if (homeState.pendingConversationMentions.any { it.id in preparingConversationMentions }) {
             if (submittedText != null) updateCurrentConversation(homeState.copy(input = submittedText))
-            Toast.makeText(appContext, "会话引用正在准备，请稍候再发送。", Toast.LENGTH_SHORT).show()
+            Toast.makeText(appContext, appContext.getString(R.string.appst_mention_preparing), Toast.LENGTH_SHORT).show()
             return
         }
         if (rejectConversationArchiveMutation()) {
@@ -2129,7 +2129,7 @@ internal class AgentAppState(
             return
         }
         if (io.github.mangi.eta.agent.runtime.AgentExecutionService.backupMaintenance) {
-            Toast.makeText(appContext, "正在恢复备份，请等待完成。", Toast.LENGTH_SHORT).show()
+            Toast.makeText(appContext, appContext.getString(R.string.appst_restoring_backup), Toast.LENGTH_SHORT).show()
             return
         }
         if (!ensureSubAgentConfigurationReady()) return
@@ -2154,7 +2154,7 @@ internal class AgentAppState(
         val generateVideo = selectedModelGeneratesVideos()
         val generateImage = !generateVideo && selectedModelGeneratesImages()
         if ((generateImage || generateVideo) && pendingMentions.isNotEmpty()) {
-            Toast.makeText(appContext, "会话引用需要对话模型，图像/视频生成接口暂不支持。", Toast.LENGTH_LONG).show()
+            Toast.makeText(appContext, appContext.getString(R.string.appst_mention_needs_chat_model), Toast.LENGTH_LONG).show()
             return
         }
         if ((generateImage || generateVideo) && prompt.isBlank()) {
@@ -2238,13 +2238,13 @@ internal class AgentAppState(
                 val staged = stageChatImages(conversationId, pendingImages)
                 withContext(Dispatchers.Main) {
                     if (staged.size != pendingImages.size || staged.any { it == null }) {
-                        Toast.makeText(appContext, "附件保存失败，消息未发送，附件仍保留。", Toast.LENGTH_LONG).show()
+                        Toast.makeText(appContext, appContext.getString(R.string.appst_attachment_save_failed), Toast.LENGTH_LONG).show()
                         return@withContext
                     }
                     if (selectedConversationId != conversationId || modelBindingGeneration != ownerGeneration ||
                         homeState != ownerState || currentDraftField().text.toString() != ownerDraft ||
                         AssistantRepository.active().id != ownerAssistant) {
-                        Toast.makeText(appContext, "发送准备期间会话或配置发生变化，未发送；请返回原草稿重试。", Toast.LENGTH_LONG).show()
+                        Toast.makeText(appContext, appContext.getString(R.string.appst_send_state_changed), Toast.LENGTH_LONG).show()
                         return@withContext
                     }
                     if (homeState.isStreaming || rejectSendIfCompressing()) return@withContext
@@ -2454,7 +2454,7 @@ internal class AgentAppState(
                 AndroidAgentLogger.warn("会话修订失败：${if (failure is BranchArchiveCopyException) "branch_archive_copy" else "revision_prepare"} ${failure.cause?.javaClass?.simpleName ?: failure.javaClass.simpleName} $reason")
                 if (stillCurrent()) {
                     if (failure is BranchArchiveCopyException) Toast.makeText(appContext,
-                        "分支所需的历史归档或附件未能完整复制，已取消分支；原会话未修改。", Toast.LENGTH_LONG).show()
+                        appContext.getString(R.string.appst_branch_archive_copy_failed), Toast.LENGTH_LONG).show()
                     else showRevisionHistoryUnavailableNotice()
                 }
             } finally {
@@ -2657,7 +2657,7 @@ internal class AgentAppState(
     ) {
         val rewrite = { value: String -> chatImageCache.rewriteCachedPath(value, sourceId, newId) }
         val branchMessages = runMessageProjector.interruptRunningTools(
-            "分支保留点击时的工具状态，后续执行仍属于原会话。", freezeStreamingMessages(prefix.messages),
+            appContext.getString(R.string.appst_branch_tools_frozen), freezeStreamingMessages(prefix.messages),
         ).map { message ->
             val frozen = message.withId("$newId:${message.id}").rewritePaths(rewrite)
             if (frozen is AgentQuestionMessageUi) AgentQuestionProjection.freezeForBranch(frozen, newId)
@@ -3017,7 +3017,7 @@ internal class AgentAppState(
             }
             if (summaryFailure != null) withContext(Dispatchers.Main) {
                 if (conversationId == selectedConversationId) Toast.makeText(appContext,
-                    "压缩会话失败：$summaryFailure", Toast.LENGTH_LONG).show()
+                    appContext.getString(R.string.appst_compress_conversation_failed, summaryFailure), Toast.LENGTH_LONG).show()
             }
             compressed
         } catch (cancelled: CancellationException) {
@@ -3030,7 +3030,7 @@ internal class AgentAppState(
             AndroidAgentLogger.warn("压缩失败，保留原文：${failure.javaClass.simpleName}: ${failure.message}")
             withContext(Dispatchers.Main) {
                 if (conversationId == selectedConversationId) Toast.makeText(appContext,
-                    failure.message ?: "压缩失败，原历史保持不变", Toast.LENGTH_LONG).show()
+                    failure.message ?: appContext.getString(R.string.appst_compress_failed_history_kept), Toast.LENGTH_LONG).show()
             }
             history
         }
@@ -3093,11 +3093,11 @@ internal class AgentAppState(
         val runProvider = selectionProviders.singleOrNull { it.id == state.providerId }?.takeIf { it.isEnabled }
         val runModel = runProvider?.models?.singleOrNull { it.id == state.modelId }?.takeIf { it.isEnabled }
         if (runProvider == null || runModel == null) {
-            Toast.makeText(appContext, "绑定模型已不可用，未发送。请重新选择。", Toast.LENGTH_LONG).show()
+            Toast.makeText(appContext, appContext.getString(R.string.appst_bound_model_unavailable), Toast.LENGTH_LONG).show()
             return
         }
         if (runModel.supportsSpeechSynthesis) {
-            Toast.makeText(appContext, "语音合成模型请在朗读设置中使用，不能执行对话任务", Toast.LENGTH_LONG).show()
+            Toast.makeText(appContext, appContext.getString(R.string.appst_tts_model_chat_unsupported), Toast.LENGTH_LONG).show()
             return
         }
         if (consumeDraft) conversationDrafts.replace(conversationId, "")
@@ -3939,7 +3939,7 @@ internal class AgentAppState(
         if (conversationId == selectedConversationId || pending.any { it.conversationId == conversationId }) return false
         val sourceSnapshot = conversationsById[conversationId] ?: return false
         if (pending.size >= ConversationMention.MAX_ATTACHED) {
-            Toast.makeText(appContext, "最多引用 3 个会话。", Toast.LENGTH_SHORT).show()
+            Toast.makeText(appContext, appContext.getString(R.string.appst_mention_limit), Toast.LENGTH_SHORT).show()
             return false
         }
         val status = if (sourceSnapshot.isStreaming) "[选择时快照：来源会话仍在运行，未包含后续输出]\n" else ""
@@ -3979,7 +3979,7 @@ internal class AgentAppState(
                 val (snapshotPath, toolsIndexPath, _) = prepared
                 if (snapshotPath.isBlank()) {
                     removeConversationMention(mentionId)
-                    Toast.makeText(appContext, "会话引用为空或快照没写上，请重新选择。", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(appContext, appContext.getString(R.string.appst_mention_empty), Toast.LENGTH_SHORT).show()
                 } else {
                     updateCurrentConversation(homeState.copy(pendingConversationMentions = current.map {
                         if (it.id == mentionId) it.copy(transcript = "", snapshotPath = snapshotPath, toolsIndexPath = toolsIndexPath) else it
@@ -3988,7 +3988,7 @@ internal class AgentAppState(
             } catch (failure: Exception) {
                 if (ownerVersion == fileAttachmentOwnerVersion) {
                     removeConversationMention(mentionId)
-                    Toast.makeText(appContext, "会话引用准备失败，请重试。", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(appContext, appContext.getString(R.string.appst_mention_prepare_failed), Toast.LENGTH_SHORT).show()
                 }
                 if (failure is kotlinx.coroutines.CancellationException) throw failure
             } finally {
@@ -4129,7 +4129,7 @@ internal class AgentAppState(
                         }
                     }
                     AndroidAgentLogger.warn("Stop request not confirmed for run=$runId")
-                    Toast.makeText(appContext, "停止请求尚未确认，请重试或检查任务状态。", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(appContext, appContext.getString(R.string.appst_stop_unconfirmed), Toast.LENGTH_SHORT).show()
                     // Do not unlock settings or drop the result subscriber on an uncertain outcome.
                     refreshRuntimeResults()
                 }
@@ -4147,8 +4147,8 @@ internal class AgentAppState(
             runId,
             SystemNoticeCode.Stopped,
             detail = when {
-                imageGen -> "已停止本地生成等待并取消网络请求；服务端任务可能仍在处理或计费，不会自动重发。"
-                retrying -> "已停止等待接口重试"
+                imageGen -> appContext.getString(R.string.appst_stop_image_generation)
+                retrying -> appContext.getString(R.string.appst_stop_waiting_retry)
                 else -> null
             },
         )
@@ -4208,7 +4208,7 @@ internal class AgentAppState(
         applyConversationAssistant(id, persist = true)
         replacedRun?.let { stopRun(it, reason = AgentChildControlPolicy.Reason.SETTINGS_CHANGED) }
         if (discarded) {
-            Toast.makeText(appContext, "已切换助手，未保存的记忆草稿未写入。", Toast.LENGTH_LONG).show()
+            Toast.makeText(appContext, appContext.getString(R.string.appst_memory_draft_discarded), Toast.LENGTH_LONG).show()
         }
     }
 
@@ -4370,7 +4370,7 @@ internal class AgentAppState(
             val staged = conversationId?.let { stageChatImages(it, pendingImages) }.orEmpty()
             if (staged.size != pendingImages.size || staged.any { it == null }) {
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(appContext, "附件保存失败，追问未发送，附件仍保留。", Toast.LENGTH_LONG).show()
+                    Toast.makeText(appContext, appContext.getString(R.string.appst_steer_attachment_save_failed), Toast.LENGTH_LONG).show()
                 }
                 return@launch
             }
@@ -4389,17 +4389,17 @@ internal class AgentAppState(
             // Never put a large base64 preview into Binder; leave the draft intact on failure.
             if (imagesJson.length > 64_000) {
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(appContext, "附件预览保存失败，追问未发送。", Toast.LENGTH_LONG).show()
+                    Toast.makeText(appContext, appContext.getString(R.string.appst_steer_preview_save_failed), Toast.LENGTH_LONG).show()
                 }
                 return@launch
             }
             val steerText = AgentFileReferencePromptCodec.format(prompt, fileReferences + references, pendingMentions.toMentionedConversations())
-                .ifBlank { "请查看我补充的附件。" }
+                .ifBlank { appContext.getString(R.string.appst_steer_attachment_fallback) }
             val sent = AgentRuntimeClient(appContext, AndroidAgentLogger)
                 .steerRun(runId, steerText, requestId, imagesJson)
             withContext(Dispatchers.Main) {
                 if (!sent) {
-                    Toast.makeText(appContext, "追问未送达，附件仍保留，请重试。", Toast.LENGTH_LONG).show()
+                    Toast.makeText(appContext, appContext.getString(R.string.appst_steer_not_delivered), Toast.LENGTH_LONG).show()
                 }
             }
             if (sent) {
@@ -4407,14 +4407,14 @@ internal class AgentAppState(
                 kotlinx.coroutines.delay(15_000)
                 withContext(Dispatchers.Main) {
                     if (requestId in pendingSteerDrafts) {
-                        Toast.makeText(appContext, "尚未收到追问确认，附件仍保留。请先检查会话，避免重复发送。", Toast.LENGTH_LONG).show()
+                        Toast.makeText(appContext, appContext.getString(R.string.appst_steer_unconfirmed), Toast.LENGTH_LONG).show()
                     }
                 }
             }
           } catch (failure: Exception) {
             if (failure is kotlinx.coroutines.CancellationException) throw failure
             withContext(Dispatchers.Main) {
-                Toast.makeText(appContext, "追问发送失败，附件仍保留。", Toast.LENGTH_LONG).show()
+                Toast.makeText(appContext, appContext.getString(R.string.appst_steer_failed), Toast.LENGTH_LONG).show()
             }
           } finally {
             withContext(kotlinx.coroutines.NonCancellable + Dispatchers.Main) {
@@ -5741,7 +5741,7 @@ internal class AgentAppState(
             stoppedDuringRetry != null -> replaceLatestAssistantWithNotice(
                 runId,
                 SystemNoticeCode.Stopped,
-                detail = if (stoppedDuringRetry) "已停止等待接口重试" else null,
+                detail = if (stoppedDuringRetry) appContext.getString(R.string.appst_stop_waiting_retry) else null,
             )
             result.ok && (result.content.isNotBlank() || VirtualCompletionNotice.confirmed(result)) -> completeLatestAssistantMessage(
                 runId,
@@ -5759,7 +5759,7 @@ internal class AgentAppState(
         if (stoppedDuringRetry == null) {
             updateMessages(runId) { VirtualCompletionNotice.append(it, runId, result) }
             if (acknowledgeRuntimeResult && VirtualCompletionNotice.confirmed(result)) {
-                Toast.makeText(appContext, "任务完成", Toast.LENGTH_SHORT).show()
+                Toast.makeText(appContext, appContext.getString(R.string.appst_task_completed), Toast.LENGTH_SHORT).show()
             }
         }
         // A stop/failure without this round's receipt still keeps the latest actual from this epoch.
@@ -6670,7 +6670,7 @@ internal class AgentAppState(
             val child = homeState.childContexts.firstOrNull { it.taskId == targetId }
             val ownerId = selectedConversationId
             if (child == null || child.status != "running" || child.role in setOf("image_generation", "video_generation") || ownerId == null) {
-                Toast.makeText(appContext, "该子任务已结束、尚未执行或不支持对话压缩；不会改为压缩主代理。", Toast.LENGTH_LONG).show()
+                Toast.makeText(appContext, appContext.getString(R.string.appst_compact_subtask_unsupported), Toast.LENGTH_LONG).show()
                 onFinished(false)
                 return
             }
@@ -6682,7 +6682,7 @@ internal class AgentAppState(
                     AgentChildTaskGroups.requestCompact(ownerId, targetId, keepRecentFor(), config)
                 }.getOrDefault(false)
                 if (!sent) withContext(Dispatchers.Main) {
-                    Toast.makeText(appContext, "未确认子任务接受压缩请求，它可能已结束；不会改为压缩其它代理。", Toast.LENGTH_LONG).show()
+                    Toast.makeText(appContext, appContext.getString(R.string.appst_compact_request_unconfirmed), Toast.LENGTH_LONG).show()
                 }
             }
             return
@@ -6743,7 +6743,7 @@ internal class AgentAppState(
         modelId: String? = null,
     ) {
         val runId = runIdForConversation(conversationId) ?: run {
-            Toast.makeText(appContext, "当前任务已结束，请重新发起压缩。", Toast.LENGTH_LONG).show()
+            Toast.makeText(appContext, appContext.getString(R.string.appst_compact_run_ended), Toast.LENGTH_LONG).show()
             return
         }
         if (conversationId != null && !pendingInRunCompactConversationIds.add(conversationId)) return
@@ -6771,7 +6771,7 @@ internal class AgentAppState(
             if (!sent) withContext(Dispatchers.Main) {
                 conversationId?.let(pendingInRunCompactConversationIds::remove)
                 setConversationWaitingForCompression(conversationId, false)
-                Toast.makeText(appContext, "压缩请求未送达 Runtime，当前输出未中断。", Toast.LENGTH_LONG).show()
+                Toast.makeText(appContext, appContext.getString(R.string.appst_compact_request_not_delivered), Toast.LENGTH_LONG).show()
             }
         }
     }

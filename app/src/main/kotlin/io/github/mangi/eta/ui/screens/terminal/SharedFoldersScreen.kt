@@ -42,7 +42,6 @@ import io.github.mangi.eta.agent.terminal.TerminalEnvironment
 import io.github.mangi.eta.agent.terminal.TerminalRuntime
 import io.github.mangi.eta.agent.terminal.runOneShotShell
 import io.github.mangi.eta.agent.terminal.shellQuote
-import io.github.mangi.eta.ui.adaptive.EtaCard
 import io.github.mangi.eta.ui.adaptive.EtaClickableRow
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
@@ -59,6 +58,8 @@ import androidx.compose.material3.Text as M3Text
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 
 /**
  * 共享文件夹管理：把 Android 目录配置为 Linux 环境 /workspace/mounts/ 下的挂载点。
@@ -111,12 +112,10 @@ internal fun SharedFoldersScreen(
         onBack = onBack,
     ) {
         item(key = "mounts-card") {
-            EtaCard(
-                modifier = Modifier
-                    .padding(horizontal = 12.dp)
-                    .padding(bottom = 12.dp),
+            EtaSegmentedColumn(
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
             ) {
-                if (mounts.isEmpty()) {
+                item(visible = mounts.isEmpty()) {
                     EtaClickableRow(
                         title = stringResource(R.string.shared_folders_empty),
                         summary = stringResource(R.string.shared_folders_entry_summary),
@@ -126,49 +125,53 @@ internal fun SharedFoldersScreen(
                 }
                 mounts.forEach { mount ->
                     val missing = sourceExists[mount.sourcePath] == false
-                    EtaClickableRow(
-                        title = mount.name,
-                        summary = buildString {
-                            append(mount.sourcePath)
-                            append("\n")
-                            append(
-                                context.getString(
-                                    R.string.shared_folders_mount_point,
-                                    "${SharedFolderMounts.LINUX_MOUNTS_ROOT}/${mount.name}",
+                    item {
+                        EtaClickableRow(
+                            title = mount.name,
+                            summary = buildString {
+                                append(mount.sourcePath)
+                                append("\n")
+                                append(
+                                    context.getString(
+                                        R.string.shared_folders_mount_point,
+                                        "${SharedFolderMounts.LINUX_MOUNTS_ROOT}/${mount.name}",
+                                    )
                                 )
-                            )
-                            if (missing) {
-                                append(" · ")
-                                append(context.getString(R.string.shared_folders_source_missing))
+                                if (missing) {
+                                    append(" · ")
+                                    append(context.getString(R.string.shared_folders_source_missing))
+                                }
+                            },
+                            onClick = null,
+                            showChevron = false,
+                            endActions = {
+                                EtaTextButton(
+                                    text = stringResource(R.string.action_delete),
+                                    onClick = { removeTarget = mount },
+                                )
+                            },
+                        )
+                    }
+                }
+                item {
+                    EtaClickableRow(
+                        title = stringResource(R.string.shared_folders_add),
+                        onClick = {
+                            if (TerminalRuntime.rootAvailable || Environment.isExternalStorageManager()) {
+                                showPicker = true
+                            } else {
+                                try {
+                                    publicAccessLauncher.launch(Intent(
+                                            Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                                            Uri.parse("package:${context.packageName}"),
+                                    ))
+                                } catch (_: android.content.ActivityNotFoundException) {
+                                    notice = context.getString(R.string.capability_workspace_public_denied)
+                                }
                             }
-                        },
-                        onClick = null,
-                        showChevron = false,
-                        endActions = {
-                            EtaTextButton(
-                                text = stringResource(R.string.action_delete),
-                                onClick = { removeTarget = mount },
-                            )
                         },
                     )
                 }
-                EtaClickableRow(
-                    title = stringResource(R.string.shared_folders_add),
-                    onClick = {
-                        if (TerminalRuntime.rootAvailable || Environment.isExternalStorageManager()) {
-                            showPicker = true
-                        } else {
-                            try {
-                                publicAccessLauncher.launch(Intent(
-                                    Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-                                    Uri.parse("package:${context.packageName}"),
-                                ))
-                            } catch (_: android.content.ActivityNotFoundException) {
-                                notice = context.getString(R.string.capability_workspace_public_denied)
-                            }
-                        }
-                    },
-                )
             }
         }
         item(key = "footer-note") {
@@ -181,16 +184,16 @@ internal fun SharedFoldersScreen(
         }
         notice?.let { message ->
             item(key = "notice-card") {
-                EtaCard(
-                    modifier = Modifier
-                        .padding(horizontal = 12.dp)
-                        .padding(top = 12.dp),
+                EtaSegmentedColumn(
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
                 ) {
-                    EtaClickableRow(
-                        title = message,
-                        onClick = null,
-                        showChevron = false,
-                    )
+                    item {
+                        EtaClickableRow(
+                            title = message,
+                            onClick = null,
+                            showChevron = false,
+                        )
+                    }
                 }
             }
         }
@@ -476,11 +479,11 @@ private fun SharedFolderPickerDialog(
     }
 }
 
-/** 目录选择行：M3 用官方可交互 ListItem，MIUI X 保留原手写行。 */
+/** 目录选择行：KernelSU 式分段行，MIUI X 保留原手写行。 */
 @Composable
 private fun PickerRow(label: String, onClick: () -> Unit) {
     if (isMaterial3Theme()) {
-        androidx.compose.material3.ListItem(
+        EtaSegmentedRow(
             onClick = onClick,
             modifier = Modifier.fillMaxWidth(),
             content = {

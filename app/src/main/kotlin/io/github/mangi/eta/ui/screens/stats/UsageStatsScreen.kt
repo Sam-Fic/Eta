@@ -1,6 +1,5 @@
 package io.github.mangi.eta.ui.screens.stats
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -47,10 +46,12 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.repository.ModelUsageModelUi
+import io.github.mangi.eta.data.repository.ModelUsageProviderUi
 import io.github.mangi.eta.data.repository.ModelUsageSnapshot
 import io.github.mangi.eta.data.repository.UsageStatsRepository
 import io.github.mangi.eta.data.repository.UsageStatsSnapshot
@@ -58,9 +59,14 @@ import io.github.mangi.eta.data.repository.formatStatCount
 import io.github.mangi.eta.data.repository.formatTokenCount
 import io.github.mangi.eta.data.repository.heatmapAlpha
 import io.github.mangi.eta.data.repository.heatmapQuartiles
-import io.github.mangi.eta.ui.adaptive.EtaCard
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedItemContainer
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
+import io.github.mangi.eta.ui.components.HapticBasicComponent
+import io.github.mangi.eta.ui.components.ListEmptyState
+import io.github.mangi.eta.ui.components.PreferenceIcon
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -77,12 +83,10 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.TextButton as M3TextButton
 import androidx.compose.material3.Text as M3Text
 
 private enum class UsageStatsTab { Overview, Models }
@@ -109,8 +113,8 @@ internal fun UsageStatsScreen(onBack: () -> Unit) {
                 selected = selectedTab,
                 onSelect = { selectedTab = it },
                 modifier = Modifier
-                    .padding(horizontal = 12.dp)
-                    .padding(bottom = 12.dp),
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 13.dp),
             )
         }
         if (stats.isLoading) {
@@ -132,45 +136,15 @@ internal fun UsageStatsScreen(onBack: () -> Unit) {
             item(key = "model-usage") {
                 ModelUsagePane(
                     usage = stats.modelUsage,
-                    modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp),
+                    modifier = Modifier.padding(horizontal = 16.dp),
                 )
             }
         } else {
             item(key = "heatmap") {
-                EtaCard(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        StatsTitle(text = stringResource(R.string.stats_page_heatmap_title))
-                        ChatHeatmap(conversationsPerDay = stats.conversationsPerDay)
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            StatsLabel(
-                                text = stringResource(R.string.stats_page_heatmap_less),
-                                tier = StatsTextTier.Legend,
-                                maxLines = 1,
-                            )
-                            listOf(0f, 0.25f, 0.5f, 0.75f, 1f).forEach { alpha ->
-                                HeatmapCell(alpha = alpha, sizeDp = 10)
-                            }
-                            StatsLabel(
-                                text = stringResource(R.string.stats_page_heatmap_more),
-                                tier = StatsTextTier.Legend,
-                                maxLines = 1,
-                            )
-                        }
-                    }
-                }
+                HeatmapGroup(conversationsPerDay = stats.conversationsPerDay)
             }
-            item(key = "grid") {
-                StatsGrid(
-                    stats = stats,
-                    modifier = Modifier.padding(horizontal = 12.dp),
-                )
+            item(key = "stats") {
+                OverviewStatsGroup(stats = stats)
             }
         }
     }
@@ -249,15 +223,6 @@ private fun RowScope.UsageTabButton(
     }
 }
 
-@Composable
-private fun StatsTitle(text: String) {
-    if (isMaterial3Theme()) {
-        M3Text(text = text, style = MaterialTheme.typography.titleMedium)
-    } else {
-        Text(text = text, style = MiuixTheme.textStyles.headline1)
-    }
-}
-
 /** 说明文字档位：图例 / 次要说明 / 主要数值。 */
 private enum class StatsTextTier { Legend, Secondary, Primary }
 
@@ -306,6 +271,182 @@ private fun StatsLabel(
     }
 }
 
+/**
+ * 热力图刻度小字。热力图是两条分支共享的绘制路径，
+ * 字号由调用方给定（数据可视化刻度，不走字阶），文本组件按主题族分流。
+ */
+@Composable
+private fun HeatmapCaption(
+    text: String,
+    fontSize: TextUnit,
+    color: Color,
+    modifier: Modifier = Modifier,
+    maxLines: Int = 1,
+) {
+    if (isMaterial3Theme()) {
+        M3Text(
+            text = text,
+            modifier = modifier,
+            fontSize = fontSize,
+            color = color,
+            maxLines = maxLines,
+        )
+    } else {
+        Text(
+            text = text,
+            modifier = modifier,
+            fontSize = fontSize,
+            color = color,
+            maxLines = maxLines,
+        )
+    }
+}
+
+/** 概览页热力图分组：组标题 + 共享表面容器里的热力图与图例。 */
+@Composable
+private fun HeatmapGroup(conversationsPerDay: Map<LocalDate, Int>) {
+    EtaSegmentedColumn(
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+        title = stringResource(R.string.stats_page_heatmap_title),
+    ) {
+        item {
+            EtaSegmentedItemContainer {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    ChatHeatmap(conversationsPerDay = conversationsPerDay)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        StatsLabel(
+                            text = stringResource(R.string.stats_page_heatmap_less),
+                            tier = StatsTextTier.Legend,
+                            maxLines = 1,
+                        )
+                        listOf(0f, 0.25f, 0.5f, 0.75f, 1f).forEach { alpha ->
+                            HeatmapCell(alpha = alpha, sizeDp = 10)
+                        }
+                        StatsLabel(
+                            text = stringResource(R.string.stats_page_heatmap_more),
+                            tier = StatsTextTier.Legend,
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** 概览页统计分组：每项一行（前导图标 + 名称 + 数值），替代原来的双列卡片。 */
+@Composable
+private fun OverviewStatsGroup(stats: UsageStatsSnapshot) {
+    EtaSegmentedColumn(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp)) {
+        item(key = "conversations") {
+            StatValueRow(
+                icon = Icons.Rounded.Forum,
+                label = stringResource(R.string.stats_page_total_conversations),
+                value = formatCurrentLifetime(
+                    current = formatStatCount(stats.currentConversations.toLong()),
+                    lifetime = formatStatCount(stats.lifetimeConversations.toLong()),
+                ),
+            )
+        }
+        item(key = "messages") {
+            StatValueRow(
+                icon = Icons.Rounded.ChatBubbleOutline,
+                label = stringResource(R.string.stats_page_total_messages),
+                value = formatCurrentLifetime(
+                    current = formatStatCount(stats.currentMessages.toLong()),
+                    lifetime = formatStatCount(stats.lifetimeMessages.toLong()),
+                ),
+            )
+        }
+        item(key = "fresh-input") {
+            StatValueRow(
+                icon = Icons.Rounded.Keyboard,
+                label = stringResource(R.string.stats_page_fresh_input_tokens),
+                value = formatCurrentLifetime(
+                    current = formatTokenCount(stats.currentFreshInputTokens),
+                    lifetime = formatTokenCount(stats.lifetimeFreshInputTokens),
+                ),
+            )
+        }
+        item(key = "output") {
+            StatValueRow(
+                icon = Icons.AutoMirrored.Rounded.Notes,
+                label = stringResource(R.string.stats_page_output_tokens),
+                value = formatCurrentLifetime(
+                    current = formatTokenCount(stats.currentOutputTokens),
+                    lifetime = formatTokenCount(stats.lifetimeOutputTokens),
+                ),
+            )
+        }
+        item(key = "cached", visible = stats.lifetimeCachedTokens > 0) {
+            StatValueRow(
+                icon = Icons.Rounded.Bolt,
+                label = stringResource(R.string.stats_page_cached_tokens),
+                value = formatCurrentLifetime(
+                    current = formatTokenCount(stats.currentCachedTokens),
+                    lifetime = formatTokenCount(stats.lifetimeCachedTokens),
+                ),
+            )
+        }
+        item(key = "cache-writes") {
+            StatValueRow(
+                icon = Icons.Rounded.Add,
+                label = stringResource(R.string.stats_page_cache_creation_tokens),
+                value = formatCurrentLifetime(
+                    current = formatTokenCount(stats.currentCacheCreationTokens),
+                    lifetime = formatTokenCount(stats.lifetimeCacheCreationTokens),
+                ),
+            )
+        }
+        item(key = "launches") {
+            StatValueRow(
+                icon = Icons.Rounded.RocketLaunch,
+                label = stringResource(R.string.stats_page_launch_count),
+                value = formatStatCount(stats.launchCount.toLong()),
+            )
+        }
+    }
+}
+
+/** 概览统计行：前导图标 + 名称 + 尾部数值。 */
+@Composable
+private fun StatValueRow(icon: ImageVector, label: String, value: String) {
+    if (isMaterial3Theme()) {
+        EtaSegmentedRow(
+            leadingContent = { PreferenceIcon(icon = icon) },
+            content = { M3Text(text = label, style = MaterialTheme.typography.bodyLarge) },
+            trailingContent = {
+                M3Text(
+                    text = value,
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            },
+        )
+    } else {
+        HapticBasicComponent(
+            title = label,
+            startAction = { PreferenceIcon(icon = icon) },
+            endActions = {
+                Text(
+                    text = value,
+                    style = MiuixTheme.textStyles.body1,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            },
+        )
+    }
+}
+
 @Composable
 private fun ModelUsagePane(
     usage: ModelUsageSnapshot,
@@ -317,11 +458,8 @@ private fun ModelUsagePane(
     val filtered = remember(usage, startBound, endBound) {
         usage.filtered(startBound.toMillis(endOfBound = false), endBound.toMillis(endOfBound = true))
     }
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        ModelUsageFilterCard(
+    Column(modifier = modifier) {
+        UsageFilterGroup(
             start = startBound,
             end = endBound,
             onStartChange = { startBound = it },
@@ -331,92 +469,40 @@ private fun ModelUsagePane(
                 endBound = UsageTimeBound()
             },
         )
-        EtaCard {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                StatsTitle(text = stringResource(R.string.stats_model_total_title))
-                ModelMetricRow(
-                    label = stringResource(R.string.stats_page_token_total),
-                    value = formatTokenCount(filtered.totalTokens),
-                )
-                ModelMetricRow(
-                    // The value excludes cache reads and writes. The hit rate divides by the
-                    // full prompt, so it is not labelled "input".
-                    label = stringResource(R.string.stats_page_fresh_input_tokens),
-                    value = formatTokenCount(filtered.totalFreshInputTokens),
-                )
-                ModelMetricRow(
-                    label = stringResource(R.string.stats_page_output_tokens),
-                    value = formatTokenCount(filtered.totalOutputTokens),
-                )
-                ModelMetricRow(
-                    label = stringResource(R.string.stats_page_cached_tokens),
-                    value = formatTokenCount(filtered.totalCachedTokens),
-                )
-                ModelMetricRow(
-                    label = stringResource(R.string.stats_page_cache_creation_tokens),
-                    value = formatTokenCount(filtered.totalCacheCreationTokens),
-                )
-                ModelMetricRow(
-                    label = stringResource(R.string.stats_model_cache_hit_rate),
-                    value = formatCacheHitRate(filtered.totalCachedTokens, filtered.totalInputTokens),
-                )
-            }
-        }
         if (filtered.providers.isEmpty()) {
-            StatsLabel(
-                text = stringResource(
+            ListEmptyState(
+                title = stringResource(
                     if (startBound.isSet || endBound.isSet) {
                         R.string.stats_model_filter_empty
                     } else {
                         R.string.stats_model_empty
                     },
                 ),
-                modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
+                modifier = Modifier.padding(bottom = 13.dp),
             )
         } else {
-            filtered.providers.forEach { provider ->
-                EtaCard {
-                    Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            if (isMaterial3Theme()) {
-                                M3Text(
-                                    text = provider.name,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    modifier = Modifier.weight(1f),
-                                )
-                            } else {
-                                Text(
-                                    text = provider.name,
-                                    style = MiuixTheme.textStyles.title3,
-                                    modifier = Modifier.weight(1f),
-                                )
-                            }
-                        }
-                        provider.models.forEach { model ->
-                            val key = "${provider.id}/${model.id}"
-                            val expanded = key in expandedModels
-                            ModelUsageRow(
-                                model = model,
-                                expanded = expanded,
-                                onToggle = {
-                                    expandedModels = if (expanded) {
-                                        expandedModels - key
-                                    } else {
-                                        expandedModels + key
-                                    }
-                                },
-                            )
-                        }
+            EtaSegmentedColumn(
+                modifier = Modifier.padding(bottom = 13.dp),
+                title = stringResource(R.string.stats_model_total_title),
+            ) {
+                snapshotMetrics(filtered).forEach { (labelRes, value) ->
+                    item(key = labelRes) {
+                        MetricRow(label = stringResource(labelRes), value = value)
                     }
                 }
+            }
+            filtered.providers.forEach { provider ->
+                ProviderUsageGroup(
+                    provider = provider,
+                    expandedModels = expandedModels,
+                    onToggle = { key ->
+                        expandedModels = if (key in expandedModels) {
+                            expandedModels - key
+                        } else {
+                            expandedModels + key
+                        }
+                    },
+                )
             }
         }
     }
@@ -424,8 +510,9 @@ private fun ModelUsagePane(
 
 private enum class UsageBoundSide { Start, End }
 
+/** 时间筛选分组：头部展开行 + 条件可见的起止行 / 预设 / 清除行。 */
 @Composable
-private fun ModelUsageFilterCard(
+private fun UsageFilterGroup(
     start: UsageTimeBound,
     end: UsageTimeBound,
     onStartChange: (UsageTimeBound) -> Unit,
@@ -443,31 +530,25 @@ private fun ModelUsageFilterCard(
         ?: stringResource(R.string.stats_model_filter_collapsed)
     val titleText = stringResource(R.string.stats_model_filter_title)
     val expandIcon = if (expanded) Icons.Rounded.ExpandMore else Icons.Rounded.ChevronRight
-    EtaCard {
-        Column {
+
+    EtaSegmentedColumn(modifier = Modifier.padding(bottom = 13.dp)) {
+        item(key = "header") {
             if (isMaterial3Theme()) {
-                // M3：官方可点击 ListItem 承担展开/收起，替掉「Row + clickable(无涟漪)」。
-                val supportingText = summary
-                val supporting: (@Composable () -> Unit)? = if (supportingText != null) {
-                    {
-                        M3Text(
-                            text = supportingText,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                        )
-                    }
-                } else {
-                    null
-                }
-                ListItem(
+                // M3：官方可点击分段行承担展开/收起，替掉「Row + clickable(无涟漪)」。
+                EtaSegmentedRow(
                     onClick = {
                         TouchHaptics.click(view)
                         expanded = !expanded
                     },
-                    modifier = Modifier.fillMaxWidth(),
                     content = { M3Text(text = titleText, style = MaterialTheme.typography.bodyLarge) },
-                    supportingContent = supporting,
+                    supportingContent = {
+                        M3Text(
+                            text = summary,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                        )
+                    },
                     trailingContent = {
                         Icon(
                             imageVector = expandIcon,
@@ -508,63 +589,86 @@ private fun ModelUsageFilterCard(
                     )
                 }
             }
-            AnimatedVisibility(visible = expanded) {
-                Column(
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    UsageBoundRow(
-                        label = stringResource(R.string.stats_model_filter_start),
-                        bound = start,
-                        onClick = {
-                            TouchHaptics.click(view)
-                            pickerSide = UsageBoundSide.Start
-                        },
-                    )
-                    UsageBoundRow(
-                        label = stringResource(R.string.stats_model_filter_end),
-                        bound = end,
-                        onClick = {
-                            TouchHaptics.click(view)
-                            pickerSide = UsageBoundSide.End
-                        },
-                    )
-                    UsageFilterPresetRow(
+        }
+        item(key = "start", visible = expanded) {
+            UsageBoundRow(
+                label = stringResource(R.string.stats_model_filter_start),
+                value = formatUsageDate(start)
+                    ?: stringResource(R.string.stats_model_filter_datetime_placeholder),
+                onClick = {
+                    TouchHaptics.click(view)
+                    pickerSide = UsageBoundSide.Start
+                },
+            )
+        }
+        item(key = "end", visible = expanded) {
+            UsageBoundRow(
+                label = stringResource(R.string.stats_model_filter_end),
+                value = formatUsageDate(end)
+                    ?: stringResource(R.string.stats_model_filter_datetime_placeholder),
+                onClick = {
+                    TouchHaptics.click(view)
+                    pickerSide = UsageBoundSide.End
+                },
+            )
+        }
+        item(key = "presets", visible = expanded) {
+            if (isMaterial3Theme()) {
+                EtaSegmentedItemContainer {
+                    UsageFilterPresetChips(
                         selected = matchedPreset,
                         onSelect = { preset ->
-                            TouchHaptics.click(view)
                             selectedPreset = preset
                             val (from, to) = usageFilterPresetRange(preset, LocalDate.now())
                             onStartChange(UsageTimeBound.from(from))
                             onEndChange(UsageTimeBound.from(to))
                         },
+                        modifier = Modifier.padding(16.dp),
                     )
-                    if (start.isSet || end.isSet) {
-                        if (isMaterial3Theme()) {
-                            M3TextButton(
-                                onClick = {
-                                    TouchHaptics.click(view)
-                                    selectedPreset = null
-                                    onClear()
-                                },
-                            ) {
-                                M3Text(text = stringResource(R.string.stats_model_filter_clear))
-                            }
-                        } else {
-                            Text(
-                                text = stringResource(R.string.stats_model_filter_clear),
-                                style = MiuixTheme.textStyles.body2,
-                                modifier = Modifier
-                                    .clickable {
-                                        TouchHaptics.click(view)
-                                        selectedPreset = null
-                                        onClear()
-                                    }
-                                    .padding(top = 2.dp),
-                            )
-                        }
-                    }
                 }
+            } else {
+                UsageFilterPresetChips(
+                    selected = matchedPreset,
+                    onSelect = { preset ->
+                        selectedPreset = preset
+                        val (from, to) = usageFilterPresetRange(preset, LocalDate.now())
+                        onStartChange(UsageTimeBound.from(from))
+                        onEndChange(UsageTimeBound.from(to))
+                    },
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
+        }
+        item(key = "clear", visible = expanded && (start.isSet || end.isSet)) {
+            if (isMaterial3Theme()) {
+                // 破坏性操作用 error 色强调，与其他界面的删除行一致。
+                EtaSegmentedRow(
+                    onClick = {
+                        TouchHaptics.click(view)
+                        selectedPreset = null
+                        onClear()
+                    },
+                    content = {
+                        M3Text(
+                            text = stringResource(R.string.stats_model_filter_clear),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    },
+                )
+            } else {
+                Text(
+                    text = stringResource(R.string.stats_model_filter_clear),
+                    style = MiuixTheme.textStyles.body2,
+                    modifier = Modifier
+                        .clickable {
+                            TouchHaptics.click(view)
+                            selectedPreset = null
+                            onClear()
+                        }
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                )
             }
         }
     }
@@ -587,29 +691,56 @@ private fun ModelUsageFilterCard(
     )
 }
 
+/** 起止日期行：点击打开日期选择器，当前值显示在 supporting。 */
 @Composable
 private fun UsageBoundRow(
     label: String,
-    bound: UsageTimeBound,
+    value: String,
     onClick: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        StatsLabel(text = label)
-        UsageBoundChip(
-            text = formatUsageDate(bound)
-                ?: stringResource(R.string.stats_model_filter_datetime_placeholder),
-            modifier = Modifier.fillMaxWidth(),
-            fullWidth = true,
+    val view = LocalView.current
+    if (isMaterial3Theme()) {
+        EtaSegmentedRow(
+            onClick = { TouchHaptics.click(view); onClick() },
+            content = { M3Text(text = label, style = MaterialTheme.typography.bodyLarge) },
+            supportingContent = {
+                M3Text(
+                    text = value,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            trailingContent = {
+                Icon(
+                    imageVector = Icons.Rounded.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+        )
+    } else {
+        HapticBasicComponent(
+            title = label,
+            summary = value,
             onClick = onClick,
+            endActions = {
+                Icon(
+                    imageVector = Icons.Rounded.ChevronRight,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
+            },
         )
     }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun UsageFilterPresetRow(
+private fun UsageFilterPresetChips(
     selected: UsageFilterPreset?,
     onSelect: (UsageFilterPreset) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val items = listOf(
         UsageFilterPreset.Today to R.string.stats_model_filter_preset_today,
@@ -619,7 +750,7 @@ private fun UsageFilterPresetRow(
         UsageFilterPreset.ThisMonth to R.string.stats_model_filter_preset_month,
     )
     FlowRow(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -636,15 +767,14 @@ private fun UsageFilterPresetRow(
 /**
  * 时间筛选胶囊。
  *
- * Material 3 走官方 [FilterChip]（自带选中态、涟漪与语义，形状/配色/字阶均为官方默认值），
- * 替掉「Box + clip + background + 无涟漪 clickable」；MIUI X 保持原有绘制。
+ * Material 3 走官方 [FilterChip]（自带选中态、涟漪与语义，形状/配色/字阶均为官方默认值）；
+ * MIUI X 保持原有绘制。
  */
 @Composable
 private fun UsageBoundChip(
     text: String,
     modifier: Modifier = Modifier,
     selected: Boolean = false,
-    fullWidth: Boolean = false,
     onClick: () -> Unit,
 ) {
     if (isMaterial3Theme()) {
@@ -652,7 +782,7 @@ private fun UsageBoundChip(
             selected = selected,
             onClick = onClick,
             label = { M3Text(text = text) },
-            modifier = if (fullWidth) modifier.fillMaxWidth() else modifier,
+            modifier = modifier,
         )
         return
     }
@@ -663,7 +793,7 @@ private fun UsageBoundChip(
             .background(if (selected) colors.primary else colors.primaryContainer)
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 8.dp),
-        contentAlignment = if (fullWidth) Alignment.CenterStart else Alignment.Center,
+        contentAlignment = Alignment.Center,
     ) {
         Text(
             text = text,
@@ -704,118 +834,130 @@ private fun filterSummaryText(
     }
 }
 
-/** 单个模型的折叠行：M3 用官方可点击 [ListItem]，MIUI X 保持原有可点击行。 */
+/**
+ * 汇总指标（标签 → 已格式化数值）。
+ *
+ * The value excludes cache reads and writes. The hit rate divides by the
+ * full prompt, so it is not labelled "input".
+ */
+private fun snapshotMetrics(snapshot: ModelUsageSnapshot): List<Pair<Int, String>> = listOf(
+    R.string.stats_page_token_total to formatTokenCount(snapshot.totalTokens),
+    R.string.stats_page_fresh_input_tokens to formatTokenCount(snapshot.totalFreshInputTokens),
+    R.string.stats_page_output_tokens to formatTokenCount(snapshot.totalOutputTokens),
+    R.string.stats_page_cached_tokens to formatTokenCount(snapshot.totalCachedTokens),
+    R.string.stats_page_cache_creation_tokens to formatTokenCount(snapshot.totalCacheCreationTokens),
+    R.string.stats_model_cache_hit_rate to formatCacheHitRate(snapshot.totalCachedTokens, snapshot.totalInputTokens),
+)
+
+/** 单个模型的展开指标（标签 → 已格式化数值）。 */
+private fun modelMetricDetails(model: ModelUsageModelUi): List<Pair<Int, String>> = listOf(
+    R.string.stats_page_token_total to formatTokenCount(model.totalTokens),
+    R.string.stats_page_fresh_input_tokens to formatTokenCount(model.freshInputTokens),
+    R.string.stats_page_output_tokens to formatTokenCount(model.outputTokens),
+    R.string.stats_page_cached_tokens to formatTokenCount(model.cachedTokens),
+    R.string.stats_page_cache_creation_tokens to formatTokenCount(model.cacheCreationTokens),
+    R.string.stats_model_cache_hit_rate to formatCacheHitRate(model.cachedTokens, model.inputTokens),
+    R.string.stats_model_daily_avg to formatTokenCount(model.dailyAverageTokens),
+    R.string.stats_model_conversation_avg to formatTokenCount(model.conversationAverageTokens),
+    R.string.stats_model_conversations to formatStatCount(model.conversationCount.toLong()),
+    R.string.stats_model_active_days to formatStatCount(model.activeDays.toLong()),
+)
+
+/** 标签 / 数值指标行：非交互，M3 用分段行，miuix 保留 Row + SpaceBetween。 */
 @Composable
-private fun ModelUsageRow(
-    model: ModelUsageModelUi,
-    expanded: Boolean,
-    onToggle: () -> Unit,
-) {
-    val view = LocalView.current
-    Column {
-        if (isMaterial3Theme()) {
-            ListItem(
-                onClick = {
-                    TouchHaptics.click(view)
-                    onToggle()
-                },
-                modifier = Modifier.fillMaxWidth(),
-                content = {
-                    M3Text(text = model.displayName, style = MaterialTheme.typography.bodyLarge)
-                },
-                trailingContent = {
-                    Icon(
-                        imageVector = if (expanded) Icons.Rounded.ExpandMore else Icons.Rounded.ChevronRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                },
-            )
-        } else {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        TouchHaptics.click(view)
-                        onToggle()
-                    }
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = model.displayName,
-                    style = MiuixTheme.textStyles.body1,
-                    modifier = Modifier.weight(1f),
+private fun MetricRow(label: String, value: String) {
+    if (isMaterial3Theme()) {
+        EtaSegmentedRow(
+            content = { M3Text(text = label, style = MaterialTheme.typography.bodyLarge) },
+            trailingContent = {
+                M3Text(
+                    text = value,
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
-                Icon(
-                    imageVector = if (expanded) Icons.Rounded.ExpandMore else Icons.Rounded.ChevronRight,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .padding(start = 8.dp)
-                        .size(18.dp),
-                    tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                )
-            }
-        }
-        AnimatedVisibility(visible = expanded) {
-            Column(
-                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                ModelMetricRow(
-                    label = stringResource(R.string.stats_page_token_total),
-                    value = formatTokenCount(model.totalTokens),
-                )
-                ModelMetricRow(
-                    label = stringResource(R.string.stats_page_fresh_input_tokens),
-                    value = formatTokenCount(model.freshInputTokens),
-                )
-                ModelMetricRow(
-                    label = stringResource(R.string.stats_page_output_tokens),
-                    value = formatTokenCount(model.outputTokens),
-                )
-                ModelMetricRow(
-                    label = stringResource(R.string.stats_page_cached_tokens),
-                    value = formatTokenCount(model.cachedTokens),
-                )
-                ModelMetricRow(
-                    label = stringResource(R.string.stats_page_cache_creation_tokens),
-                    value = formatTokenCount(model.cacheCreationTokens),
-                )
-                ModelMetricRow(
-                    label = stringResource(R.string.stats_model_cache_hit_rate),
-                    value = formatCacheHitRate(model.cachedTokens, model.inputTokens),
-                )
-                ModelMetricRow(
-                    label = stringResource(R.string.stats_model_daily_avg),
-                    value = formatTokenCount(model.dailyAverageTokens),
-                )
-                ModelMetricRow(
-                    label = stringResource(R.string.stats_model_conversation_avg),
-                    value = formatTokenCount(model.conversationAverageTokens),
-                )
-                ModelMetricRow(
-                    label = stringResource(R.string.stats_model_conversations),
-                    value = formatStatCount(model.conversationCount.toLong()),
-                )
-                ModelMetricRow(
-                    label = stringResource(R.string.stats_model_active_days),
-                    value = formatStatCount(model.activeDays.toLong()),
-                )
-            }
+            },
+        )
+    } else {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            StatsLabel(text = label)
+            StatsLabel(text = value, tier = StatsTextTier.Primary, maxLines = 1)
         }
     }
 }
 
+/** 单个提供商分组：组标题为提供商名，模型行可展开，展开指标行用 visible 参与 spring 动画。 */
 @Composable
-private fun ModelMetricRow(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+private fun ProviderUsageGroup(
+    provider: ModelUsageProviderUi,
+    expandedModels: Set<String>,
+    onToggle: (String) -> Unit,
+) {
+    val view = LocalView.current
+    EtaSegmentedColumn(
+        modifier = Modifier.padding(bottom = 13.dp),
+        title = provider.name,
     ) {
-        StatsLabel(text = label)
-        StatsLabel(text = value, tier = StatsTextTier.Primary, maxLines = 1)
+        provider.models.forEach { model ->
+            val key = "${provider.id}/${model.id}"
+            val expanded = key in expandedModels
+            item(key = key) {
+                if (isMaterial3Theme()) {
+                    EtaSegmentedRow(
+                        onClick = {
+                            TouchHaptics.click(view)
+                            onToggle(key)
+                        },
+                        content = {
+                            M3Text(text = model.displayName, style = MaterialTheme.typography.bodyLarge)
+                        },
+                        trailingContent = {
+                            Icon(
+                                imageVector = if (expanded) Icons.Rounded.ExpandMore else Icons.Rounded.ChevronRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        },
+                    )
+                } else {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                TouchHaptics.click(view)
+                                onToggle(key)
+                            }
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = model.displayName,
+                            style = MiuixTheme.textStyles.body1,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Icon(
+                            imageVector = if (expanded) Icons.Rounded.ExpandMore else Icons.Rounded.ChevronRight,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .padding(start = 8.dp)
+                                .size(18.dp),
+                            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        )
+                    }
+                }
+            }
+            modelMetricDetails(model).forEach { (labelRes, value) ->
+                item(key = "$key-$labelRes", visible = expanded) {
+                    MetricRow(label = stringResource(labelRes), value = value)
+                }
+            }
+        }
     }
 }
 
@@ -858,7 +1000,7 @@ private fun ChatHeatmap(conversationsPerDay: Map<LocalDate, Int>) {
                     contentAlignment = Alignment.Center,
                 ) {
                     if (label.isNotEmpty()) {
-                        Text(
+                        HeatmapCaption(
                             text = label,
                             fontSize = 8.sp,
                             color = onSurfaceVariant,
@@ -884,7 +1026,7 @@ private fun ChatHeatmap(conversationsPerDay: Map<LocalDate, Int>) {
                         contentAlignment = Alignment.BottomStart,
                     ) {
                         if (labelDate != null) {
-                            Text(
+                            HeatmapCaption(
                                 text = if (labelDate.monthValue == 1) {
                                     labelDate.year.toString()
                                 } else {
@@ -946,114 +1088,5 @@ private fun HeatmapCell(alpha: Float, sizeDp: Int) {
     )
 }
 
-@Composable
-private fun StatsGrid(stats: UsageStatsSnapshot, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            StatCard(
-                modifier = Modifier.weight(1f),
-                icon = Icons.Rounded.Forum,
-                label = stringResource(R.string.stats_page_total_conversations),
-                value = formatCurrentLifetime(
-                    current = formatStatCount(stats.currentConversations.toLong()),
-                    lifetime = formatStatCount(stats.lifetimeConversations.toLong()),
-                ),
-            )
-            StatCard(
-                modifier = Modifier.weight(1f),
-                icon = Icons.Rounded.ChatBubbleOutline,
-                label = stringResource(R.string.stats_page_total_messages),
-                value = formatCurrentLifetime(
-                    current = formatStatCount(stats.currentMessages.toLong()),
-                    lifetime = formatStatCount(stats.lifetimeMessages.toLong()),
-                ),
-            )
-        }
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            StatCard(
-                modifier = Modifier.weight(1f),
-                icon = Icons.Rounded.Keyboard,
-                label = stringResource(R.string.stats_page_fresh_input_tokens),
-                value = formatCurrentLifetime(
-                    current = formatTokenCount(stats.currentFreshInputTokens),
-                    lifetime = formatTokenCount(stats.lifetimeFreshInputTokens),
-                ),
-            )
-            StatCard(
-                modifier = Modifier.weight(1f),
-                icon = Icons.AutoMirrored.Rounded.Notes,
-                label = stringResource(R.string.stats_page_output_tokens),
-                value = formatCurrentLifetime(
-                    current = formatTokenCount(stats.currentOutputTokens),
-                    lifetime = formatTokenCount(stats.lifetimeOutputTokens),
-                ),
-            )
-        }
-        if (stats.lifetimeCachedTokens > 0) {
-            StatCard(
-                modifier = Modifier.fillMaxWidth(),
-                icon = Icons.Rounded.Bolt,
-                label = stringResource(R.string.stats_page_cached_tokens),
-                value = formatCurrentLifetime(
-                    current = formatTokenCount(stats.currentCachedTokens),
-                    lifetime = formatTokenCount(stats.lifetimeCachedTokens),
-                ),
-            )
-        }
-        StatCard(
-            modifier = Modifier.fillMaxWidth(),
-            icon = Icons.Rounded.Add,
-            label = stringResource(R.string.stats_page_cache_creation_tokens),
-            value = formatCurrentLifetime(
-                current = formatTokenCount(stats.currentCacheCreationTokens),
-                lifetime = formatTokenCount(stats.lifetimeCacheCreationTokens),
-            ),
-        )
-        StatCard(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-            icon = Icons.Rounded.RocketLaunch,
-            label = stringResource(R.string.stats_page_launch_count),
-            value = formatStatCount(stats.launchCount.toLong()),
-        )
-    }
-}
-
 private fun formatCurrentLifetime(current: String, lifetime: String): String =
     if (current == lifetime) current else "$current / $lifetime"
-
-@Composable
-private fun StatCard(
-    modifier: Modifier = Modifier,
-    icon: ImageVector,
-    label: String,
-    value: String,
-) {
-    EtaCard(modifier = modifier) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = if (isMaterial3Theme()) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MiuixTheme.colorScheme.primary
-                },
-                modifier = Modifier.size(20.dp),
-            )
-            StatsTitle(text = value)
-            StatsLabel(text = label)
-        }
-    }
-}

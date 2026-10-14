@@ -13,9 +13,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import io.github.mangi.eta.R
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.agent.delegation.ConversationSubAgentConfig
@@ -167,6 +171,7 @@ internal fun SubAgentProfileConfigDialog(
     if (!current) return
     val scope = rememberCoroutineScope()
     val view = LocalView.current
+    val context = LocalContext.current
     val draft = session.draft
     val usable = session.canCommit(currentEditor, enabled) && !session.submitting
     var modelPicker by remember(session) { mutableStateOf(false) }
@@ -197,10 +202,10 @@ internal fun SubAgentProfileConfigDialog(
     val effective = boundConfig?.let { SubAgentPreferences.applyReasoning(draft, it).effectiveReasoningEffort }
     val efforts = if (draft.isMedia) media?.efforts.orEmpty() else boundConfig?.reasoningCapabilities?.selectableEfforts.orEmpty()
     val thinkingLabel = when {
-        boundConfig == null -> "未选择有效模型"
-        !canThink -> media?.label ?: "当前接口未适配"
-        draft.isMedia && effective !in efforts -> "原档位不可用，请重选"
-        else -> effective?.displayName ?: "未启用"
+        boundConfig == null -> stringResource(R.string.sap_no_valid_model)
+        !canThink -> media?.label ?: stringResource(R.string.sap_endpoint_unsupported)
+        draft.isMedia && effective !in efforts -> stringResource(R.string.sap_reselect_tier)
+        else -> effective?.displayName ?: stringResource(R.string.sap_not_enabled)
     }
     val verifiedGrok = boundConfig?.let { runtime -> runCatching {
         val body = if (runtime.extraBodyJson.isBlank()) org.json.JSONObject() else org.json.JSONObject(runtime.extraBodyJson)
@@ -221,10 +226,10 @@ internal fun SubAgentProfileConfigDialog(
             // This form is also opened from a Compose Dialog. OverlayDialog registers
             // content in a Scaffold host, which can be absent or behind that parent window.
             // WindowDialog keeps the same Miuix layout/style in its own modal window.
-            EtaDialog(show = true, title = if (session.expectedProfile == null) "添加子代理" else "子代理配置",
+            EtaDialog(show = true, title = if (session.expectedProfile == null) stringResource(R.string.sap_add_profile) else stringResource(R.string.sap_profile_config),
                 onDismissRequest = userDismiss) {
                 Column(Modifier.fillMaxWidth().profileDialogScrollableBody().verticalScroll(rememberScrollState())) {
-                    EtaFormTextField(session.name, { if (usable) session.name = it.take(80) }, hint = "名称",
+                    EtaFormTextField(session.name, { if (usable) session.name = it.take(80) }, hint = stringResource(R.string.sap_name),
                         singleLine = true, enabled = usable, modifier = Modifier.fillMaxWidth())
                     // 官方 ListItem 行承载整行点按与开关语义；官方 Switch 只呈现状态，点击统一由行处理。
                     ListItem(
@@ -236,43 +241,43 @@ internal fun SubAgentProfileConfigDialog(
                             onValueChange = { active -> interact { session.edit { it.copy(enabled = active) } } },
                         ),
                     ) {
-                        Text("启用")
+                        Text(stringResource(R.string.sap_enable))
                     }
-                    SubAgentSettingRow("模型", boundConfig?.let { it.modelDisplayName.ifBlank { it.model } }
-                        ?: if (draft.modelId.isBlank()) "选择模型" else "模型不可用", Icons.Rounded.ViewInAr,
-                        "草稿模型", usable, badge = boundConfig?.providerName,
+                    SubAgentSettingRow(stringResource(R.string.sap_model), boundConfig?.let { it.modelDisplayName.ifBlank { it.model } }
+                        ?: if (draft.modelId.isBlank()) stringResource(R.string.sap_select_model) else stringResource(R.string.sap_model_unavailable), Icons.Rounded.ViewInAr,
+                        stringResource(R.string.sap_draft_model), usable, badge = boundConfig?.providerName,
                         onClick = { interact { modelPicker = true } },
                         onLongClick = { if (usable && canThink) { TouchHaptics.longPress(view); thinkingPicker = true } })
-                    if (canEditSpeed) SubAgentSettingRow("GPT 速度", gptSpeedDisplayName(draft.gptSpeedForModel()),
-                        Icons.Rounded.Speed, "草稿GPT速度", usable, onClick = { interact {
+                    if (canEditSpeed) SubAgentSettingRow(stringResource(R.string.sap_gpt_speed), gptSpeedDisplayName(draft.gptSpeedForModel()),
+                        Icons.Rounded.Speed, stringResource(R.string.sap_draft_gpt_speed), usable, onClick = { interact {
                             session.edit { profile ->
                                 if (profile.providerId != draft.providerId || profile.modelId != draft.modelId || profile.role != draft.role) profile
                                 else profile.copy(gptSpeedByModel = profile.gptSpeedByModel +
                                     (SubAgentProfile.modelReasoningKey(profile.providerId, profile.modelId) to profile.gptSpeedForModel().next()))
                             }
                         } })
-                    SubAgentSettingRow("职责", draft.roleLabel, Icons.AutoMirrored.Rounded.Assignment, "草稿职责", usable,
+                    SubAgentSettingRow(stringResource(R.string.sap_role), draft.roleLabel, Icons.AutoMirrored.Rounded.Assignment, stringResource(R.string.sap_draft_role), usable,
                         onClick = { interact { choices = "role" } })
-                    if (draft.supportsTaskTier) SubAgentSettingRow("任务分工", draft.tier?.label ?: "未设置分工",
-                        Icons.Rounded.AccountTree, "草稿任务分工", usable, onClick = { interact { choices = "tier" } })
-                    SubAgentSettingRow("思考深度", thinkingLabel, Icons.Rounded.AutoAwesome, "草稿思考深度",
+                    if (draft.supportsTaskTier) SubAgentSettingRow(stringResource(R.string.sap_task_tier), draft.tier?.label ?: stringResource(R.string.sap_tier_unset),
+                        Icons.Rounded.AccountTree, stringResource(R.string.sap_draft_tier), usable, onClick = { interact { choices = "tier" } })
+                    SubAgentSettingRow(stringResource(R.string.sap_thinking), thinkingLabel, Icons.Rounded.AutoAwesome, stringResource(R.string.sap_draft_thinking),
                         usable && canThink, onClick = { interact { thinkingPicker = true } })
                     EtaFormTextField(session.parallelValue, { if (usable) session.editParallel(it) },
-                        hint = "并行上限（0 为不限）", singleLine = true,
+                        hint = stringResource(R.string.sap_parallel_hint), singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         enabled = usable && boundConfig != null, modifier = Modifier.fillMaxWidth())
-                    if (!session.parallelIsValid()) Text("请输入 0 或正整数", color = MaterialTheme.colorScheme.error)
-                    Text("本配置内相同提供商/API 模型共用此上限；仅确认时保存，调低不会取消正在执行的任务。",
+                    if (!session.parallelIsValid()) Text(stringResource(R.string.sap_parallel_invalid), color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.sap_parallel_note),
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(vertical = 8.dp))
-                    if (draft.role == "image_generation") SubAgentSettingRow("默认分辨率",
-                        draft.imageResolution?.let(ImageResolutionTier::label) ?: "跟随接口", Icons.Rounded.Image,
-                        "草稿分辨率", usable && boundConfig != null, onClick = { interact { choices = "resolution" } })
+                    if (draft.role == "image_generation") SubAgentSettingRow(stringResource(R.string.sap_default_resolution),
+                        draft.imageResolution?.let(ImageResolutionTier::label) ?: stringResource(R.string.sap_follow_endpoint), Icons.Rounded.Image,
+                        stringResource(R.string.sap_draft_resolution), usable && boundConfig != null, onClick = { interact { choices = "resolution" } })
                     session.error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp)) }
                     val editorState = session.editor.state
                     if (editorState is SubAgentEditorState.Error) {
-                        Text("配置保存或读取失败：${editorState.reason}", color = MaterialTheme.colorScheme.error)
-                        TextButton(enabled = !session.submitting, onClick = onRetry) { Text("重试恢复配置（保留草稿）") }
+                        Text(stringResource(R.string.sap_config_error, editorState.reason), color = MaterialTheme.colorScheme.error)
+                        TextButton(enabled = !session.submitting, onClick = onRetry) { Text(stringResource(R.string.sap_retry_restore_draft)) }
                     }
                 }
                 SubAgentDraftDialogActions(ready, !session.submitting, userDismiss, onConfirm = {
@@ -296,10 +301,10 @@ internal fun SubAgentProfileConfigDialog(
                                     TouchHaptics.click(view)
                                     dismiss()
                                 } else if (session.isCurrent(latestEditor, latestEnabled)) {
-                                    session.error = "未保存：配置或模型已变更，请检查后重试；草稿已保留。"
+                                    session.error = context.getString(R.string.sap_not_saved)
                                 }
                             } catch (cancelled: CancellationException) { throw cancelled }
-                              catch (_: Exception) { session.error = "保存失败，草稿已保留，请重试。" }
+                              catch (_: Exception) { session.error = context.getString(R.string.sap_save_failed) }
                             finally { session.submitting = false }
                         }
                     }
@@ -313,7 +318,7 @@ internal fun SubAgentProfileConfigDialog(
                 TtsModelPickerDialog(models, true, { modelPicker = false }, { provider, model ->
                     if (session.canCommit(latestEditor, latestEnabled)) session.selectModel(ModelFeatureSelection(true, provider, model))
                     modelPicker = false
-                }, "选择${draft.name}模型", onClearSelection = {
+                }, stringResource(R.string.sap_select_model_for, draft.name), onClearSelection = {
                     if (session.canCommit(latestEditor, latestEnabled)) session.selectModel(ModelFeatureSelection(true, "", ""))
                     modelPicker = false
                 }, highlightSelection = true)
@@ -324,15 +329,15 @@ internal fun SubAgentProfileConfigDialog(
                     if (session.canCommit(latestEditor, latestEnabled) && next in efforts &&
                         session.draft.providerId == binding.providerId && session.draft.modelId == binding.modelId && session.draft.role == binding.role)
                         session.edit { it.copy(reasoning = next) }
-                }, description = "仅修改当前草稿，确认后保存" + if (draft.isMedia) "；档位依据端点显式映射" else "")
+                }, description = stringResource(R.string.sap_draft_only_note) + if (draft.isMedia) stringResource(R.string.sap_tier_endpoint_note) else "")
             }
             if (usable) choices?.let { field ->
                 val options: List<Pair<String?, String>> = when (field) {
-                    "role" -> listOf("implementation" to "执行", "review" to "审查／总结", "image_generation" to "图片生成", "video_generation" to "视频生成")
-                    "tier" -> listOf(null to "未设置分工") + SubAgentTaskTier.entries.map { it.wireValue to it.label }
-                    else -> listOf(null to "跟随接口") + ImageResolutionTier.values.filter { !verifiedGrok || it in setOf("low", "high") }.map { it to ImageResolutionTier.label(it) }
+                    "role" -> listOf("implementation" to stringResource(R.string.sap_role_impl), "review" to stringResource(R.string.sap_role_review), "image_generation" to stringResource(R.string.sap_role_image), "video_generation" to stringResource(R.string.sap_role_video))
+                    "tier" -> listOf(null to stringResource(R.string.sap_tier_unset)) + SubAgentTaskTier.entries.map { it.wireValue to it.label }
+                    else -> listOf(null to stringResource(R.string.sap_follow_endpoint)) + ImageResolutionTier.values.filter { !verifiedGrok || it in setOf("low", "high") }.map { it to ImageResolutionTier.label(it) }
                 }
-                EtaDialog(show = true, title = when (field) { "role" -> "职责"; "tier" -> "任务分工"; else -> "默认分辨率" },
+                EtaDialog(show = true, title = when (field) { "role" -> stringResource(R.string.sap_role); "tier" -> stringResource(R.string.sap_task_tier); else -> stringResource(R.string.sap_default_resolution) },
                     onDismissRequest = { choices = null }) {
                     Column(Modifier.fillMaxWidth().profileDialogScrollableBody().verticalScroll(rememberScrollState())) {
                         options.forEach { (value, label) ->
@@ -368,9 +373,23 @@ internal fun SubAgentProfileConfigDialog(
 private fun SubAgentDraftDialogActions(confirmEnabled: Boolean, cancelEnabled: Boolean, onCancel: () -> Unit, onConfirm: () -> Unit) {
     val view = LocalView.current
     Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        MiuixTextButton(text = "取消", modifier = Modifier.weight(1f), enabled = cancelEnabled,
-            onClick = { TouchHaptics.click(view); onCancel() })
-        MiuixTextButton(text = "确认", modifier = Modifier.weight(1f), enabled = confirmEnabled,
-            colors = MiuixButtonDefaults.textButtonColorsPrimary(), onClick = onConfirm)
+        if (isMaterial3Theme()) {
+            // M3：官方 TextButton（左，轻）+ FilledButton（右，实心），与参考的对话框操作区一致。
+            TextButton(
+                onClick = { TouchHaptics.click(view); onCancel() },
+                modifier = Modifier.weight(1f),
+                enabled = cancelEnabled,
+            ) { Text(stringResource(R.string.action_cancel)) }
+            Button(
+                onClick = onConfirm,
+                modifier = Modifier.weight(1f),
+                enabled = confirmEnabled,
+            ) { Text(stringResource(R.string.action_confirm)) }
+        } else {
+            MiuixTextButton(text = stringResource(R.string.action_cancel), modifier = Modifier.weight(1f), enabled = cancelEnabled,
+                onClick = { TouchHaptics.click(view); onCancel() })
+            MiuixTextButton(text = stringResource(R.string.action_confirm), modifier = Modifier.weight(1f), enabled = confirmEnabled,
+                colors = MiuixButtonDefaults.textButtonColorsPrimary(), onClick = onConfirm)
+        }
     }
 }

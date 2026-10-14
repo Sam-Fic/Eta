@@ -10,17 +10,20 @@ import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.github.mangi.eta.ui.adaptive.LocalEtaSegmentedRowBare
 
 /**
  * Flat setting row shared by model, role, tier and reasoning; no nested field outlines.
@@ -49,6 +52,11 @@ internal fun SubAgentSettingRow(
         enabled = enabled,
         onClick = onClick,
         onLongClick = onLongClick,
+        // 位于 KernelSU 式分段容器（[io.github.mangi.eta.ui.adaptive.EtaSegmentedItemContainer]）内时
+        // 不自绘底色，避免在 surfaceBright 容器上叠出异色块；独立使用时保持原样。
+        colors = ListItemDefaults.colors(
+            containerColor = if (LocalEtaSegmentedRowBare.current) Color.Transparent else MaterialTheme.colorScheme.surface,
+        ),
         leadingContent = {
             // Approved settings shots keep icon and label on the same ink as the body text.
             Icon(icon, null, tint = MaterialTheme.colorScheme.onSurface)

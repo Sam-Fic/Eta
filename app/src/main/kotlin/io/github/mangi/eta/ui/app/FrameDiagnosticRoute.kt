@@ -17,6 +17,7 @@ internal fun AppRoute.frameDiagnosticPage(): FrameDiagnosticPage = when (this) {
     AppRoute.Permissions -> FrameDiagnosticPage.Permissions
     AppRoute.SystemEnhance -> FrameDiagnosticPage.SystemEnhance
     AppRoute.Settings -> FrameDiagnosticPage.Settings
+    AppRoute.About -> FrameDiagnosticPage.Settings
     AppRoute.SpeechSettings -> FrameDiagnosticPage.VoiceSettings
     AppRoute.TtsSettings -> FrameDiagnosticPage.VoiceSettings
     AppRoute.VoiceSettings -> FrameDiagnosticPage.VoiceSettings
@@ -27,6 +28,7 @@ internal fun AppRoute.frameDiagnosticPage(): FrameDiagnosticPage = when (this) {
     AppRoute.VoiceModeSettings -> FrameDiagnosticPage.VoiceSettings
     AppRoute.AppearanceSettings -> FrameDiagnosticPage.AppearanceSettings
     AppRoute.WhaleMaid -> FrameDiagnosticPage.Settings
+    AppRoute.WhaleMaidMemories -> FrameDiagnosticPage.Settings
     AppRoute.DataBackup -> FrameDiagnosticPage.DataBackup
     AppRoute.Memory -> FrameDiagnosticPage.Memory
     AppRoute.LinuxEnvironment -> FrameDiagnosticPage.LinuxEnvironment

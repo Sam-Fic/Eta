@@ -14,6 +14,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.delegation.SubAgentPreferences
 import io.github.mangi.eta.agent.delegation.SubAgentProfile
 import io.github.mangi.eta.agent.delegation.SubAgentTaskTier
@@ -56,27 +58,27 @@ internal fun SubAgentProfileRow(profile: SubAgentProfile, providers: List<Provid
     val effective = config?.let { SubAgentPreferences.applyReasoning(profile, it).effectiveReasoningEffort }
     val efforts = if (profile.isMedia) media?.efforts.orEmpty() else config?.reasoningCapabilities?.selectableEfforts.orEmpty()
     val thinkingLabel = when {
-        config == null -> "未选择模型"
-        profile.isMedia && !canThink -> media?.label ?: "当前接口未适配"
-        profile.isMedia && effective !in efforts -> "原档位不可用，请重选"
-        else -> effective?.displayName ?: "未启用"
+        config == null -> stringResource(R.string.sap_select_model)
+        profile.isMedia && !canThink -> media?.label ?: stringResource(R.string.sap_endpoint_unsupported)
+        profile.isMedia && effective !in efforts -> stringResource(R.string.sap_reselect_tier)
+        else -> effective?.displayName ?: stringResource(R.string.sap_not_enabled)
     }
     LaunchedEffect(profile.providerId, profile.modelId) { thinkingPicker = false }
     Column(verticalArrangement = Arrangement.spacedBy(if (settings) 0.dp else 12.dp)) {
         if (settings) {
-            SubAgentSettingRow("模型", config?.let { it.modelDisplayName.ifBlank { it.model } }
-                ?: if (profile.modelId.isBlank()) "选择模型" else "模型不可用",
-                Icons.Rounded.ViewInAr, "${profile.name}模型", enabled = usable, badge = config?.providerName,
+            SubAgentSettingRow(stringResource(R.string.sap_model), config?.let { it.modelDisplayName.ifBlank { it.model } }
+                ?: if (profile.modelId.isBlank()) stringResource(R.string.sap_select_model) else stringResource(R.string.sap_model_unavailable),
+                Icons.Rounded.ViewInAr, stringResource(R.string.spr_model_for, profile.name), enabled = usable, badge = config?.providerName,
                 onClick = { if (currentUsable) { TouchHaptics.click(view); modelPicker = true } },
                 onLongClick = { if (currentUsable && canThink) { TouchHaptics.longPress(view); thinkingPicker = true } },
                 trailing = { SubAgentGptSpeedButton(profile, providers, usable) })
             Box(Modifier.fillMaxWidth()) {
-                SubAgentSettingRow("职责", profile.roleLabel, Icons.AutoMirrored.Rounded.Assignment,
-                    "选择${profile.name}职责", enabled = usable, dropdown = true,
+                SubAgentSettingRow(stringResource(R.string.sap_role), profile.roleLabel, Icons.AutoMirrored.Rounded.Assignment,
+                    stringResource(R.string.spr_select_role_for, profile.name), enabled = usable, dropdown = true,
                     onClick = { if (currentUsable) { TouchHaptics.click(view); rolePicker = !rolePicker } })
                 Box(Modifier.align(Alignment.CenterEnd).size(40.dp)) {
                     if (usable) SubAgentDropdownMenu(rolePicker, { rolePicker = false }, Modifier.selectableGroup()) {
-                        listOf("implementation" to "执行", "review" to "审查／总结", "image_generation" to "图片生成", "video_generation" to "视频生成").forEach { (role, label) ->
+                        listOf("implementation" to stringResource(R.string.sap_role_impl), "review" to stringResource(R.string.sap_role_review), "image_generation" to stringResource(R.string.sap_role_image), "video_generation" to stringResource(R.string.sap_role_video)).forEach { (role, label) ->
                             SubAgentSelectionItem(label, profile.role == role) {
                                 if (currentUsable) editor?.updateProfile(profile.id) { it.withRole(role) }
                                 rolePicker = false
@@ -87,13 +89,13 @@ internal fun SubAgentProfileRow(profile: SubAgentProfile, providers: List<Provid
             }
             if (profile.supportsTaskTier) {
                 Box(Modifier.fillMaxWidth()) {
-                    SubAgentSettingRow("任务分工", profile.tier?.label ?: "未设置分工", Icons.Rounded.AccountTree,
-                        "设置${profile.name}任务分工", enabled = usable, dropdown = true,
+                    SubAgentSettingRow(stringResource(R.string.sap_task_tier), profile.tier?.label ?: stringResource(R.string.sap_tier_unset), Icons.Rounded.AccountTree,
+                        stringResource(R.string.spr_set_tier_for, profile.name), enabled = usable, dropdown = true,
                         onClick = { if (currentUsable) { TouchHaptics.click(view); tierPicker = !tierPicker } })
                     Box(Modifier.align(Alignment.CenterEnd).size(40.dp)) {
                         if (usable) SubAgentDropdownMenu(tierPicker, { tierPicker = false }, Modifier.selectableGroup()) {
                             (listOf<SubAgentTaskTier?>(null) + SubAgentTaskTier.entries).forEach { tier ->
-                                SubAgentSelectionItem(tier?.label ?: "未设置分工", profile.tier == tier) {
+                                SubAgentSelectionItem(tier?.label ?: stringResource(R.string.sap_tier_unset), profile.tier == tier) {
                                     if (currentUsable) editor?.updateProfile(profile.id) { latest ->
                                         if (latest.supportsTaskTier) latest.copy(tier = tier) else latest
                                     }
@@ -105,12 +107,12 @@ internal fun SubAgentProfileRow(profile: SubAgentProfile, providers: List<Provid
                 }
             }
             if (profile.role == "image_generation") {
-                SubAgentSettingRow("默认分辨率", profile.imageResolution?.let(io.github.mangi.eta.agent.model.ImageResolutionTier::label) ?: "跟随接口",
-                    Icons.Rounded.ViewInAr, "设置${profile.name}分辨率", enabled = usable && config != null,
+                SubAgentSettingRow(stringResource(R.string.sap_default_resolution), profile.imageResolution?.let(io.github.mangi.eta.agent.model.ImageResolutionTier::label) ?: stringResource(R.string.sap_follow_endpoint),
+                    Icons.Rounded.ViewInAr, stringResource(R.string.spr_set_resolution_for, profile.name), enabled = usable && config != null,
                     onClick = { if (currentUsable && config != null) { TouchHaptics.click(view); resolutionPicker = true } })
             }
-            SubAgentSettingRow("思考深度", thinkingLabel,
-                Icons.Rounded.AutoAwesome, "调整${profile.name}思考深度", enabled = usable && canThink,
+            SubAgentSettingRow(stringResource(R.string.sap_thinking), thinkingLabel,
+                Icons.Rounded.AutoAwesome, stringResource(R.string.spr_adjust_thinking_for, profile.name), enabled = usable && canThink,
                 onClick = { if (currentUsable && canThink) { TouchHaptics.click(view); thinkingPicker = true } })
             SubAgentParallelLimitRow(profile, config, usable)
         } else {
@@ -122,7 +124,7 @@ internal fun SubAgentProfileRow(profile: SubAgentProfile, providers: List<Provid
                 ListItem(
                     onClick = { if (currentUsable) { TouchHaptics.click(view); modelPicker = true } },
                     onLongClick = { if (currentUsable && canThink) { TouchHaptics.longPress(view); thinkingPicker = true } },
-                    onLongClickLabel = "调整${profile.name}思考深度",
+                    onLongClickLabel = stringResource(R.string.spr_adjust_thinking_for, profile.name),
                     // 不再手写 semantics contentDescription：ListItem 内部已是
                     // semantics(mergeDescendants = true)，headline(代理名) + supportingContent(模型/接口·思考)
                     // 会自动合并成该可点节点的播报文本；再叠 contentDescription 只会造成重复朗读。
@@ -135,10 +137,10 @@ internal fun SubAgentProfileRow(profile: SubAgentProfile, providers: List<Provid
                     },
                     supportingContent = {
                         Column {
-                            Text(config?.let { it.modelDisplayName.ifBlank { it.model } } ?: if (profile.modelId.isBlank()) "无" else "模型不可用",
+                            Text(config?.let { it.modelDisplayName.ifBlank { it.model } } ?: if (profile.modelId.isBlank()) stringResource(R.string.sap_none) else stringResource(R.string.sap_model_unavailable),
                                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            if (config != null) Text(config.providerName + " · 思考 $thinkingLabel",
+                            if (config != null) Text(config.providerName + stringResource(R.string.spr_thinking_suffix, thinkingLabel),
                                 style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
@@ -155,7 +157,7 @@ internal fun SubAgentProfileRow(profile: SubAgentProfile, providers: List<Provid
                         }
                     }
                 }) {
-                    Icon(Icons.Rounded.MoreVert, "配置${profile.name}",
+                    Icon(Icons.Rounded.MoreVert, stringResource(R.string.spr_config_for, profile.name),
                         tint = MaterialTheme.colorScheme.onSurface)
                 }
             }
@@ -173,10 +175,10 @@ internal fun SubAgentProfileRow(profile: SubAgentProfile, providers: List<Provid
             io.github.mangi.eta.agent.model.RequestBodyMerge.mergeCustomBody(body, config.customBody)
             io.github.mangi.eta.agent.model.GrokImageProfile.applies(config.baseUrl, config.model, body)
         }.getOrDefault(false)
-        AlertDialog(onDismissRequest = { resolutionPicker = false }, title = { Text("默认分辨率") },
+        AlertDialog(onDismissRequest = { resolutionPicker = false }, title = { Text(stringResource(R.string.sap_default_resolution)) },
             text = { Column {
-                Text("低、中、高、超高表示请求档位，不承诺固定像素。自然语言和本次子代理参数可覆盖此默认值。" +
-                    if (verifiedGrok) "当前 Grok 实测端点仅验证低、高；中、超高不可选。" else "实际支持取决于端点映射。")
+                Text(stringResource(R.string.spr_resolution_note) +
+                    if (verifiedGrok) stringResource(R.string.spr_resolution_grok) else stringResource(R.string.spr_resolution_generic))
                 (listOf<String?>(null) + io.github.mangi.eta.agent.model.ImageResolutionTier.values).forEach { tier ->
                     val allowed = !verifiedGrok || tier == null || tier in setOf("low", "high")
                     // 官方单选列表项：选中态、无障碍单选语义与按压反馈全部由 ListItem 提供。
@@ -191,11 +193,11 @@ internal fun SubAgentProfileRow(profile: SubAgentProfile, providers: List<Provid
                         },
                         // 可交互/单选重载的正文参数名是 content（不是 headlineContent）。
                         content = {
-                            Text(tier?.let(io.github.mangi.eta.agent.model.ImageResolutionTier::label) ?: "跟随接口")
+                            Text(tier?.let(io.github.mangi.eta.agent.model.ImageResolutionTier::label) ?: stringResource(R.string.sap_follow_endpoint))
                         },
                     )
                 }
-            } }, confirmButton = { TextButton(onClick = { resolutionPicker = false }) { Text("关闭") } })
+            } }, confirmButton = { TextButton(onClick = { resolutionPicker = false }) { Text(stringResource(R.string.action_close)) } })
     }
     if (usable && modelPicker) {
         val all = AgentModelPickerProjector.project(providers, profile.providerId, profile.modelId)
@@ -205,7 +207,7 @@ internal fun SubAgentProfileRow(profile: SubAgentProfile, providers: List<Provid
         TtsModelPickerDialog(models, true, { modelPicker = false }, { provider, model ->
             if (currentUsable) editor?.saveModel(profile.id, ModelFeatureSelection(true, provider, model), expected = profile)
             modelPicker = false
-        }, "选择${profile.name}模型", onClearSelection = {
+        }, stringResource(R.string.sap_select_model_for, profile.name), onClearSelection = {
             if (currentUsable) editor?.saveModel(profile.id, ModelFeatureSelection(true, "", ""), expected = profile)
             modelPicker = false
         }, highlightSelection = true)
@@ -218,7 +220,7 @@ internal fun SubAgentProfileRow(profile: SubAgentProfile, providers: List<Provid
                 if (latest.role == profile.role && latest.providerId == profile.providerId && latest.modelId == profile.modelId)
                     latest.copy(reasoning = next) else latest
             }
-        }, description = "${profile.name} · 仅影响此代理" +
-            if (profile.isMedia) "；档位依据端点显式映射，不代表执行代理式思考或可见思考过程" else "")
+        }, description = stringResource(R.string.spr_thinking_desc, profile.name) +
+            if (profile.isMedia) stringResource(R.string.spr_thinking_endpoint) else "")
     }
 }

@@ -126,6 +126,9 @@ fun AgentAppTheme(
                 surfaceContainerHighest = miuixColors.surfaceContainerHigh,
                 surfaceContainerLow = miuixColors.surface,
                 surfaceContainerLowest = miuixColors.surface,
+                // KernelSU 式三层色阶：页面背景 = surfaceContainer，分段条目 = surfaceBright。
+                surfaceBright = miuixColors.surfaceContainerHighest,
+                surfaceDim = miuixColors.surface,
             )
         } else {
             lightColorScheme(
@@ -155,6 +158,9 @@ fun AgentAppTheme(
                 surfaceContainerHighest = miuixColors.surfaceContainerHigh,
                 surfaceContainerLow = miuixColors.surface,
                 surfaceContainerLowest = miuixColors.surface,
+                // KernelSU 式三层色阶：页面背景 = surfaceContainer，分段条目 = surfaceBright。
+                surfaceBright = miuixColors.surfaceContainerHighest,
+                surfaceDim = miuixColors.surface,
             )
         }
 

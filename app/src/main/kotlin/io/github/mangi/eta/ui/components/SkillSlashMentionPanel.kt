@@ -12,8 +12,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.skill.SkillIndexEntry
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.model.SkillSlashMention
@@ -53,7 +55,7 @@ internal fun SkillSlashMentionPanel(
                     colors = itemColors,
                     content = {
                         M3Text(
-                            text = "没有匹配的可用 Skill",
+                            text = stringResource(R.string.ssm_no_match),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -75,7 +77,7 @@ internal fun SkillSlashMentionPanel(
                             },
                             supportingContent = {
                                 M3Text(
-                                    text = "/skill:${skill.id} · ${skill.description.ifBlank { "无描述" }}",
+                                    text = "/skill:${skill.id} · ${skill.description.ifBlank { stringResource(R.string.ssm_no_description) }}",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
@@ -96,7 +98,7 @@ internal fun SkillSlashMentionPanel(
     ) {
         if (candidates.isEmpty()) {
             Text(
-                text = "没有匹配的可用 Skill",
+                text = stringResource(R.string.ssm_no_match),
                 modifier = Modifier.padding(12.dp),
                 style = MiuixTheme.textStyles.body2,
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
@@ -115,7 +117,7 @@ internal fun SkillSlashMentionPanel(
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            text = "/skill:${skill.id} · ${skill.description.ifBlank { "无描述" }}",
+                            text = "/skill:${skill.id} · ${skill.description.ifBlank { stringResource(R.string.ssm_no_description) }}",
                             style = MiuixTheme.textStyles.body2,
                             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             maxLines = 1,

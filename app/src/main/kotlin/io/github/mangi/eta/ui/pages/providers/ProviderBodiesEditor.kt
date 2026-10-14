@@ -16,6 +16,8 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedItemContainer
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import top.yukonga.miuix.kmp.basic.Text
@@ -30,48 +32,58 @@ internal fun LazyListScope.providerBodiesEditor(
     onExpandedChange: (Boolean) -> Unit,
 ) {
     item(key = "custom_bodies") {
-        ProviderSection(title = "自定义请求体") {
-            ProviderExpandableRow(
-                title = if (bodies.isEmpty()) "未设置" else "已设置 ${bodies.size} 项",
-                summary = "值使用 JSON 格式，字符串请加双引号；不是请求头。",
-                expanded = expanded,
-                onExpandedChange = onExpandedChange,
-            )
-            if (expanded) {
-                bodies.forEach { row ->
-                    key(row.id) {
+        // KernelSU 式分段列：展开行独立成段（首段），请求体编辑体、示例提示与「添加」行
+        // 落在同一个隐藏段里（visible = expanded，折叠时以 spring 动画收起）。
+        EtaSegmentedColumn(
+            modifier = EditorSectionPadding,
+            title = stringResource(R.string.pbe_custom_bodies),
+        ) {
+            item {
+                ProviderExpandableRow(
+                    title = if (bodies.isEmpty()) stringResource(R.string.prov_not_set) else stringResource(R.string.prov_set_count, bodies.size),
+                    summary = stringResource(R.string.pbe_bodies_summary),
+                    expanded = expanded,
+                    onExpandedChange = onExpandedChange,
+                )
+            }
+            item(visible = expanded) {
+                EtaSegmentedItemContainer {
+                    Column {
+                        bodies.forEach { row ->
+                            key(row.id) {
+                                ProviderBodyRow(
+                                    row = row,
+                                    onKeyChange = { value ->
+                                        onBodiesChange(bodies.map { if (it.id == row.id) it.copy(key = value) else it })
+                                    },
+                                    onValueChange = { value ->
+                                        onBodiesChange(bodies.map { if (it.id == row.id) it.copy(valueJson = value) else it })
+                                    },
+                                    onRemove = { onBodiesChange(bodies.filterNot { it.id == row.id }) },
+                                )
+                            }
+                        }
+                        val error = parseProviderBodies(bodies).exceptionOrNull()?.message
+                        val hint = error ?: stringResource(R.string.pbe_hint_example)
+                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                            if (isMaterial3Theme()) {
+                                M3Text(
+                                    text = hint,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            } else {
+                                Text(
+                                    text = hint,
+                                    style = MiuixTheme.textStyles.body2,
+                                )
+                            }
+                        }
                         ProviderDivider()
-                        ProviderBodyRow(
-                            row = row,
-                            onKeyChange = { value ->
-                                onBodiesChange(bodies.map { if (it.id == row.id) it.copy(key = value) else it })
-                            },
-                            onValueChange = { value ->
-                                onBodiesChange(bodies.map { if (it.id == row.id) it.copy(valueJson = value) else it })
-                            },
-                            onRemove = { onBodiesChange(bodies.filterNot { it.id == row.id }) },
-                        )
+                        ProviderAddRow(text = stringResource(R.string.pbe_add_body_field)) {
+                            onBodiesChange(bodies + ProviderBodyDraft())
+                        }
                     }
-                }
-                val error = parseProviderBodies(bodies).exceptionOrNull()?.message
-                val hint = error ?: "示例：字段 eta_prompt_cache，值 \"1h\"；也支持 true、123、null、{}、[]。"
-                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    if (isMaterial3Theme()) {
-                        M3Text(
-                            text = hint,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    } else {
-                        Text(
-                            text = hint,
-                            style = MiuixTheme.textStyles.body2,
-                        )
-                    }
-                }
-                ProviderDivider()
-                ProviderAddRow(text = "添加请求体字段") {
-                    onBodiesChange(bodies + ProviderBodyDraft())
                 }
             }
         }
@@ -95,12 +107,12 @@ private fun ProviderBodyRow(
             ProviderField(
                 value = row.key,
                 onValueChange = onKeyChange,
-                label = "字段名",
+                label = stringResource(R.string.pbe_field_name),
             )
             ProviderField(
                 value = row.valueJson,
                 onValueChange = onValueChange,
-                label = "值（JSON）",
+                label = stringResource(R.string.pbe_value_json),
                 singleLine = false,
             )
         }

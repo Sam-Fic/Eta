@@ -76,7 +76,7 @@ internal class ScheduledSendReceiver : BroadcastReceiver() {
             manager.createNotificationChannel(
                 NotificationChannel(
                     CHANNEL_ID,
-                    "定时消息",
+                    context.getString(R.string.ssa_channel_name),
                     NotificationManager.IMPORTANCE_HIGH,
                 ),
             )

@@ -5,6 +5,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -12,10 +14,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.runtime.Composable
@@ -23,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
@@ -34,8 +35,9 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.data.model.CustomProviderSetting
 import io.github.mangi.eta.data.model.ProviderSetting
-import io.github.mangi.eta.ui.adaptive.EtaCard
-import io.github.mangi.eta.ui.adaptive.EtaSectionTitle
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedDropdownRow
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedItemContainer
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.components.PreferenceIcon
 import io.github.mangi.eta.ui.components.providerBrandLogoRes as sharedProviderBrandLogoRes
@@ -43,21 +45,14 @@ import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import androidx.compose.material3.ExposedDropdownMenu
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults as M3ButtonDefaults
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuBoxScope
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton as M3IconButton
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SelectableDropdownMenuItem
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text as M3Text
 import top.yukonga.miuix.kmp.basic.BasicComponent
@@ -71,22 +66,24 @@ import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.WindowSpinnerPreference
 
-/** 分组标题 + 卡片的标准组合，Provider 相关页面统一使用。 */
+/** 分段列调用方的统一外边距：水平 16dp、组间 13dp，与 KernelSU 分段列表调用方一致。 */
+internal val ProviderSectionGroupPadding = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp)
+
+/**
+ * 可展开编辑器的展开体容器：M3 用官方分段容器（与分段行拼成连续表面，
+ * 对应参考实现的 SegmentedItemContainer）；MIUI X 直接排布（整组已收进卡片）。
+ */
 @Composable
-internal fun ProviderSection(
-    title: String?,
-    modifier: Modifier = Modifier,
+internal fun ProviderSegmentBody(
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Column(modifier = modifier) {
-        if (title != null) {
-            EtaSectionTitle(text = title)
+    if (isMaterial3Theme()) {
+        EtaSegmentedItemContainer {
+            Column(modifier = Modifier.fillMaxWidth(), content = content)
         }
-        // EtaCard 在 Material 3 下就是官方 Card：容器 surfaceContainerHighest、形状 shapes.medium。
-        EtaCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
-            content()
-        }
+        return
     }
+    Column(modifier = Modifier.fillMaxWidth(), content = content)
 }
 
 /** 厂商品牌原色图标；资源已经包含适合圆形裁剪的背景与安全区。 */
@@ -323,7 +320,7 @@ internal fun ProviderClickableRow(
         } else {
             null
         }
-        ListItem(
+        EtaSegmentedRow(
             onClick = onClick,
             modifier = Modifier.fillMaxWidth(),
             enabled = enabled,
@@ -363,7 +360,7 @@ internal fun ProviderNoticeRow(
         } else {
             null
         }
-        ListItem(
+        EtaSegmentedRow(
             modifier = Modifier.fillMaxWidth(),
             enabled = enabled,
             leadingContent = leading,
@@ -387,6 +384,8 @@ internal fun ProviderExpandableRow(
     summary: String?,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
+    showChevron: Boolean = true,
+    endActions: (@Composable RowScope.() -> Unit)? = null,
 ) {
     val target = if (expanded) 180f else 0f
     val rotation by if (isMaterial3Theme()) {
@@ -411,17 +410,22 @@ internal fun ProviderExpandableRow(
         } else {
             null
         }
-        ListItem(
+        EtaSegmentedRow(
             onClick = { onExpandedChange(!expanded) },
             modifier = Modifier.fillMaxWidth(),
             content = { M3Text(text = title, style = MaterialTheme.typography.bodyLarge) },
             supportingContent = supporting,
             trailingContent = {
-                Icon(
-                    imageVector = Icons.Rounded.ExpandMore,
-                    contentDescription = null,
-                    modifier = Modifier.rotate(rotation),
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    endActions?.invoke(this)
+                    if (showChevron) {
+                        Icon(
+                            imageVector = Icons.Rounded.ExpandMore,
+                            contentDescription = null,
+                            modifier = Modifier.rotate(rotation),
+                        )
+                    }
+                }
             },
         )
     } else {
@@ -429,12 +433,17 @@ internal fun ProviderExpandableRow(
             title = title,
             summary = summary,
             endActions = {
-                Icon(
-                    imageVector = Icons.Rounded.ExpandMore,
-                    contentDescription = null,
-                    tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                    modifier = Modifier.rotate(rotation),
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    endActions?.invoke(this)
+                    if (showChevron) {
+                        Icon(
+                            imageVector = Icons.Rounded.ExpandMore,
+                            contentDescription = null,
+                            tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                            modifier = Modifier.rotate(rotation),
+                        )
+                    }
+                }
             },
             onClick = { onExpandedChange(!expanded) },
         )
@@ -448,7 +457,7 @@ internal fun ProviderAddRow(
     onClick: () -> Unit,
 ) {
     if (isMaterial3Theme()) {
-        ListItem(
+        EtaSegmentedRow(
             onClick = onClick,
             modifier = Modifier.fillMaxWidth(),
             leadingContent = {
@@ -482,8 +491,11 @@ internal fun ProviderAddRow(
     }
 }
 
-/** 下拉选择行：M3 用官方 [ExposedDropdownMenuBox] + [DropdownMenuItem]，MIUI X 保持原有 Spinner 偏好。 */
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+/**
+ * 下拉选择行：M3 走与外观/语音等兄弟页一致的 [EtaSegmentedDropdownRow]
+ * （行尾以 primary 色给出当前取值、从按下位置弹出带分段形状与勾选图标的表达性菜单），
+ * MIUI X 保持原有 [WindowSpinnerPreference] 行为不变。
+ */
 @Composable
 internal fun ProviderDropdownRow(
     title: String,
@@ -494,41 +506,14 @@ internal fun ProviderDropdownRow(
     enabled: Boolean = true,
 ) {
     if (isMaterial3Theme()) {
-        var expanded by remember { mutableStateOf(false) }
-        ExposedDropdownMenuBox(
-            expanded = expanded,
-            onExpandedChange = { if (enabled) expanded = it },
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            ProviderDropdownAnchorRow(
-                title = title,
-                summary = summary,
-                enabled = enabled,
-            )
-            ExposedDropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false },
-            ) {
-                items.forEachIndexed { index, label ->
-                    // 官方可选项菜单：形状按位置取官方 MenuDefaults.itemShape，选中态用官方对勾。
-                    SelectableDropdownMenuItem(
-                        selected = index == selectedIndex,
-                        onClick = {
-                            expanded = false
-                            onSelectedIndexChange(index)
-                        },
-                        text = { M3Text(text = label) },
-                        shapes = MenuDefaults.itemShape(index = index, count = items.size),
-                        selectedLeadingIcon = {
-                            Icon(
-                                imageVector = Icons.Rounded.Check,
-                                contentDescription = null,
-                            )
-                        },
-                    )
-                }
-            }
-        }
+        EtaSegmentedDropdownRow(
+            title = title,
+            items = items,
+            selectedIndex = selectedIndex,
+            onItemSelected = onSelectedIndexChange,
+            summary = summary,
+            enabled = enabled,
+        )
         return
     }
     WindowSpinnerPreference(
@@ -537,36 +522,6 @@ internal fun ProviderDropdownRow(
         title = title,
         summary = summary,
         onSelectedIndexChange = onSelectedIndexChange,
-    )
-}
-
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
-@Composable
-private fun ExposedDropdownMenuBoxScope.ProviderDropdownAnchorRow(
-    title: String,
-    summary: String,
-    enabled: Boolean,
-) {
-    ListItem(
-        modifier = Modifier
-            .fillMaxWidth()
-            .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled),
-        enabled = enabled,
-        content = { M3Text(text = title, style = MaterialTheme.typography.bodyLarge) },
-        supportingContent = {
-            M3Text(
-                text = summary,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        },
-        trailingContent = {
-            Icon(
-                imageVector = Icons.Rounded.KeyboardArrowDown,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        },
     )
 }
 

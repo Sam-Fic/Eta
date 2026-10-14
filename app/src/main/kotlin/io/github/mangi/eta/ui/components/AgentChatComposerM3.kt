@@ -19,19 +19,25 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.StopCircle
+import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -39,8 +45,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.ProgressIndicatorDefaults
-import androidx.compose.material3.SplitButtonDefaults
-import androidx.compose.material3.SplitButtonLayout
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
@@ -77,9 +81,6 @@ import io.github.mangi.eta.data.model.GptSpeedMode
 import io.github.mangi.eta.data.model.ReasoningEffort
 import io.github.mangi.eta.data.repository.ComposerQueueStore
 import io.github.mangi.eta.ui.adaptive.EtaConnectedGroupRow
-import io.github.mangi.eta.ui.adaptive.EtaGroupPosition
-import io.github.mangi.eta.ui.adaptive.etaConnectedShape
-import io.github.mangi.eta.ui.adaptive.etaSplitLeadingShape
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.model.AgentContextUsageUi
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
@@ -95,15 +96,14 @@ import kotlinx.coroutines.launch
  * Material 3 Expressive 输入区。
  *
  * 全部可点区域均为官方 Material 3 组件（`FilledTonalIconButton` / `FilledIconButton` /
- * `OutlinedIconButton` / `IconButton` / `SplitButtonLayout` + `SplitButtonDefaults`，菜单用官方
+ * `OutlinedIconButton` / `IconButton` / `ToggleButton` + `ButtonGroupDefaults`，菜单用官方
  * `DropdownMenu` + `DropdownMenuItem`），不再用 `Box + clip + background + clickable` 手搓。
  * 尺寸一律取官方令牌（`IconButtonDefaults` 的 ContainerSize / IconSize、
- * `SplitButtonDefaults.SmallContainerHeight`、`ButtonDefaults.MinHeight`、
- * `ProgressIndicatorDefaults.CircularStrokeWidth`），按钮统一为 Small 档（40dp），动效曲线取
- * `MaterialTheme.motionScheme`，颜色只引用 `MaterialTheme.colorScheme` 角色。
+ * `ButtonDefaults.MinHeight`、`ProgressIndicatorDefaults.CircularStrokeWidth`），按钮统一为
+ * Small 档（40dp），动效曲线取 `MaterialTheme.motionScheme`，颜色只引用 `MaterialTheme.colorScheme` 角色。
  *
  * 结构（自上而下）：
- * 1. 附件拆分按钮（左侧图片图标 + 右侧箭头菜单：定时发送 / 保存草稿 / 分享）、
+ * 1. 附件连体按钮组（左侧图片图标 + 右侧箭头菜单：定时发送 / 保存草稿 / 分享）、
  *    助手与模型组成的相连按钮组、思考档位、上下文用量进度环。
  * 2. 语音／生成指示 + 胶囊描边输入框 + 发送按钮。
  * 生成中时进度环变为波浪形，发送按钮变为色调停止按钮。
@@ -232,7 +232,7 @@ internal fun Material3ComposerBody(
                     selectedAssistantId = assistantId,
                     onEditAssistant = onEditAssistant,
                     onAssistantSelected = onAssistantSelected,
-                    containerShape = etaConnectedShape(EtaGroupPosition.Leading),
+                    connectedShapes = ButtonGroupDefaults.connectedLeadingButtonShapes(),
                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
                     containerSize = IconButtonDefaults.smallContainerSize().width,
                 )
@@ -245,7 +245,7 @@ internal fun Material3ComposerBody(
                     popupAnchorTopPx = inputContainerTopPx,
                     popupMaxHeight = popupMaxHeight,
                     onModelSelected = onModelSelected,
-                    containerShape = etaConnectedShape(EtaGroupPosition.Trailing),
+                    connectedShapes = ButtonGroupDefaults.connectedTrailingButtonShapes(),
                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
                     containerSize = IconButtonDefaults.smallContainerSize().width,
                 )
@@ -336,28 +336,38 @@ internal fun Material3ComposerBody(
                 ),
             )
 
-            M3ComposerSendButton(
-                sendMode = sendMode,
-                isPaused = isPaused,
-                onSend = {
-                    val text = textFieldState.text.toString()
-                    // 发送后草稿失效，清掉本机保存的副本。
-                    scope.launch {
-                        ComposerQueueStore.saveDraft(context, conversationKey, "")
-                    }
-                    onSubmit(text)
-                },
-                onStop = onStop,
-                onContinue = onContinue,
-                onAbortPausedRun = onAbortPausedRun,
-                onBlocked = {
-                    Toast.makeText(
-                        context,
-                        context.getString(R.string.context_window_send_blocked),
-                        Toast.LENGTH_SHORT,
-                    ).show()
-                },
-            )
+            // 发送按钮与语音按钮同套一层最小高度容器并在其中居中。输入框最小高是
+            // ButtonDefaults.MediumContainerHeight(56dp)，按钮本体是 smallContainerSize(40dp)，
+            // 行内 Bottom 对齐会让 40dp 按钮贴行底，圆心比输入框圆心低 8dp（视觉上不居中）。
+            // 外包 56dp 居中后单行态与输入框完全同心；输入框长高后仍随 Bottom 贴住行底区域，
+            // 与语音按钮行为一致。
+            Box(
+                modifier = Modifier.heightIn(min = ButtonDefaults.MediumContainerHeight),
+                contentAlignment = Alignment.Center,
+            ) {
+                M3ComposerSendButton(
+                    sendMode = sendMode,
+                    isPaused = isPaused,
+                    onSend = {
+                        val text = textFieldState.text.toString()
+                        // 发送后草稿失效，清掉本机保存的副本。
+                        scope.launch {
+                            ComposerQueueStore.saveDraft(context, conversationKey, "")
+                        }
+                        onSubmit(text)
+                    },
+                    onStop = onStop,
+                    onContinue = onContinue,
+                    onAbortPausedRun = onAbortPausedRun,
+                    onBlocked = {
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.context_window_send_blocked),
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    },
+                )
+            }
         }
     }
 
@@ -403,11 +413,13 @@ private fun M3ComposerCancelButton(onClick: () -> Unit) {
 }
 
 /**
- * 附件拆分按钮：官方 `SplitButtonLayout` + `SplitButtonDefaults.TrailingButton`。
+ * 附件连体按钮组：官方 `ToggleButton` + `ButtonGroupDefaults` 连体形状（与助手/模型按钮组同套写法）。
  *
- * 段间距（官方 `SplitButtonDefaults.Spacing`）、内圆角（extraSmall 4dp，按压 12dp）、容器高度
- * （`SmallContainerHeight`，与主页 / 侧边栏按钮统一为 Small 档）、箭头图标尺寸与旋转动效（`MaterialTheme.motionScheme`）全部由官方
- * 令牌提供；菜单用官方 `DropdownMenu` + `DropdownMenuItem`，不覆盖任何形状/容器色/字阶。
+ * 左段点击直接打开系统图片选择器；右段箭头展开菜单：定时发送 / 存草稿 / 分享，
+ * 以及视频 / 文件 / 文件夹 / 输入路径等附件项（动作由共享的 `rememberAgentAttachmentActions` 提供）。
+ * 段间距（`ButtonGroupDefaults.ConnectedSpaceBetween`）、容器尺寸（官方 Small 图标按钮 40dp）、
+ * 按压形变（官方连体形状组）与箭头旋转动效（`MaterialTheme.motionScheme`）全部由官方令牌提供；
+ * 菜单用官方 `DropdownMenu` + `DropdownMenuItem`，不覆盖任何形状/容器色/字阶。
  */
 @Composable
 private fun M3AttachmentSplitButton(
@@ -423,46 +435,56 @@ private fun M3AttachmentSplitButton(
     onShare: () -> Unit,
 ) {
     val view = LocalView.current
-    val height = SplitButtonDefaults.SmallContainerHeight
+    val actions = rememberAgentAttachmentActions(
+        onAttachImage = onAttachImage,
+        onAttachVideo = onAttachVideo,
+        onAttachFiles = onAttachFiles,
+        onAttachFolder = onAttachFolder,
+        onAttachFilePath = onAttachFilePath,
+    )
     val arrowRotation by animateFloatAsState(
         targetValue = if (expanded) 180f else 0f,
         animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Float>(),
         label = "m3-composer-split-arrow",
     )
     Box {
-        SplitButtonLayout(
-            leadingButton = {
-                // 附件入口复用共享的 AgentAttachmentPickerButton：它持有 ActivityResult 启动器与
-                // 绝对路径输入弹窗，不在本文件内，因此形状/配色直接引用官方拆分按钮左段令牌。
-                AgentAttachmentPickerButton(
-                    onAttachImage = onAttachImage,
-                    onAttachVideo = onAttachVideo,
-                    onAttachFiles = onAttachFiles,
-                    onAttachFolder = onAttachFolder,
-                    onAttachFilePath = onAttachFilePath,
-                    icon = Icons.Rounded.Image,
-                    containerShape = etaSplitLeadingShape(),
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    containerSize = height,
+        EtaConnectedGroupRow {
+            // 左段：点击直接打开系统图片选择器。
+            ChatInputNonFocusableIconButton(
+                onClick = {
+                    TouchHaptics.click(view)
+                    actions.pickImage()
+                },
+                contentDescription = stringResource(R.string.attachment_image),
+                connectedShapes = ButtonGroupDefaults.connectedLeadingButtonShapes(),
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                containerSize = IconButtonDefaults.smallContainerSize().width,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Image,
+                    contentDescription = null,
+                    modifier = Modifier.size(IconButtonDefaults.smallIconSize),
                 )
-            },
-            trailingButton = {
-                SplitButtonDefaults.TrailingButton(
-                    onClick = { onExpandedChange(!expanded) },
-                    modifier = Modifier.size(height),
-                    shapes = SplitButtonDefaults.trailingButtonShapesFor(height),
-                    colors = ButtonDefaults.filledTonalButtonColors(),
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.KeyboardArrowDown,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(SplitButtonDefaults.trailingButtonIconSizeFor(height))
-                            .graphicsLayer { rotationZ = arrowRotation },
-                    )
-                }
-            },
-        )
+            }
+            // 右段：箭头，展开附件与发送选项菜单。
+            ChatInputNonFocusableIconButton(
+                onClick = {
+                    TouchHaptics.click(view)
+                    onExpandedChange(!expanded)
+                },
+                connectedShapes = ButtonGroupDefaults.connectedTrailingButtonShapes(),
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                containerSize = IconButtonDefaults.smallContainerSize().width,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.KeyboardArrowDown,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(IconButtonDefaults.smallIconSize)
+                        .graphicsLayer { rotationZ = arrowRotation },
+                )
+            }
+        }
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { onExpandedChange(false) },
@@ -470,6 +492,7 @@ private fun M3AttachmentSplitButton(
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.composer_schedule_send)) },
                 leadingIcon = { Icon(Icons.Rounded.Schedule, contentDescription = null) },
+                shape = etaOfficialMenuItemShape(0, ATTACHMENT_MENU_ITEM_COUNT),
                 onClick = {
                     TouchHaptics.click(view)
                     onExpandedChange(false)
@@ -479,6 +502,7 @@ private fun M3AttachmentSplitButton(
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.composer_save_draft)) },
                 leadingIcon = { Icon(Icons.Rounded.Save, contentDescription = null) },
+                shape = etaOfficialMenuItemShape(1, ATTACHMENT_MENU_ITEM_COUNT),
                 onClick = {
                     TouchHaptics.click(view)
                     onExpandedChange(false)
@@ -488,15 +512,60 @@ private fun M3AttachmentSplitButton(
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.composer_share)) },
                 leadingIcon = { Icon(Icons.Rounded.Share, contentDescription = null) },
+                shape = etaOfficialMenuItemShape(2, ATTACHMENT_MENU_ITEM_COUNT),
                 onClick = {
                     TouchHaptics.click(view)
                     onExpandedChange(false)
                     onShare()
                 },
             )
+            HorizontalDivider()
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.attachment_video)) },
+                leadingIcon = { Icon(Icons.Rounded.Videocam, contentDescription = null) },
+                shape = etaOfficialMenuItemShape(3, ATTACHMENT_MENU_ITEM_COUNT),
+                onClick = {
+                    TouchHaptics.click(view)
+                    onExpandedChange(false)
+                    actions.pickVideo()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.attachment_file)) },
+                leadingIcon = { Icon(Icons.Rounded.Description, contentDescription = null) },
+                shape = etaOfficialMenuItemShape(4, ATTACHMENT_MENU_ITEM_COUNT),
+                onClick = {
+                    TouchHaptics.click(view)
+                    onExpandedChange(false)
+                    actions.pickFiles()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.attachment_folder)) },
+                leadingIcon = { Icon(Icons.Rounded.FolderOpen, contentDescription = null) },
+                shape = etaOfficialMenuItemShape(5, ATTACHMENT_MENU_ITEM_COUNT),
+                onClick = {
+                    TouchHaptics.click(view)
+                    onExpandedChange(false)
+                    actions.pickFolder()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.attachment_enter_path)) },
+                leadingIcon = { Icon(Icons.Rounded.Link, contentDescription = null) },
+                shape = etaOfficialMenuItemShape(6, ATTACHMENT_MENU_ITEM_COUNT),
+                onClick = {
+                    TouchHaptics.click(view)
+                    onExpandedChange(false)
+                    actions.inputPath()
+                },
+            )
         }
     }
 }
+
+/** 附件菜单条目数（定时发送 / 存草稿 / 分享 + 视频 / 文件 / 文件夹 / 输入路径）。 */
+private const val ATTACHMENT_MENU_ITEM_COUNT = 7
 
 /**
  * 发送 / 停止 / 继续 按钮：按状态直接选用官方图标按钮

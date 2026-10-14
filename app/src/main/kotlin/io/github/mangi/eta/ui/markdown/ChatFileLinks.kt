@@ -11,6 +11,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.UriHandler
 import androidx.core.content.FileProvider
+import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.device.BoundedFileCopy
 import io.github.mangi.eta.agent.device.BoundedRootCommandExecutor
 import io.github.mangi.eta.agent.device.RootAccess
@@ -43,7 +44,7 @@ internal fun stageChatFile(context: Context, requested: String): File {
     val source = File(mapped).canonicalFile
     val roots = listOf(File("/storage/emulated/0"), File("/sdcard"), LinuxGuestPathResolver.workspaceHostForApp(context))
         .map { it.canonicalPath }
-    require(roots.any { source.path.startsWith("$it/") }) { "此链接不在共享存储或工作区内" }
+    require(roots.any { source.path.startsWith("$it/") }) { context.getString(R.string.cfl_outside_roots) }
     val directory = File(context.cacheDir, "chat-files").apply { mkdirs() }
     val folder = File(directory, java.util.UUID.randomUUID().toString()).apply { mkdirs() }
     val destination = File(folder, source.name)
@@ -51,18 +52,18 @@ internal fun stageChatFile(context: Context, requested: String): File {
         if (source.isFile && source.canRead()) {
             source.inputStream().use { input -> destination.outputStream().use { BoundedFileCopy.copy(input, it, MAX_CHAT_FILE_BYTES) } }
         } else {
-            check(RootAccess.isGranted) { "文件不存在或没有读取权限" }
+            check(RootAccess.isGranted) { context.getString(R.string.cfl_not_found_or_permission) }
             // Resolve symlinks in the same privileged context that reads the file.
             val cases = roots.joinToString("|") { shellQuote("$it/") + "*" }
             val command = "p=\$(realpath -- ${shellQuote(source.path)}) || exit 1; " +
                 "case \"\$p\" in $cases) ;; *) exit 1;; esac; " +
                 "[ -f \"\$p\" ] && [ \$(stat -c %s -- \"\$p\") -le $MAX_CHAT_FILE_BYTES ] || exit 1; " +
                 "head -c ${MAX_CHAT_FILE_BYTES + 1} -- \"\$p\" > ${shellQuote(destination.path)}"
-            check(destination.createNewFile()) { "无法创建文件副本" }
+            check(destination.createNewFile()) { context.getString(R.string.cfl_cannot_create_copy) }
             BoundedRootCommandExecutor(AndroidAgentLogger).use { root ->
-                check(root.execute(command, timeoutMillis = 15_000, maxOutputBytes = 1024).ok) { "文件不存在、无法读取或超过 64 MB" }
+                check(root.execute(command, timeoutMillis = 15_000, maxOutputBytes = 1024).ok) { context.getString(R.string.cfl_unreadable_oversize) }
             }
-            check(destination.length() <= MAX_CHAT_FILE_BYTES) { "文件超过 64 MB" }
+            check(destination.length() <= MAX_CHAT_FILE_BYTES) { context.getString(R.string.cfl_oversize) }
         }
         return destination
     } catch (e: Exception) {
@@ -83,7 +84,7 @@ internal fun rememberChatUriHandler(parent: UriHandler): UriHandler {
                     try {
                         val path = chatLocalFilePath(uri)
                         if (path == null) {
-                            require(Uri.parse(uri).scheme !in listOf(null, "file")) { "不支持此文件链接" }
+                            require(Uri.parse(uri).scheme !in listOf(null, "file")) { context.getString(R.string.cfl_unsupported_link) }
                             parent.openUri(uri)
                         } else {
                             val file = withContext(Dispatchers.IO) { stageChatFile(context, path) }
@@ -97,7 +98,7 @@ internal fun rememberChatUriHandler(parent: UriHandler): UriHandler {
                     } catch (cancelled: CancellationException) {
                         throw cancelled
                     } catch (e: Exception) {
-                        Toast.makeText(context, "无法打开链接：${e.message ?: "没有可处理此文件的应用"}", Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, context.getString(R.string.cfl_open_failed, e.message ?: context.getString(R.string.cfl_no_app)), Toast.LENGTH_LONG).show()
                     }
                 }
             }

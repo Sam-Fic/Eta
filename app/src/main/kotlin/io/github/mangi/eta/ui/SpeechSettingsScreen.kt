@@ -1,24 +1,28 @@
 package io.github.mangi.eta.ui
 
+import io.github.mangi.eta.agent.voice.doubao.DoubaoAsrProtocol
 import io.github.mangi.eta.agent.voice.doubao.DoubaoVoiceConfig
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.voice.offline.OfflineSpeechPack
 import io.github.mangi.eta.agent.voice.offline.SpeechModelManifest
-import io.github.mangi.eta.ui.adaptive.EtaCard
 import io.github.mangi.eta.ui.adaptive.EtaClickableRow
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedItemContainer
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedDropdownRow
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedTextField
 import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
 import io.github.mangi.eta.ui.adaptive.EtaText
 import io.github.mangi.eta.ui.adaptive.EtaTextStyle
@@ -30,21 +34,14 @@ internal fun SpeechSettingsScreen(onBack: () -> Unit) {
     val view = LocalView.current
     val state by OfflineSpeechPack.state.collectAsState()
     val config by DoubaoVoiceConfig.state.collectAsState()
-    var page by remember { mutableStateOf<String?>(null) }
-    androidx.activity.compose.BackHandler(enabled = page != null) { page = null }
-    if (page != null) {
-        DoubaoVoiceSettings(page = page!!, onBack = { page = null })
-        return
-    }
     var confirmDownload by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { DoubaoVoiceConfig.load(context); OfflineSpeechPack.initialize(context) }
     VoiceSettingsSectionPage(title = stringResource(R.string.speech_title), onBack = onBack) {
-        item(key = "speech_enable") {
-            EtaCard(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
+        voiceGroup(key = "speech_enable") {
+            item {
                 EtaSwitchRow(
                     title = stringResource(R.string.speech_enable),
-                    summary = "点击聊天输入框的语音按钮，把说话变成文字。",
-                    contentPadding = PaddingValues(16.dp),
+                    summary = stringResource(R.string.speech_input_summary),
                     checked = config.inputEnabled,
                     enabled = true,
                     onCheckedChange = { enabled ->
@@ -54,27 +51,70 @@ internal fun SpeechSettingsScreen(onBack: () -> Unit) {
                 )
             }
         }
-        item(key = "speech_pack") {
-            EtaCard(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
+        voiceGroup(key = "recognition_method") {
+            // 识别方式：选「豆包识别」后连接设置直接就地展开，不再跳子页面；
+            // 展开/收起走分段动画，首末圆角自动交接。
+            item {
+                EtaSegmentedDropdownRow(
+                    title = stringResource(R.string.speech_recognition_method),
+                    items = listOf(stringResource(R.string.speech_recognition_local), stringResource(R.string.speech_recognition_doubao)),
+                    selectedIndex = if (config.cloudAsr) 1 else 0,
+                    onItemSelected = { index ->
+                        TouchHaptics.click(view)
+                        DoubaoVoiceConfig.save(context, config.copy(cloudAsr = index == 1))
+                    },
+                )
+            }
+            item(visible = config.cloudAsr) {
+                // KernelSU `SegmentedTextField` 同款：无边框输入框嵌进分段行，
+                // 与上下相邻行共用同一容器与圆角，不再是一个孤零零的描边框。
+                EtaSegmentedTextField(
+                    label = "ASR API Key",
+                    value = config.asrKey,
+                    onValueChange = { DoubaoVoiceConfig.save(context, config.copy(asrKey = it)) },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    placeholder = { Text(stringResource(R.string.speech_paste_api_key)) },
+                )
+            }
+            item(visible = config.cloudAsr) {
+                EtaSegmentedDropdownRow(
+                    title = stringResource(R.string.voice_conversation_asr_resource),
+                    items = DoubaoAsrProtocol.resources,
+                    selectedIndex = DoubaoAsrProtocol.resources.indexOf(config.resource).coerceAtLeast(0),
+                    onItemSelected = { index ->
+                        TouchHaptics.click(view)
+                        DoubaoVoiceConfig.save(context, config.copy(resource = DoubaoAsrProtocol.resources[index]))
+                    },
+                )
+            }
+        }
+        voiceGroup(key = "speech_pack") {
+            item {
                 EtaClickableRow(
-                    title = stringResource(when {
-                        state.downloading -> R.string.speech_cancel_download
-                        state.ready -> R.string.speech_pack_ready
-                        else -> R.string.speech_download
-                    }),
-                    summary = stringResource(when {
-                        state.checking -> R.string.speech_checking
-                        state.error -> R.string.speech_download_failed
-                        else -> R.string.speech_pack_summary
-                    }),
-                    contentPadding = PaddingValues(16.dp),
+                    title = stringResource(
+                        when {
+                            state.downloading -> R.string.speech_cancel_download
+                            state.ready -> R.string.speech_pack_ready
+                            else -> R.string.speech_download
+                        },
+                    ),
+                    summary = stringResource(
+                        when {
+                            state.checking -> R.string.speech_checking
+                            state.error -> R.string.speech_download_failed
+                            else -> R.string.speech_pack_summary
+                        },
+                    ),
                     enabled = !state.checking && !state.ready,
                     onClick = {
                         TouchHaptics.click(view)
                         if (state.downloading) OfflineSpeechPack.cancelDownload() else confirmDownload = true
                     },
                 )
-                if (state.downloading) {
+            }
+            item(visible = state.downloading) {
+                EtaSegmentedItemContainer {
                     val progress = (state.downloadedBytes.toFloat() / SpeechModelManifest.totalBytes).coerceIn(0f, 1f)
                     Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
                         LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
@@ -84,13 +124,6 @@ internal fun SpeechSettingsScreen(onBack: () -> Unit) {
                 }
             }
         }
-        item(key = "recognition_method") {
-            EtaCard(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-                EtaClickableRow(title = "识别方式", summary = if (config.cloudAsr) "豆包识别 · 需要联网" else "本机识别 · 无需账户",
-                    contentPadding = PaddingValues(16.dp), onClick = { TouchHaptics.click(view); page = "asr" })
-            }
-        }
-
     }
     EtaDialog(
         show = confirmDownload,

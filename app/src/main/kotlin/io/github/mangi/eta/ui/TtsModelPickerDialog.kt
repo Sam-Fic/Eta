@@ -68,7 +68,7 @@ internal fun TtsModelPickerDialog(
                             // semantics(mergeDescendants = true)，content 槽位的 Text 会被合并成播报文本，
                             // 再叠一份会重复朗读。
                             modifier = Modifier.fillMaxWidth(),
-                            content = { Text("无") },
+                            content = { Text(stringResource(R.string.tts_none)) },
                         )
                         HorizontalDivider()
                     }
@@ -82,7 +82,7 @@ internal fun TtsModelPickerDialog(
                             trailingContent = {
                                 Icon(
                                     imageVector = if (isExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                                    contentDescription = if (isExpanded) "收起" else "展开",
+                                    contentDescription = if (isExpanded) stringResource(R.string.tts_collapse) else stringResource(R.string.tts_expand),
                                 )
                             },
                             content = { Text(group.providerName, style = MaterialTheme.typography.bodyLarge) },
@@ -131,7 +131,7 @@ internal fun TtsModelPickerDialog(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         if (!highlightSelection) RadioButton(selected = state.selectedModel == null, onClick = null)
-                        Text("无", modifier = Modifier.weight(1f).padding(start = 12.dp),
+                        Text(stringResource(R.string.tts_none), modifier = Modifier.weight(1f).padding(start = 12.dp),
                             color = if (highlightSelection && state.selectedModel == null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface)
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -150,7 +150,7 @@ internal fun TtsModelPickerDialog(
                     ) {
                         Text(group.providerName, style = MiuixTheme.textStyles.subtitle, modifier = Modifier.weight(1f))
                         Icon(if (isExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                            contentDescription = if (isExpanded) "收起" else "展开")
+                            contentDescription = if (isExpanded) stringResource(R.string.tts_collapse) else stringResource(R.string.tts_expand))
                     }
                     if (isExpanded) Column(Modifier.selectableGroup()) {
                         group.models.forEach { model ->

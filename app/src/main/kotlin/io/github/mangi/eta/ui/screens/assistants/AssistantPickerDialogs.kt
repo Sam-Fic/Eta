@@ -1,14 +1,23 @@
 package io.github.mangi.eta.ui.screens.assistants
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -31,6 +40,9 @@ import io.github.mangi.eta.data.repository.AssistantRepository
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
+import io.github.mangi.eta.ui.adaptive.LocalEtaSegmentedShapes
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.components.AssistantAvatar
 import io.github.mangi.eta.ui.haptics.TouchHaptics
@@ -44,11 +56,21 @@ import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults as M3ButtonDefaults
-import androidx.compose.material3.ListItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.SheetValue
+import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberBottomSheetState
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.Text as M3Text
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun AssistantPickerDialog(
     show: Boolean,
@@ -82,49 +104,138 @@ internal fun AssistantPickerDialog(
         }
     }
 
-    EtaDialog(
-        show = show,
-        title = stringResource(R.string.assistant_list_title),
-        onDismissRequest = {
-            if (actionProfile == null && deleteProfile == null) onDismiss()
-        },
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(dialogBodyHeight),
+    if (isMaterial3Theme()) {
+        // Material 3：官方 ModalBottomSheet（布局复刻 KernelSU MultiSelectDialog：
+        // 标题行 + 关闭按钮、搜索框、可滚动分段列表；仅 Hidden↔Expanded 两态，不进半展开）。
+        if (show) {
+            ModalBottomSheet(
+                onDismissRequest = {
+                    if (actionProfile == null && deleteProfile == null) onDismiss()
+                },
+                sheetState = rememberBottomSheetState(
+                    initialValue = SheetValue.Hidden,
+                    enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+                ),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .padding(bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        M3Text(
+                            text = stringResource(R.string.assistant_list_title),
+                            style = MaterialTheme.typography.titleLarge,
+                            modifier = Modifier.weight(1f),
+                        )
+                        IconButton(onClick = onDismiss) {
+                            Icon(
+                                imageVector = Icons.Rounded.Close,
+                                contentDescription = stringResource(R.string.action_close),
+                            )
+                        }
+                    }
+                    AssistantSearchField(
+                        query = searchQuery,
+                        onQueryChange = { searchQuery = it },
+                        placeholder = stringResource(R.string.assistant_search),
+                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = false)
+                            .verticalScroll(rememberScrollState()),
+                    ) {
+                        // 助手合并为一个 KernelSU 式分段组，行左滑露出「复制/编辑/删除」。
+                        EtaSegmentedColumn(modifier = Modifier.fillMaxWidth()) {
+                            filtered.forEach { profile ->
+                                item(key = profile.id) {
+                                    AssistantSwipeRow(
+                                        profile = profile,
+                                        selected = profile.id == activeId,
+                                        onOpen = {
+                                            onSelect(profile.id)
+                                            onDismiss()
+                                        },
+                                        onCopy = {
+                                            scope.launch {
+                                                withContext(Dispatchers.IO) {
+                                                    AssistantRepository.duplicate(profile.id)
+                                                }
+                                            }
+                                        },
+                                        onEdit = {
+                                            onDismiss()
+                                            onEdit(profile.id)
+                                        },
+                                        onDelete = { deleteProfile = profile },
+                                    )
+                                }
+                            }
+                        }
+                        if (filtered.isEmpty()) {
+                            M3Text(
+                                text = stringResource(R.string.assistant_empty),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(vertical = 12.dp),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        EtaDialog(
+            show = show,
+            title = stringResource(R.string.assistant_list_title),
+            onDismissRequest = {
+                if (actionProfile == null && deleteProfile == null) onDismiss()
+            },
         ) {
-            AssistantSearchField(
-                query = searchQuery,
-                onQueryChange = { searchQuery = it },
-                placeholder = stringResource(R.string.assistant_search),
-            )
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f)
-                    .padding(top = 12.dp)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                    .height(dialogBodyHeight),
             ) {
-                filtered.forEach { profile ->
-                    AssistantProfileCard(
-                        profile = profile,
-                        selected = profile.id == activeId,
-                        onClick = {
-                            onSelect(profile.id)
-                            onDismiss()
-                        },
-                        onLongClick = { actionProfile = profile },
-                    )
-                }
-                if (filtered.isEmpty()) {
-                    M3Text(
-                        text = stringResource(R.string.assistant_empty),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
-                    )
+                AssistantSearchField(
+                    query = searchQuery,
+                    onQueryChange = { searchQuery = it },
+                    placeholder = stringResource(R.string.assistant_search),
+                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .padding(top = 12.dp)
+                        .verticalScroll(rememberScrollState()),
+                    // MIUI X 仍是 8dp 卡片间距。
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    filtered.forEach { profile ->
+                        AssistantProfileCard(
+                            profile = profile,
+                            selected = profile.id == activeId,
+                            onClick = {
+                                onSelect(profile.id)
+                                onDismiss()
+                            },
+                            onLongClick = { actionProfile = profile },
+                        )
+                    }
+                    if (filtered.isEmpty()) {
+                        M3Text(
+                            text = stringResource(R.string.assistant_empty),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
+                        )
+                    }
                 }
             }
         }
@@ -175,10 +286,9 @@ internal fun AssistantPickerDialog(
 }
 
 /**
- * 助手条目。
+ * MIUI X 助手条目：[Card] + `combinedClickable`（长按弹操作对话框）。
  *
- * Material 3 走官方 [ListItem]（selected 重载自带选中容器色与按压形变，同时支持
- * `onLongClick`）；MIUI X 保持原有 [Card] + `combinedClickable`。
+ * Material 3 不再走这里，改用 KernelSU 式分段行 + 左滑操作条的 [AssistantSwipeRow]。
  */
 @Composable
 internal fun AssistantProfileCard(
@@ -189,12 +299,131 @@ internal fun AssistantProfileCard(
     modifier: Modifier = Modifier,
 ) {
     val view = LocalView.current
-    if (isMaterial3Theme()) {
-        ListItem(
+    Card(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(
+                    hapticFeedbackEnabled = false,
+                    onClick = {
+                        TouchHaptics.click(view)
+                        onClick()
+                    },
+                    onLongClick = {
+                        TouchHaptics.longPress(view)
+                        onLongClick()
+                    },
+                )
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AssistantAvatar(assistant = profile, size = 32.dp)
+            Text(
+                text = profile.name,
+                style = MiuixTheme.textStyles.title3,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 12.dp, end = 8.dp),
+            )
+            if (selected) {
+                Text(
+                    text = stringResource(R.string.assistant_current),
+                    style = MiuixTheme.textStyles.footnote1,
+                    maxLines = 1,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Material 3 助手行：KernelSU 式分段行 + 官方 [SwipeToDismissBox]。
+ *
+ * 左滑露出「复制 / 编辑 / 删除」三个操作按钮：滑动过程露出，越过阈值（总距离的 50%）后
+ * 停留在露出状态；点击露出区域的空白处或执行复制 / 编辑后自动收起。危险操作（删除）用
+ * `errorContainer` 底色区分，中性操作（复制 / 编辑）沿用分段行同级的 `surfaceContainerHighest`。
+ *
+ * 只在 Material 3 分支调用；MIUI X 继续使用长按弹窗的 [AssistantProfileCard]。
+ */
+@Composable
+internal fun AssistantSwipeRow(
+    profile: AssistantProfile,
+    selected: Boolean,
+    onOpen: () -> Unit,
+    onCopy: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val view = LocalView.current
+    val scope = rememberCoroutineScope()
+    val dismissState = rememberSwipeToDismissBoxState(
+        positionalThreshold = { totalDistance -> totalDistance * 0.5f },
+    )
+    SwipeToDismissBox(
+        state = dismissState,
+        // 只允许向左滑动露出操作；右滑（或点击空白）用于收起。
+        enableDismissFromStartToEnd = false,
+        enableDismissFromEndToStart = true,
+        backgroundContent = {
+            // 背景圆角与分段行一致，避免未滑动时四角露出底色。
+            val shape = LocalEtaSegmentedShapes.current?.shape ?: MaterialTheme.shapes.large
+            Surface(
+                onClick = { scope.launch { dismissState.reset() } },
+                color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                shape = shape,
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(onClick = {
+                        onCopy()
+                        scope.launch { dismissState.reset() }
+                    }) {
+                        Icon(
+                            imageVector = Icons.Rounded.ContentCopy,
+                            contentDescription = stringResource(R.string.ui_copy_4edd1d),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    IconButton(onClick = {
+                        onEdit()
+                        scope.launch { dismissState.reset() }
+                    }) {
+                        Icon(
+                            imageVector = Icons.Rounded.Edit,
+                            contentDescription = stringResource(R.string.ui_edit_a7f814),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    // 危险操作（删除）用 errorContainer 底色与 onErrorContainer 图标区分。
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .background(MaterialTheme.colorScheme.errorContainer),
+                    ) {
+                        IconButton(onClick = { onDelete() }) {
+                            Icon(
+                                imageVector = Icons.Rounded.Delete,
+                                contentDescription = stringResource(R.string.action_delete),
+                                tint = MaterialTheme.colorScheme.onErrorContainer,
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        modifier = modifier,
+    ) {
+        EtaSegmentedRow(
             selected = selected,
-            onClick = onClick,
-            onLongClick = onLongClick,
-            modifier = modifier.fillMaxWidth(),
+            onClick = onOpen,
+            modifier = Modifier.fillMaxWidth(),
             leadingContent = { AssistantAvatar(assistant = profile, size = 32.dp) },
             content = {
                 M3Text(
@@ -215,43 +444,11 @@ internal fun AssistantProfileCard(
                 }
             },
         )
-    } else {
-        Card(modifier = modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .combinedClickable(
-                        hapticFeedbackEnabled = false,
-                        onClick = {
-                            TouchHaptics.click(view)
-                            onClick()
-                        },
-                        onLongClick = {
-                            TouchHaptics.longPress(view)
-                            onLongClick()
-                        },
-                    )
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                AssistantAvatar(assistant = profile, size = 32.dp)
-                Text(
-                    text = profile.name,
-                    style = MiuixTheme.textStyles.title3,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 12.dp, end = 8.dp),
-                )
-                if (selected) {
-                    Text(
-                        text = stringResource(R.string.assistant_current),
-                        style = MiuixTheme.textStyles.footnote1,
-                        maxLines = 1,
-                    )
-                }
-            }
+    }
+    // 越过阈值停住时给一次触觉反馈（与 ManageChatsScreen 同款）。
+    LaunchedEffect(dismissState.currentValue) {
+        if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
+            TouchHaptics.gestureThreshold(view)
         }
     }
 }
