@@ -44,5 +44,9 @@ google-services.json
 
 /.codebuddy/
 
+# AI 助手本地工作目录与巡检产物
+/.trae/
+/设置页面巡检报告.md
+
 # Python bytecode caches
 __pycache__/
