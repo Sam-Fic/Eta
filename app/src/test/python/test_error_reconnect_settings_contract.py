@@ -26,7 +26,7 @@ class ErrorReconnectSettingsContractTest(unittest.TestCase):
     def test_page_is_global_accessible_single_choice_and_persisted(self):
         page = (UI / "ErrorReconnectSettingsScreen.kt").read_text()
         for required in (
-            "MiuixScaffoldPage(",
+            "EtaScaffoldPage(",
             "SettingsDataStore.errorReconnectPolicyFlow()",
             "SettingsDataStore.setErrorReconnectPolicy(selected)",
             "val policy = loadedPolicy ?: ErrorReconnectPolicy.DEFAULT",
@@ -37,6 +37,7 @@ class ErrorReconnectSettingsContractTest(unittest.TestCase):
             ".selectable(",
             "role = Role.RadioButton",
             "onClick = null",
+            "EtaSegmentedRadioRow(",
             "R.string.error_reconnect_duration",
         ):
             self.assertIn(required, page)
@@ -44,6 +45,8 @@ class ErrorReconnectSettingsContractTest(unittest.TestCase):
             self.assertNotIn(forbidden, page)
         for name in ("none", "window_30s", "window_1m", "window_5m", "continuous"):
             self.assertEqual(1, page.count("R.string.error_reconnect_" + name))
+        for hint in ("none", "30s", "1m", "5m", "continuous"):
+            self.assertEqual(1, page.count("R.string.error_reconnect_hint_" + hint))
 
     def test_page_does_not_show_the_removed_top_description(self):
         page = (UI / "ErrorReconnectSettingsScreen.kt").read_text()
@@ -52,14 +55,18 @@ class ErrorReconnectSettingsContractTest(unittest.TestCase):
 
     def test_reconnect_marker_has_equal_lines_and_an_unweighted_center(self):
         divider = (UI / "components/ErrorReconnectDivider.kt").read_text()
-        row = divider.split("    Row(", 1)[1].split("    if (showDetails)", 1)[0]
-        self.assertIn("modifier.fillMaxWidth()", row)
-        self.assertIn("padding(horizontal = 20.dp, vertical = 10.dp)", row)
-        self.assertEqual(2, row.count("Box(Modifier.weight(1f).height(0.5.dp).background(lineColor))"))
-        center = row.split("        Text(", 1)[1].split("        Box(", 1)[0]
+        m3_row = divider.split("    if (isMaterial3Theme())", 1)[1].split("    } else {", 1)[0]
+        self.assertIn("modifier.fillMaxWidth()", m3_row)
+        self.assertIn("padding(horizontal = 16.dp, vertical = 8.dp)", m3_row)
+        self.assertEqual(2, m3_row.count("HorizontalDivider(modifier = Modifier.weight(1f))"))
+        center = m3_row.split("            Surface(", 1)[1].split("            HorizontalDivider(", 1)[0]
         self.assertNotIn(".weight(", center)
         self.assertIn("textAlign = TextAlign.Center", center)
-        self.assertIn(".clickable", center)
+        self.assertIn("onClick = {", center)
+        miuix_row = divider.split("    } else {", 1)[1].split("    if (showDetails)", 1)[0]
+        self.assertEqual(2, miuix_row.count("Box(Modifier.weight(1f).height(0.5.dp).background(lineColor))"))
+        self.assertIn("textAlign = TextAlign.Center", miuix_row)
+        self.assertIn(".clickable", miuix_row)
         self.assertIn("ContextCompactedSummarySheet(", divider)
 
     def test_english_simplified_and_traditional_resources_match(self):
@@ -67,6 +74,8 @@ class ErrorReconnectSettingsContractTest(unittest.TestCase):
             "error_reconnect_title", "error_reconnect_description", "error_reconnect_duration",
             "error_reconnect_none", "error_reconnect_window_30s", "error_reconnect_window_1m",
             "error_reconnect_window_5m", "error_reconnect_continuous", "error_reconnect_save_failed",
+            "error_reconnect_hint_none", "error_reconnect_hint_30s", "error_reconnect_hint_1m",
+            "error_reconnect_hint_5m", "error_reconnect_hint_continuous",
             "reconnect_running", "reconnect_succeeded", "reconnect_failed", "reconnect_stopped",
             "reconnect_error_title", "reconnect_elapsed_format",
         }

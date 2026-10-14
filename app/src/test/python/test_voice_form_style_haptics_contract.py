@@ -85,16 +85,18 @@ class VoiceFormStyleHapticsContractTest(unittest.TestCase):
     def test_missing_voice_controls_use_app_haptic_wrappers_once(self):
         for path in ('ui/VoiceModeSettingsScreen.kt', 'ui/VoiceConversationRecognitionSettings.kt'):
             source = read(path)
-            self.assertIn('import io.github.mangi.eta.ui.components.ArrowPreference', source)
-            self.assertIn('import io.github.mangi.eta.ui.components.SwitchPreference', source)
-            self.assertNotIn('top.yukonga.miuix.kmp.preference.ArrowPreference', source)
-            self.assertNotIn('top.yukonga.miuix.kmp.preference.SwitchPreference', source)
+            self.assertIn('EtaSwitchRow(', source)
+            self.assertIn('EtaClickableRow(', source)
             self.assertNotIn('TouchHaptics.click', source)  # wrappers own haptic, dialogs own their own
         wrappers = read('ui/components/HapticPreferences.kt')
         self.assertIn('TouchHaptics.click(view)', wrappers)
         self.assertIn('enabled = enabled', wrappers)
         speech = read('ui/SpeechSettingsScreen.kt')
-        self.assertIn('onClick = { TouchHaptics.click(view); page = "asr" }', speech)
+        # 识别方式就地弹选 + 内联 ASR 连接设置；不再跳 "asr" 子页。
+        self.assertIn('EtaSegmentedDropdownRow(', speech)
+        self.assertIn('config.asrKey', speech)
+        self.assertNotIn('page = "asr"', speech)
+        self.assertNotIn('DoubaoVoiceSettings(', speech)
         touch = read('ui/haptics/TouchHaptics.kt')
         self.assertIn('if (!ignoreAppSwitch && !isTouchEnabled()) return false', touch)
 

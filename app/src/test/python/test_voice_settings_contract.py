@@ -27,14 +27,14 @@ class VoiceSettingsContractTest(unittest.TestCase):
 
     def test_selector_expands_vertically_and_switches_in_place(self):
         source = read('ui/VoiceSettingsScreen.kt')
-        self.assertIn('if (expanded)', source)
-        self.assertIn('LazyColumn(Modifier.heightIn(max = 220.dp)', source)
-        self.assertIn('RoundedCornerShape(14.dp)', source)
-        self.assertIn('MiuixTheme.colorScheme.surfaceContainerHigh', source)
-        self.assertIn('selected = section; expanded = false', source)
+        # KernelSU SegmentedDropdownItem 对应物：点击在按下位置弹出选项列表，
+        # 不再展开长列表把内容下推，也不再手写 clip + background + clickable 双轨拼装。
+        self.assertIn('EtaSegmentedDropdownRow(', source)
+        self.assertIn('onItemSelected = { index -> selected = sections[index] }', source)
         self.assertIn('rememberSaveable', source)
         self.assertIn('key(selected)', source)
-        for forbidden in ('TabRow', 'LazyRow', 'pushRoute(', 'onNavigate('):
+        self.assertIn('VoiceGroup {', source)
+        for forbidden in ('TabRow', 'LazyRow', 'pushRoute(', 'onNavigate(', 'RoundedCornerShape', 'isMaterial3Theme()'):
             self.assertNotIn(forbidden, source)
         for name in ('RECOGNITION', 'READ_ALOUD', 'CONVERSATION', 'REALTIME', 'PERSONAL'):
             self.assertIn(f'VoiceSettingsSection.{name} ->', source)

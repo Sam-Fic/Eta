@@ -22,7 +22,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.lightColorScheme
 
 @RunWith(RobolectricTestRunner::class)
-@Config(application = io.github.mangi.eta.EtaApp::class, sdk = [36], qualifiers = "w411dp-h891dp")
+@Config(application = io.github.mangi.eta.EtaApp::class, sdk = [36], qualifiers = "zh-rCN-w411dp-h891dp")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class SubAgentPresetSettingsTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
@@ -59,7 +59,7 @@ class SubAgentPresetSettingsTest {
     }
 
     @Test
-    @Config(qualifiers = "w320dp-h480dp")
+    @Config(qualifiers = "zh-rCN-w320dp-h480dp")
     fun presetMoreOpensBottomActionsOnSmallScreenWithoutEditingOrCopyAction() {
         val fixture = SubAgentUiFixture(enabled = false)
         val group = fixture.createPreset("一个较长的子代理组名称用于窄屏面板")

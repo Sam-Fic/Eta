@@ -35,8 +35,10 @@ class SubAgentPresetUiContractTest(unittest.TestCase):
 
     def test_catalog_supports_named_empty_add_rename_delete_and_explicit_retry(self):
         settings = self.source('ui/SubAgentSettingsScreen.kt')
+        # 组列表已改为 KernelSU 式分段列表（EtaScaffoldPage + EtaSegmentedColumn + FAB），
+        # 共享的 SubAgentPresetCard 只保留给会话协作面板使用。
         for needle in ('repository.addPreset(name.trim())', 'repository.renamePreset(', 'repository.removePreset(',
-                       'SubAgentPresetCard(', 'SubAgentPresetDirectoryStatus(directory)'):
+                       'EtaScaffoldPage(', 'EtaSegmentedColumn(', 'SubAgentPresetDirectoryStatus(directory)'):
             self.assertIn(needle, settings)
         cards = self.source('ui/components/SubAgentPresetCard.kt')
         for needle in ('repository.presets()', 'repository.presetsFlow().collect', 'recoverDurability()',
@@ -168,7 +170,9 @@ class SubAgentPresetUiContractTest(unittest.TestCase):
                        'getUnclippedBoundsInRoot().let { it.bottom - it.top < 300.dp }'):
             self.assertIn(needle, collaboration)
         settings = (tests / 'SubAgentPresetSettingsTest.kt').read_text()
-        for needle in ('@Config(qualifiers = "w320dp-h480dp")',
+        # 该测试断言中文资源字符串，需固定中文 locale，否则 Robolectric 默认 en-rUS 会让
+        # stringResource 解析成英文而断言失败。
+        for needle in ('@Config(qualifiers = "zh-rCN-w320dp-h480dp")',
                        'presetMoreOpensBottomActionsOnSmallScreenWithoutEditingOrCopyAction',
                        'presetDetailHidesGlobalSwitchesAndProfileEditsPreserveAutomaticDelegation',
                        '子代理组操作面板', 'assertFalse("removing the switch must not replace the stored enabled value", saved.enabled)'):

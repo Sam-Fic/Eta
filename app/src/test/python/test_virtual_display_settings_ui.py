@@ -24,7 +24,7 @@ class VirtualDisplaySettingsUiTest(unittest.TestCase):
             "import androidx.compose.material3.RadioButton",
             "Scaffold(",
             "TopAppBar(",
-            "Icons.AutoMirrored.Rounded.ArrowBack",
+            "EtaTopBarBackButton(",
             "selectableGroup()",
             "Modifier.selectable(",
             "role = Role.RadioButton",
