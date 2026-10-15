@@ -1,9 +1,8 @@
 name: Eta Build
 
 on:
+  # 日常开发直接在 main 上推送，不再为每次 push 出包；只在发版标签或手动触发时构建。
   push:
-    branches:
-      - main
     tags:
       - "v*"
   workflow_dispatch:
