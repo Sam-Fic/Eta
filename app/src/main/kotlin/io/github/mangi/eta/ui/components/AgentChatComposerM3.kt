@@ -22,7 +22,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
@@ -34,10 +37,13 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Layers
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.RecordVoiceOver
 import androidx.compose.material.icons.rounded.Save
+import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.StopCircle
@@ -55,6 +61,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedIconButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -71,6 +78,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
@@ -88,6 +96,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.voice.VoiceEntryMode
+import io.github.mangi.eta.agent.voice.VoiceModePhase
 import io.github.mangi.eta.agent.voice.VoiceModeState
 import io.github.mangi.eta.data.model.GptSpeedMode
 import io.github.mangi.eta.data.model.ReasoningEffort
@@ -229,118 +238,128 @@ internal fun Material3ComposerBody(
             .onGloballyPositioned { onPositionedTopPx(it.positionInWindow().y.toInt()) },
     ) {
         if (voiceState.active || voiceState.error != null) {
-            VoiceModeStatusPanel(state = voiceState, onStop = onStopVoiceMode)
-        }
-
-        HorizontalFloatingToolbar(
-            expanded = true,
-            // 官方 vibrant 变体：容器 primaryContainer、内容 onPrimaryContainer
-            // （与参考稿“淡色底 + 深色图标”的关系一致）。
-            colors = FloatingToolbarDefaults.vibrantFloatingToolbarColors(),
-            // 同心圆角：外层固定半径 = 内层 28dp（extraLarge）+ 8dp 间距 = 36dp。
-            // 不能用官方 CornerFull：输入框多行长高后 CornerFull 会把外壳拉成巨型胶囊，
-            // 内外圆角就不再满足“半径差 = 间距”。单行（72dp 高）时 36dp 恰是胶囊，外观不变。
-            shape = RoundedCornerShape(ComposerOuterCornerRadius),
-            // 关键：官方 minimumInteractiveBalancedPadding 只在“两侧都没有 leading/trailing
-            // 内容”时才生效；它会读取内容里 MinimumInteractive*AlignmentLine（含位置偏移的大值）
-            // 当补偿内边距，把整条工具栏撑高——空输入时被撑到 ~350dp、输入中无动作组时更夸张到整屏。
-            // 官方本意是给 IconButton 组成的内容补平衡留白，本输入区布局完全显式（间距 + weight），
-            // 因此显式传一个空的 leadingContent，让这组补偿归零（官方参数语义，非 hack）。
-            leadingContent = {},
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            if (isEditingMessage) {
-                // 编辑态：取消按钮占据左侧入口位置（与发送按钮对称），尾部仍为发送按钮。
-                Spacer(modifier = Modifier.width(ComposerConcentricGap))
-                M3ComposerCancelButton(
-                    onClick = onCancelMessageEdit,
-                    // 官方工具栏的内容 Row 是顶对齐（Row 默认 Alignment.Top），
-                    // 40dp 按钮相对 56dp 输入框会高出 8dp，必须显式竖直居中。
-                    modifier = Modifier.align(Alignment.CenterVertically),
-                )
-                Spacer(modifier = Modifier.width(ComposerToolbarGap))
-            } else {
-                // 有输入内容（文字 / 图片 / 文件 / 引用）时左侧动作组收起，输入框展开占满，
-                // 尾部语音按钮同步让位给发送按钮；清空后按官方弹簧规格展开回来。
-                AnimatedVisibility(
-                    visible = !hasContent,
-                    // 同上：与输入框竖直居中，避免整组按钮偏高。
-                    modifier = Modifier.align(Alignment.CenterVertically),
-                    enter = fadeIn(enterSpec) +
-                        expandHorizontally(growSpec, expandFrom = Alignment.Start),
-                    exit = fadeOut(exitSpec) +
-                        shrinkHorizontally(shrinkSpec, shrinkTowards = Alignment.Start),
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        // 组首间距：第一个 40dp 圆形按钮距工具栏左端 = 官方内容内边距 8dp
-                        // + 本间距 8dp = 16dp，与圆钮到上下的间距（(72 − 40)/2 = 16dp）相等，
-                        // 即 36dp 外层半径 − 20dp 圆钮半径 = 16dp 的同心间距——端盖才是同心的；
-                        // 只有官方内边距时圆钮会贴左端 8dp，与上下 16dp 不同心。
-                        Spacer(modifier = Modifier.width(ComposerConcentricGap))
-                        M3ComposerAddButton(
-                            actions = actions,
-                            expanded = attachMenuExpanded,
-                            onExpandedChange = { attachMenuExpanded = it },
-                            onScheduleSend = { showScheduleDialog = true },
-                            onSaveDraft = {
-                                scope.launch {
-                                    ComposerQueueStore.saveDraft(context, conversationKey, draftText)
-                                    Toast.makeText(
-                                        context,
-                                        context.getString(R.string.composer_draft_saved),
-                                        Toast.LENGTH_SHORT,
-                                    ).show()
-                                }
-                            },
-                            onShare = { shareDraft(context, draftText) },
-                        )
-                        Spacer(modifier = Modifier.width(ComposerToolbarGap))
-                        M3ComposerPickImageButton(actions = actions)
-                        Spacer(modifier = Modifier.width(ComposerToolbarGap))
-                        M3ComposerPickerButton(
-                            enabled = pickerEnabled,
-                            collaborationTaskRunning = isStreaming || isPaused || isCompressingContext,
-                            onClick = { showPickerSheet = true },
-                        )
-                        // 组尾间距放进动画组：收起后输入框左右各贴工具栏 8dp 内边距
-                        // （与上下间距一致），两个胶囊端盖保持同心。
-                        Spacer(modifier = Modifier.width(ComposerToolbarGap))
+            // 语音进行中（听写 / 通话）：整条工具栏切换为“聆听条”——vibrant 外胶囊里只剩一枚内胶囊，
+            // 依次是麦克风状态圆钮、实时转写与阶段文案、官方色调停止圆钮（参考稿第二图）。
+            HorizontalFloatingToolbar(
+                expanded = true,
+                colors = FloatingToolbarDefaults.vibrantFloatingToolbarColors(),
+                shape = RoundedCornerShape(ComposerOuterCornerRadius),
+                leadingContent = {},
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                M3VoiceBar(state = voiceState, onStop = onStopVoiceMode)
+            }
+        } else {
+            HorizontalFloatingToolbar(
+                expanded = true,
+                // 官方 vibrant 变体：容器 primaryContainer、内容 onPrimaryContainer
+                // （与参考稿“淡色底 + 深色图标”的关系一致）。
+                colors = FloatingToolbarDefaults.vibrantFloatingToolbarColors(),
+                // 同心圆角：外层固定半径 = 内层 28dp（extraLarge）+ 8dp 间距 = 36dp。
+                // 不能用官方 CornerFull：输入框多行长高后 CornerFull 会把外壳拉成巨型胶囊，
+                // 内外圆角就不再满足“半径差 = 间距”。单行（72dp 高）时 36dp 恰是胶囊，外观不变。
+                shape = RoundedCornerShape(ComposerOuterCornerRadius),
+                // 关键：官方 minimumInteractiveBalancedPadding 只在“两侧都没有 leading/trailing
+                // 内容”时才生效；它会读取内容里 MinimumInteractive*AlignmentLine（含位置偏移的大值）
+                // 当补偿内边距，把整条工具栏撑高——空输入时被撑到 ~350dp、输入中无动作组时更夸张到整屏。
+                // 官方本意是给 IconButton 组成的内容补平衡留白，本输入区布局完全显式（间距 + weight），
+                // 因此显式传一个空的 leadingContent，让这组补偿归零（官方参数语义，非 hack）。
+                leadingContent = {},
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                if (isEditingMessage) {
+                    // 编辑态：取消按钮占据左侧入口位置（与发送按钮对称），尾部仍为发送按钮。
+                    Spacer(modifier = Modifier.width(ComposerConcentricGap))
+                    M3ComposerCancelButton(
+                        onClick = onCancelMessageEdit,
+                        // 官方工具栏的内容 Row 是顶对齐（Row 默认 Alignment.Top），
+                        // 40dp 按钮相对 56dp 输入框会高出 8dp，必须显式竖直居中。
+                        modifier = Modifier.align(Alignment.CenterVertically),
+                    )
+                    Spacer(modifier = Modifier.width(ComposerToolbarGap))
+                } else {
+                    // 有输入内容（文字 / 图片 / 文件 / 引用）时左侧动作组收起，输入框展开占满，
+                    // 尾部语音按钮同步让位给发送按钮；清空后按官方弹簧规格展开回来。
+                    AnimatedVisibility(
+                        visible = !hasContent,
+                        // 同上：与输入框竖直居中，避免整组按钮偏高。
+                        modifier = Modifier.align(Alignment.CenterVertically),
+                        enter = fadeIn(enterSpec) +
+                            expandHorizontally(growSpec, expandFrom = Alignment.Start),
+                        exit = fadeOut(exitSpec) +
+                            shrinkHorizontally(shrinkSpec, shrinkTowards = Alignment.Start),
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            // 组首间距：第一个 40dp 圆形按钮距工具栏左端 = 官方内容内边距 8dp
+                            // + 本间距 8dp = 16dp，与圆钮到上下的间距（(72 − 40)/2 = 16dp）相等，
+                            // 即 36dp 外层半径 − 20dp 圆钮半径 = 16dp 的同心间距——端盖才是同心的；
+                            // 只有官方内边距时圆钮会贴左端 8dp，与上下 16dp 不同心。
+                            Spacer(modifier = Modifier.width(ComposerConcentricGap))
+                            M3ComposerAddButton(
+                                actions = actions,
+                                expanded = attachMenuExpanded,
+                                onExpandedChange = { attachMenuExpanded = it },
+                                onScheduleSend = { showScheduleDialog = true },
+                                onSaveDraft = {
+                                    scope.launch {
+                                        ComposerQueueStore.saveDraft(context, conversationKey, draftText)
+                                        Toast.makeText(
+                                            context,
+                                            context.getString(R.string.composer_draft_saved),
+                                            Toast.LENGTH_SHORT,
+                                        ).show()
+                                    }
+                                },
+                                onShare = { shareDraft(context, draftText) },
+                            )
+                            Spacer(modifier = Modifier.width(ComposerToolbarGap))
+                            M3ComposerPickImageButton(actions = actions)
+                            Spacer(modifier = Modifier.width(ComposerToolbarGap))
+                            M3ComposerPickerButton(
+                                enabled = pickerEnabled,
+                                collaborationTaskRunning = isStreaming || isPaused || isCompressingContext,
+                                onClick = { showPickerSheet = true },
+                            )
+                            // 组尾间距放进动画组：收起后输入框左右各贴工具栏 8dp 内边距
+                            // （与上下间距一致），两个胶囊端盖保持同心。
+                            Spacer(modifier = Modifier.width(ComposerToolbarGap))
+                        }
                     }
                 }
-            }
 
-            M3ComposerTextField(
-                textFieldState = textFieldState,
-                focusRequester = focusRequester,
-                interactionBlocked = interactionBlocked,
-                isStreaming = isStreaming,
-                isPaused = isPaused,
-                isEditingMessage = isEditingMessage,
-                showMorphLoading = showMorphLoading,
-                voiceState = voiceState,
-                onStartVoiceMode = onStartVoiceMode,
-                onStopVoiceMode = onStopVoiceMode,
-                onSend = {
-                    val text = textFieldState.text.toString()
-                    // 发送后草稿失效，清掉本机保存的副本。
-                    scope.launch {
-                        ComposerQueueStore.saveDraft(context, conversationKey, "")
-                    }
-                    onSubmit(text)
-                },
-                onStop = onStop,
-                onContinue = onContinue,
-                onAbortPausedRun = onAbortPausedRun,
-                onBlocked = {
-                    Toast.makeText(
-                        context,
-                        context.getString(R.string.context_window_send_blocked),
-                        Toast.LENGTH_SHORT,
-                    ).show()
-                },
-                sendMode = sendMode,
-                hasContent = hasContent,
-            )
+                M3ComposerTextField(
+                    textFieldState = textFieldState,
+                    focusRequester = focusRequester,
+                    interactionBlocked = interactionBlocked,
+                    isStreaming = isStreaming,
+                    isPaused = isPaused,
+                    isEditingMessage = isEditingMessage,
+                    showMorphLoading = showMorphLoading,
+                    voiceState = voiceState,
+                    onStartVoiceMode = onStartVoiceMode,
+                    onStopVoiceMode = onStopVoiceMode,
+                    onSend = {
+                        val text = textFieldState.text.toString()
+                        // 发送后草稿失效，清掉本机保存的副本。
+                        scope.launch {
+                            ComposerQueueStore.saveDraft(context, conversationKey, "")
+                        }
+                        onSubmit(text)
+                    },
+                    onStop = onStop,
+                    onContinue = onContinue,
+                    onAbortPausedRun = onAbortPausedRun,
+                    onBlocked = {
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.context_window_send_blocked),
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    },
+                    sendMode = sendMode,
+                    hasContent = hasContent,
+                )
+            }
         }
     }
 
@@ -528,6 +547,90 @@ private fun RowScope.M3ComposerTextField(
             }
         }
     }
+}
+
+/**
+ * 语音进行中的“聆听条”（参考稿第二图）：vibrant 外胶囊里的单枚内胶囊——
+ * 起始侧麦克风状态圆钮（指示，非按钮）、中间实时转写与阶段文案、末端官方色调停止圆钮。
+ *
+ * 几何与正常态一致：内胶囊固定 28dp 圆角、56dp 最小高；麦克风圆钮（半径 20dp）距端盖
+ * 8dp（28 − 20 的同心间距）。听写时中间显示实时转写，无转写时显示阶段文案；
+ * 通话模式图标为 GraphicEq，其余为 RecordVoiceOver。结束后由调用方切回正常输入区。
+ */
+@Composable
+private fun M3VoiceBar(state: VoiceModeState, onStop: () -> Unit) {
+    val view = LocalView.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = TextFieldDefaults.MinHeight)
+            .clip(MaterialTheme.shapes.extraLarge)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .padding(horizontal = ComposerConcentricGap),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Surface(
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(IconButtonDefaults.smallContainerSize()),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = if (state.mode == VoiceEntryMode.DOUBAO_DUPLEX) {
+                        Icons.Rounded.GraphicEq
+                    } else {
+                        Icons.Rounded.RecordVoiceOver
+                    },
+                    contentDescription = null,
+                    modifier = Modifier.size(IconButtonDefaults.smallIconSize),
+                    tint = if (state.error != null) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onPrimary
+                    },
+                )
+            }
+        }
+        Text(
+            text = state.transcript.takeIf { it.isNotBlank() } ?: voicePhaseText(state),
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 12.dp),
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (state.error != null) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.onSurface
+            },
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        FilledTonalIconButton(
+            onClick = {
+                TouchHaptics.click(view)
+                onStop()
+            },
+            modifier = Modifier.size(IconButtonDefaults.smallContainerSize()),
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Stop,
+                contentDescription = stringResource(R.string.voice_mode_stop),
+                modifier = Modifier.size(IconButtonDefaults.smallIconSize),
+            )
+        }
+    }
+}
+
+/** 语音阶段文案（自 VoiceModeStatusPanel 提取，供聆听条复用同一套措辞）。 */
+@Composable
+private fun voicePhaseText(state: VoiceModeState): String = when {
+    state.error != null -> state.error
+    state.phase == VoiceModePhase.Connecting -> stringResource(R.string.voice_mode_connecting)
+    state.phase == VoiceModePhase.Listening -> stringResource(R.string.voice_mode_listening)
+    state.phase == VoiceModePhase.Transcribing -> stringResource(R.string.voice_mode_transcribing)
+    state.phase == VoiceModePhase.Thinking -> stringResource(R.string.voice_mode_thinking)
+    state.phase == VoiceModePhase.Speaking -> stringResource(R.string.voice_mode_speaking)
+    else -> stringResource(R.string.voice_mode_open)
 }
 
 /**

@@ -7,6 +7,7 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.test.hasSetTextAction
@@ -14,7 +15,9 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.dp
+import io.github.mangi.eta.agent.voice.VoiceModePhase
 import io.github.mangi.eta.agent.voice.VoiceModeState
+import io.github.mangi.eta.agent.voice.VoiceEntryMode
 import io.github.mangi.eta.data.model.GptSpeedMode
 import io.github.mangi.eta.data.model.ReasoningEffort
 import io.github.mangi.eta.ui.model.AgentContextUsageUi
@@ -43,6 +46,7 @@ class M3ComposerToolbarLayoutTest {
     @Test
     fun contentCollapsesActionGroupAndSwapsVoiceForSendButton() {
         val field = TextFieldState()
+        val voiceStateHolder = mutableStateOf(VoiceModeState())
         compose.setContent {
             MaterialExpressiveTheme(
                 colorScheme = lightColorScheme(),
@@ -71,7 +75,7 @@ class M3ComposerToolbarLayoutTest {
                     availableReasoningEfforts = emptyList(),
                     gptSpeedMode = GptSpeedMode.NORMAL,
                     gptSpeedSupported = false,
-                    voiceState = VoiceModeState(),
+                    voiceState = voiceStateHolder.value,
                     showMorphLoading = false,
                     pendingImages = emptyList(),
                     pendingFileReferences = emptyList(),
@@ -206,6 +210,19 @@ class M3ComposerToolbarLayoutTest {
             multiLineBounds.bottom - multiLineSend.bottom,
             0.5f,
         )
+
+        // 语音进行中（听写）：整条工具栏切换为聆听条——输入框与动作组消失，
+        // 出现实时转写文本与官方色调停止圆钮（“End voice conversation”）。
+        compose.runOnIdle {
+            voiceStateHolder.value = VoiceModeState(
+                mode = VoiceEntryMode.DICTATION,
+                phase = VoiceModePhase.Listening,
+                transcript = "你说",
+            )
+        }
+        compose.waitForIdle()
+        compose.onNode(hasSetTextAction()).assertDoesNotExist()
+        compose.onNodeWithContentDescription("End voice conversation").assertExists()
     }
 
     private fun fieldBounds() =
