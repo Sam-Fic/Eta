@@ -3,6 +3,8 @@ package io.github.mangi.eta.ui.components
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -31,6 +33,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.adaptive.EtaConnectedGroupRow
 import io.github.mangi.eta.ui.adaptive.etaPrimary
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.app.LocalAppearanceSettings
@@ -41,6 +44,7 @@ import io.github.mangi.eta.ui.model.AgentMessageUi
 import io.github.mangi.eta.ui.model.SystemNoticeCode
 import io.github.mangi.eta.ui.model.SystemNoticeMessageUi
 import kotlinx.coroutines.delay
+import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -48,6 +52,10 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Text as M3Text
+import androidx.compose.material3.ToggleButton
+import androidx.compose.material3.ToggleButtonDefaults
+import androidx.compose.material3.ToggleButtonSize
+import androidx.compose.material3.ToggleButtonShapes
 import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.material3.TooltipBox as M3TooltipBox
 import androidx.compose.material3.TooltipDefaults
@@ -102,7 +110,7 @@ private fun FooterIconButton(
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun FooterTooltipBox(
+internal fun FooterTooltipBox(
     text: String,
     enabled: Boolean,
     content: @Composable () -> Unit,
@@ -119,6 +127,65 @@ private fun FooterTooltipBox(
         enableUserInput = enabled,
         content = content,
     )
+}
+
+/**
+ * 连体按钮组统一配色（用户指定）：tertiaryContainer 容器 + onTertiaryContainer 内容，
+ * 选中态同色，避免官方默认 secondaryContainer 与页面其他组件撞色。
+ */
+@Composable
+internal fun M3ConnectedGroupColors() = ToggleButtonDefaults.colors(
+    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+    checkedContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
+    checkedContentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+)
+
+/**
+ * 连体按钮组里的图标按钮（KernelSU AppProfile 同款官方模式）：官方 `ToggleButton` +
+ * `ButtonGroupDefaults` 连体形状（首位/中间/末位）。纯图标按钮用官方
+ * `extraSmallContainerSize` 强制成等宽等高的方形容器（顶栏组用 Small/40dp，这里再小
+ * 一号用 XS/32dp），`contentPadding(0.dp)` 置零官方文字按钮的水平内边距。单按钮时退回
+ * 官方默认全圆角形状。
+ */
+@Composable
+internal fun M3ConnectedIconAction(
+    onClick: () -> Unit,
+    enabled: Boolean,
+    index: Int,
+    count: Int,
+    content: @Composable RowScope.() -> Unit,
+) {
+    val shapes: ToggleButtonShapes? = when {
+        count <= 1 -> null
+        index <= 0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+        index >= count - 1 -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+        else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+    }
+    if (shapes == null) {
+        ToggleButton(
+            checked = false,
+            onCheckedChange = { onClick() },
+            enabled = enabled,
+            modifier = Modifier.size(IconButtonDefaults.extraSmallContainerSize()),
+            buttonSize = ToggleButtonSize.Small,
+            contentPadding = PaddingValues(0.dp),
+            colors = M3ConnectedGroupColors(),
+            content = content,
+        )
+    } else {
+        ToggleButton(
+            checked = false,
+            onCheckedChange = { onClick() },
+            enabled = enabled,
+            modifier = Modifier.size(IconButtonDefaults.extraSmallContainerSize()),
+            buttonSize = ToggleButtonSize.Small,
+            shapes = shapes,
+            contentPadding = PaddingValues(0.dp),
+            colors = M3ConnectedGroupColors(),
+            content = content,
+        )
+    }
 }
 
 /** Renders the original projection owner; never manufactures a callback message. */
@@ -205,71 +272,145 @@ internal fun AgentMessageActionRow(
             .joinToString("\n\n")
     }
     val material3 = isMaterial3Theme()
-    // 跨主题族取色：M3 走官方 primary / onSurfaceVariant 角色，miuix 保持原有取值。
+    // 跨主题族取色：miuix 保持原有取值（M3 连体按钮组配色见 M3ConnectedGroupColors）。
     val accentColor = etaPrimary()
     val mutedColor = if (material3) MaterialTheme.colorScheme.onSurfaceVariant
         else MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f)
-    // 图标尺寸取官方小号图标按钮的图标令牌（extraSmallIconSize = 20dp）。
-    val actionIconSize = IconButtonDefaults.extraSmallIconSize
+    // 动作回调只定义一次，两条主题分支共用。
+    val onCopyClick: () -> Unit = {
+        TouchHaptics.click(view)
+        @Suppress("DEPRECATION")
+        clipboardManager.setText(AnnotatedString(content))
+        copied = true
+    }
+    val onBranchClick: () -> Unit = { TouchHaptics.click(view); onBranch() }
+    val onRegenerateClick: () -> Unit = { TouchHaptics.click(view); onRegenerate() }
+    val onDeleteClick: () -> Unit = { TouchHaptics.click(view); onDelete() }
     Row(
         modifier = modifier.fillMaxWidth().padding(top = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (showCopyAction) FooterIconButton(
-            onClick = {
-                TouchHaptics.click(view)
-                @Suppress("DEPRECATION")
-                clipboardManager.setText(AnnotatedString(content))
-                copied = true
-            },
-            enabled = true,
-        ) {
-            Icon(
-                imageVector = if (copied) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
-                contentDescription = stringResource(if (copied) R.string.copy_copied else R.string.copy_answer),
-                modifier = Modifier.size(if (material3) actionIconSize else 16.dp),
-                tint = if (copied) accentColor else mutedColor,
-            )
-        }
-        if (allowSpeech) SpeechPlaybackButton(messageId, speechContent)
-        if (showMessageActions) {
-            FooterTooltipBox(stringResource(R.string.ui_branch_conversation), branchEnabled) {
-                FooterIconButton(
-                    onClick = { TouchHaptics.click(view); onBranch() },
-                    enabled = branchEnabled,
-                        ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.CallSplit,
-                        contentDescription = stringResource(R.string.ui_branch_conversation),
-                        modifier = Modifier.size(if (material3) actionIconSize else 16.dp),
-                        tint = mutedColor,
-                    )
+        if (material3) {
+            // M3 Expressive：KernelSU 同款官方连体按钮组 —— EtaConnectedGroupRow
+            // （ConnectedSpaceBetween）+ 每个动作一个官方 ToggleButton（连体形状按
+            // 首位/中间/末位分配），尺寸统一 ToggleButtonSize.Small，配色 tertiaryContainer。
+            val copyDescription = stringResource(if (copied) R.string.copy_copied else R.string.copy_answer)
+            val copyTooltip = stringResource(R.string.ui_copy_4edd1d)
+            val branchLabel = stringResource(R.string.ui_branch_conversation)
+            val regenerateTooltip = stringResource(R.string.ui_regenerate_2e1905)
+            val regenerateDescription = stringResource(R.string.ui_regenerate_reply_84a7d9)
+            val deleteTooltip = stringResource(R.string.ui_delete_3755f5)
+            val deleteDescription = stringResource(R.string.ui_delete_this_conversation_3f351b)
+            val groupActions: List<@Composable (Int, Int) -> Unit> = buildList {
+                if (showCopyAction) {
+                    add { index, count ->
+                        FooterTooltipBox(copyTooltip, true) {
+                            M3ConnectedIconAction(onClick = onCopyClick, enabled = true, index = index, count = count) {
+                                Icon(
+                                    imageVector = if (copied) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
+                                    contentDescription = copyDescription,
+                                    modifier = Modifier.size(IconButtonDefaults.extraSmallIconSize),
+                                )
+                            }
+                        }
+                    }
+                }
+                if (allowSpeech) {
+                    add { index, count ->
+                        SpeechPlaybackButton(messageId, speechContent, index = index, count = count)
+                    }
+                }
+                if (showMessageActions) {
+                    add { index, count ->
+                        FooterTooltipBox(branchLabel, branchEnabled) {
+                            M3ConnectedIconAction(onClick = onBranchClick, enabled = branchEnabled, index = index, count = count) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Rounded.CallSplit,
+                                    contentDescription = branchLabel,
+                                    modifier = Modifier.size(IconButtonDefaults.extraSmallIconSize),
+                                )
+                            }
+                        }
+                    }
+                    add { index, count ->
+                        FooterTooltipBox(regenerateTooltip, messageActionsEnabled) {
+                            M3ConnectedIconAction(onClick = onRegenerateClick, enabled = messageActionsEnabled, index = index, count = count) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Refresh,
+                                    contentDescription = regenerateDescription,
+                                    modifier = Modifier.size(IconButtonDefaults.extraSmallIconSize),
+                                )
+                            }
+                        }
+                    }
+                    add { index, count ->
+                        FooterTooltipBox(deleteTooltip, messageActionsEnabled) {
+                            M3ConnectedIconAction(onClick = onDeleteClick, enabled = messageActionsEnabled, index = index, count = count) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Delete,
+                                    contentDescription = deleteDescription,
+                                    modifier = Modifier.size(IconButtonDefaults.extraSmallIconSize),
+                                )
+                            }
+                        }
+                    }
                 }
             }
-            FooterTooltipBox(stringResource(R.string.ui_regenerate_2e1905), messageActionsEnabled) {
-                FooterIconButton(
-                    onClick = { TouchHaptics.click(view); onRegenerate() },
-                    enabled = messageActionsEnabled,
-                        ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Refresh,
-                        contentDescription = stringResource(R.string.ui_regenerate_reply_84a7d9),
-                        modifier = Modifier.size(if (material3) actionIconSize else 16.dp),
-                        tint = mutedColor,
-                    )
-                }
+            EtaConnectedGroupRow {
+                groupActions.forEachIndexed { index, action -> action(index, groupActions.size) }
             }
-            FooterTooltipBox(stringResource(R.string.ui_delete_3755f5), messageActionsEnabled) {
-                FooterIconButton(
-                    onClick = { TouchHaptics.click(view); onDelete() },
-                    enabled = messageActionsEnabled,
-                        ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Delete,
-                        contentDescription = stringResource(R.string.ui_delete_this_conversation_3f351b),
-                        modifier = Modifier.size(if (material3) actionIconSize else 16.dp),
-                        tint = mutedColor,
-                    )
+        } else {
+            if (showCopyAction) FooterIconButton(
+                onClick = onCopyClick,
+                enabled = true,
+            ) {
+                Icon(
+                    imageVector = if (copied) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
+                    contentDescription = stringResource(if (copied) R.string.copy_copied else R.string.copy_answer),
+                    modifier = Modifier.size(16.dp),
+                    tint = if (copied) accentColor else mutedColor,
+                )
+            }
+            if (allowSpeech) SpeechPlaybackButton(messageId, speechContent)
+            if (showMessageActions) {
+                FooterTooltipBox(stringResource(R.string.ui_branch_conversation), branchEnabled) {
+                    FooterIconButton(
+                        onClick = onBranchClick,
+                        enabled = branchEnabled,
+                            ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.CallSplit,
+                            contentDescription = stringResource(R.string.ui_branch_conversation),
+                            modifier = Modifier.size(16.dp),
+                            tint = mutedColor,
+                        )
+                    }
+                }
+                FooterTooltipBox(stringResource(R.string.ui_regenerate_2e1905), messageActionsEnabled) {
+                    FooterIconButton(
+                        onClick = onRegenerateClick,
+                        enabled = messageActionsEnabled,
+                            ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Refresh,
+                            contentDescription = stringResource(R.string.ui_regenerate_reply_84a7d9),
+                            modifier = Modifier.size(16.dp),
+                            tint = mutedColor,
+                        )
+                    }
+                }
+                FooterTooltipBox(stringResource(R.string.ui_delete_3755f5), messageActionsEnabled) {
+                    FooterIconButton(
+                        onClick = onDeleteClick,
+                        enabled = messageActionsEnabled,
+                            ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Delete,
+                            contentDescription = stringResource(R.string.ui_delete_this_conversation_3f351b),
+                            modifier = Modifier.size(16.dp),
+                            tint = mutedColor,
+                        )
+                    }
                 }
             }
         }

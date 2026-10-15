@@ -110,10 +110,13 @@ private fun AgentQuestionCardContent(
     var expanded by remember(message.status) { mutableStateOf(waiting) }
     var anchorBottom by remember { mutableStateOf(false) }
     val holdsBottom = LocalExpansionHoldsBottom.current
+    // M3：展开前解除底部锚定，标题钉在原位、内容向下生长可见（宿主侧 miuix 为空实现）。
+    val releaseAnchor = LocalChatAnchorRelease.current
     val state = stringResource(if (expanded) R.string.question_expanded else R.string.question_collapsed)
     val statusText = questionStatusText(message.status)
     val toggle: () -> Unit = {
         anchorBottom = holdsBottom()
+        if (!expanded) releaseAnchor()
         expanded = !expanded
     }
     // Reuse the steps' actual outlined shell, including its sole 20dp message gutters.
@@ -130,9 +133,10 @@ private fun AgentQuestionCardContent(
             AnimatedVisibility(visible = expanded,
                 enter = tailDetailsEnter(anchorBottom), exit = tailDetailsExit(anchorBottom)) {
                 Column(modifier = retainDrawLayerWhenIdle()) {
-                    // M3 Expressive：官方 HorizontalDivider 画卡片内的发丝分隔线。
+                    // M3 Expressive：官方 HorizontalDivider 画卡片内的发丝分隔线，
+                    // 缩进与标题正文起始位置对齐（与思考/工具卡片一致）。
                     if (m3) {
-                        HorizontalDivider(modifier = Modifier.padding(horizontal = 13.dp))
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                     } else {
                         Box(Modifier.fillMaxWidth().padding(horizontal = 13.dp).height(0.5.dp)
                             .background(colors.outline.copy(alpha = 0.45f)))
@@ -228,31 +232,15 @@ private fun QuestionDisclosureHeader(
     onToggle: () -> Unit,
 ) {
     if (isMaterial3Theme()) {
-        ListItem(
-            onClick = onToggle,
+        // M3：标题栏与思考/工具卡片共用同一构件，三类卡片的标题行逐值一致。
+        WorkCardDisclosureHeader(
+            leadingIcon = Icons.Rounded.ChatBubbleOutline,
+            leadingTint = if (waiting) etaPrimary() else etaOnSurfaceVariant(),
+            title = "$statusText · $title",
+            titleColor = etaOnSurfaceVariant(),
+            expanded = expanded,
+            onToggle = onToggle,
             modifier = Modifier.semantics { this.stateDescription = stateDescription },
-            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-            leadingContent = {
-                Icon(
-                    imageVector = Icons.Rounded.ChatBubbleOutline,
-                    contentDescription = null,
-                    tint = if (waiting) etaPrimary() else etaOnSurfaceVariant(),
-                )
-            },
-            content = {
-                Text(
-                    text = "$statusText · $title",
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            },
-            trailingContent = {
-                Icon(
-                    imageVector = if (expanded) Icons.Rounded.ExpandMore else Icons.Rounded.ChevronRight,
-                    contentDescription = null,
-                    tint = etaOnSurfaceVariant().copy(alpha = 0.7f),
-                )
-            },
         )
         return
     }
