@@ -123,13 +123,16 @@ internal fun Material3HomeTopBar(
                         TouchHaptics.click(view)
                         onRenameCurrentConversation()
                     },
+                    // weight(fill=false)：Row 先量尾段箭头按钮的固定宽度，剩余宽度才轮到
+                    // 标题按钮；否则长标题会吃满整行，把箭头按钮挤出可见区域。
+                    modifier = Modifier.weight(1f, fill = false),
                     buttonSize = ToggleButtonSize.Small,
                     shapes = ButtonGroupDefaults.connectedLeadingButtonShapes(),
                     colors = ToggleButtonDefaults.colors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                        checkedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        checkedContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                        checkedContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                        checkedContentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                     ),
                 ) {
                     Text(
@@ -146,7 +149,8 @@ internal fun Material3HomeTopBar(
                     onClick = { menuExpanded = true },
                     contentDescription = stringResource(R.string.action_more),
                     connectedShapes = ButtonGroupDefaults.connectedTrailingButtonShapes(),
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                     containerSize = IconButtonDefaults.smallContainerSize().width,
                 ) {
                     Icon(

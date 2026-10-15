@@ -118,6 +118,7 @@ internal fun ChatInputNonFocusableIconButton(
     longClickLabel: String = stringResource(R.string.cim_long_press_label),
     containerShape: Shape? = null,
     containerColor: Color? = null,
+    contentColor: Color? = null,
     containerSize: Dp = ChatInputActionSize,
     connectedShapes: ToggleButtonShapes? = null,
     enabled: Boolean = true,
@@ -157,6 +158,7 @@ internal fun ChatInputNonFocusableIconButton(
             // 自带官方按压形变动画。checked 恒为 false（菜单触发按钮没有选中态），
             // 点击经 onCheckedChange 回调转成一次 click。
             val tone = containerColor ?: MaterialTheme.colorScheme.secondaryContainer
+            val toneContent = contentColor ?: MaterialTheme.colorScheme.onSecondaryContainer
             ToggleButton(
                 checked = false,
                 onCheckedChange = { click() },
@@ -169,9 +171,9 @@ internal fun ChatInputNonFocusableIconButton(
                 contentPadding = PaddingValues(0.dp),
                 colors = ToggleButtonDefaults.colors(
                     containerColor = tone,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    contentColor = toneContent,
                     checkedContainerColor = tone,
-                    checkedContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    checkedContentColor = toneContent,
                 ),
                 content = { buttonContent() },
             )

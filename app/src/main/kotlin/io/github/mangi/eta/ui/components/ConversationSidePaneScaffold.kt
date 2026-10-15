@@ -938,6 +938,7 @@ private fun Material3ConversationPane(
                     selected = false,
                     leadingIcon = Icons.Rounded.AddComment,
                     onClick = onNewConversation,
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                     modifier = Modifier.weight(1f),
                 )
                 Material3DrawerChip(
@@ -946,6 +947,7 @@ private fun Material3ConversationPane(
                     selected = false,
                     leadingIcon = Icons.AutoMirrored.Rounded.ManageSearch,
                     onClick = onOpenManageChats,
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -1282,6 +1284,8 @@ private fun Material3DrawerChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     leadingIcon: ImageVector? = null,
+    // 未选中态的自定义容器色；不传时保持官方 FilledTonalButton 默认（secondaryContainer）。
+    containerColor: Color? = null,
 ) {
     val shapes = connectedButtonShapes(position)
     // 高度用官方 Small 按钮默认值（ButtonDefaults.MinHeight）：不覆盖高度，
@@ -1314,6 +1318,14 @@ private fun Material3DrawerChip(
             onClick = onClick,
             shapes = shapes,
             modifier = chipModifier,
+            colors = if (containerColor != null) {
+                ButtonDefaults.filledTonalButtonColors(
+                    containerColor = containerColor,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                )
+            } else {
+                ButtonDefaults.filledTonalButtonColors()
+            },
             content = content,
         )
     }

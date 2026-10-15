@@ -4,9 +4,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import io.github.mangi.eta.data.model.AppearanceTopBarBlurStyle
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.app.LocalBlurEnabled
 import io.github.mangi.eta.ui.app.LocalTopBarBlurStyle
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
@@ -37,6 +39,20 @@ internal fun TopBarBackdrop(
 ) {
     val surfaceColor = MiuixTheme.colorScheme.surface
     val modifier = when {
+        // Material 3 不做毛玻璃：用与页面背景同色的渐变板代替不透明色块，
+        // 顶端完全不透明、向下过渡到透明，与底部输入栏的渐变板对称，
+        // 让滚入顶栏下方的消息自然淡出而不是被硬切。MIUI X 保持原有不透明底色。
+        backdrop == null && isMaterial3Theme() -> {
+            Modifier.background(
+                Brush.verticalGradient(
+                    colorStops = arrayOf(
+                        0f to surfaceColor,
+                        TopBarGradientSolidFraction to surfaceColor,
+                        1f to surfaceColor.copy(alpha = 0f),
+                    ),
+                ),
+            )
+        }
         backdrop == null -> Modifier.background(surfaceColor)
         LocalTopBarBlurStyle.current == AppearanceTopBarBlurStyle.PROGRESSIVE -> {
             Modifier.progressiveTextureBlur(
@@ -78,3 +94,6 @@ private const val TopBarBlurRadius = 25f
 private const val TopBarSurfaceAlpha = 0.8f
 private const val ProgressiveTopBarBlurRadius = 10f
 private const val ProgressiveTopBarSurfaceAlpha = 0.3f
+
+/** M3 顶栏渐变板仍保持完全不透明的比例，与底部渐变板的不透明段对称。 */
+private const val TopBarGradientSolidFraction = 0.5f

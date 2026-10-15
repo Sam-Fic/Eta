@@ -17,6 +17,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -64,6 +67,8 @@ import io.github.mangi.eta.ui.AgentTaskSurfacePrompt
 import io.github.mangi.eta.ui.AppearanceSettingsScreen
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
+import io.github.mangi.eta.ui.components.LocalShellTopBarInset
 import io.github.mangi.eta.ui.WhaleMaidMemoriesScreen
 import io.github.mangi.eta.ui.WhaleMaidSettingsScreen
 import io.github.mangi.eta.ui.HapticsSettingsScreen
@@ -412,6 +417,7 @@ fun AgentAppRoot(
     @Composable
     fun RoutedShell(
         route: AppRoute,
+        underlapTopBar: Boolean = false,
         content: @Composable () -> Unit,
     ) {
         CompositionLocalProvider(
@@ -515,14 +521,29 @@ fun AgentAppRoot(
             onOpenSettings = { pushFromDrawer(AppRoute.Settings) },
             onOpenModelProviders = { pushFromDrawer(AppRoute.ModelProviders) },
         ) { padding ->
+            // M3 对话页让消息列表延伸到顶栏背后，滚入的部分由顶栏渐变板淡出；
+            // 顶栏高度经 LocalShellTopBarInset 交给列表做顶部 contentPadding。
+            // MIUI X 保持原样：内容整体排在顶栏下方，不下压。
+            val outerPadding = if (underlapTopBar) {
+                PaddingValues(
+                    start = padding.calculateStartPadding(LocalLayoutDirection.current),
+                    end = padding.calculateEndPadding(LocalLayoutDirection.current),
+                    bottom = padding.calculateBottomPadding(),
+                )
+            } else {
+                padding
+            }
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding)
+                    .padding(outerPadding)
             ) {
-                CompositionLocalProvider(LocalStreamingMarkdownStates provides streamingMarkdownCache.forConversation(
-                    agentState.conversationPaneState.selectedConversationId ?: "new-conversation"
-                )) {
+                CompositionLocalProvider(
+                    LocalStreamingMarkdownStates provides streamingMarkdownCache.forConversation(
+                        agentState.conversationPaneState.selectedConversationId ?: "new-conversation"
+                    ),
+                    LocalShellTopBarInset provides if (underlapTopBar) padding.calculateTopPadding() else 0.dp,
+                ) {
                     content()
                 }
             }
@@ -566,7 +587,7 @@ fun AgentAppRoot(
         ),
     ) {
             entry<AppRoute.Home>(swipeDismiss = swipeDismiss) {
-                RoutedShell(route = AppRoute.Home) {
+                RoutedShell(route = AppRoute.Home, underlapTopBar = isMaterial3Theme()) {
                     AgentHomeScreen(
                         stateProvider = { agentState.homeState },
                         conversationMentions = io.github.mangi.eta.ui.model.ConversationMentionInputUi(
@@ -638,7 +659,7 @@ fun AgentAppRoot(
                 }
             }
             entry<AppRoute.Chat>(swipeDismiss = swipeDismiss) {
-                RoutedShell(route = AppRoute.Chat) {
+                RoutedShell(route = AppRoute.Chat, underlapTopBar = isMaterial3Theme()) {
                     AgentChatScreen(
                         stateProvider = { agentState.homeState },
                         conversationMentions = io.github.mangi.eta.ui.model.ConversationMentionInputUi(

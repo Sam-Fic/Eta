@@ -200,31 +200,28 @@ internal fun Material3ComposerBody(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            if (isEditingMessage) {
-                M3ComposerCancelButton(onCancelMessageEdit)
-            } else {
-                M3AttachmentSplitButton(
-                    expanded = attachMenuExpanded,
-                    onExpandedChange = { attachMenuExpanded = it },
-                    onAttachImage = onAttachImage,
-                    onAttachVideo = onAttachVideo,
-                    onAttachFiles = onAttachFiles,
-                    onAttachFolder = onAttachFolder,
-                    onAttachFilePath = onAttachFilePath,
-                    onScheduleSend = { showScheduleDialog = true },
-                    onSaveDraft = {
-                        scope.launch {
-                            ComposerQueueStore.saveDraft(context, conversationKey, draftText)
-                            Toast.makeText(
-                                context,
-                                context.getString(R.string.composer_draft_saved),
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                        }
-                    },
-                    onShare = { shareDraft(context, draftText) },
-                )
-            }
+            // 附件按钮常驻：编辑态不再被取消按钮替换（取消按钮移到第二行语音位）。
+            M3AttachmentSplitButton(
+                expanded = attachMenuExpanded,
+                onExpandedChange = { attachMenuExpanded = it },
+                onAttachImage = onAttachImage,
+                onAttachVideo = onAttachVideo,
+                onAttachFiles = onAttachFiles,
+                onAttachFolder = onAttachFolder,
+                onAttachFilePath = onAttachFilePath,
+                onScheduleSend = { showScheduleDialog = true },
+                onSaveDraft = {
+                    scope.launch {
+                        ComposerQueueStore.saveDraft(context, conversationKey, draftText)
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.composer_draft_saved),
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    }
+                },
+                onShare = { shareDraft(context, draftText) },
+            )
 
             EtaConnectedGroupRow {
                 AssistantPickerButton(
@@ -289,17 +286,23 @@ internal fun Material3ComposerBody(
                 modifier = Modifier.heightIn(min = ButtonDefaults.MediumContainerHeight),
                 contentAlignment = Alignment.Center,
             ) {
-                VoiceEntryButton(
-                    textFieldState = textFieldState,
-                    showGeneration = showMorphLoading,
-                    interactionBlocked = interactionBlocked,
-                    resetKey = isStreaming to isEditingMessage,
-                    voiceState = voiceState,
-                    onStartVoiceMode = onStartVoiceMode,
-                    onStopVoiceMode = onStopVoiceMode,
-                    // 设计稿：第二行左侧是 call 图标的色调圆形按钮。
-                    icon = Icons.Rounded.Call,
-                )
+                if (isEditingMessage) {
+                    // 编辑态：取消按钮占用原语音按钮的位置（与发送按钮对称，同为 40dp 档），
+                    // 第一行的附件按钮恢复常驻。
+                    M3ComposerCancelButton(onCancelMessageEdit)
+                } else {
+                    VoiceEntryButton(
+                        textFieldState = textFieldState,
+                        showGeneration = showMorphLoading,
+                        interactionBlocked = interactionBlocked,
+                        resetKey = isStreaming to isEditingMessage,
+                        voiceState = voiceState,
+                        onStartVoiceMode = onStartVoiceMode,
+                        onStopVoiceMode = onStopVoiceMode,
+                        // 设计稿：第二行左侧是 call 图标的色调圆形按钮。
+                        icon = Icons.Rounded.Call,
+                    )
+                }
             }
 
             OutlinedTextField(
@@ -393,7 +396,10 @@ internal fun Material3ComposerBody(
     }
 }
 
-/** 编辑态下的“取消编辑”按钮：官方色调图标按钮（尺寸/图标/水波纹/按压形变均为官方默认）。 */
+/**
+ * 编辑态下的“取消编辑”按钮：占据第二行原语音按钮的位置（与发送按钮对称），官方
+ * 色调图标按钮（尺寸/图标/水波纹/按压形变均为官方默认）。
+ */
 @Composable
 private fun M3ComposerCancelButton(onClick: () -> Unit) {
     val view = LocalView.current
