@@ -319,15 +319,19 @@ internal fun Material3ComposerBody(
                 }
             }
 
-            // 胶囊内容：正常输入框 ⇄ 聆听条（语音进行中）。切换与尾部按钮同款：
-            // 轻微缩放 + 淡入淡出的官方弹簧，配合左侧动作组的收起形成“胶囊变宽”的整体过渡。
+            // 胶囊内容：正常输入框 ⇄ 聆听条（语音进行中）。过渡与“输入内容时动作组收起”同款：
+            // 横向展开 / 收起 + 淡入淡出（不用缩放交叉淡化）——动作组向左收起时，聆听条以右端为锚
+            // 向左展开填满；结束语音时反向，与动作组从左侧展开形成连续的“胶囊变宽”。
             AnimatedContent(
                 targetState = voiceActive,
                 modifier = Modifier.weight(1f),
                 contentAlignment = Alignment.Center,
                 transitionSpec = {
-                    (fadeIn(enterSpec) + scaleIn(enterSpec, initialScale = 0.92f))
-                        .togetherWith(fadeOut(exitSpec) + scaleOut(exitSpec, targetScale = 0.92f))
+                    (fadeIn(enterSpec) + expandHorizontally(growSpec, expandFrom = Alignment.End))
+                        .togetherWith(
+                            fadeOut(exitSpec) +
+                                shrinkHorizontally(shrinkSpec, shrinkTowards = Alignment.End),
+                        )
                 },
                 label = "composer_pill",
             ) { listening ->
