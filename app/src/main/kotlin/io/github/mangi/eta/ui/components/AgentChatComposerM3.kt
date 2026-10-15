@@ -611,6 +611,11 @@ private fun M3VoiceBar(state: VoiceModeState, onStop: () -> Unit) {
                 onStop()
             },
             modifier = Modifier.size(IconButtonDefaults.smallContainerSize()),
+            // 参考稿的粉色圆钮取官方 tertiaryContainer / onTertiaryContainer 角色。
+            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+            ),
         ) {
             Icon(
                 imageVector = Icons.Rounded.Stop,
