@@ -446,9 +446,11 @@ private fun List<ModelMenuRow>.itemRunLengthAt(index: Int): Int {
  * 官方 `DropdownMenu` 内容：官方 `OutlinedTextField` 搜索框 +
  * 官方 `DropdownMenuItem`（单选模型项用官方 `selected` 重载，语义为 RadioButton）+
  * 官方 `HorizontalDivider`，行形状与选中配色全部来自 `MenuDefaults`。
+ *
+ * 同时被旧模型菜单与「助手与模型」二合一弹窗的模型页签复用。
  */
 @Composable
-private fun ModelPickerMenuContentM3(
+internal fun ModelPickerMenuContentM3(
     state: AgentModelPickerUiState,
     query: String,
     onQueryChange: (String) -> Unit,

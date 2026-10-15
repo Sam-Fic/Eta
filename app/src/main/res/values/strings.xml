@@ -1275,6 +1275,7 @@
   <string name="chat_continue_prompt">Continue from where you left off. Do not repeat content already written.</string>
   <string name="chat_reasoning_effort">Reasoning effort: %1$s</string>
   <string name="reasoning_picker_title">Adjust thinking depth</string>
+  <string name="composer_thinking_effort_label">Thinking effort</string>
   <string name="status_unsupported">Unsupported</string>
   <string name="attachment_image">Image</string>
   <string name="attachment_video">Video</string>
@@ -1578,6 +1579,7 @@
     <string name="composer_schedule_send">Schedule send</string>
     <string name="composer_save_draft">Save draft</string>
     <string name="composer_share">Share</string>
+    <string name="composer_picker_title">Assistant &amp; model</string>
     <string name="composer_schedule_title">Send at</string>
     <string name="composer_draft_saved">Draft saved</string>
     <string name="composer_scheduled_toast">Scheduled for %1$s</string>

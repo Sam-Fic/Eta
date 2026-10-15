@@ -1282,6 +1282,7 @@
   <string name="chat_continue_prompt">请从上次中断处继续输出，不要重复已经给出的内容。</string>
   <string name="chat_reasoning_effort">推理强度，当前为 %1$s</string>
   <string name="reasoning_picker_title">调整思考深度</string>
+  <string name="composer_thinking_effort_label">思考档位</string>
   <string name="status_unsupported">不支持</string>
   <string name="attachment_image">图片</string>
   <string name="attachment_video">视频</string>
@@ -1541,6 +1542,7 @@
   <string name="composer_schedule_send">定时发送</string>
   <string name="composer_save_draft">保存草稿</string>
   <string name="composer_share">分享</string>
+  <string name="composer_picker_title">助手与模型</string>
   <string name="composer_schedule_title">选择发送时间</string>
   <string name="composer_draft_saved">草稿已保存</string>
   <string name="composer_scheduled_toast">已安排在 %1$s 发送</string>

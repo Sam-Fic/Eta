@@ -448,8 +448,8 @@ internal fun AgentChatInputBar(
         }
 
         if (isMaterial3Theme()) {
-            // Material 3 Expressive 输入区：附件拆分按钮 + 助手/模型相连按钮组 + 上下文进度环，
-            // 下面是胶囊输入框与发送按钮。
+            // Material 3 Expressive 输入区：单行浮动工具栏（+ / 相机 / 助手与模型二合一 / 胶囊输入框，
+            // 输入框尾部内嵌语音或发送按钮）。
             Material3ComposerBody(
                 textFieldState = textFieldState,
                 focusRequester = focusRequester,
@@ -463,7 +463,6 @@ internal fun AgentChatInputBar(
                 canSend = canSend,
                 usage = liveUsage,
                 popupMaxHeight = thinkingPopupMaxHeight,
-                inputContainerTopPx = inputContainerTopPx,
                 onPositionedTopPx = { inputContainerTopPx = it },
                 conversationId = collaborationConversationId,
                 assistantId = assistantId,
@@ -1232,6 +1231,13 @@ internal fun VoiceEntryButton(
     onStopVoiceMode: () -> Unit,
     /** 非空时用该图标渲染一个色调圆形按钮（Material 3 Expressive 外观），行为与语音入口一致。 */
     icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    /**
+     * 空闲态是否也用 `FilledIconButton`（official primary/onPrimary）渲染。
+     *
+     * 新输入栏把语音入口放进输入框尾部，与发送按钮共用一个位置，属于“主要动作”；
+     * 打开后空闲态与通话态同为填充色（图标区分状态），与参考稿一致。
+     */
+    idleFilled: Boolean = false,
 ) {
     val view = LocalView.current
     val context = LocalContext.current
@@ -1320,7 +1326,7 @@ internal fun VoiceEntryButton(
             }
         }
         val voiceModifier = Modifier.size(IconButtonDefaults.smallContainerSize())
-        if (active) {
+        if (active || idleFilled) {
             FilledIconButton(
                 onClick = onVoiceClick,
                 modifier = voiceModifier,
