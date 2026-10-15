@@ -92,21 +92,17 @@ class AgentInvalidToolArgumentsLoopIntegrationTest {
         assertEquals(listOf(INVALID, INVALID, STOP), run.results.map { it.getString("code") })
     }
 
-    @Test fun repeatedRejectedIdIsBlockedBeforeParameterBudgetCanBeExhausted() {
+    @Test fun repeatedRejectedIdIsHandledOnlyByTheParameterBudget() {
+        // No replay guard exists: the same id across batches is ordinary history,
+        // and the invalid-argument budget alone terminates the run.
         val run = runBatches(List(3) { listOf(invalid("same-id")) })
-        assertNotNull(run.failure)
-        assertNull(run.completion)
-        assertEquals(AgentToolReplayGuard.CODE, run.failure!!.code)
-        assertFalse(run.failure.retryable)
-        assertEquals(2, run.requests)
-        assertEquals(1, run.results.size)
-        assertEquals(INVALID, run.results.single().getString("code"))
+        assertStopped(run, requests = 3, results = 3)
         assertTrue(run.executed.isEmpty())
+        assertEquals(listOf(INVALID, INVALID, STOP), run.results.map { it.getString("code") })
     }
 
     @Test fun sameRejectedIdStillCountsEachCallAtTheParameterBudgetLayer() {
-        // The loop's stronger replay barrier stays intact. The independent budget
-        // still counts each validation rejection, not distinct IDs; no executor exists here.
+        // The budget counts each validation rejection, not distinct IDs; no executor exists here.
         val call = AgentModelClient.ToolCall("same-id", "run_command", "{}")
         val validator = AgentToolCallValidator(tools())
         val guard = AgentInvalidToolArgumentsGuard()

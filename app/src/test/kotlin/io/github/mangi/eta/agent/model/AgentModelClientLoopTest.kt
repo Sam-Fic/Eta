@@ -525,20 +525,20 @@ class AgentModelClientLoopTest {
     }
 
     @Test
-    fun duplicateRawToolIdsRejectTheBatchWithoutExecutingEitherCall() {
+    fun duplicateRawToolIdsAreStabilizedAndBothCallsExecute() {
         val provider = ScriptedProvider(assistant(content = "", finishReason = "tool_calls")
             .put("tool_calls", JSONArray()
                 .put(toolCall("duplicate", "get_current_context", "{}"))
-                .put(toolCall("duplicate", "get_current_context", "{}"))))
-        var executed = 0
-        val failure = assertThrows(AgentModelExecutionException::class.java) {
-            AgentModelClient.complete(config = modelConfig(), prompt = "开始", provider = provider,
-                toolExecutor = AgentModelClient.ToolExecutor { executed++; AgentModelClient.ToolResult("unexpected") })
-        }
-        assertTrue(failure.cause is AgentModelFailure)
-        assertEquals(AgentToolReplayGuard.CODE, (failure.cause as AgentModelFailure).code)
-        assertEquals(0, executed)
-        assertEquals(1, provider.requests.size)
+                .put(toolCall("duplicate", "get_current_context", "{}"))),
+            assistant(content = "完成", finishReason = "stop"))
+        val executed = mutableListOf<String>()
+        AgentModelClient.complete(config = modelConfig(), prompt = "开始", provider = provider,
+            toolExecutor = AgentModelClient.ToolExecutor {
+                executed += it.id
+                AgentModelClient.ToolResult("{}")
+            })
+        assertEquals(listOf("duplicate", "duplicate_1"), executed)
+        assertEquals(2, provider.requests.size)
     }
 
     @Test

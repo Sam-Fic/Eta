@@ -32,7 +32,6 @@ internal class AgentModelRetry(
         discardAttemptReasoning: () -> Unit,
         onCancelledResponse: (ProviderResponse) -> Unit = {},
         onAttemptStarted: (Int, JSONArray) -> String = { _, _ -> "" },
-        validateResponse: (ProviderResponse) -> Unit = {},
         onRecoveryActivated: () -> Unit = {},
         requestReconnect: ModelErrorReconnect? = null,
     ): Result {
@@ -41,7 +40,6 @@ internal class AgentModelRetry(
         var retriesInCycle = 0
         var attemptRequest = request
         var localOnlyRecovery = request.reconnectLocalToolsOnly
-        var replayCorrectionPending = false
         val reconnectPolicy = ErrorReconnectPolicy.fromPersistedValue(request.config.errorReconnectPolicy)
         val reconnectEnabled = reconnectPolicy != ErrorReconnectPolicy.NONE
         var reconnect: ModelErrorReconnect? = null
@@ -146,7 +144,7 @@ internal class AgentModelRetry(
                                         is ProviderEvent.BlockEnd -> event.content.isNotBlank()
                                         else -> false
                                     }
-                                    if (recovered && !replayCorrectionPending && !(diagnosticRequest.reconnectTextOnly &&
+                                    if (recovered && !(diagnosticRequest.reconnectTextOnly &&
                                             (event is ProviderEvent.BlockDelta && event.kind == AssistantBlockKind.TOOL_CALL ||
                                                 event is ProviderEvent.BlockEnd && event.kind == AssistantBlockKind.TOOL_CALL))) {
                                         try {
@@ -198,8 +196,6 @@ internal class AgentModelRetry(
                         val tail = textFilter.normalize(response.assistantMessage.optString("content").takeUnless { it == "null" }.orEmpty())
                         response.assistantMessage.put("content", prefix.toString() + tail)
                     }
-                    validateResponse(response)
-                    replayCorrectionPending = false
                     toolAttempt?.providerParsed(response.assistantMessage)
                     // An intentional steering/pause draft is NOT a recovered complete response.
                     finishReconnect(if (controller.isCancelled || controller.hasPausedInterrupt ||
@@ -234,14 +230,13 @@ internal class AgentModelRetry(
                     // A local unsupported tier cannot recover by resending the same configuration.
                     if (classified.code == GptServiceTier.UNSUPPORTED_CODEX_TIER) throw classified
                     if (classified.code == "CONTEXT_WINDOW_EXCEEDED") throw classified
-                    if (classified.code == AgentToolReplayGuard.CODE) replayCorrectionPending = true
                     val envelopeRejected = classified.code == ResponsesToolEnvelopeRecovery.CODE
                     val correctionAllowed = envelopeRejected && classified.envelopeCorrectionAllowed &&
                         provider.capabilities.endpoint == EndpointKind.RESPONSES
                     // A gateway HTTP error cannot prove a hosted operation never ran.
                     val unsafeHostedReplay = request.config.hostedWebSearchEnabled && !correctionAllowed
                     val guarded = classified.code in setOf("MODEL_REPETITIVE_REASONING",
-                        "RESPONSES_TOOL_CALL_INCOMPLETE", "RESPONSES_TOOL_ARGUMENTS_INCOMPLETE", AgentToolReplayGuard.CODE)
+                        "RESPONSES_TOOL_CALL_INCOMPLETE", "RESPONSES_TOOL_ARGUMENTS_INCOMPLETE")
                     if (!reconnectEnabled && (toolDeliveryPossible || sawCompleted || unsafeHostedReplay || guarded ||
                         (envelopeRejected && !correctionAllowed))) {
                         val protected = if (!guarded && (toolDeliveryPossible || unsafeHostedReplay)) AgentModelFailure(
