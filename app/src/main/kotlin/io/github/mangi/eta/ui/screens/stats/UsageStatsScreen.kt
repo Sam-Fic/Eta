@@ -288,6 +288,9 @@ private fun HeatmapCaption(
             text = text,
             modifier = modifier,
             fontSize = fontSize,
+            // 行高与字号一致：不继承环境字阶的大行高，避免 CJK 回退字体度量
+            // 把小字挤出格子、与相邻内容重叠或看起来被裁切。
+            lineHeight = fontSize,
             color = color,
             maxLines = maxLines,
         )
@@ -296,6 +299,7 @@ private fun HeatmapCaption(
             text = text,
             modifier = modifier,
             fontSize = fontSize,
+            lineHeight = fontSize,
             color = color,
             maxLines = maxLines,
         )
@@ -1040,6 +1044,9 @@ private fun ChatHeatmap(conversationsPerDay: Map<LocalDate, Int>) {
                         }
                     }
                 }
+                // 末尾留白：最右侧月份标签（如“10月”）会溢出自身网格列宽度，
+                // 留出空间让它完整落在水平滚动视口内，不被右边缘裁切。
+                Spacer(Modifier.width(16.dp))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(cellSpacing)) {
                 for (weekIdx in 0 until numWeeks) {
