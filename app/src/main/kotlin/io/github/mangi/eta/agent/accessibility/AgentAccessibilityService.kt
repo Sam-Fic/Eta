@@ -28,6 +28,7 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import io.github.mangi.eta.agent.device.ScrollAxis
 import io.github.mangi.eta.agent.device.ScrollAxisContract
+import io.github.mangi.eta.agent.device.ScrollAmount
 import io.github.mangi.eta.agent.device.ScrollDirection
 import io.github.mangi.eta.agent.device.ScrollEvidence
 import io.github.mangi.eta.agent.device.ScrollEvidenceContract
@@ -492,6 +493,7 @@ open class AgentAccessibilityService : AccessibilityService() {
         snapshot: NodeSnapshot,
         index: Int,
         direction: ScrollDirection,
+        amount: ScrollAmount = ScrollAmount.PAGE,
     ): ScrollActionResult {
         val validation = runOnMainSync { validateNode(snapshot, index) }
             ?: return ScrollActionResult.failure(
@@ -524,10 +526,10 @@ open class AgentAccessibilityService : AccessibilityService() {
             message = "指定节点及其父节点不可滚动",
             targetIndex = index,
         )
-        return executeScroll(scrollable, direction, targetIndex = index)
+        return executeScroll(scrollable, direction, targetIndex = index, amount = amount)
     }
 
-    internal fun scrollCurrent(direction: ScrollDirection): ScrollActionResult {
+    internal fun scrollCurrent(direction: ScrollDirection, amount: ScrollAmount = ScrollAmount.PAGE): ScrollActionResult {
         val target = runOnMainSync {
             rootInActiveWindow?.let { root -> findBestScrollableNode(root, direction) }
         } ?: return ScrollActionResult.failure(
@@ -535,13 +537,14 @@ open class AgentAccessibilityService : AccessibilityService() {
             code = "NO_ACTIVE_WINDOW",
             message = "当前活动窗口不可访问",
         )
-        return executeScroll(target, direction, targetIndex = null)
+        return executeScroll(target, direction, targetIndex = null, amount = amount)
     }
 
     private fun executeScroll(
         target: AccessibilityNodeInfo,
         direction: ScrollDirection,
         targetIndex: Int?,
+        amount: ScrollAmount,
     ): ScrollActionResult = scrollActionLock.withLock {
         val startedAt = SystemClock.elapsedRealtime()
         val refreshed = runOnMainSync { target.refresh() } == true
@@ -567,7 +570,8 @@ open class AgentAccessibilityService : AccessibilityService() {
         val beforeAnchors = scrollContentAnchors(target)
         val targetIdentity = ScrollTargetIdentity.from(target)
         val beforeSequence = currentScrollEventSequence()
-        val method = chooseScrollMethod(target, direction)
+        // 节点滚动动作固定翻约一屏；小幅滚动只能用手势控制位移。
+        val method = if (amount == ScrollAmount.PAGE) chooseScrollMethod(target, direction) else null
         var methodName = method?.name.orEmpty()
         return withScrollEventObservation(packageName, windowId) {
             val nodeDispatch = method?.let { selected ->
@@ -598,7 +602,7 @@ open class AgentAccessibilityService : AccessibilityService() {
                     )
                 }
                 val bounds = clippedNodeBounds(target)
-                val gesture = direction.gestureWithin(bounds)
+                val gesture = direction.gestureWithin(bounds, amount)
                     ?: return ScrollActionResult.failure(
                         direction = direction,
                         code = "INVALID_NODE_BOUNDS",
@@ -756,7 +760,7 @@ open class AgentAccessibilityService : AccessibilityService() {
             return@runNodeActionOnMainSync error
         }
         val plan = TextEditPlanner.insertAtSelection(
-            currentText = node.text?.toString().orEmpty(),
+            currentText = node.realText(),
             insertedText = text,
             selectionStart = node.textSelectionStart,
             selectionEnd = node.textSelectionEnd,
@@ -804,7 +808,7 @@ open class AgentAccessibilityService : AccessibilityService() {
             return@runNodeActionOnMainSync error
         }
         val plan = TextEditPlanner.insertAtSelection(
-            currentText = node.text?.toString().orEmpty(),
+            currentText = node.realText(),
             insertedText = text,
             selectionStart = node.textSelectionStart,
             selectionEnd = node.textSelectionEnd,
@@ -839,7 +843,7 @@ open class AgentAccessibilityService : AccessibilityService() {
         val pasteResult = try {
             if (node.performAction(AccessibilityNodeInfo.ACTION_PASTE)) {
                 val verified = runCatching { node.refresh() }.getOrDefault(false) &&
-                    node.text?.toString() == plan.text
+                    node.realText() == plan.text
                 if (verified) {
                     NodeActionResult.success(method = "ACTION_PASTE", verified = true)
                 } else {
@@ -1225,6 +1229,13 @@ open class AgentAccessibilityService : AccessibilityService() {
         }
     }
 
+    /**
+     * 输入框的真实内容。空框显示提示文字时 text 返回的是提示语，若当作已有内容，
+     * 追加输入会把提示拼进结果，清空后读回校验也会误报失败。
+     */
+    private fun AccessibilityNodeInfo.realText(): String =
+        if (isShowingHintText) "" else text?.toString().orEmpty()
+
     private fun setNodeText(
         node: AccessibilityNodeInfo,
         text: String,
@@ -1242,7 +1253,7 @@ open class AgentAccessibilityService : AccessibilityService() {
             putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, safeCursor)
         }
         val refreshed = runCatching { node.refresh() }.getOrDefault(false)
-        if (!node.isPassword && (!refreshed || node.text?.toString() != text)) {
+        if (!node.isPassword && (!refreshed || node.realText() != text)) {
             return NodeActionResult.outcomeUnknown()
         }
         val selectionRestored = refreshed && node.performAction(
@@ -1691,7 +1702,8 @@ open class AgentAccessibilityService : AccessibilityService() {
             if (depth > 0 && !visible) return
 
             val bounds = node.bounds()
-            val text = node.text?.toString().orEmpty().take(120)
+            val text = node.realText().take(120)
+            val hint = node.hintText?.toString().orEmpty().take(60)
             val desc = node.contentDescription?.toString().orEmpty().take(120)
             val clickable = node.isClickable
             val longClickable = node.isLongClickable
@@ -1742,6 +1754,9 @@ open class AgentAccessibilityService : AccessibilityService() {
                     editable = editable,
                     password = password,
                     enabled = enabled,
+                    checked = node.isCheckable.takeIf { it }?.let { node.isChecked },
+                    selected = node.isSelected,
+                    hint = hint,
                     clickTarget = clickTarget,
                     longClickTarget = longClickTarget,
                     scrollTarget = scrollTarget,
@@ -2124,7 +2139,12 @@ open class AgentAccessibilityService : AccessibilityService() {
         val focused: Boolean,
         val editable: Boolean,
         val password: Boolean,
-        val enabled: Boolean
+        val enabled: Boolean,
+        /** 开关、勾选框等的状态；null 表示节点不可勾选。 */
+        val checked: Boolean? = null,
+        val selected: Boolean = false,
+        /** 输入框提示语，只在内容为空时有意义，用于识别"这是哪个输入框"。 */
+        val hint: String = "",
     )
 
     internal data class IndexedNode(
@@ -2145,6 +2165,9 @@ open class AgentAccessibilityService : AccessibilityService() {
         val editable: Boolean,
         val password: Boolean,
         val enabled: Boolean,
+        val checked: Boolean?,
+        val selected: Boolean,
+        val hint: String,
         val clickTarget: NodeActionTarget?,
         val longClickTarget: NodeActionTarget?,
         val scrollTarget: NodeActionTarget?,
@@ -2180,7 +2203,7 @@ open class AgentAccessibilityService : AccessibilityService() {
                 packageName = packageName?.toString().orEmpty(),
                 className = className?.toString().orEmpty(),
                 viewId = viewIdResourceName.orEmpty(),
-                text = text?.toString().orEmpty().take(120),
+                text = (if (isShowingHintText) "" else text?.toString().orEmpty()).take(120),
                 description = contentDescription?.toString().orEmpty().take(120),
                 password = isPassword,
             )
@@ -2200,7 +2223,10 @@ open class AgentAccessibilityService : AccessibilityService() {
                 focused = focused,
                 editable = editable,
                 password = password,
-                enabled = enabled
+                enabled = enabled,
+                checked = checked,
+                selected = selected,
+                hint = hint,
             )
     }
 
