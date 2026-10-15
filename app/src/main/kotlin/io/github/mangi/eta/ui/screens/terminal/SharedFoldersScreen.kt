@@ -45,6 +45,7 @@ import io.github.mangi.eta.agent.terminal.shellQuote
 import io.github.mangi.eta.ui.adaptive.EtaClickableRow
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.EtaNoticeText
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
 import io.github.mangi.eta.ui.adaptive.EtaText
 import io.github.mangi.eta.ui.adaptive.EtaTextButton
@@ -184,15 +185,23 @@ internal fun SharedFoldersScreen(
         }
         notice?.let { message ->
             item(key = "notice-card") {
-                EtaSegmentedColumn(
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
-                ) {
-                    item {
-                        EtaClickableRow(
-                            title = message,
-                            onClick = null,
-                            showChevron = false,
-                        )
+                if (isMaterial3Theme()) {
+                    // 纯提示文字不带容器，直接排在页面背景上。
+                    EtaNoticeText(
+                        title = message,
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                    )
+                } else {
+                    EtaSegmentedColumn(
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                    ) {
+                        item {
+                            EtaClickableRow(
+                                title = message,
+                                onClick = null,
+                                showChevron = false,
+                            )
+                        }
                     }
                 }
             }

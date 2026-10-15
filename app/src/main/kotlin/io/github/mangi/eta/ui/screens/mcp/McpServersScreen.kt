@@ -45,6 +45,7 @@ import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
 import io.github.mangi.eta.ui.adaptive.EtaExtendedFab
 import io.github.mangi.eta.ui.adaptive.EtaGroupHorizontalPadding
+import io.github.mangi.eta.ui.adaptive.EtaNoticeText
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedGroupSpacing
@@ -294,8 +295,16 @@ internal fun McpServerDetailScreen(
     ) {
         if (server == null) {
             item(key = "missing") {
-                EtaSegmentedColumn(modifier = mcpGroupModifier()) {
-                    item { McpNoticeRow(title = stringResource(R.string.mcp_server_missing)) }
+                if (isMaterial3Theme()) {
+                    // 纯说明文字不带容器，直接排在页面背景上。
+                    EtaNoticeText(
+                        title = stringResource(R.string.mcp_server_missing),
+                        modifier = mcpGroupModifier(),
+                    )
+                } else {
+                    EtaSegmentedColumn(modifier = mcpGroupModifier()) {
+                        item { BasicComponent(title = stringResource(R.string.mcp_server_missing)) }
+                    }
                 }
             }
             return@EtaScaffoldPage
@@ -578,19 +587,6 @@ private fun McpDestructiveRow(
             summary = summary,
             onClick = onClick,
         )
-    }
-}
-
-/** 纯提示行：M3 用官方 [ListItem]，MIUI X 保持原有 [BasicComponent]。 */
-@Composable
-private fun McpNoticeRow(title: String) {
-    if (isMaterial3Theme()) {
-        EtaSegmentedRow(
-            modifier = Modifier.fillMaxWidth(),
-            content = { M3Text(text = title, style = MaterialTheme.typography.bodyLarge) },
-        )
-    } else {
-        BasicComponent(title = title)
     }
 }
 

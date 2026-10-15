@@ -55,6 +55,35 @@ fun EtaSectionTitle(
     }
 }
 
+/**
+ * 纯说明文字块（M3）。
+ *
+ * 只承载标题 + 摘要的描述性内容：M3 下不带任何容器底色，直接排在页面背景上，
+ * 卡片容器留给可交互分组；miuix 主题族不使用本组件（调用方继续走原卡片）。
+ */
+@Composable
+fun EtaNoticeText(
+    title: String,
+    summary: String? = null,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        M3Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        if (summary != null) {
+            M3Text(
+                text = summary,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+    }
+}
+
 /** 承载一组设置项的卡片容器（真卡片外观；分段列表容器见 EtaSegmentedList）。 */
 @Composable
 fun EtaCard(

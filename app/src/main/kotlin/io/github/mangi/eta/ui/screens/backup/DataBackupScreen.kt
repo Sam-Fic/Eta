@@ -7,6 +7,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -128,12 +129,22 @@ internal fun DataBackupScreen(
         onBack = onBack,
     ) {
         item(key = "warning") {
-            EtaSegmentedColumn(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp)) {
-                item {
-                    BackupNoticeRow(
-                        title = stringResource(R.string.data_backup_warning_title),
-                        summary = stringResource(R.string.data_backup_warning_summary),
-                    )
+            if (isMaterial3Theme()) {
+                // 纯描述性文字不套分段卡片：直接排在页面背景上，
+                // 容器底色只留给下方可交互的分组，视觉层级更清楚。
+                BackupNoticeRow(
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                    title = stringResource(R.string.data_backup_warning_title),
+                    summary = stringResource(R.string.data_backup_warning_summary),
+                )
+            } else {
+                EtaSegmentedColumn(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp)) {
+                    item {
+                        BackupNoticeRow(
+                            title = stringResource(R.string.data_backup_warning_title),
+                            summary = stringResource(R.string.data_backup_warning_summary),
+                        )
+                    }
                 }
             }
         }
@@ -250,21 +261,27 @@ internal fun DataBackupScreen(
     }
 }
 
-/** 纯提示行：M3 用官方 [ListItem]，MIUI X 保持原有 [BasicComponent]。 */
+/** 纯提示行：M3 直接以文字排在页面背景上（不带容器），MIUI X 保持原有 [BasicComponent]。 */
 @Composable
-private fun BackupNoticeRow(title: String, summary: String) {
+private fun BackupNoticeRow(
+    title: String,
+    summary: String,
+    modifier: Modifier = Modifier,
+) {
     if (isMaterial3Theme()) {
-        EtaSegmentedRow(
-            modifier = Modifier.fillMaxWidth(),
-            content = { M3Text(text = title, style = MaterialTheme.typography.bodyLarge) },
-            supportingContent = {
-                M3Text(
-                    text = summary,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            },
-        )
+        Column(modifier = modifier) {
+            M3Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            M3Text(
+                text = summary,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
     } else {
         BasicComponent(
             title = title,
