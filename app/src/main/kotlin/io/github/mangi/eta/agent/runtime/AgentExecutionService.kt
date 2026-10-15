@@ -11,10 +11,13 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
 import android.content.pm.ServiceInfo
+import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import io.github.mangi.eta.R
+import io.github.mangi.eta.agent.overlay.AgentOverlayStatus
+import io.github.mangi.eta.agent.overlay.localizedText
 import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.core.safeLogType
 import io.github.mangi.eta.ui.MainActivity
@@ -90,6 +93,7 @@ internal class AgentExecutionService : Service() {
     }
 
     private fun notification(): Notification {
+        val status = runStatus
         val open = PendingIntent.getActivity(
             this, 0, Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
@@ -102,13 +106,32 @@ internal class AgentExecutionService : Service() {
         val builder = Notification.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_cat)
             .setContentTitle(getString(R.string.execution_title))
-            .setContentText(if (leases.executingSessionCount() == 0) getString(R.string.execution_summary_idle) else getString(R.string.execution_summary, leases.executingSessionCount()))
+            .setContentText(
+                status?.localizedText(resources)
+                    ?: if (leases.executingSessionCount() == 0) getString(R.string.execution_summary_idle) else getString(R.string.execution_summary, leases.executingSessionCount())
+            )
             .setContentIntent(open)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .addAction(Notification.Action.Builder(null, getString(R.string.execution_stop), stop).build())
         if (icon != null) builder.setLargeIcon(icon)
+        // 只有 Agent run 在跑时才申请提升为 Live Update（状态栏胶囊与锁屏）；终端会话、Linux 启动等长驻任务不属于“正在进行、需要持续关注”的活动。
+        if (status != null && Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1) {
+            builder
+                .setStyle(Notification.ProgressStyle().setProgressIndeterminate(true))
+                .setShortCriticalText(status.shortText())
+                .setRequestPromotedOngoing(true)
+        }
         return builder.build()
+    }
+
+    /** 状态栏胶囊约 7 个字符可完整显示；更长时只取动作，工具名留在展开态。 */
+    private fun AgentOverlayStatus.shortText(): String = when (this) {
+        is AgentOverlayStatus.RunningTool, is AgentOverlayStatus.HostedToolRunning -> getString(R.string.execution_chip_running)
+        AgentOverlayStatus.Paused -> getString(R.string.overlay_paused)
+        AgentOverlayStatus.Stopping -> getString(R.string.overlay_stopping)
+        AgentOverlayStatus.GeneratingAnswer, AgentOverlayStatus.PreparingAnswer -> getString(R.string.execution_chip_answering)
+        else -> getString(R.string.overlay_reasoning)
     }
 
     private fun currentLauncherBitmap(): Bitmap? {
@@ -134,6 +157,22 @@ internal class AgentExecutionService : Service() {
         private val ownerSequence = AtomicLong()
         private val mainHandler = Handler(Looper.getMainLooper())
         @Volatile private var instance: AgentExecutionService? = null
+        private var runStatus: AgentOverlayStatus? = null
+        private var publishedStatusText: String? = null
+
+        /**
+         * Agent run 的当前状态，供通知与状态栏胶囊展示；null 表示没有 Agent run 在跑。
+         * 只在显示文字变化时刷新通知，避免流式事件把通知更新频率推到系统限流。
+         */
+        fun updateRunStatus(context: Context, status: AgentOverlayStatus?) {
+            mainHandler.post {
+                runStatus = status
+                val text = status?.localizedText(context.resources)
+                if (text == publishedStatusText) return@post
+                publishedStatusText = text
+                instance?.takeIf { it.foregroundActive }?.refreshNotification()
+            }
+        }
 
         @Volatile var backupMaintenance: Boolean = false
             private set

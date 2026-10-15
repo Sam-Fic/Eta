@@ -21,6 +21,7 @@ import android.view.WindowInsets
 import androidx.compose.runtime.Composable
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.platform.ComposeView
@@ -113,7 +114,27 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
     private var orbPosition: AgentOrbPosition? = null
     private var orbDragStart = AgentOrbPosition(0f, 0f)
 
-    private val state = mutableStateOf(AgentOverlayState.Initial)
+    /**
+     * 浮层与执行通知共用同一份运行状态；写入只发生在主线程。
+     *
+     * 实现为 `MutableState` 的委托对象（而非普通 `mutableStateOf`）：写入时把状态投送到
+     * 执行通知（状态栏胶囊 / 锁屏），同时保持字段类型不变，反射读取该字段的测试照常工作。
+     */
+    private val state = object : MutableState<AgentOverlayState> {
+        private val holder = mutableStateOf(AgentOverlayState.Initial)
+        override var value: AgentOverlayState
+            get() = holder.value
+            set(next) {
+                holder.value = next
+                // 只有 Agent run 在跑时才把状态投送到执行通知；没有活动 run 时回落为普通常驻通知。
+                AgentExecutionService.updateRunStatus(
+                    this@AgentRuntimeService,
+                    next.status.takeIf { sessions.activeRunIds().isNotEmpty() },
+                )
+            }
+        override fun component1(): AgentOverlayState = value
+        override fun component2(): (AgentOverlayState) -> Unit = { value = it }
+    }
     // The compact orb does not display tool details or round counters.
     private val orbPhase = derivedStateOf { state.value.phase }
     private val collapsed = mutableStateOf(true)
@@ -561,6 +582,8 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
                 try {
                     executeRun(session, request)
                 } finally {
+                    // run 结束即撤销状态栏胶囊，避免残留的状态投送。
+                    AgentExecutionService.updateRunStatus(this, null)
                     AgentChildRunControl.finish(session)
                     AgentExecutionService.release(runLease.id)
                 }
