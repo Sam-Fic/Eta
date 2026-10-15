@@ -237,36 +237,27 @@ internal fun Material3ComposerBody(
             .fillMaxWidth()
             .onGloballyPositioned { onPositionedTopPx(it.positionInWindow().y.toInt()) },
     ) {
-        if (voiceState.active || voiceState.error != null) {
-            // 语音进行中（听写 / 通话）：整条工具栏切换为“聆听条”——vibrant 外胶囊里只剩一枚内胶囊，
-            // 依次是麦克风状态圆钮、实时转写与阶段文案、官方色调停止圆钮（参考稿第二图）。
-            HorizontalFloatingToolbar(
-                expanded = true,
-                colors = FloatingToolbarDefaults.vibrantFloatingToolbarColors(),
-                shape = RoundedCornerShape(ComposerOuterCornerRadius),
-                leadingContent = {},
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                M3VoiceBar(state = voiceState, onStop = onStopVoiceMode)
-            }
-        } else {
-            HorizontalFloatingToolbar(
-                expanded = true,
-                // 官方 vibrant 变体：容器 primaryContainer、内容 onPrimaryContainer
-                // （与参考稿“淡色底 + 深色图标”的关系一致）。
-                colors = FloatingToolbarDefaults.vibrantFloatingToolbarColors(),
-                // 同心圆角：外层固定半径 = 内层 28dp（extraLarge）+ 8dp 间距 = 36dp。
-                // 不能用官方 CornerFull：输入框多行长高后 CornerFull 会把外壳拉成巨型胶囊，
-                // 内外圆角就不再满足“半径差 = 间距”。单行（72dp 高）时 36dp 恰是胶囊，外观不变。
-                shape = RoundedCornerShape(ComposerOuterCornerRadius),
-                // 关键：官方 minimumInteractiveBalancedPadding 只在“两侧都没有 leading/trailing
-                // 内容”时才生效；它会读取内容里 MinimumInteractive*AlignmentLine（含位置偏移的大值）
-                // 当补偿内边距，把整条工具栏撑高——空输入时被撑到 ~350dp、输入中无动作组时更夸张到整屏。
-                // 官方本意是给 IconButton 组成的内容补平衡留白，本输入区布局完全显式（间距 + weight），
-                // 因此显式传一个空的 leadingContent，让这组补偿归零（官方参数语义，非 hack）。
-                leadingContent = {},
-                modifier = Modifier.fillMaxWidth(),
-            ) {
+        val voiceActive = voiceState.active || voiceState.error != null
+        HorizontalFloatingToolbar(
+            expanded = true,
+            // 官方 vibrant 变体：容器 primaryContainer、内容 onPrimaryContainer
+            // （与参考稿“淡色底 + 深色图标”的关系一致）。
+            colors = FloatingToolbarDefaults.vibrantFloatingToolbarColors(),
+            // 同心圆角：外层固定半径 = 内层 28dp（extraLarge）+ 8dp 间距 = 36dp。
+            // 不能用官方 CornerFull：输入框多行长高后 CornerFull 会把外壳拉成巨型胶囊，
+            // 内外圆角就不再满足“半径差 = 间距”。单行（72dp 高）时 36dp 恰是胶囊，外观不变。
+            shape = RoundedCornerShape(ComposerOuterCornerRadius),
+            // 关键：官方 minimumInteractiveBalancedPadding 只在“两侧都没有 leading/trailing
+            // 内容”时才生效；它会读取内容里 MinimumInteractive*AlignmentLine（含位置偏移的大值）
+            // 当补偿内边距，把整条工具栏撑高——空输入时被撑到 ~350dp、输入中无动作组时更夸张到整屏。
+            // 官方本意是给 IconButton 组成的内容补平衡留白，本输入区布局完全显式（间距 + weight），
+            // 因此显式传一个空的 leadingContent，让这组补偿归零（官方参数语义，非 hack）。
+            leadingContent = {},
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            // 左侧动作组：语音进行中或已有内容时整组收起（官方弹簧收起，胶囊随之变宽）；
+            // 编辑态改由取消按钮占据该位置（语音与编辑互斥，此时取消按钮直接让位）。
+            if (!voiceActive) {
                 if (isEditingMessage) {
                     // 编辑态：取消按钮占据左侧入口位置（与发送按钮对称），尾部仍为发送按钮。
                     Spacer(modifier = Modifier.width(ComposerConcentricGap))
@@ -326,39 +317,57 @@ internal fun Material3ComposerBody(
                         }
                     }
                 }
+            }
 
-                M3ComposerTextField(
-                    textFieldState = textFieldState,
-                    focusRequester = focusRequester,
-                    interactionBlocked = interactionBlocked,
-                    isStreaming = isStreaming,
-                    isPaused = isPaused,
-                    isEditingMessage = isEditingMessage,
-                    showMorphLoading = showMorphLoading,
-                    voiceState = voiceState,
-                    onStartVoiceMode = onStartVoiceMode,
-                    onStopVoiceMode = onStopVoiceMode,
-                    onSend = {
-                        val text = textFieldState.text.toString()
-                        // 发送后草稿失效，清掉本机保存的副本。
-                        scope.launch {
-                            ComposerQueueStore.saveDraft(context, conversationKey, "")
-                        }
-                        onSubmit(text)
-                    },
-                    onStop = onStop,
-                    onContinue = onContinue,
-                    onAbortPausedRun = onAbortPausedRun,
-                    onBlocked = {
-                        Toast.makeText(
-                            context,
-                            context.getString(R.string.context_window_send_blocked),
-                            Toast.LENGTH_SHORT,
-                        ).show()
-                    },
-                    sendMode = sendMode,
-                    hasContent = hasContent,
-                )
+            // 胶囊内容：正常输入框 ⇄ 聆听条（语音进行中）。切换与尾部按钮同款：
+            // 轻微缩放 + 淡入淡出的官方弹簧，配合左侧动作组的收起形成“胶囊变宽”的整体过渡。
+            AnimatedContent(
+                targetState = voiceActive,
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.Center,
+                transitionSpec = {
+                    (fadeIn(enterSpec) + scaleIn(enterSpec, initialScale = 0.92f))
+                        .togetherWith(fadeOut(exitSpec) + scaleOut(exitSpec, targetScale = 0.92f))
+                },
+                label = "composer_pill",
+            ) { listening ->
+                if (listening) {
+                    // 聆听条：麦克风状态圆钮 + 实时转写与阶段文案 + 官方色调停止圆钮（参考稿第二图）。
+                    M3VoiceBar(state = voiceState, onStop = onStopVoiceMode)
+                } else {
+                    M3ComposerTextField(
+                        textFieldState = textFieldState,
+                        focusRequester = focusRequester,
+                        interactionBlocked = interactionBlocked,
+                        isStreaming = isStreaming,
+                        isPaused = isPaused,
+                        isEditingMessage = isEditingMessage,
+                        showMorphLoading = showMorphLoading,
+                        voiceState = voiceState,
+                        onStartVoiceMode = onStartVoiceMode,
+                        onStopVoiceMode = onStopVoiceMode,
+                        onSend = {
+                            val text = textFieldState.text.toString()
+                            // 发送后草稿失效，清掉本机保存的副本。
+                            scope.launch {
+                                ComposerQueueStore.saveDraft(context, conversationKey, "")
+                            }
+                            onSubmit(text)
+                        },
+                        onStop = onStop,
+                        onContinue = onContinue,
+                        onAbortPausedRun = onAbortPausedRun,
+                        onBlocked = {
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.context_window_send_blocked),
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        },
+                        sendMode = sendMode,
+                        hasContent = hasContent,
+                    )
+                }
             }
         }
     }
@@ -431,7 +440,7 @@ private val ComposerOuterCornerRadius = 36.dp
  * 28 − 20 = 8dp 即为端距），文本仍由官方 trailingIcon 槽预留横向空间。
  */
 @Composable
-private fun RowScope.M3ComposerTextField(
+private fun M3ComposerTextField(
     textFieldState: TextFieldState,
     focusRequester: FocusRequester,
     interactionBlocked: Boolean,
@@ -455,7 +464,7 @@ private fun RowScope.M3ComposerTextField(
     // 麦克风 ↔ 发送按钮的切换动效取官方 Expressive 弹簧规格。
     val fadeSpec: FiniteAnimationSpec<Float> = MaterialTheme.motionScheme.defaultSpatialSpec()
     val scaleSpec: FiniteAnimationSpec<Float> = MaterialTheme.motionScheme.defaultSpatialSpec()
-    Box(modifier = Modifier.weight(1f)) {
+    Box(modifier = Modifier.fillMaxWidth()) {
         TextField(
             state = textFieldState,
             modifier = Modifier
