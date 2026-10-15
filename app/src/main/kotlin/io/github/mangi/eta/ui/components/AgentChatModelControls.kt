@@ -89,6 +89,10 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.Stroke
+import io.github.mangi.eta.ui.adaptive.etaOnSurface
+import io.github.mangi.eta.ui.adaptive.etaPrimary
+import io.github.mangi.eta.ui.adaptive.etaSecondaryContainer
+import io.github.mangi.eta.ui.adaptive.etaSurfaceContainerHigh
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 
 /**
@@ -573,7 +577,7 @@ private fun ModelPickerSearchField(
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 4.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(MiuixTheme.colorScheme.surfaceContainerHigh)
+            .background(etaSurfaceContainerHigh())
             .padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -597,8 +601,8 @@ private fun ModelPickerSearchField(
                 value = query,
                 onValueChange = onQueryChange,
                 singleLine = true,
-                textStyle = MiuixTheme.textStyles.footnote1.copy(color = MiuixTheme.colorScheme.onSurface),
-                cursorBrush = SolidColor(MiuixTheme.colorScheme.primary),
+                textStyle = MiuixTheme.textStyles.footnote1.copy(color = etaOnSurface()),
+                cursorBrush = SolidColor(etaPrimary()),
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -669,7 +673,7 @@ private fun ModelPickerRow(
             .padding(horizontal = 8.dp, vertical = 2.dp)
             .squircleSurface(
                 color = if (selected) {
-                    MiuixTheme.colorScheme.surfaceContainerHigh
+                    etaSurfaceContainerHigh()
                 } else {
                     Color.Transparent
                 },
@@ -747,7 +751,7 @@ internal fun AgentContextUsageButton(
         progress == null -> MiuixTheme.colorScheme.onSurfaceVariantActions
         progress >= 0.95f -> StatusError
         progress >= 0.80f -> StatusWarning
-        else -> MiuixTheme.colorScheme.primary
+        else -> etaPrimary()
     }
     val locale = LocalConfiguration.current.locales[0]
     val summary = child?.cloudContextSummary(context, locale) ?: formatContextUsage(
@@ -836,7 +840,7 @@ internal fun AgentContextUsageButton(
                     progress = { progress ?: 0f },
                     modifier = ringSemantics.size(ringSize),
                     color = progressColor,
-                    trackColor = MiuixTheme.colorScheme.secondaryContainer,
+                    trackColor = etaSecondaryContainer(),
                     stroke = Stroke(width = strokePx),
                     trackStroke = Stroke(width = strokePx),
                 )
@@ -846,7 +850,7 @@ internal fun AgentContextUsageButton(
                     colors = ProgressIndicatorDefaults.progressIndicatorColors(
                         foregroundColor = progressColor,
                         disabledForegroundColor = progressColor,
-                        backgroundColor = MiuixTheme.colorScheme.secondaryContainer,
+                        backgroundColor = etaSecondaryContainer(),
                     ),
                     strokeWidth = ringStrokeWidth,
                     size = ringSize,
@@ -992,7 +996,7 @@ private fun ModelBrandMark(
 private fun ContextTargetRow(label: String, selected: Boolean, onClick: () -> Unit) {
     val view = LocalView.current
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp)
-        .squircleSurface(color = if (selected) MiuixTheme.colorScheme.surfaceContainerHigh else Color.Transparent, cornerRadius = 12.dp)
+        .squircleSurface(color = if (selected) etaSurfaceContainerHigh() else Color.Transparent, cornerRadius = 12.dp)
         .clickable { TouchHaptics.click(view); onClick() }
         .padding(horizontal = 8.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(label, style = MiuixTheme.textStyles.body2, maxLines = 2,

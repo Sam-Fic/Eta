@@ -47,6 +47,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.etaPrimary
+import io.github.mangi.eta.ui.adaptive.etaSurfaceContainerHigh
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -374,7 +376,7 @@ internal fun PendingFileReferenceStrip(
                     .height(42.dp)
                     .widthIn(max = 250.dp)
                     .squircleSurface(
-                        color = MiuixTheme.colorScheme.surfaceContainerHigh,
+                        color = etaSurfaceContainerHigh(),
                         cornerRadius = 12.dp,
                     )
                     .squircleBorder(
@@ -394,7 +396,7 @@ internal fun PendingFileReferenceStrip(
                     },
                     contentDescription = null,
                     modifier = Modifier.size(18.dp),
-                    tint = MiuixTheme.colorScheme.primary,
+                    tint = etaPrimary(),
                 )
                 Text(
                     text = reference.displayName +
@@ -461,7 +463,7 @@ internal fun SentFileReferenceFlow(
                     },
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
-                    tint = MiuixTheme.colorScheme.primary,
+                    tint = etaPrimary(),
                 )
                 Text(
                     text = reference.displayName +

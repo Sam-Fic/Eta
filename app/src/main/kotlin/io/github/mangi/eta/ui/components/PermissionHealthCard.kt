@@ -20,6 +20,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.adaptive.etaPrimary
 import io.github.mangi.eta.ui.model.PermissionHealthUiState
 import io.github.mangi.eta.ui.model.PermissionStatusUi
 import top.yukonga.miuix.kmp.basic.Card
@@ -58,7 +59,7 @@ fun PermissionHealthCard(
                     color = if (issueCount == 0) {
                         MiuixTheme.colorScheme.onSurfaceVariantActions
                     } else {
-                        MiuixTheme.colorScheme.primary
+                        etaPrimary()
                     },
                 )
             }
@@ -92,8 +93,8 @@ fun PermissionHealthCard(
 @Composable
 private fun PermissionStatusIcon(status: PermissionStatusUi) {
     val tint = when (status) {
-        PermissionStatusUi.Available -> MiuixTheme.colorScheme.primary
-        PermissionStatusUi.Warning -> MiuixTheme.colorScheme.primary
+        PermissionStatusUi.Available -> etaPrimary()
+        PermissionStatusUi.Warning -> etaPrimary()
         PermissionStatusUi.Missing,
         PermissionStatusUi.Disabled -> MiuixTheme.colorScheme.onSurfaceVariantActions
     }

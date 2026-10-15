@@ -54,6 +54,60 @@ internal fun etaSurfaceContainerHigh(): Color =
         MiuixTheme.colorScheme.surfaceContainerHigh
     }
 
+/** 容器强调色（Badge、标签底色）。 */
+@Composable
+internal fun etaPrimaryContainer(): Color =
+    if (isMaterial3Theme()) {
+        MaterialTheme.colorScheme.primaryContainer
+    } else {
+        MiuixTheme.colorScheme.primaryContainer
+    }
+
+/** 容器强调色上的前景。 */
+@Composable
+internal fun etaOnPrimaryContainer(): Color =
+    if (isMaterial3Theme()) {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    } else {
+        MiuixTheme.colorScheme.onPrimaryContainer
+    }
+
+/** 次要容器色（进度环 track、普通标签底色）。 */
+@Composable
+internal fun etaSecondaryContainer(): Color =
+    if (isMaterial3Theme()) {
+        MaterialTheme.colorScheme.secondaryContainer
+    } else {
+        MiuixTheme.colorScheme.secondaryContainer
+    }
+
+/** 次要容器色上的前景。 */
+@Composable
+internal fun etaOnSecondaryContainer(): Color =
+    if (isMaterial3Theme()) {
+        MaterialTheme.colorScheme.onSecondaryContainer
+    } else {
+        MiuixTheme.colorScheme.onSecondaryContainer
+    }
+
+/** 中层表面色（缩略图、嵌套卡片底）。 */
+@Composable
+internal fun etaSurfaceContainer(): Color =
+    if (isMaterial3Theme()) {
+        MaterialTheme.colorScheme.surfaceContainer
+    } else {
+        MiuixTheme.colorScheme.surfaceContainer
+    }
+
+/** 变体表面色（MIUI X 的 surfaceVariant 语义，如指示条轨道）。 */
+@Composable
+internal fun etaSurfaceVariant(): Color =
+    if (isMaterial3Theme()) {
+        MaterialTheme.colorScheme.surfaceVariant
+    } else {
+        MiuixTheme.colorScheme.surfaceVariant
+    }
+
 /**
  * GPT 速度档位的前景色（Material 3）。
  *

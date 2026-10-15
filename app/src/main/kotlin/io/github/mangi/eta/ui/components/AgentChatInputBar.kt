@@ -162,6 +162,10 @@ import io.github.mangi.eta.ui.adaptive.EtaConnectedGroupRow
 import io.github.mangi.eta.ui.adaptive.etaGptSpeedColor
 import io.github.mangi.eta.ui.adaptive.EtaIconButton
 import io.github.mangi.eta.ui.adaptive.EtaIconSize
+import io.github.mangi.eta.ui.adaptive.etaOnSurface
+import io.github.mangi.eta.ui.adaptive.etaPrimary
+import io.github.mangi.eta.ui.adaptive.etaSurfaceContainer
+import io.github.mangi.eta.ui.adaptive.etaSurfaceContainerHigh
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Slider
@@ -539,11 +543,11 @@ internal fun AgentChatInputBar(
                                 .focusProperties { canFocus = !drawerBlocksIme },
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
                             textStyle = TextStyle(
-                                color = MiuixTheme.colorScheme.onSurface,
+                                color = etaOnSurface(),
                                 fontSize = MiuixTheme.textStyles.body1.fontSize,
                                 lineHeight = 22.sp,
                             ),
-                            cursorBrush = SolidColor(MiuixTheme.colorScheme.primary),
+                            cursorBrush = SolidColor(etaPrimary()),
                             lineLimits = TextFieldLineLimits.MultiLine(
                                 minHeightInLines = 1,
                                 maxHeightInLines = 6,
@@ -672,8 +676,8 @@ internal fun AgentChatInputBar(
                         ) {
                             val sendButtonColor by animateColorAsState(
                                 targetValue = when (sendMode) {
-                                    "stop", "continue", "send" -> MiuixTheme.colorScheme.onSurface
-                                    else -> MiuixTheme.colorScheme.surfaceContainerHigh
+                                    "stop", "continue", "send" -> etaOnSurface()
+                                    else -> etaSurfaceContainerHigh()
                                 },
                                 animationSpec = tween(durationMillis = 160),
                                 label = "send_button_color",
@@ -779,7 +783,7 @@ internal fun ThinkingEffortChip(
     }
 
     val normalColor = if (active) {
-        MiuixTheme.colorScheme.primary
+        etaPrimary()
     } else {
         MiuixTheme.colorScheme.onSurfaceVariantSummary
     }
@@ -977,7 +981,7 @@ internal fun ThinkingEffortPickerDialog(
                     .padding(top = 8.dp)
                     .size(32.dp),
                 tint = if (preview != ReasoningEffort.OFF) {
-                    MiuixTheme.colorScheme.primary
+                    etaPrimary()
                 } else {
                     MiuixTheme.colorScheme.onSurface
                 },
@@ -1078,7 +1082,7 @@ private fun PendingImageStrip(
                 modifier = Modifier
                     .size(60.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(MiuixTheme.colorScheme.surfaceContainer),
+                    .background(etaSurfaceContainer()),
             ) {
                 rememberDataUrlBitmap(image.dataUrl, fallback = image.uri)?.let { bitmap ->
                     ChatClickableImage(
@@ -1563,7 +1567,7 @@ internal fun VoiceModeStatusPanel(
                 },
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
-                tint = if (state.error == null) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.error,
+                tint = if (state.error == null) etaPrimary() else StatusError,
             )
             Text(
                 text = phase,
