@@ -3,9 +3,13 @@ package io.github.mangi.eta.ui.components
 import android.os.SystemClock
 import android.view.WindowManager
 import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.rememberTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -17,6 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -27,14 +32,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.draw.dropShadow
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
@@ -47,12 +52,6 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import kotlinx.coroutines.delay
-import top.yukonga.miuix.kmp.basic.ListPopupDefaults
-import top.yukonga.miuix.kmp.squircle.addSquircleRect
-import top.yukonga.miuix.kmp.squircle.isSquircleEnabled
-import top.yukonga.miuix.kmp.squircle.squircleBorder
-import top.yukonga.miuix.kmp.squircle.squircleSurface
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private val MenuCornerRadius = 16.dp
 private val MenuMinWidth = 180.dp
@@ -61,6 +60,9 @@ private val MenuScreenMargin = 12.dp
 private const val MenuExitDurationMs = 160L
 private const val MenuDismissGuardMs = 80L
 private val MenuExitAnimationSpec = tween<Float>(durationMillis = 150)
+private val MenuEnterFractionSpec = spring<Float>(stiffness = Spring.StiffnessMediumLow)
+private val MenuEnterAlphaSpec = tween<Float>(durationMillis = 100)
+private val MenuExitAlphaSpec = tween<Float>(durationMillis = 100)
 
 @Stable
 internal class EtaMenuState {
@@ -118,7 +120,6 @@ internal fun EtaDropdownMenu(
     val visibleState = remember { MutableTransitionState(false) }
     visibleState.targetState = expanded
 
-    val colors = MiuixTheme.colorScheme
     val density = LocalDensity.current
     val offsetXPx = with(density) { offset.x.roundToPx() }
     val offsetYPx = with(density) { offset.y.roundToPx() }
@@ -130,7 +131,7 @@ internal fun EtaDropdownMenu(
     val fraction = transition.animateFloat(
         transitionSpec = {
             if (false isTransitioningTo true) {
-                ListPopupDefaults.FractionAnimationSpec
+                MenuEnterFractionSpec
             } else {
                 MenuExitAnimationSpec
             }
@@ -140,9 +141,9 @@ internal fun EtaDropdownMenu(
     val alpha = transition.animateFloat(
         transitionSpec = {
             if (false isTransitioningTo true) {
-                ListPopupDefaults.AlphaEnterAnimationSpec
+                MenuEnterAlphaSpec
             } else {
-                ListPopupDefaults.AlphaExitAnimationSpec
+                MenuExitAlphaSpec
             }
         },
         label = "etaMenuAlpha",
@@ -153,7 +154,6 @@ internal fun EtaDropdownMenu(
             pivotFractionY = if (preferAbove) 1f else 0f,
         )
     }
-    val squircleEnabled = isSquircleEnabled()
     val popupProperties = remember(focusable, expanded) {
         var flags = WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
         if (!focusable) {
@@ -177,7 +177,7 @@ internal fun EtaDropdownMenu(
         popupPositionProvider = positionProvider,
         properties = popupProperties,
     ) {
-        CompositionLocalProvider(LocalContentColor provides colors.onSurface) {
+        CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
             Column(
                 modifier = Modifier
                     .graphicsLayer {
@@ -198,24 +198,19 @@ internal fun EtaDropdownMenu(
                         },
                         preferAbove = preferAbove,
                         cornerRadius = MenuCornerRadius,
-                        squircleEnabled = squircleEnabled,
                     )
-                    .dropShadow(
+                    .shadow(
+                        elevation = 8.dp,
                         shape = RoundedCornerShape(MenuCornerRadius),
-                        shadow = Shadow(
-                            radius = 16.dp,
-                            color = Color.Black,
-                            alpha = 0.18f,
-                        ),
                     )
-                    .squircleSurface(
-                        color = colors.surface,
-                        cornerRadius = MenuCornerRadius,
+                    .background(
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = RoundedCornerShape(MenuCornerRadius),
                     )
-                    .squircleBorder(
+                    .border(
                         width = 0.5.dp,
-                        color = colors.outline.copy(alpha = 0.45f),
-                        cornerRadius = MenuCornerRadius,
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
+                        shape = RoundedCornerShape(MenuCornerRadius),
                     )
                     .padding(vertical = 8.dp)
                     .verticalScroll(rememberScrollState()),
@@ -229,7 +224,6 @@ private fun Modifier.etaMenuClipReveal(
     fractionProgress: () -> Float,
     preferAbove: Boolean,
     cornerRadius: Dp,
-    squircleEnabled: Boolean,
 ): Modifier = drawWithCache {
     val path = Path()
     val radiusPx = cornerRadius.toPx()
@@ -240,11 +234,14 @@ private fun Modifier.etaMenuClipReveal(
         if (visibleHeight <= 0f) return@onDrawWithContent
         val clipStart = if (preferAbove) size.height * (1f - progress) else 0f
         path.rewind()
-        path.addSquircleRect(
-            width = size.width,
-            height = visibleHeight,
-            cornerRadius = radiusPx,
-            squircleEnabled = squircleEnabled,
+        path.addRoundRect(
+            RoundRect(
+                left = 0f,
+                top = 0f,
+                right = size.width,
+                bottom = visibleHeight,
+                cornerRadius = CornerRadius(radiusPx),
+            ),
         )
         if (clipStart == 0f) {
             clipPath(path) {

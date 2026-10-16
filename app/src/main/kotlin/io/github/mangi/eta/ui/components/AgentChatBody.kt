@@ -3,17 +3,11 @@ package io.github.mangi.eta.ui.components
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.MutableTransitionState
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -28,7 +22,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
@@ -40,7 +33,6 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.layout.LazyLayoutCacheWindow
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -137,7 +129,6 @@ import io.github.mangi.eta.ui.model.isResumeAfterCompress
 import io.github.mangi.eta.ui.model.isSteerSupplement
 import io.github.mangi.eta.ui.adaptive.EtaType
 import io.github.mangi.eta.ui.adaptive.etaTextStyle
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import kotlin.random.Random
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
@@ -152,7 +143,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collectLatest
-import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -162,27 +152,21 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.toShape
 import androidx.graphics.shapes.RoundedPolygon
-import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.overScrollVertical
-import top.yukonga.miuix.kmp.utils.scrollEndHaptic
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 
 /**
  * 壳层顶栏（含状态栏）占用的总高度。
  *
- * M3 主题下对话列表延伸到顶栏背后，由顶栏渐变板淡出滚入的消息；
+ * 对话列表延伸到顶栏背后，由顶栏渐变板淡出滚入的消息；
  * 列表用它作为顶部 contentPadding，静止时首条消息仍停在顶栏下方。
- * MIUI X 不下压内容，保持默认 0。
  */
 val LocalShellTopBarInset = compositionLocalOf { 0.dp }
 
 /**
  * 会话空状态与底部提示的外观适配。
  *
- * Material 3 Expressive 下全部取官方 [MaterialTheme] 角色与排版档位；miuix 主题族
- * 沿用原有取值，两套主题互不影响。
+ * 全部取官方 [MaterialTheme] 角色与排版档位。
  */
 @Composable
 internal fun chatEmptyStateHeadlineStyle(): androidx.compose.ui.text.TextStyle =
@@ -194,37 +178,25 @@ internal fun chatSecondaryLabelStyle(): androidx.compose.ui.text.TextStyle =
 
 @Composable
 private fun chatMutedLabelColor(): androidx.compose.ui.graphics.Color =
-    if (isMaterial3Theme()) MaterialTheme.colorScheme.onSurfaceVariant else MiuixTheme.colorScheme.onSurfaceVariantSummary
+    MaterialTheme.colorScheme.onSurfaceVariant
 
-/** 新消息入场淡入：M3 取官方 effects 规格，miuix 分支保留原来的 180ms。 */
+/** 新消息入场淡入：取官方 effects 规格。 */
 @Composable
 private fun chatMessageFadeInSpec(): FiniteAnimationSpec<Float> =
-    if (isMaterial3Theme()) {
-        MaterialTheme.motionScheme.defaultEffectsSpec()
-    } else {
-        tween(durationMillis = 180)
-    }
+    MaterialTheme.motionScheme.defaultEffectsSpec()
 
 @Composable
 private fun chatBodyLabelColor(): androidx.compose.ui.graphics.Color =
-    if (isMaterial3Theme()) MaterialTheme.colorScheme.onSurface else MiuixTheme.colorScheme.onSurface
+    MaterialTheme.colorScheme.onSurface
 
-/** 卡片描边：M3 用官方 outlineVariant 角色，miuix 保留原 outline 淡化值。 */
+/** 卡片描边：用官方 outlineVariant 角色。 */
 @Composable
 private fun chatCardBorderColor(): androidx.compose.ui.graphics.Color =
-    if (isMaterial3Theme()) {
-        MaterialTheme.colorScheme.outlineVariant
-    } else {
-        MiuixTheme.colorScheme.outline.copy(alpha = 0.5f)
-    }
+    MaterialTheme.colorScheme.outlineVariant
 
 @Composable
 private fun chatCardContainerColor(): androidx.compose.ui.graphics.Color =
-    if (isMaterial3Theme()) {
-        MaterialTheme.colorScheme.surfaceContainerLow
-    } else {
-        MiuixTheme.colorScheme.surface
-    }
+    MaterialTheme.colorScheme.surfaceContainerLow
 
 /**
  * 聊天主体：消息流 + 底部输入框。
@@ -685,17 +657,22 @@ internal fun AgentChatScaffold(
         val bottomPadding = innerPadding.calculateBottomPadding()
         val topBarInset = LocalShellTopBarInset.current
         if (!hasMessages) {
-            // IME 可见性只有空态建议词消费。把 inset 读取限制在这一小段，
-            // 键盘起落时不再带着整条消息列表与输入栏一起重组。
-            val density = LocalDensity.current
-            val isKeyboardVisible = WindowInsets.ime.getBottom(density) > 0
-            EmptyChatState(
-                showSuggestions = !isKeyboardVisible,
-                onSuggestionClick = onSuggestionClick,
+            // 键盘起落期间逐帧变化的只有两样：Scaffold 底栏高度（bottom padding）与 IME 可见性布尔。
+            // 把逐帧 padding 隔离进外层 Box（只触发测量/布局），IME 可见性走 rememberImeVisible
+            // 的离散布尔（snapshotFlow 在组合外观察，不在组合期读 inset）：空态本体参数逐帧稳定，
+            // 键盘动画期间不再逐帧重组整棵空态子树（含四块建议形状）。
+            val isKeyboardVisible = rememberImeVisible()
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(top = topBarInset, bottom = bottomPadding),
-            )
+            ) {
+                EmptyChatState(
+                    showSuggestions = !isKeyboardVisible,
+                    onSuggestionClick = onSuggestionClick,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         } else {
             AgentConversationMessages(
                 visibleMessages = visibleMessages,
@@ -765,9 +742,6 @@ internal fun AgentConversationMessages(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    // M3 Expressive：展开/收起钉住标题（面板向下生长）；miuix 保留跟底快照体系。
-    // 在组合期取值一次，供非组合 lambda（滚动回调、切换回调）使用。
-    val m3ChatTheme = isMaterial3Theme()
     // Independent, trace-gated telemetry also covers idle conversations. No frame loop.
     val scrollTraceEnabled = rememberChatScrollTraceEnabled()
     val chatListTrace = ChatScrollMonitor(state = scrollState, enabled = scrollTraceEnabled)
@@ -1151,13 +1125,10 @@ internal fun AgentConversationMessages(
     // 尾部哨兵被挤出可视区，上提归零，内容一帧掉下去三百多像素。展开动画本身已经是平滑的，
     // 这段时间里标签随动画逐帧上移即可。只在协程里读，写入不触发重组。
     var bottomSnapUntilNanos by remember { mutableLongStateOf(0L) }
-    val expansionHoldsBottom: () -> Boolean = remember(scrollState, m3ChatTheme) {
+    val expansionHoldsBottom: () -> Boolean = remember(scrollState) {
         {
-            expansionPinnedNow().also { pinned ->
-                // M3：标题钉在原位，展开期间不做整表底部快照（那是标题位移的来源）。
-                if (pinned && !m3ChatTheme) {
-                    bottomSnapUntilNanos = System.nanoTime() + EXPANSION_BOTTOM_SNAP_NANOS
-                }
+            expansionPinnedNow().also {
+                // 标题钉在原位，展开期间不做整表底部快照（那是标题位移的来源）。
             }
         }
     }
@@ -1476,32 +1447,11 @@ internal fun AgentConversationMessages(
     // The callback reports message.id, but a work step's lazy key is work-step:<id>.
     // Both row branches capture the actual entry key before ThinkingRow changes its height.
     val onThinkingRowToggle: (String, Boolean) -> Unit = { rowKey, willExpand ->
-        if (m3ChatTheme) {
-            // M3：展开/收起一律钉住标题。用户主动展开＝解除底部锚定，面板自上而下向
-            // 屏幕下方生长（超出静止线的部分由用户滚动查看）；不再回收视口、不做底部
-            // 快照——这两者都会把整列上提，正是标题位移的根源。
-            if (willExpand) onBottomAnchorChanged(false)
-            viewportRecovery.cancelWorkExpansion(rowKey)
-        } else {
-            val now = System.nanoTime()
-            val alreadyPinned = expansionHoldsBottom()
-            val captured = if (willExpand) {
-                viewportRecovery.beginThinkingExpansion(
-                    rowKey = rowKey,
-                    expiresAtNanos = now + WORK_EXPANSION_RECOVERY_NANOS,
-                    canOwnViewport = canOwnWorkExpansionViewport() &&
-                        (alreadyPinned || scrollState.isConversationAtBottom()),
-                )
-            } else {
-                viewportRecovery.cancelWorkExpansion(rowKey)
-                false
-            }
-            if (alreadyPinned || captured ||
-                (!willExpand && canOwnWorkExpansionViewport() && scrollState.isConversationAtBottom())
-            ) {
-                bottomSnapUntilNanos = now + EXPANSION_BOTTOM_SNAP_NANOS
-            }
-        }
+        // 展开/收起一律钉住标题。用户主动展开＝解除底部锚定，面板自上而下向
+        // 屏幕下方生长（超出静止线的部分由用户滚动查看）；不再回收视口、不做底部
+        // 快照——这两者都会把整列上提，正是标题位移的根源。
+        if (willExpand) onBottomAnchorChanged(false)
+        viewportRecovery.cancelWorkExpansion(rowKey)
     }
     Box(
         modifier = modifier
@@ -1619,11 +1569,8 @@ internal fun AgentConversationMessages(
                         heldLeadingGapPx = 0
                     }
                 }
-                .nestedScroll(userScrollConnection)
-                // Navigation already emits one explicit click/long-press haptic.
-                .then(if (messageNavigationJob == null) Modifier.scrollEndHaptic() else Modifier)
-                .overScrollVertical(),
-            // 顶部让出壳层顶栏的高度（M3 下列表延伸到顶栏背后，滚入的部分
+                .nestedScroll(userScrollConnection),
+            // 顶部让出壳层顶栏的高度（列表延伸到顶栏背后，滚入的部分
             // 由顶栏渐变板淡出）；最后一条静止时停在输入框上方 14dp。
             contentPadding = PaddingValues(
                 top = topInset + 12.dp + with(LocalDensity.current) { heldLeadingGapPx.toDp() },
@@ -1670,8 +1617,8 @@ internal fun AgentConversationMessages(
                 androidx.compose.runtime.CompositionLocalProvider(
                     LocalExpansionHoldsBottom provides expansionHoldsBottom,
                     LocalChatAnchorRelease provides {
-                        // M3：展开前解除底部锚定（标题钉住、面板向下生长）；miuix 空操作。
-                        if (m3ChatTheme) onBottomAnchorChanged(false)
+                        // 展开前解除底部锚定（标题钉住、面板向下生长）。
+                        onBottomAnchorChanged(false)
                     },
                     LocalCompletedMarkdownCache provides completedMarkdownCache,
                     LocalStreamDiagnosticRow provides StreamPerformanceDiagnostics.rowAttribution(
@@ -1758,73 +1705,32 @@ internal fun AgentConversationMessages(
                                 // new one and replay the 180ms fade on collapse/expand. Messages
                                 // created after this click are absent here and keep their fade.
                                 markExistingMessages(appearedMessageKeys, timelineRows, visibleMessages)
-                                if (m3ChatTheme) {
-                                    // M3：组头与行标题钉在原位。展开＝解除底部锚定，步骤切片
-                                    // 自上而下向屏幕下方入场；收起照常退役捕获的内层思考行。
-                                    // 不做视口回收与底部快照——两者都会把整列上提。
-                                    if (!entry.expanded) {
-                                        onBottomAnchorChanged(false)
-                                    } else {
-                                        viewportRecovery.cancelWorkExpansion(
-                                            entry.key, entry.group.messages.map { "work-step:${it.id}" },
-                                        )
-                                    }
-                                    workAnimations[entry.key]?.entrance?.seal()
-                                    val animation = newWorkGroupAnimation(
-                                        generation = ++workAnimationGeneration[0],
-                                        expanded = !entry.expanded,
-                                        fromBottom = false,
-                                        stepKeys = entry.group.messages.map { "work-step:${it.id}" },
-                                        mountedStepKeys = mountedWorkSteps[entry.key].orEmpty(),
-                                    )
-                                    if (animation.expanded || animation.pendingExitKeys.isNotEmpty()) {
-                                        workAnimations[entry.key] = animation
-                                    } else workAnimations.remove(entry.key)
-                                    val token = StreamPerformanceDiagnostics.markToggle("work", !entry.expanded)
-                                    StreamPerformanceDiagnostics.probeEvent(
-                                        token, "item",
-                                        "steps=${entry.group.messages.size} anchor=top",
-                                    )
+                                // 组头与行标题钉在原位。展开＝解除底部锚定，步骤切片
+                                // 自上而下向屏幕下方入场；收起照常退役捕获的内层思考行。
+                                // 不做视口回收与底部快照——两者都会把整列上提。
+                                if (!entry.expanded) {
+                                    onBottomAnchorChanged(false)
                                 } else {
-                                    val now = System.nanoTime()
-                                    val alreadyPinned = expansionHoldsBottom()
-                                    val captured = if (!entry.expanded) {
-                                        viewportRecovery.beginWorkExpansion(
-                                            groupKey = entry.key,
-                                            stepKeys = entry.group.messages.mapTo(HashSet<Any>()) { "work-step:${it.id}" },
-                                            expiresAtNanos = now + WORK_EXPANSION_RECOVERY_NANOS,
-                                            canOwnViewport = canOwnWorkExpansionViewport() &&
-                                                (alreadyPinned || scrollState.isConversationAtBottom()),
-                                        )
-                                    } else {
-                                        // Closing a group also retires a captured inner thinking row.
-                                        viewportRecovery.cancelWorkExpansion(
-                                            entry.key, entry.group.messages.map { "work-step:${it.id}" },
-                                        )
-                                        false
-                                    }
-                                    val pinned = alreadyPinned || captured ||
-                                        (entry.expanded && canOwnWorkExpansionViewport() &&
-                                            scrollState.isConversationAtBottom())
-                                    if (pinned) bottomSnapUntilNanos = now + EXPANSION_BOTTOM_SNAP_NANOS
-                                    workAnimations[entry.key]?.entrance?.seal()
-                                    val animation = newWorkGroupAnimation(
-                                        generation = ++workAnimationGeneration[0],
-                                        expanded = !entry.expanded,
-                                        fromBottom = pinned,
-                                        stepKeys = entry.group.messages.map { "work-step:${it.id}" },
-                                        mountedStepKeys = mountedWorkSteps[entry.key].orEmpty(),
-                                    )
-                                    if (animation.expanded || animation.pendingExitKeys.isNotEmpty()) {
-                                        workAnimations[entry.key] = animation
-                                    } else workAnimations.remove(entry.key)
-                                    val token = StreamPerformanceDiagnostics.markToggle("work", !entry.expanded)
-                                    StreamPerformanceDiagnostics.probeEvent(
-                                        token,
-                                        "item",
-                                        "steps=${entry.group.messages.size} anchor=${if (pinned) "bottom" else "top"}",
+                                    viewportRecovery.cancelWorkExpansion(
+                                        entry.key, entry.group.messages.map { "work-step:${it.id}" },
                                     )
                                 }
+                                workAnimations[entry.key]?.entrance?.seal()
+                                val animation = newWorkGroupAnimation(
+                                    generation = ++workAnimationGeneration[0],
+                                    expanded = !entry.expanded,
+                                    fromBottom = false,
+                                    stepKeys = entry.group.messages.map { "work-step:${it.id}" },
+                                    mountedStepKeys = mountedWorkSteps[entry.key].orEmpty(),
+                                )
+                                if (animation.expanded || animation.pendingExitKeys.isNotEmpty()) {
+                                    workAnimations[entry.key] = animation
+                                } else workAnimations.remove(entry.key)
+                                val token = StreamPerformanceDiagnostics.markToggle("work", !entry.expanded)
+                                StreamPerformanceDiagnostics.probeEvent(
+                                    token, "item",
+                                    "steps=${entry.group.messages.size} anchor=top",
+                                )
                                 workExpansionOverrides = workExpansionOverrides + (entry.key to !entry.expanded)
                             },
                         )
@@ -2006,8 +1912,8 @@ internal fun AgentConversationMessages(
             onEdge = { direction -> navigateUserMessage(direction, toEdge = true) },
             modifier = Modifier
                 // 右下角默认落位：只用 Box 的 BottomEnd 对齐，不再为「与通话圆钮同心」手算水平偏移。
-                // 底栏渐变板向上溢出 ChatInputScrimOverhang（32dp）且整体压在内容层之上
-                // （miuix Scaffold 先 place body 再 place bottomBar），按钮组整体贴在右下方。
+                // 底栏渐变板向上溢出 ChatInputScrimOverhang（32dp）且整体压在内容层之上，
+                // 按钮组整体贴在右下方。
                 // 垂直：让按钮组中线与「滚到底时最后一轮页脚动作组（复制/朗读/fork…）」的中线
                 // 同高——两组都贴着右下角，同高后读作一行并列的控件。
                 .align(Alignment.BottomEnd)
@@ -2215,13 +2121,8 @@ private fun AgentChatBottomBar(
     onCycleGptSpeedMode: () -> Unit = {},
 ) {
     val drawerBlocksIme = LocalConversationDrawerBlocksIme.current
-    // 底部渐变板取页面背景同色：Material 3 走官方 surfaceContainer（壳层 Scaffold 同色），
-    // MIUI X 走 MiuixTheme.surface（miuix Scaffold 默认底色）。
-    val scrimColor = if (isMaterial3Theme()) {
-        MaterialTheme.colorScheme.surfaceContainer
-    } else {
-        MiuixTheme.colorScheme.surface
-    }
+    // 底部渐变板取页面背景同色：官方 surfaceContainer（壳层 Scaffold 同色）。
+    val scrimColor = MaterialTheme.colorScheme.surfaceContainer
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -2250,10 +2151,10 @@ private fun AgentChatBottomBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                // Material 3 Expressive 的屏幕边缘留白是 16dp。
+                // 屏幕边缘留白是 16dp。
                 .padding(
-                    start = if (isMaterial3Theme()) 16.dp else 12.dp,
-                    end = if (isMaterial3Theme()) 16.dp else 12.dp,
+                    start = 16.dp,
+                    end = 16.dp,
                     bottom = 12.dp,
                 ),
         ) {
@@ -2378,21 +2279,17 @@ private fun ContextCompressingIndicator(waiting: Boolean = false, modelName: Str
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (isMaterial3Theme()) {
-                // 线宽取官方 ProgressIndicatorDefaults.CircularStrokeWidth，不再写死。
-                androidx.compose.material3.CircularProgressIndicator(
-                    modifier = Modifier.size(18.dp),
-                )
-            } else {
-                CircularProgressIndicator(size = 18.dp, strokeWidth = 2.dp)
-            }
-            Text(
-                    text = if (waiting) stringResource(R.string.compress_conversation_waiting) else
-                        stringResource(R.string.acb_compressing, modelName.ifBlank { stringResource(R.string.acm_main_agent) }),
-                    style = chatSecondaryLabelStyle(),
-                    color = chatMutedLabelColor(),
-                    modifier = Modifier.padding(start = 8.dp),
-                )
+        // 线宽取官方 ProgressIndicatorDefaults.CircularStrokeWidth，不再写死。
+        androidx.compose.material3.CircularProgressIndicator(
+            modifier = Modifier.size(18.dp),
+        )
+        Text(
+            text = if (waiting) stringResource(R.string.compress_conversation_waiting) else
+                stringResource(R.string.acb_compressing, modelName.ifBlank { stringResource(R.string.acm_main_agent) }),
+            style = chatSecondaryLabelStyle(),
+            color = chatMutedLabelColor(),
+            modifier = Modifier.padding(start = 8.dp),
+        )
     }
 }
 
@@ -2716,119 +2613,62 @@ private fun EmptyChatState(
 
             AnimatedVisibility(
                 visible = showSuggestions,
-                // M3 Expressive 的进出场动效统一取官方 motionScheme 规格；miuix 分支保留原时长。
+                // 进出场动效统一取官方 motionScheme 规格。
                 enter = fadeIn(
-                    animationSpec = if (isMaterial3Theme()) {
-                        MaterialTheme.motionScheme.defaultEffectsSpec()
-                    } else {
-                        tween(durationMillis = 220)
-                    }
+                    animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec()
                 ) + slideInVertically(
-                    animationSpec = if (isMaterial3Theme()) {
-                        MaterialTheme.motionScheme.defaultSpatialSpec()
-                    } else {
-                        spring(
-                            dampingRatio = Spring.DampingRatioNoBouncy,
-                            stiffness = Spring.StiffnessMediumLow,
-                        )
-                    },
+                    animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
                     initialOffsetY = { it / 3 },
                 ),
                 exit = fadeOut(
-                    animationSpec = if (isMaterial3Theme()) {
-                        MaterialTheme.motionScheme.defaultEffectsSpec()
-                    } else {
-                        tween(durationMillis = 130)
-                    }
+                    animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec()
                 ) + slideOutVertically(
-                    animationSpec = if (isMaterial3Theme()) {
-                        MaterialTheme.motionScheme.defaultSpatialSpec()
-                    } else {
-                        tween(durationMillis = 180)
-                    },
+                    animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
                     targetOffsetY = { it / 4 },
                 ),
             ) {
-                if (isMaterial3Theme()) {
-                    ExpressiveSuggestionBlobs(
-                        suggestions = suggestions,
-                        onSuggestionClick = onSuggestionClick,
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                    )
-                } else {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 24.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        suggestions.chunked(2).forEach { rowItems ->
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                rowItems.forEach { item ->
-                                    SuggestionCard(
-                                        item = item,
-                                        onClick = { onSuggestionClick(item.prompt) },
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+                ExpressiveSuggestionBlobs(
+                    suggestions = suggestions,
+                    onSuggestionClick = onSuggestionClick,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
             }
         }
     }
 }
 
+/**
+ * 建议词数量与形状数量不一致时的常规网格卡片：官方 Surface(onClick) 承担容器、
+ * 形状、描边与按压涟漪。
+ */
 @Composable
 private fun SuggestionCard(
     item: SuggestionItem,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val borderColor = chatCardBorderColor()
-    val cardColor = chatCardContainerColor()
-    val cardShape: Shape =
-        if (isMaterial3Theme()) MaterialTheme.shapes.medium else RoundedCornerShape(12.dp)
-    val iconColor: androidx.compose.ui.graphics.Color =
-        if (isMaterial3Theme()) MaterialTheme.colorScheme.onSurfaceVariant else MiuixTheme.colorScheme.onBackground
-    val cardBody: @Composable () -> Unit = {
-        Icon(
-            imageVector = item.icon,
-            contentDescription = null,
-            modifier = Modifier.size(16.dp),
-            tint = iconColor,
-        )
-        Spacer(modifier = Modifier.height(9.dp))
-        Text(
-            text = item.title,
-            style = chatSecondaryLabelStyle(),
-            color = chatBodyLabelColor(),
-            maxLines = 1,
-        )
-    }
-    // M3 Expressive：官方 Surface(onClick) 承担容器、形状、描边与按压涟漪；
-    // miuix 主题族沿用 clip + 背景 + border 的原有写法。
-    if (isMaterial3Theme()) {
-        Surface(
-            onClick = onClick,
-            modifier = modifier,
-            shape = cardShape,
-            color = cardColor,
-            border = BorderStroke(0.5.dp, borderColor),
-        ) {
-            Column(modifier = Modifier.padding(horizontal = 13.dp, vertical = 12.dp)) {
-                cardBody()
-            }
+    Surface(
+        onClick = onClick,
+        modifier = modifier,
+        shape = MaterialTheme.shapes.medium,
+        color = chatCardContainerColor(),
+        border = BorderStroke(0.5.dp, chatCardBorderColor()),
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 13.dp, vertical = 12.dp)) {
+            Icon(
+                imageVector = item.icon,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(9.dp))
+            Text(
+                text = item.title,
+                style = chatSecondaryLabelStyle(),
+                color = chatBodyLabelColor(),
+                maxLines = 1,
+            )
         }
-    } else {
-        Column(
-            modifier = modifier
-                .clip(cardShape)
-                .background(cardColor)
-                .border(width = 0.5.dp, color = borderColor, shape = cardShape)
-                .clickable(onClick = onClick)
-                .padding(horizontal = 13.dp, vertical = 12.dp),
-            content = { cardBody() },
-        )
     }
 }
 

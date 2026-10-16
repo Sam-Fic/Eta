@@ -31,14 +31,12 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * Material 3 ContainedLoadingIndicator 的同款动画：圆底里一块形状在变形、旋转。
@@ -53,22 +51,14 @@ internal fun ContainedMorphLoadingIndicator(
     containerColor: Color? = null,
     indicatorColor: Color? = null,
 ) {
-    // 为空表示沿用主题默认（M3 → primaryContainer/onPrimaryContainer，miuix → 对应角色）。
+    // 为空表示沿用主题默认（primaryContainer / onPrimaryContainer）。
     // 调用方可以显式覆盖：输入区把本指示器当作“填充主色圆钮”的内容时，默认的
     // primaryContainer 会和同样取 primaryContainer 的外层浮动工具栏同色，圆底不可见。
-    val resolvedContainerColor = containerColor ?: if (isMaterial3Theme()) {
-        MaterialTheme.colorScheme.primaryContainer
-    } else {
-        MiuixTheme.colorScheme.primaryContainer
-    }
-    val resolvedIndicatorColor = indicatorColor ?: if (isMaterial3Theme()) {
-        MaterialTheme.colorScheme.onPrimaryContainer
-    } else {
-        MiuixTheme.colorScheme.onPrimaryContainer
-    }
-    // Material 3 Expressive 主题下使用官方 ContainedLoadingIndicator（表达性形变动画）。
+    val resolvedContainerColor = containerColor ?: MaterialTheme.colorScheme.primaryContainer
+    val resolvedIndicatorColor = indicatorColor ?: MaterialTheme.colorScheme.onPrimaryContainer
+    // 使用官方 ContainedLoadingIndicator（表达性形变动画）。
     // 停止态（animate=false）表示「待机」，官方组件没有静态形态，继续用本地实现画出静止圆。
-    if (animate && isMaterial3Theme()) {
+    if (animate) {
         ContainedLoadingIndicator(
             modifier = modifier.size(indicatorSize),
             containerColor = resolvedContainerColor,

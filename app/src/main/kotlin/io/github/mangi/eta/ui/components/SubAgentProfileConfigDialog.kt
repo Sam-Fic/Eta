@@ -13,7 +13,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.LocalView
@@ -40,8 +39,6 @@ import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.model.AgentModelPickerProjector
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.ButtonDefaults as MiuixButtonDefaults
-import top.yukonga.miuix.kmp.basic.TextButton as MiuixTextButton
 
 /** One opening owns one editor, application, expected profile and parallel-pool snapshot.
  * Nothing here writes preferences until commitProfileDraft; abandoning a session is zero-write. */
@@ -225,7 +222,7 @@ internal fun SubAgentProfileConfigDialog(
         WithoutPressRipple {
             // This form is also opened from a Compose Dialog. OverlayDialog registers
             // content in a Scaffold host, which can be absent or behind that parent window.
-            // WindowDialog keeps the same Miuix layout/style in its own modal window.
+            // EtaDialog 在自己的模态窗口里呈现同一份表单。
             EtaDialog(show = true, title = if (session.expectedProfile == null) stringResource(R.string.sap_add_profile) else stringResource(R.string.sap_profile_config),
                 onDismissRequest = userDismiss) {
                 Column(Modifier.fillMaxWidth().profileDialogScrollableBody().verticalScroll(rememberScrollState())) {
@@ -367,29 +364,22 @@ internal fun SubAgentProfileConfigDialog(
     }
 }
 
-/** Same equal-width, 8dp-spaced light-left/solid-right layout as MiuixDialogActions.
- * Unlike the global helper it must NOT vibrate on a rejected/asynchronously invalidated commit. */
+/** 对话框操作区：等宽、8dp 间距、左轻（TextButton）右实（Button）。
+ * 与全局助手不同，被拒绝或异步失效的提交绝不触发轻触反馈。 */
 @Composable
 private fun SubAgentDraftDialogActions(confirmEnabled: Boolean, cancelEnabled: Boolean, onCancel: () -> Unit, onConfirm: () -> Unit) {
     val view = LocalView.current
     Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (isMaterial3Theme()) {
-            // M3：官方 TextButton（左，轻）+ FilledButton（右，实心），与参考的对话框操作区一致。
-            TextButton(
-                onClick = { TouchHaptics.click(view); onCancel() },
-                modifier = Modifier.weight(1f),
-                enabled = cancelEnabled,
-            ) { Text(stringResource(R.string.action_cancel)) }
-            Button(
-                onClick = onConfirm,
-                modifier = Modifier.weight(1f),
-                enabled = confirmEnabled,
-            ) { Text(stringResource(R.string.action_confirm)) }
-        } else {
-            MiuixTextButton(text = stringResource(R.string.action_cancel), modifier = Modifier.weight(1f), enabled = cancelEnabled,
-                onClick = { TouchHaptics.click(view); onCancel() })
-            MiuixTextButton(text = stringResource(R.string.action_confirm), modifier = Modifier.weight(1f), enabled = confirmEnabled,
-                colors = MiuixButtonDefaults.textButtonColorsPrimary(), onClick = onConfirm)
-        }
+        // 官方 TextButton（左，轻）+ FilledButton（右，实心），与参考的对话框操作区一致。
+        TextButton(
+            onClick = { TouchHaptics.click(view); onCancel() },
+            modifier = Modifier.weight(1f),
+            enabled = cancelEnabled,
+        ) { Text(stringResource(R.string.action_cancel)) }
+        Button(
+            onClick = onConfirm,
+            modifier = Modifier.weight(1f),
+            enabled = confirmEnabled,
+        ) { Text(stringResource(R.string.action_confirm)) }
     }
 }

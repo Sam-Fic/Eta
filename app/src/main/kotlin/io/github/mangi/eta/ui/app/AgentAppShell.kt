@@ -5,11 +5,13 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AddComment
 import androidx.compose.material.icons.rounded.Menu
@@ -59,6 +61,7 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.ExperimentalMaterial3Api
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
@@ -160,6 +163,10 @@ internal fun AgentAppShell(
     }
 
     val scrollBehavior = MiuixScrollBehavior()
+    // AdaptiveTopAppBar 已改为官方 m3 实现，miuix 的 ScrollBehavior 类型不再兼容；
+    // 给走 AdaptiveTopAppBar 的二级路由单独挂官方 enterAlways 行为（与 miuix TopAppBar
+    // 的收起风格一致），与上方 miuix 行为并列接入嵌套滚动，互不影响各自顶栏。
+    val m3ScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val backdrop = rememberTopBarBackdrop()
     // Material 3 顶栏不画底板，直接透出页面背景（与 Material3HomeTopBar 一致），
     // 因此这里必须与 M3 页面背景同色取官方 surfaceContainer；
@@ -177,9 +184,15 @@ internal fun AgentAppShell(
             // Material 3：页面背景取官方 surfaceContainer（与顶栏渐变板、二级页 TopAppBar
             // 同色），不再沿用 miuix Scaffold 默认的 MiuixTheme.surface；MIUI X 保持默认。
             containerColor = if (material3) MaterialTheme.colorScheme.surfaceContainer else MiuixTheme.colorScheme.surface,
-            contentWindowInsets = WindowInsets.safeDrawing.only(
-                WindowInsetsSides.Top + WindowInsetsSides.Horizontal,
-            ),
+            // 只取状态栏与刘海的 Top/Horizontal 两侧，且不读 safeDrawing：safeDrawing 是
+            // systemBars ∪ displayCutout ∪ ime 的并集，键盘动画期间 ime 逐帧变化会让壳层
+            // 每帧重组/重测量；systemBars 与 displayCutout 在键盘起落时恒定，对 Top/Horizontal
+            // 两侧的取值与 safeDrawing 完全一致（ime 只有 bottom）。
+            contentWindowInsets = WindowInsets.systemBars
+                .union(WindowInsets.displayCutout)
+                .only(
+                    WindowInsetsSides.Top + WindowInsetsSides.Horizontal,
+                ),
             topBar = {
                 if (currentRoute !is AppRoute.Settings) {
                     TopBarBackdrop(backdrop) {
@@ -191,6 +204,7 @@ internal fun AgentAppShell(
                         AgentTopBar(
                             route = currentRoute,
                             scrollBehavior = scrollBehavior,
+                            m3ScrollBehavior = m3ScrollBehavior,
                             color = topBarColor,
                             onBack = onBack,
                             onOpenConversationPane = onOpenConversationPane,
@@ -233,7 +247,8 @@ internal fun AgentAppShell(
                 modifier = Modifier
                     .fillMaxSize()
                     .captureForTopBar(backdrop)
-                    .nestedScroll(scrollBehavior.nestedScrollConnection),
+                    .nestedScroll(scrollBehavior.nestedScrollConnection)
+                    .nestedScroll(m3ScrollBehavior.nestedScrollConnection),
             ) {
                 content(padding)
             }
@@ -285,6 +300,7 @@ private fun AgentTopBar(
     route: AppRoute?,
     currentConversationTitle: String? = null,
     scrollBehavior: ScrollBehavior,
+    m3ScrollBehavior: TopAppBarScrollBehavior? = null,
     color: Color,
     onBack: () -> Unit,
     onOpenConversationPane: () -> Unit,
@@ -456,7 +472,7 @@ private fun AgentTopBar(
         AdaptiveTopAppBar(
             title = titleForRoute(route, currentConversationTitle),
             color = color,
-            scrollBehavior = scrollBehavior,
+            scrollBehavior = m3ScrollBehavior,
             navigationIcon = navigationIcon,
             actions = actions,
         )

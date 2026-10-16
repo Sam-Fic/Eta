@@ -4,6 +4,8 @@ import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -11,7 +13,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
@@ -45,8 +47,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import io.github.mangi.eta.ui.adaptive.EtaDialog
-import io.github.mangi.eta.ui.adaptive.EtaDialogActions
 import io.github.mangi.eta.ui.adaptive.EtaType
 import io.github.mangi.eta.ui.adaptive.etaPrimary
 import io.github.mangi.eta.ui.adaptive.etaSurfaceContainerHigh
@@ -68,18 +68,12 @@ import io.github.mangi.eta.agent.model.AgentFileReference
 import io.github.mangi.eta.agent.model.AgentFileReferenceKind
 import io.github.mangi.eta.ui.model.PendingFileReferenceUi
 import androidx.compose.material3.Icon
-import top.yukonga.miuix.kmp.basic.PopupPositionProvider
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.squircle.squircleBorder
-import top.yukonga.miuix.kmp.squircle.squircleSurface
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
+import androidx.compose.ui.window.PopupPositionProvider
 
 internal val ChatInputPopupMargin = 8.dp
 /** 主页 / 侧边栏按钮统一档：官方 Small 图标按钮容器（40dp），尺寸只引用 IconButtonDefaults 令牌。 */
 internal val ChatInputActionSize = IconButtonDefaults.smallContainerSize().height
-/** MIUI X 分支既有图标尺寸；Material 3 分支一律走 `etaOfficialIconButtonIconSize` 官方令牌。 */
+/** 输入区动作图标尺寸（24dp）。 */
 internal val ChatInputActionIconSize = 24.dp
 
 /** 附件动作集：系统选择器与绝对路径输入的统一入口，由 [rememberAgentAttachmentActions] 创建。 */
@@ -92,7 +86,7 @@ internal class AgentAttachmentActions(
 )
 
 /**
- * 创建附件动作集并托管「输入绝对路径」弹窗（按主题族选用官方 `AlertDialog` / `EtaDialog`）。
+ * 创建附件动作集并托管「输入绝对路径」弹窗（官方 `AlertDialog`）。
  * 图片 / 视频选择成功后先持久化读取权限再回调；文件 / 文件夹 / 路径直接回调。
  */
 @Composable
@@ -143,82 +137,47 @@ internal fun rememberAgentAttachmentActions(
         if (uri != null) onAttachFolder(uri.toString())
     }
 
-    val material3 = isMaterial3Theme()
-    if (material3) {
-        if (showPathDialog) {
-            AlertDialog(
-                onDismissRequest = { showPathDialog = false },
-                title = { M3Text(text = stringResource(R.string.ui_input_file_path_36d474)) },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        M3Text(
-                            text = stringResource(
-                                R.string.ui_supports_files_and_folders_under_internal_storage_or_520786
-                            ),
-                            style = etaTextStyle(EtaType.Secondary),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        OutlinedTextField(
-                            value = pathInput,
-                            onValueChange = { pathInput = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { M3Text(text = stringResource(R.string.ui_absolute_path_9ac6fc)) },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                        )
-                    }
-                },
-                confirmButton = {
-                    androidx.compose.material3.TextButton(
-                        onClick = {
-                            val path = pathInput.trim()
-                            showPathDialog = false
-                            onAttachFilePath(path)
-                        },
-                        enabled = pathInput.trim().startsWith('/'),
-                    ) {
-                        M3Text(text = stringResource(R.string.attachment_add))
-                    }
-                },
-                dismissButton = {
-                    androidx.compose.material3.TextButton(onClick = { showPathDialog = false }) {
-                        M3Text(text = stringResource(R.string.action_cancel))
-                    }
-                },
-            )
-        }
-    } else {
-        EtaDialog(
-            show = showPathDialog,
-            title = stringResource(R.string.ui_input_file_path_36d474),
-            summary = stringResource(
-                R.string.ui_supports_files_and_folders_under_internal_storage_or_520786
-            ),
+    if (showPathDialog) {
+        AlertDialog(
             onDismissRequest = { showPathDialog = false },
-        ) {
-            Column {
-                TextField(
-                    value = pathInput,
-                    onValueChange = { pathInput = it },
-                    label = stringResource(R.string.ui_absolute_path_9ac6fc),
-                    useLabelAsPlaceholder = true,
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                EtaDialogActions(
-                    confirmText = stringResource(R.string.attachment_add),
-                    confirmEnabled = pathInput.trim().startsWith('/'),
-                    onCancel = { showPathDialog = false },
-                    onConfirm = {
+            title = { M3Text(text = stringResource(R.string.ui_input_file_path_36d474)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    M3Text(
+                        text = stringResource(
+                            R.string.ui_supports_files_and_folders_under_internal_storage_or_520786
+                        ),
+                        style = etaTextStyle(EtaType.Secondary),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    OutlinedTextField(
+                        value = pathInput,
+                        onValueChange = { pathInput = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { M3Text(text = stringResource(R.string.ui_absolute_path_9ac6fc)) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                    )
+                }
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = {
                         val path = pathInput.trim()
                         showPathDialog = false
                         onAttachFilePath(path)
                     },
-                    modifier = Modifier.padding(top = 16.dp),
-                )
-            }
-        }
+                    enabled = pathInput.trim().startsWith('/'),
+                ) {
+                    M3Text(text = stringResource(R.string.attachment_add))
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { showPathDialog = false }) {
+                    M3Text(text = stringResource(R.string.action_cancel))
+                }
+            },
+        )
     }
 
     return AgentAttachmentActions(
@@ -265,7 +224,6 @@ internal fun AgentAttachmentPickerButton(
         onAttachFolder = onAttachFolder,
         onAttachFilePath = onAttachFilePath,
     )
-    val material3 = isMaterial3Theme()
     val options = listOf(
         Triple(stringResource(R.string.attachment_image), Icons.Rounded.Image, 0),
         Triple(stringResource(R.string.attachment_video), Icons.Rounded.Videocam, 1),
@@ -298,61 +256,25 @@ internal fun AgentAttachmentPickerButton(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                modifier = Modifier.size(
-                    if (material3) {
-                        // 官方图标按钮图标尺寸令牌。
-                        etaOfficialIconButtonIconSize(containerSize)
-                    } else {
-                        ChatInputActionIconSize
-                    },
-                ),
-                tint = if (material3) {
-                    // 官方图标按钮已通过 LocalContentColor 下发内容色。
-                    LocalContentColor.current
-                } else {
-                    MiuixTheme.colorScheme.onSurface
-                },
+                // 官方图标按钮图标尺寸令牌。
+                modifier = Modifier.size(etaOfficialIconButtonIconSize(containerSize)),
+                // 官方图标按钮已通过 LocalContentColor 下发内容色。
+                tint = LocalContentColor.current,
             )
         }
-        if (material3) {
-            // Material 3 Expressive：官方 DropdownMenu + 官方 DropdownMenuItem，
-            // 行高 / 内边距 / 前置图标尺寸 / 行形状全部取官方默认值。
-            DropdownMenu(
-                expanded = menuState.expanded,
-                onDismissRequest = menuState::dismiss,
-            ) {
-                options.forEachIndexed { index, (label, optionIcon, action) ->
-                    DropdownMenuItem(
-                        text = { M3Text(text = label) },
-                        leadingIcon = { Icon(imageVector = optionIcon, contentDescription = null) },
-                        shape = etaOfficialMenuItemShape(index, options.size),
-                        onClick = { runOption(action) },
-                    )
-                }
-            }
-        } else {
-            EtaDropdownMenu(
-                expanded = menuState.expanded,
-                onDismissRequest = menuState::dismiss,
-                preferAbove = true,
-                minWidth = 0.dp,
-                focusable = false,
-            ) {
-                options.forEach { (option, icon, index) ->
-                    DropdownMenuItem(
-                        modifier = Modifier.height(40.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp),
-                        text = { M3Text(option) },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = icon,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp),
-                            )
-                        },
-                        onClick = { runOption(index) },
-                    )
-                }
+        // Material 3 Expressive：官方 DropdownMenu + 官方 DropdownMenuItem，
+        // 行高 / 内边距 / 前置图标尺寸 / 行形状全部取官方默认值。
+        DropdownMenu(
+            expanded = menuState.expanded,
+            onDismissRequest = menuState::dismiss,
+        ) {
+            options.forEachIndexed { index, (label, optionIcon, action) ->
+                DropdownMenuItem(
+                    text = { M3Text(text = label) },
+                    leadingIcon = { Icon(imageVector = optionIcon, contentDescription = null) },
+                    shape = etaOfficialMenuItemShape(index, options.size),
+                    onClick = { runOption(action) },
+                )
             }
         }
     }
@@ -377,15 +299,8 @@ internal fun PendingFileReferenceStrip(
                 modifier = Modifier
                     .height(42.dp)
                     .widthIn(max = 250.dp)
-                    .squircleSurface(
-                        color = etaSurfaceContainerHigh(),
-                        cornerRadius = 12.dp,
-                    )
-                    .squircleBorder(
-                        width = 0.5.dp,
-                        color = MiuixTheme.colorScheme.outline.copy(alpha = 0.5f),
-                        cornerRadius = 12.dp,
-                    )
+                    .background(etaSurfaceContainerHigh(), RoundedCornerShape(12.dp))
+                    .border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
                     .padding(start = 12.dp, end = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -400,11 +315,11 @@ internal fun PendingFileReferenceStrip(
                     modifier = Modifier.size(18.dp),
                     tint = etaPrimary(),
                 )
-                Text(
+                M3Text(
                     text = reference.displayName +
                         if (reference.kind == AgentFileReferenceKind.Directory) "/" else "",
                     style = etaTextStyle(EtaType.Secondary),
-                    color = MiuixTheme.colorScheme.onSurface,
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false),
@@ -420,7 +335,7 @@ internal fun PendingFileReferenceStrip(
                         imageVector = Icons.Rounded.Close,
                         contentDescription = stringResource(R.string.ui_remove_file_reference_04bbfc),
                         modifier = Modifier.size(16.dp),
-                        tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -444,15 +359,8 @@ internal fun SentFileReferenceFlow(
                 modifier = Modifier
                     .height(38.dp)
                     .widthIn(max = 280.dp)
-                    .squircleSurface(
-                        color = MiuixTheme.colorScheme.surface,
-                        cornerRadius = 12.dp,
-                    )
-                    .squircleBorder(
-                        width = 0.5.dp,
-                        color = MiuixTheme.colorScheme.outline.copy(alpha = 0.45f),
-                        cornerRadius = 12.dp,
-                    )
+                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+                    .border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.45f), RoundedCornerShape(12.dp))
                     .padding(horizontal = 11.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -467,11 +375,11 @@ internal fun SentFileReferenceFlow(
                     modifier = Modifier.size(16.dp),
                     tint = etaPrimary(),
                 )
-                Text(
+                M3Text(
                     text = reference.displayName +
                         if (reference.kind == AgentFileReferenceKind.Directory) "/" else "",
                     style = etaTextStyle(EtaType.Secondary),
-                    color = MiuixTheme.colorScheme.onSurface,
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -486,41 +394,22 @@ internal class InputPopupPositionProvider(
 ) : PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: IntRect,
-        windowBounds: IntRect,
+        windowSize: IntSize,
         layoutDirection: LayoutDirection,
         popupContentSize: IntSize,
-        popupMargin: IntRect,
-        alignment: PopupPositionProvider.Align,
     ): IntOffset {
-        val alignToEnd = when (alignment) {
-            PopupPositionProvider.Align.End,
-            PopupPositionProvider.Align.TopEnd,
-            PopupPositionProvider.Align.BottomEnd,
-            -> true
-
-            else -> false
+        // 官方接口不提供 alignment / popupMargin；带窗口水平内边距时贴窗口末端，否则贴锚点起始。
+        val requestedX = if (windowHorizontalInsetPx != null) {
+            windowSize.width - popupContentSize.width - windowHorizontalInsetPx
+        } else {
+            anchorBounds.left
         }
-        val physicalEnd = if (layoutDirection == LayoutDirection.Ltr) alignToEnd else !alignToEnd
-        val requestedX = when {
-            windowHorizontalInsetPx != null && physicalEnd ->
-                windowBounds.right - popupContentSize.width - popupMargin.right - windowHorizontalInsetPx
-
-            windowHorizontalInsetPx != null ->
-                windowBounds.left + popupMargin.left + windowHorizontalInsetPx
-
-            physicalEnd -> anchorBounds.right - popupContentSize.width - popupMargin.right
-            else -> anchorBounds.left + popupMargin.left
-        }
-        val maxX = (windowBounds.right - popupContentSize.width - popupMargin.right)
-            .coerceAtLeast(windowBounds.left)
-        val requestedY = inputContainerTopPx - popupContentSize.height - popupMargin.bottom
-        val maxY = windowBounds.bottom - popupContentSize.height - popupMargin.bottom
-        val minY = (windowBounds.top + popupMargin.top).coerceAtMost(maxY)
+        val maxX = (windowSize.width - popupContentSize.width).coerceAtLeast(0)
+        val requestedY = inputContainerTopPx - popupContentSize.height
+        val maxY = (windowSize.height - popupContentSize.height).coerceAtLeast(0)
         return IntOffset(
-            x = requestedX.coerceIn(windowBounds.left, maxX),
-            y = requestedY.coerceIn(minY, maxY),
+            x = requestedX.coerceIn(0, maxX),
+            y = requestedY.coerceIn(0, maxY),
         )
     }
-
-    override fun getMargins(): PaddingValues = PaddingValues(vertical = ChatInputPopupMargin)
 }

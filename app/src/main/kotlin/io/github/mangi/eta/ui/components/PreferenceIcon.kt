@@ -7,9 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Icon
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.material3.MaterialTheme
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 
 @Composable
 internal fun PreferenceIcon(
@@ -17,16 +15,11 @@ internal fun PreferenceIcon(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
-    val tint = if (isMaterial3Theme()) {
-        // M3：前导图标用 onSurfaceVariant（官方 ListItem leadingContent 惯例）。
-        if (enabled) {
-            MaterialTheme.colorScheme.onSurfaceVariant
-        } else {
-            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-        }
+    // 前导图标用 onSurfaceVariant（官方 ListItem leadingContent 惯例）。
+    val tint = if (enabled) {
+        MaterialTheme.colorScheme.onSurfaceVariant
     } else {
-        if (enabled) MiuixTheme.colorScheme.onBackground
-        else MiuixTheme.colorScheme.disabledOnSurface
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
     }
     Icon(
         imageVector = icon,

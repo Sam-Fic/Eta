@@ -4,8 +4,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -17,10 +15,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -30,31 +25,11 @@ import androidx.core.content.ContextCompat
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.AssistantProfile
 import io.github.mangi.eta.data.repository.AssistantRepository
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-
-/** M3 下取官方 secondaryContainer 角色，miuix 主题族保持原色。 */
-@Composable
-private fun avatarContainerColor(): Color =
-    if (isMaterial3Theme()) {
-        MaterialTheme.colorScheme.secondaryContainer
-    } else {
-        MiuixTheme.colorScheme.secondaryContainer
-    }
-
-/** 容器上的前景色：M3 由官方 Surface 的 contentColor 规则给出 onSecondaryContainer。 */
-@Composable
-private fun avatarContentColor(): Color =
-    if (isMaterial3Theme()) {
-        MaterialTheme.colorScheme.onSecondaryContainer
-    } else {
-        MiuixTheme.colorScheme.onSecondaryContainer
-    }
 
 @Composable
 internal fun AssistantAvatar(
@@ -94,28 +69,14 @@ internal fun AssistantAvatar(
             ?.let { runCatching { it.asImageBitmap() }.getOrNull() }
             ?: rasterizeDefaultAvatar(context)
     }
-    val contentColor = avatarContentColor()
-    // M3 Expressive：官方 Surface 承担圆形容器、容器色与内容色（含 onSecondaryContainer 配对）；
-    // miuix 主题族仍用等价的 clip + 背景，视觉不变。
-    if (isMaterial3Theme()) {
-        Surface(
-            modifier = modifier.size(size),
-            shape = CircleShape,
-            color = avatarContainerColor(),
-            contentColor = contentColor,
-        ) {
-            AssistantAvatarContent(imageBitmap = imageBitmap)
-        }
-    } else {
-        Box(
-            modifier = modifier
-                .size(size)
-                .clip(CircleShape)
-                .background(MiuixTheme.colorScheme.secondaryContainer),
-            contentAlignment = Alignment.Center,
-        ) {
-            AssistantAvatarContent(imageBitmap = imageBitmap)
-        }
+    // M3 Expressive：官方 Surface 承担圆形容器、容器色与内容色（含 onSecondaryContainer 配对）。
+    Surface(
+        modifier = modifier.size(size),
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+    ) {
+        AssistantAvatarContent(imageBitmap = imageBitmap)
     }
 }
 
@@ -132,14 +93,13 @@ private fun AssistantAvatarContent(imageBitmap: ImageBitmap?) {
         Icon(
             imageVector = Icons.Rounded.AutoAwesome,
             contentDescription = null,
-            tint = avatarContentColor(),
+            tint = MaterialTheme.colorScheme.onSecondaryContainer,
         )
     }
 }
 
 private fun rasterizeDefaultAvatar(context: Context): ImageBitmap? {
-    val drawable = ContextCompat.getDrawable(context, R.drawable.ic_assistant_default)
-        ?: ContextCompat.getDrawable(context, R.mipmap.ic_launcher)
+    val drawable = ContextCompat.getDrawable(context, R.mipmap.ic_launcher)
         ?: return null
     val size = maxOf(drawable.intrinsicWidth, drawable.intrinsicHeight, 128)
     return runCatching {

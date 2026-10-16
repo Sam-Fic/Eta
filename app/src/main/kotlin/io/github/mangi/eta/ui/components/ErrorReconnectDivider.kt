@@ -1,14 +1,9 @@
 package io.github.mangi.eta.ui.components
 
 import android.os.SystemClock
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -21,7 +16,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
@@ -34,15 +28,12 @@ import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.adaptive.EtaType
 import io.github.mangi.eta.ui.adaptive.etaTextStyle
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.model.ErrorReconnectMessageUi
 import io.github.mangi.eta.ui.model.ErrorReconnectStatus
 import io.github.mangi.eta.ui.model.formatReconnectElapsed
 import kotlinx.coroutines.delay
 import androidx.compose.material3.Text as M3Text
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** Stable lazy-row identity and one-line height: clock updates never insert or resize rows. */
 @Composable
@@ -77,60 +68,35 @@ internal fun ErrorReconnectDivider(message: ErrorReconnectMessageUi, modifier: M
             else -> Unit
         }
     }
-    if (isMaterial3Theme()) {
-        // M3 Expressive：官方 HorizontalDivider 承担线条粗细与颜色（DividerDefaults），
-        // 官方 Surface(onClick) 承担可点区域、形状（shapes.extraSmall）与官方涟漪，
-        // 文本排版与配色全部取 MaterialTheme.typography / colorScheme 官方令牌。
-        // contentDescription 只保留标题，不能带 label：官方 Surface(onClick) 链尾是
-        // `childSemantics()`，会把 M3Text 的文本合并进同一节点；ContentDescription 与 Text 是
-        // 两个不同的 SemanticsPropertyKey，分别落在 AccessibilityNodeInfo 的两个字段，
-        // TalkBack 会两串都念而非互相顶替。把 label 抄进 cd 会让状态标签播报两遍。
-        Row(
-            modifier = modifier.fillMaxWidth().testTag("error-reconnect:${message.id}")
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
+    // M3 Expressive：官方 HorizontalDivider 承担线条粗细与颜色（DividerDefaults），
+    // 官方 Surface(onClick) 承担可点区域、形状（shapes.extraSmall）与官方涟漪，
+    // 文本排版与配色全部取 MaterialTheme.typography / colorScheme 官方令牌。
+    // contentDescription 只保留标题，不能带 label：官方 Surface(onClick) 链尾是
+    // `childSemantics()`，会把 M3Text 的文本合并进同一节点；ContentDescription 与 Text 是
+    // 两个不同的 SemanticsPropertyKey，分别落在 AccessibilityNodeInfo 的两个字段，
+    // TalkBack 会两串都念而非互相顶替。把 label 抄进 cd 会让状态标签播报两遍。
+    Row(
+        modifier = modifier.fillMaxWidth().testTag("error-reconnect:${message.id}")
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        HorizontalDivider(modifier = Modifier.weight(1f))
+        Surface(
+            onClick = { TouchHaptics.click(view); showDetails = true },
+            modifier = Modifier.semantics { contentDescription = title },
+            shape = MaterialTheme.shapes.extraSmall,
+            color = Color.Transparent,
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
         ) {
-            HorizontalDivider(modifier = Modifier.weight(1f))
-            Surface(
-                onClick = { TouchHaptics.click(view); showDetails = true },
-                modifier = Modifier.semantics { contentDescription = title },
-                shape = MaterialTheme.shapes.extraSmall,
-                color = Color.Transparent,
-                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            ) {
-                M3Text(
-                    text = label,
-                    style = etaTextStyle(EtaType.Caption),
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            HorizontalDivider(modifier = Modifier.weight(1f))
-        }
-    } else {
-        val lineColor = MiuixTheme.colorScheme.outline.copy(alpha = 0.55f)
-        val labelColor = MiuixTheme.colorScheme.onSurfaceVariantSummary
-        Row(
-            modifier = modifier.fillMaxWidth().testTag("error-reconnect:${message.id}")
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(Modifier.weight(1f).height(0.5.dp).background(lineColor))
-            Text(
+            M3Text(
                 text = label,
-                modifier = Modifier.clip(RoundedCornerShape(8.dp))
-                    .clickable { TouchHaptics.click(view); showDetails = true }
-                    .semantics { contentDescription = "$label. $title" }
-                    .padding(horizontal = 8.dp, vertical = 2.dp),
                 style = etaTextStyle(EtaType.Caption),
-                color = labelColor,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Box(Modifier.weight(1f).height(0.5.dp).background(lineColor))
         }
+        HorizontalDivider(modifier = Modifier.weight(1f))
     }
     if (showDetails) {
         // This existing dialog has a bounded-height, selectable, vertically scrollable

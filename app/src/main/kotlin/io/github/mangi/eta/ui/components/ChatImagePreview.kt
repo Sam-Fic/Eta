@@ -26,7 +26,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Download
@@ -67,7 +66,6 @@ import androidx.compose.ui.window.DialogProperties
 import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.adaptive.EtaType
 import io.github.mangi.eta.ui.adaptive.etaTextStyle
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
 import io.github.mangi.eta.ui.model.AgentMessageUi
@@ -78,38 +76,28 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.intellij.markdown.ast.ASTNode
-import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.material3.CircularProgressIndicator as M3CircularProgressIndicator
 import androidx.compose.material3.Surface as M3Surface
 import androidx.compose.material3.IconButton as M3IconButton
-import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-/** M3 下取官方 surfaceContainer 角色，miuix 主题族保持原色。 */
+/** 取官方 surfaceContainer 角色。 */
 @Composable
-private fun previewPlaceholderColor(): Color =
-    if (isMaterial3Theme()) {
-        MaterialTheme.colorScheme.surfaceContainer
-    } else {
-        MiuixTheme.colorScheme.surfaceContainer
-    }
+private fun previewPlaceholderColor(): Color = MaterialTheme.colorScheme.surfaceContainer
 
-/** 图片占位与失败提示的圆角：M3 走官方 shapes 令牌（medium = 12dp）。 */
+/** 图片占位与失败提示的圆角：走官方 shapes 令牌（medium = 12dp）。 */
 @Composable
-private fun previewMediaShape(): Shape =
-    if (isMaterial3Theme()) MaterialTheme.shapes.medium else RoundedCornerShape(12.dp)
+private fun previewMediaShape(): Shape = MaterialTheme.shapes.medium
 
 /** 失败提示文字：走主页统一字阶的 Secondary 档。 */
 @Composable
 private fun previewBodyStyle(): TextStyle = etaTextStyle(EtaType.Secondary)
 
 /**
- * 图片加载指示：M3 用官方 `CircularProgressIndicator`（官方颜色角色与官方笔画宽度），
- * miuix 主题族保留原来的自绘线宽。
+ * 图片加载指示：用官方 `CircularProgressIndicator`（官方颜色角色与官方笔画宽度）。
  */
 @Composable
 private fun PreviewProgressIndicator(
@@ -117,11 +105,7 @@ private fun PreviewProgressIndicator(
     modifier: Modifier = Modifier,
     strokeWidth: Dp = 2.dp,
 ) {
-    if (isMaterial3Theme()) {
-        M3CircularProgressIndicator(modifier = modifier.size(size))
-    } else {
-        CircularProgressIndicator(modifier = modifier, size = size, strokeWidth = strokeWidth)
-    }
+    M3CircularProgressIndicator(modifier = modifier.size(size))
 }
 
 private const val MIN_ZOOM = 1f
@@ -307,24 +291,12 @@ private fun ChatRemoteClickableImage(
             }
             // M3 Expressive：官方 Surface(onClick) 承担容器、形状、容器色与按压涟漪；
             // 纯黑是视频信箱底色，属于媒体浮层固有色，不随主题变化。
-            // miuix 主题族沿用原来的 Box + 背景 + clickable 写法。
-            if (isMaterial3Theme()) {
-                M3Surface(
-                    onClick = openPreviewAction,
-                    modifier = modifier.heightIn(min = 180.dp),
-                    color = Color.Black,
-                    content = videoPoster,
-                )
-            } else {
-                Box(
-                    modifier = modifier
-                        .heightIn(min = 180.dp)
-                        .background(Color.Black)
-                        .clickable(onClick = openPreviewAction),
-                    contentAlignment = Alignment.Center,
-                    content = { videoPoster() },
-                )
-            }
+            M3Surface(
+                onClick = openPreviewAction,
+                modifier = modifier.heightIn(min = 180.dp),
+                color = Color.Black,
+                content = videoPoster,
+            )
         }
         failed -> Unit
         else -> Box(
@@ -441,23 +413,13 @@ private fun ChatImagePreviewDialog(
                 )
             }
             // M3 Expressive：全屏媒体浮层上的保存动作走官方 IconButton（官方涟漪与图标槽位）。
-            // miuix 主题族仍用原来的 IconButton，命中区与配色不变。
-            if (isMaterial3Theme()) {
-                M3IconButton(
-                    onClick = saveAction,
-                    enabled = saveEnabled,
-                    modifier = saveButtonModifier,
-                    colors = IconButtonDefaults.iconButtonColors(contentColor = Color.White),
-                    content = saveButtonContent,
-                )
-            } else {
-                IconButton(
-                    enabled = saveEnabled,
-                    onClick = saveAction,
-                    modifier = saveButtonModifier,
-                    content = saveButtonContent,
-                )
-            }
+            M3IconButton(
+                onClick = saveAction,
+                enabled = saveEnabled,
+                modifier = saveButtonModifier,
+                colors = IconButtonDefaults.iconButtonColors(contentColor = Color.White),
+                content = saveButtonContent,
+            )
             if (saving) {
                 PreviewProgressIndicator(
                     size = 20.dp,

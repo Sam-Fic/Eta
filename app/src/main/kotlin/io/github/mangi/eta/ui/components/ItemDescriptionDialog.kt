@@ -14,8 +14,6 @@ import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaText
 import io.github.mangi.eta.ui.adaptive.EtaTextStyle
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
-import top.yukonga.miuix.kmp.basic.TextButton
 import androidx.compose.material3.Text as M3Text
 import androidx.compose.material3.TextButton as M3TextButton
 
@@ -42,20 +40,12 @@ internal fun ItemDescriptionDialog(
                 modifier = Modifier.fillMaxWidth().weight(1f, fill = false)
                     .verticalScroll(rememberScrollState()),
             )
-            if (isMaterial3Theme()) {
-                // 官方文字按钮：形状、行高与配色均取官方默认值。
-                M3TextButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    M3Text(text = stringResource(R.string.action_close))
-                }
-            } else {
-                TextButton(
-                    text = stringResource(R.string.action_close),
-                    onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+            // 官方文字按钮：形状、行高与配色均取官方默认值。
+            M3TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                M3Text(text = stringResource(R.string.action_close))
             }
         }
     }

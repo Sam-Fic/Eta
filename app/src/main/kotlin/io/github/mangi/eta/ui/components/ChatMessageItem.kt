@@ -11,14 +11,11 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterExitState
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -171,7 +168,6 @@ import io.github.mangi.eta.ui.adaptive.etaOnSurfaceVariant
 import io.github.mangi.eta.ui.adaptive.etaPrimary
 import io.github.mangi.eta.ui.adaptive.etaSurfaceContainerHigh
 import io.github.mangi.eta.ui.adaptive.etaTextStyle
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.agent.browser.AgentBrowserSession
 import io.github.mangi.eta.agent.browser.BrowserSessionSnapshot
 import io.github.mangi.eta.agent.model.AgentFileReferencePromptCodec
@@ -216,62 +212,41 @@ import org.intellij.markdown.flavours.gfm.GFMElementTypes.ROW
 import org.intellij.markdown.flavours.gfm.GFMElementTypes.TABLE
 import org.intellij.markdown.flavours.gfm.GFMTokenTypes.CELL
 import org.intellij.markdown.flavours.gfm.GFMTokenTypes.CHECK_BOX
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.material3.Text as M3Text
 import androidx.compose.material3.TextButton as M3TextButton
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TooltipBox
-import top.yukonga.miuix.kmp.squircle.squircleBorder
-import top.yukonga.miuix.kmp.squircle.squircleSurface
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 // ── M3 Expressive 外观适配 ────────────────────────────────────────────────
 //
-// MiuixTheme 与 MaterialExpressiveTheme 同时存在于组合树里。消息区任何直接读
-// MiuixTheme.colorScheme/textStyles 的地方在 M3 主题下都会渲染成 miuix 配色。
-// 下面这组小助手把「同一处取值」在两个主题族之间分派：M3 一律走官方
-// MaterialTheme.colorScheme 角色与 typography 档位，miuix 分支逐字保留原取值。
+// 下面这组小助手统一从官方 MaterialTheme 取色与排版：一律走官方
+// MaterialTheme.colorScheme 角色与 typography 档位。
 
-/** 卡片类容器的底色：M3 用官方 surface 角色。 */
+/** 卡片类容器的底色：用官方 surface 角色。 */
 @Composable
-private fun chatSurfaceColor(): Color =
-    if (isMaterial3Theme()) MaterialTheme.colorScheme.surface else MiuixTheme.colorScheme.surface
+private fun chatSurfaceColor(): Color = MaterialTheme.colorScheme.surface
 
-/** 嵌套容器底色：M3 用官方 surfaceContainer 角色。 */
+/** 嵌套容器底色：用官方 surfaceContainer 角色。 */
 @Composable
-private fun chatSurfaceContainerColor(): Color =
-    if (isMaterial3Theme()) {
-        MaterialTheme.colorScheme.surfaceContainer
-    } else {
-        MiuixTheme.colorScheme.surfaceContainer
-    }
+private fun chatSurfaceContainerColor(): Color = MaterialTheme.colorScheme.surfaceContainer
 
-/** 发丝分隔线：M3 用官方 outlineVariant 角色。 */
+/** 发丝分隔线：用官方 outlineVariant 角色。 */
 @Composable
 private fun chatDividerColor(alpha: Float = 1f): Color =
-    if (isMaterial3Theme()) {
-        MaterialTheme.colorScheme.outlineVariant.copy(alpha = alpha)
-    } else {
-        MiuixTheme.colorScheme.outline.copy(alpha = alpha)
-    }
+    MaterialTheme.colorScheme.outlineVariant.copy(alpha = alpha)
 
-/** 卡片外框：M3 走官方 shapes.medium（12dp）与 outlineVariant 描边。 */
+/** 卡片外框：走官方 shapes.medium（12dp）与 outlineVariant 描边。 */
 @Composable
-private fun chatCardShape(): Shape =
-    if (isMaterial3Theme()) MaterialTheme.shapes.medium else RoundedCornerShape(12.dp)
+private fun chatCardShape(): Shape = MaterialTheme.shapes.medium
 
 @Composable
 private fun chatCardBorder(alpha: Float = 1f): BorderStroke =
@@ -279,103 +254,33 @@ private fun chatCardBorder(alpha: Float = 1f): BorderStroke =
 
 /** 媒体占位圆角（与卡片同档）。 */
 @Composable
-private fun chatMediaShape(): Shape =
-    if (isMaterial3Theme()) MaterialTheme.shapes.medium else RoundedCornerShape(12.dp)
+private fun chatMediaShape(): Shape = MaterialTheme.shapes.medium
 
-/** 正文档位：统一走 [EtaType.Body]（miuix body1 / M3 bodyLarge）。 */
+/** 正文档位：统一走 [EtaType.Body]（官方 bodyLarge）。 */
 @Composable
 private fun chatBodyStyle(): TextStyle = etaTextStyle(EtaType.Body)
 
-/** 次级正文档位：统一走 [EtaType.Secondary]（miuix body2 / M3 bodyMedium）。 */
+/** 次级正文档位：统一走 [EtaType.Secondary]（官方 bodyMedium）。 */
 @Composable
 internal fun chatSecondaryStyle(): TextStyle = etaTextStyle(EtaType.Secondary)
 
-/** 说明档位：统一走 [EtaType.Caption]（miuix footnote1 / M3 bodySmall）。 */
+/** 说明档位：统一走 [EtaType.Caption]（官方 bodySmall）。 */
 @Composable
 internal fun chatTertiaryStyle(): TextStyle = etaTextStyle(EtaType.Caption)
 
-/** 极小注档位：统一走 [EtaType.Micro]（miuix footnote2 / M3 labelSmall）。 */
+/** 极小注档位：统一走 [EtaType.Micro]（官方 labelSmall）。 */
 @Composable
 private fun chatQuaternaryStyle(): TextStyle = etaTextStyle(EtaType.Micro)
 
 /**
  * 发丝分隔线。
  *
- * Material 3 Expressive 用官方 `HorizontalDivider`：厚度、颜色与内容内边距全部取
- * `DividerDefaults` 默认值，不再自绘 0.5dp 细线。miuix 主题族保持原样。
+ * 用官方 `HorizontalDivider`：厚度、颜色与内容内边距全部取
+ * `DividerDefaults` 默认值，不再自绘 0.5dp 细线。
  */
 @Composable
 private fun ChatHairlineDivider(alpha: Float = 0.45f, modifier: Modifier = Modifier) {
-    if (isMaterial3Theme()) {
-        HorizontalDivider(modifier = modifier)
-        return
-    }
-    Box(modifier = modifier.height(0.5.dp).background(chatDividerColor(alpha)))
-}
-
-/**
- * 折叠卡片外壳。
- *
- * Material 3 Expressive 用官方 `Surface`：[onClick] 存在时走官方的可点击重载（官方涟漪、
- * Role、按下态），形状、底色与描边分别取官方 shapes / colorScheme 角色。
- * miuix 主题族保留 squircle 表面 + 无 indication 的 clickable 原样组合。
- */
-@Composable
-private fun CollapsibleChatCard(
-    shape: Shape,
-    color: Color,
-    borderWidth: Dp?,
-    borderColor: Color,
-    onClick: (() -> Unit)?,
-    modifier: Modifier = Modifier,
-    container: Boolean = true,
-    content: @Composable () -> Unit,
-) {
-    if (isMaterial3Theme()) {
-        val border = borderWidth?.let { BorderStroke(it, borderColor) }
-        if (onClick != null) {
-            Surface(
-                onClick = onClick,
-                modifier = modifier,
-                shape = shape,
-                color = color,
-                border = border,
-                content = { content() },
-            )        } else {
-            Surface(modifier = modifier, shape = shape, color = color, border = border, content = content)
-        }
-        return
-    }
-    Column(
-        modifier = modifier
-            .then(
-                if (container) {
-                    Modifier
-                        .squircleSurface(color = color, cornerRadius = 12.dp)
-                        .then(
-                            if (borderWidth != null) {
-                                Modifier.squircleBorder(
-                                    width = borderWidth,
-                                    color = borderColor,
-                                    cornerRadius = 12.dp,
-                                )
-                            } else {
-                                Modifier
-                            },
-                        )
-                } else {
-                    Modifier.clip(RoundedCornerShape(12.dp))
-                }
-            )
-            .then(
-                if (onClick != null) {
-                    Modifier.clickable(interactionSource = null, indication = null, onClick = onClick)
-                } else {
-                    Modifier
-                }
-            ),
-        content = { content() },
-    )
+    HorizontalDivider(modifier = modifier)
 }
 
 /**
@@ -471,14 +376,9 @@ private fun rememberActivePulse(
         initialValue = 0.58f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            // M3 Expressive 的呼吸节奏取官方 motionScheme；miuix 主题族保留原有 tween。
-            animation = if (isMaterial3Theme()) {
-                // 循环动画需要 DurationBasedAnimationSpec，官方 motionScheme 只提供有限时长规格，
-                // 因此这里沿用项目原有的 tween 循环节奏（不属于组件外观参数）。
-                tween(durationMillis = 1600, easing = LinearEasing)
-            } else {
-                tween(820, easing = FastOutSlowInEasing)
-            },
+            // 循环动画需要 DurationBasedAnimationSpec，官方 motionScheme 只提供有限时长规格，
+            // 因此这里沿用项目原有的 tween 循环节奏（不属于组件外观参数）。
+            animation = tween(durationMillis = 1600, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse,
         ),
         label = "${label}_alpha",
@@ -511,9 +411,8 @@ internal class ChatMessageActions {
 internal val LocalExpansionHoldsBottom = staticCompositionLocalOf<() -> Boolean> { { false } }
 
 /**
- * 展开前由宿主解除底部锚定。M3 下展开/收起一律钉住标题，面板向屏幕下方生长，
- * 因此展开动作必须先释放跟底/静止线裁剪，否则面板会被裁掉不可见；miuix 主题
- * 保留跟底快照体系，宿主提供空实现。
+ * 展开前由宿主解除底部锚定。展开/收起一律钉住标题，面板向屏幕下方生长，
+ * 因此展开动作必须先释放跟底/静止线裁剪，否则面板会被裁掉不可见。
  */
 internal val LocalChatAnchorRelease = staticCompositionLocalOf<() -> Unit> { {} }
 
@@ -678,28 +577,7 @@ internal fun AgentWorkProcessHeader(
         part = if (hasVisibleSteps && messages.isNotEmpty()) WorkProcessCardPart.First else WorkProcessCardPart.Whole,
         modifier = modifier,
     ) {
-        // 图标 / 文案 / 尾部箭头由两个主题族共用，容器各自使用对应主题的官方组件。
-        val leadingIcon = @Composable {
-            Icon(
-                imageVector = when {
-                    runningTool != null -> iconForTool(runningTool.toolName)
-                    // 官方图标替代自绘 ic_atom：AutoAwesome（星形）语义为 AI 生成/思考，
-                    // 与项目"思考深度"所用图标一致，比 Psychology（记忆语义）、HourglassTop（仅等待）更贴切。
-                    running -> Icons.Rounded.AutoAwesome
-                    else -> Icons.Rounded.Build
-                },
-                contentDescription = null,
-                modifier = Modifier
-                    .size(20.dp)
-                    .graphicsLayer { alpha = if (running && !isPaused) pulseAlpha() else 1f },
-                tint = if (running && !isPaused) {
-                    etaPrimary()
-                } else {
-                    etaOnSurfaceVariant()
-                },
-            )
-        }
-        // 标题文案与配色先算出来：M3 分支交给统一标题栏构件，miuix 分支仍用自己的 Row。
+        // 标题文案与配色先算出来，交给统一标题栏构件。
         val headerLabel = when {
             running && toolCount > 0 -> pluralStringResource(
                 R.plurals.work_processing_step,
@@ -716,67 +594,32 @@ internal fun AgentWorkProcessHeader(
         }
         val headerTitleColor = if (running && !isPaused) etaOnSurface() else etaOnSurfaceVariant()
         val headerLeadingTint = if (running && !isPaused) etaPrimary() else etaOnSurfaceVariant()
-        val label = @Composable {
-            Text(
-                text = headerLabel,
-                style = chatSecondaryStyle(),
-                color = headerTitleColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        val trailingIcon = @Composable {
-            Icon(
-                imageVector = if (expanded) Icons.Rounded.ExpandMore
-                else Icons.Rounded.ChevronRight,
-                contentDescription = stringResource(
-                    if (expanded) R.string.work_collapse else R.string.work_expand,
-                ),
-                modifier = Modifier.size(20.dp),
-                tint = etaOnSurfaceVariant().copy(alpha = 0.7f),
-            )
-        }
 
         Column(modifier = Modifier.fillMaxWidth()) {
-            if (isMaterial3Theme()) {
-                // 与提问/思考/工具卡片共用同一标题栏构件，组头与各行的标题行逐值一致。
-                WorkCardDisclosureHeader(
-                    leadingIcon = when {
-                        runningTool != null -> iconForTool(runningTool.toolName)
-                        running -> Icons.Rounded.AutoAwesome
-                        else -> Icons.Rounded.Build
-                    },
-                    leadingTint = headerLeadingTint,
-                    title = headerLabel,
-                    titleColor = headerTitleColor,
-                    expanded = expanded,
-                    onToggle = onToggle,
-                    modifier = Modifier.fillMaxWidth(),
-                    leadingModifier = Modifier.graphicsLayer {
-                        alpha = if (running && !isPaused) pulseAlpha() else 1f
-                    },
-                )
-            } else {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(interactionSource = null, indication = null, onClick = onToggle)
-                        .padding(horizontal = 13.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    leadingIcon()
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Box(modifier = Modifier.weight(1f)) { label() }
-                    trailingIcon()
-                }
-            }
+            // 与提问/思考/工具卡片共用同一标题栏构件，组头与各行的标题行逐值一致。
+            WorkCardDisclosureHeader(
+                leadingIcon = when {
+                    runningTool != null -> iconForTool(runningTool.toolName)
+                    running -> Icons.Rounded.AutoAwesome
+                    else -> Icons.Rounded.Build
+                },
+                leadingTint = headerLeadingTint,
+                title = headerLabel,
+                titleColor = headerTitleColor,
+                expanded = expanded,
+                onToggle = onToggle,
+                modifier = Modifier.fillMaxWidth(),
+                leadingModifier = Modifier.graphicsLayer {
+                    alpha = if (running && !isPaused) pulseAlpha() else 1f
+                },
+            )
 
             if (hasVisibleSteps && messages.isNotEmpty()) {
-                // M3：与统一展开体的分隔线同缩进（对齐 ListItem 正文起始位置）。
+                // 与统一展开体的分隔线同缩进（对齐 ListItem 正文起始位置）。
                 ChatHairlineDivider(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = if (isMaterial3Theme()) 16.dp else 13.dp),
+                        .padding(horizontal = 16.dp),
                 )
             }
         }
@@ -1014,37 +857,19 @@ private fun UserMessageBubble(
                     corners.bottomEnd,
                     corners.bottomStart,
                 )
-                val bubbleSurface = if (isMaterial3Theme()) {
-                    Modifier
-                        .clip(bubbleShape)
-                        .background(bubbleBg)
-                } else {
-                    Modifier.squircleSurface(
-                        color = bubbleBg,
-                        topStart = corners.topStart,
-                        topEnd = corners.topEnd,
-                        bottomEnd = corners.bottomEnd,
-                        bottomStart = corners.bottomStart,
-                    )
-                }
+                val bubbleSurface = Modifier
+                    .clip(bubbleShape)
+                    .background(bubbleBg)
                 val bubbleModifier = Modifier
                     .widthIn(max = maxWidth * 0.82f)
                     .then(if (isGroupTail) Modifier.drawBehind { drawUserBubbleTail(bubbleBg) } else Modifier)
                     .then(bubbleSurface)
                     .then(
                         if (isEditing) {
-                            if (isMaterial3Theme()) {
-                                Modifier.border(
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                                    shape = bubbleShape,
-                                )
-                            } else {
-                                Modifier.squircleBorder(
-                                    width = 1.dp,
-                                    color = etaPrimary(),
-                                    cornerRadius = UserBubbleCornerRadius,
-                                )
-                            }
+                            Modifier.border(
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                                shape = bubbleShape,
+                            )
                         } else {
                             Modifier
                         },
@@ -1066,8 +891,8 @@ private fun UserMessageBubble(
                                 modifier = Modifier
                                     .streamDiagnosticMeasure("render.userText.measure", diagnosticRow)
                                     .streamDiagnosticDraw("render.userText.draw", diagnosticRow),
-                                style = if (isMaterial3Theme()) MaterialTheme.typography.bodyLarge else MiuixTheme.textStyles.body1,
-                                color = if (isMaterial3Theme()) MaterialTheme.colorScheme.onSurface else MiuixTheme.colorScheme.onSurface,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 textAlign = TextAlign.Start,
                             )
                         }
@@ -1094,170 +919,96 @@ private fun UserMessageBubble(
                     modifier = Modifier.padding(top = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (isMaterial3Theme()) {
-                        // M3 Expressive：与 AI 消息操作行同款的官方连体按钮组（KernelSU 模式），
-                        // 尺寸统一 ToggleButtonSize.Small，配色 secondaryContainer/onSecondaryContainer。
-                        val copyTooltip = stringResource(R.string.ui_copy_4edd1d)
-                        val editTooltip = stringResource(R.string.ui_edit_a7f814)
-                        val branchTooltip = stringResource(R.string.ui_branch_conversation)
-                        val deleteTooltip = stringResource(R.string.ui_delete_3755f5)
-                        val groupActions: List<@Composable (Int, Int) -> Unit> = buildList {
-                            add { index, count ->
-                                FooterTooltipBox(copyTooltip, true) {
-                                    M3ConnectedIconAction(
-                                        onClick = {
-                                            TouchHaptics.click(view)
-                                            @Suppress("DEPRECATION")
-                                            clipboardManager.setText(AnnotatedString(copyText))
-                                            copied = true
-                                        },
-                                        enabled = true,
-                                        index = index,
-                                        count = count,
-                                    ) {
-                                        Icon(
-                                            imageVector = if (copied) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
-                                            contentDescription = stringResource(
-                                                if (copied) R.string.copy_copied else R.string.ui_copy_4edd1d,
-                                            ),
-                                            modifier = Modifier.size(IconButtonDefaults.extraSmallIconSize),
-                                        )
-                                    }
-                                }
-                            }
-                            add { index, count ->
-                                FooterTooltipBox(editTooltip, actionsEnabled) {
-                                    M3ConnectedIconAction(
-                                        onClick = {
-                                            TouchHaptics.click(view)
-                                            onEdit()
-                                        },
-                                        enabled = actionsEnabled,
-                                        index = index,
-                                        count = count,
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.Edit,
-                                            contentDescription = editTooltip,
-                                            modifier = Modifier.size(IconButtonDefaults.extraSmallIconSize),
-                                        )
-                                    }
-                                }
-                            }
-                            add { index, count ->
-                                FooterTooltipBox(branchTooltip, branchEnabled) {
-                                    M3ConnectedIconAction(
-                                        onClick = {
-                                            TouchHaptics.click(view)
-                                            onBranch()
-                                        },
-                                        enabled = branchEnabled,
-                                        index = index,
-                                        count = count,
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.AutoMirrored.Rounded.CallSplit,
-                                            contentDescription = branchTooltip,
-                                            modifier = Modifier.size(IconButtonDefaults.extraSmallIconSize),
-                                        )
-                                    }
-                                }
-                            }
-                            add { index, count ->
-                                FooterTooltipBox(deleteTooltip, actionsEnabled) {
-                                    M3ConnectedIconAction(
-                                        onClick = {
-                                            TouchHaptics.click(view)
-                                            onDelete()
-                                        },
-                                        enabled = actionsEnabled,
-                                        index = index,
-                                        count = count,
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.Delete,
-                                            contentDescription = deleteTooltip,
-                                            modifier = Modifier.size(IconButtonDefaults.extraSmallIconSize),
-                                        )
-                                    }
+                    // Expressive：与 AI 消息操作行同款的官方连体按钮组（KernelSU 模式），
+                    // 尺寸统一 ToggleButtonSize.Small，配色 secondaryContainer/onSecondaryContainer。
+                    val copyTooltip = stringResource(R.string.ui_copy_4edd1d)
+                    val editTooltip = stringResource(R.string.ui_edit_a7f814)
+                    val branchTooltip = stringResource(R.string.ui_branch_conversation)
+                    val deleteTooltip = stringResource(R.string.ui_delete_3755f5)
+                    val groupActions: List<@Composable (Int, Int) -> Unit> = buildList {
+                        add { index, count ->
+                            FooterTooltipBox(copyTooltip, true) {
+                                M3ConnectedIconAction(
+                                    onClick = {
+                                        TouchHaptics.click(view)
+                                        @Suppress("DEPRECATION")
+                                        clipboardManager.setText(AnnotatedString(copyText))
+                                        copied = true
+                                    },
+                                    enabled = true,
+                                    index = index,
+                                    count = count,
+                                ) {
+                                    Icon(
+                                        imageVector = if (copied) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
+                                        contentDescription = stringResource(
+                                            if (copied) R.string.copy_copied else R.string.ui_copy_4edd1d,
+                                        ),
+                                        modifier = Modifier.size(IconButtonDefaults.extraSmallIconSize),
+                                    )
                                 }
                             }
                         }
-                        EtaConnectedGroupRow {
-                            groupActions.forEachIndexed { index, action -> action(index, groupActions.size) }
+                        add { index, count ->
+                            FooterTooltipBox(editTooltip, actionsEnabled) {
+                                M3ConnectedIconAction(
+                                    onClick = {
+                                        TouchHaptics.click(view)
+                                        onEdit()
+                                    },
+                                    enabled = actionsEnabled,
+                                    index = index,
+                                    count = count,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Edit,
+                                        contentDescription = editTooltip,
+                                        modifier = Modifier.size(IconButtonDefaults.extraSmallIconSize),
+                                    )
+                                }
+                            }
                         }
-                    } else {
-                    TooltipBox(text = stringResource(R.string.ui_copy_4edd1d), enabled = true) {
-                        ChatIconAction(
-                            onClick = {
-                                TouchHaptics.click(view)
-                                @Suppress("DEPRECATION")
-                                clipboardManager.setText(AnnotatedString(copyText))
-                                copied = true
-                            },
-                        ) {
-                            Icon(
-                                imageVector = if (copied) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
-                                contentDescription = stringResource(
-                                    if (copied) R.string.copy_copied else R.string.ui_copy_4edd1d,
-                                ),
-                                modifier = Modifier.size(16.dp),
-                                tint = if (copied) {
-                                    etaPrimary()
-                                } else {
-                                    etaOnSurfaceVariant().copy(alpha = 0.75f)
-                                },
-                            )
+                        add { index, count ->
+                            FooterTooltipBox(branchTooltip, branchEnabled) {
+                                M3ConnectedIconAction(
+                                    onClick = {
+                                        TouchHaptics.click(view)
+                                        onBranch()
+                                    },
+                                    enabled = branchEnabled,
+                                    index = index,
+                                    count = count,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Rounded.CallSplit,
+                                        contentDescription = branchTooltip,
+                                        modifier = Modifier.size(IconButtonDefaults.extraSmallIconSize),
+                                    )
+                                }
+                            }
                         }
-                    }
-                    TooltipBox(text = stringResource(R.string.ui_edit_a7f814), enabled = actionsEnabled) {
-                        ChatIconAction(
-                            onClick = {
-                                TouchHaptics.click(view)
-                                onEdit()
-                            },
-                            enabled = actionsEnabled,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Edit,
-                                contentDescription = stringResource(R.string.ui_edit_a7f814),
-                                modifier = Modifier.size(16.dp),
-                                tint = etaOnSurfaceVariant().copy(alpha = 0.75f),
-                            )
-                        }
-                    }
-                    TooltipBox(text = stringResource(R.string.ui_branch_conversation), enabled = branchEnabled) {
-                        ChatIconAction(
-                            onClick = {
-                                TouchHaptics.click(view)
-                                onBranch()
-                            },
-                            enabled = branchEnabled,
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Rounded.CallSplit,
-                                contentDescription = stringResource(R.string.ui_branch_conversation),
-                                modifier = Modifier.size(16.dp),
-                                tint = etaOnSurfaceVariant().copy(alpha = 0.75f),
-                            )
-                        }
-                    }
-                    TooltipBox(text = stringResource(R.string.ui_delete_3755f5), enabled = actionsEnabled) {
-                        ChatIconAction(
-                            onClick = {
-                                TouchHaptics.click(view)
-                                onDelete()
-                            },
-                            enabled = actionsEnabled,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Delete,
-                                contentDescription = stringResource(R.string.ui_delete_3755f5),
-                                modifier = Modifier.size(16.dp),
-                                tint = etaOnSurfaceVariant().copy(alpha = 0.75f),
-                            )
+                        add { index, count ->
+                            FooterTooltipBox(deleteTooltip, actionsEnabled) {
+                                M3ConnectedIconAction(
+                                    onClick = {
+                                        TouchHaptics.click(view)
+                                        onDelete()
+                                    },
+                                    enabled = actionsEnabled,
+                                    index = index,
+                                    count = count,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Delete,
+                                        contentDescription = deleteTooltip,
+                                        modifier = Modifier.size(IconButtonDefaults.extraSmallIconSize),
+                                    )
+                                }
+                            }
                         }
                     }
+                    EtaConnectedGroupRow {
+                        groupActions.forEachIndexed { index, action -> action(index, groupActions.size) }
                     }
                 }
             }
@@ -2784,9 +2535,9 @@ private fun ChatCodeBlock(
         // fence does that on each publish, so it stays a plain Text until done.
         if (revealState == null) HapticSelectionContainer { codeText() } else codeText()
     }
-    // M3 Expressive：带框代码块用官方 Surface（官方形状令牌 + outlineVariant 描边）。
-    // 无框（inline）路径与 miuix 主题族都保持原有的 clip + 背景 + 描边组合。
-    if (showChrome && isMaterial3Theme()) {
+    // 带框代码块用官方 Surface（官方形状令牌 + outlineVariant 描边）；
+    // 无框（inline）路径保持原有的 clip + 背景 + 描边组合。
+    if (showChrome) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -2800,19 +2551,7 @@ private fun ChatCodeBlock(
         return
     }
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(
-                if (showChrome) {
-                    Modifier
-                        .padding(vertical = 4.dp)
-                        .clip(chatCardShape())
-                        .background(chatSurfaceColor())
-                        .border(0.5.dp, chatDividerColor(0.5f), chatCardShape())
-                } else {
-                    Modifier
-                }
-            ),
+        modifier = Modifier.fillMaxWidth(),
         content = { codeBlockBody() },
     )
 }
@@ -3173,73 +2912,27 @@ private fun ThinkingRow(
                 pluralStringResource(R.plurals.reasoning_completed_seconds, seconds, seconds)
             } ?: stringResource(R.string.reasoning_completed)
         }
-        if (isMaterial3Theme()) {
-            // M3：与提问卡片共用同一标题栏构件——官方 ListItem 整行命中区与最小行高，
-            // 折叠只由标题行触发，标题独立成一行。
-            WorkCardDisclosureHeader(
-                leadingIcon = Icons.Rounded.AutoAwesome,
-                leadingTint = if (message.isStreaming && !isPaused) {
-                    etaPrimary()
-                } else {
-                    etaOnSurfaceVariant()
-                },
-                title = thinkingTitle,
-                titleColor = if (message.isStreaming && !isPaused) {
-                    etaOnSurface()
-                } else {
-                    etaOnSurfaceVariant()
-                },
-                expanded = expanded,
-                onToggle = toggle,
-                leadingModifier = Modifier.graphicsLayer {
-                    alpha = if (message.isStreaming && !isPaused) pulseAlpha() else 1f
-                },
-            )
-        } else {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        horizontal = if (compact) 4.dp else 13.dp,
-                        vertical = if (compact) 6.dp else 10.dp,
-                    ),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    // 官方图标替代自绘 ic_atom：AutoAwesome＝AI 思考/生成中。
-                    imageVector = Icons.Rounded.AutoAwesome,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(20.dp)
-                        .graphicsLayer { alpha = if (message.isStreaming && !isPaused) pulseAlpha() else 1f },
-                    tint = if (message.isStreaming && !isPaused) {
-                        etaPrimary()
-                    } else {
-                        etaOnSurfaceVariant()
-                    },
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = thinkingTitle,
-                    style = chatSecondaryStyle(),
-                    color = if (message.isStreaming && !isPaused) {
-                        etaOnSurface()
-                    } else {
-                        etaOnSurfaceVariant()
-                    },
-                    modifier = Modifier.weight(1f),
-                )
-                Icon(
-                    imageVector = if (expanded) Icons.Rounded.ExpandMore
-                        else Icons.Rounded.ChevronRight,
-                    contentDescription = stringResource(
-                        if (expanded) R.string.reasoning_collapse else R.string.reasoning_expand,
-                    ),
-                    modifier = Modifier.size(20.dp),
-                    tint = etaOnSurfaceVariant().copy(alpha = 0.7f),
-                )
-            }
-        }
+        // 与提问卡片共用同一标题栏构件——官方 ListItem 整行命中区与最小行高，
+        // 折叠只由标题行触发，标题独立成一行。
+        WorkCardDisclosureHeader(
+            leadingIcon = Icons.Rounded.AutoAwesome,
+            leadingTint = if (message.isStreaming && !isPaused) {
+                etaPrimary()
+            } else {
+                etaOnSurfaceVariant()
+            },
+            title = thinkingTitle,
+            titleColor = if (message.isStreaming && !isPaused) {
+                etaOnSurface()
+            } else {
+                etaOnSurfaceVariant()
+            },
+            expanded = expanded,
+            onToggle = toggle,
+            leadingModifier = Modifier.graphicsLayer {
+                alpha = if (message.isStreaming && !isPaused) pulseAlpha() else 1f
+            },
+        )
 
         AnimatedVisibility(
             visible = expanded && message.content.isNotBlank(),
@@ -3247,53 +2940,12 @@ private fun ThinkingRow(
             exit = tailDetailsExit(anchorBottom),
             modifier = Modifier.toggleProbe(toggleProbeRef, "visible"),
         ) {
-            if (isMaterial3Theme()) {
-                // M3：下半部分统一走提问卡片的展开体（发丝分隔线 + 16dp/12dp 内容列）。
-                HapticSelectionContainer(
-                    modifier = retainDrawLayerWhenIdle(enabled = streamingState == null)
-                        .toggleProbe(toggleProbeRef, "content"),
-                ) {
-                    WorkCardExpandedBody {
-                        if (streamingState != null) {
-                            StreamingMarkdown(
-                                state = streamingState,
-                                content = message.content,
-                                isStreaming = message.isStreaming,
-                                isPaused = isPaused,
-                                onRevealCompleteChange = {},
-                                tone = ChatMarkdownTone.Thinking,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        } else {
-                            androidx.compose.runtime.CompositionLocalProvider(LocalToggleProbe provides toggleProbeRef) {
-                                StableMarkdown(
-                                    content = message.content,
-                                    tone = ChatMarkdownTone.Thinking,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    progressive = expandedByTap,
-                                )
-                            }
-                        }
-                    }
-                }
-                return@AnimatedVisibility
-            }
+            // 下半部分统一走提问卡片的展开体（发丝分隔线 + 16dp/12dp 内容列）。
             HapticSelectionContainer(
                 modifier = retainDrawLayerWhenIdle(enabled = streamingState == null)
                     .toggleProbe(toggleProbeRef, "content"),
             ) {
-                Column {
-                    if (!compact) {
-                        ChatHairlineDivider(modifier = Modifier.fillMaxWidth().padding(horizontal = 13.dp))
-                    }
-                    val contentModifier = Modifier
-                        .fillMaxWidth()
-                        .padding(
-                            start = if (compact) 27.dp else 13.dp,
-                            end = 13.dp,
-                            top = if (compact) 2.dp else 8.dp,
-                            bottom = if (compact) 8.dp else 12.dp,
-                        )
+                WorkCardExpandedBody {
                     if (streamingState != null) {
                         StreamingMarkdown(
                             state = streamingState,
@@ -3302,57 +2954,37 @@ private fun ThinkingRow(
                             isPaused = isPaused,
                             onRevealCompleteChange = {},
                             tone = ChatMarkdownTone.Thinking,
-                            modifier = contentModifier,
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     } else {
                         androidx.compose.runtime.CompositionLocalProvider(LocalToggleProbe provides toggleProbeRef) {
                             StableMarkdown(
                                 content = message.content,
                                 tone = ChatMarkdownTone.Thinking,
-                                modifier = contentModifier,
+                                modifier = Modifier.fillMaxWidth(),
                                 progressive = expandedByTap,
                             )
                         }
                     }
                 }
             }
+            return@AnimatedVisibility
         }
         }
     }
     // compact 模式渲染在工作过程卡片内部，不再携带自己的卡片外壳，避免卡中卡。
     if (compact) {
-        if (isMaterial3Theme()) {
-            // M3：行内不再自己加内边距与命中区——标题栏的官方 ListItem 自带正文内边距，
-            // 外层切片已提供卡片外沿留白，三者与提问卡片逐值对齐。
-            Box(modifier = modifier.fillMaxWidth()) { thinkingBody() }
-        } else {
-            Column(
-                modifier = modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 2.dp)
-                    .clickable(interactionSource = null, indication = null, onClick = toggle),
-                content = { thinkingBody() },
-            )
-        }
+        // 行内不再自己加内边距与命中区——标题栏的官方 ListItem 自带正文内边距，
+        // 外层切片已提供卡片外沿留白，三者与提问卡片逐值对齐。
+        Box(modifier = modifier.fillMaxWidth()) { thinkingBody() }
         return
     }
-    if (isMaterial3Theme()) {
-        // M3：独立行复用提问卡片的整卡外壳（surfaceContainer 色块、官方 shapes.large、无描边）。
-        WorkProcessCardSlice(
-            part = WorkProcessCardPart.Whole,
-            modifier = modifier.fillMaxWidth(),
-        ) { thinkingBody() }
-        return
-    }
-    CollapsibleChatCard(
-        shape = chatCardShape(),
-        color = chatSurfaceColor(),
-        borderWidth = 0.5.dp,
-        borderColor = chatDividerColor(0.50f),
-        onClick = toggle,
-        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-        content = { thinkingBody() },
-    )}
+    // 独立行复用提问卡片的整卡外壳（surfaceContainer 色块、官方 shapes.large、无描边）。
+    WorkProcessCardSlice(
+        part = WorkProcessCardPart.Whole,
+        modifier = modifier.fillMaxWidth(),
+    ) { thinkingBody() }
+}
 
 // ── 工具调用：优雅极简时间线 ─────────────────────────────────────────
 
@@ -3361,25 +2993,16 @@ private fun ThinkingRow(
  * 展开和收起的时长、缓动不变，只换生长方向：下沿被钉住时从下沿长出，
  * 让已经排好的内容停在原处、由标签往上让开；否则从上沿往下长。
  *
- * Material 3 Expressive 的时长与缓动统一取官方 `motionScheme` 规格；
- * miuix 主题族保留原有的自定义时长。
+ * 时长与缓动统一取官方 `motionScheme` 规格。
  */
 @Composable
 internal fun tailDetailsEnter(fromBottom: Boolean): androidx.compose.animation.EnterTransition {
-    return if (isMaterial3Theme()) {
-        // M3：面板始终在标题下方、自上而下展开（expandFrom=Top）。标题行位置纹丝不动，
-        // 也不再因锚定方向让面板内容自下而上滑入产生位移感；动画规格取官方 motionScheme。
-        fadeIn(MaterialTheme.motionScheme.defaultSpatialSpec<Float>()) + expandVertically(
-            animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec<androidx.compose.ui.unit.IntSize>(),
-            expandFrom = Alignment.Top,
-        )
-    } else {
-        val expandFrom = if (fromBottom) Alignment.Bottom else Alignment.Top
-        fadeIn(tween(160)) + expandVertically(
-            animationSpec = tween(180, easing = FastOutSlowInEasing),
-            expandFrom = expandFrom,
-        )
-    }
+    // 面板始终在标题下方、自上而下展开（expandFrom=Top）。标题行位置纹丝不动，
+    // 也不再因锚定方向让面板内容自下而上滑入产生位移感；动画规格取官方 motionScheme。
+    return fadeIn(MaterialTheme.motionScheme.defaultSpatialSpec<Float>()) + expandVertically(
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec<androidx.compose.ui.unit.IntSize>(),
+        expandFrom = Alignment.Top,
+    )
 }
 
 
@@ -3416,40 +3039,27 @@ internal fun AnimatedVisibilityScope.retainDrawLayerWhenIdle(enabled: Boolean = 
 
 @Composable
 internal fun tailDetailsExit(toBottom: Boolean): androidx.compose.animation.ExitTransition {
-    return if (isMaterial3Theme()) {
-        // M3：与进入动画对称，向顶部收起（面板往标题方向收），标题行保持不动。
-        shrinkVertically(
-            animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec<androidx.compose.ui.unit.IntSize>(),
-            shrinkTowards = Alignment.Top,
-        ) + fadeOut(MaterialTheme.motionScheme.defaultSpatialSpec<Float>())
-    } else {
-        val shrinkTowards = if (toBottom) Alignment.Bottom else Alignment.Top
-        shrinkVertically(
-            animationSpec = tween(160, easing = FastOutSlowInEasing),
-            shrinkTowards = shrinkTowards,
-        ) + fadeOut(tween(100))
-    }
+    // 与进入动画对称，向顶部收起（面板往标题方向收），标题行保持不动。
+    return shrinkVertically(
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec<androidx.compose.ui.unit.IntSize>(),
+        shrinkTowards = Alignment.Top,
+    ) + fadeOut(MaterialTheme.motionScheme.defaultSpatialSpec<Float>())
 }
 
 /** 工具状态标记：成功是常态，只留低饱和度对勾；运行中与失败才占用视觉注意力。 */
 @Composable
 private fun ToolStatusIndicator(status: ToolActivityStatusUi, pulseAlpha: () -> Float) {
-    // 状态切换动效：M3 Expressive 取官方 motionScheme 规格；miuix 主题族保留原时长。
+    // 状态切换动效取官方 motionScheme 规格。
     val statusTransition: ContentTransform =
-        if (isMaterial3Theme()) {
-            (fadeIn(MaterialTheme.motionScheme.defaultSpatialSpec<Float>()) +
-                scaleIn(MaterialTheme.motionScheme.defaultSpatialSpec<Float>(), initialScale = 0.86f))
-                .togetherWith(
-                    fadeOut(MaterialTheme.motionScheme.defaultSpatialSpec<Float>()) +
-                        scaleOut(
-                            MaterialTheme.motionScheme.defaultSpatialSpec<Float>(),
-                            targetScale = 0.86f,
-                        )
-                )
-        } else {
-            (fadeIn(tween(150)) + scaleIn(tween(170), initialScale = 0.86f))
-                .togetherWith(fadeOut(tween(90)) + scaleOut(tween(110), targetScale = 0.86f))
-        }
+        (fadeIn(MaterialTheme.motionScheme.defaultSpatialSpec<Float>()) +
+            scaleIn(MaterialTheme.motionScheme.defaultSpatialSpec<Float>(), initialScale = 0.86f))
+            .togetherWith(
+                fadeOut(MaterialTheme.motionScheme.defaultSpatialSpec<Float>()) +
+                    scaleOut(
+                        MaterialTheme.motionScheme.defaultSpatialSpec<Float>(),
+                        targetScale = 0.86f,
+                    )
+            )
     AnimatedContent(
         targetState = status,
         transitionSpec = { statusTransition },
@@ -3547,7 +3157,7 @@ private fun ToolActivityInline(
     }
 
     val toolRowSettled = message.status != ToolActivityStatusUi.Running
-    // M3：展开前解除底部锚定，标题钉在原位、面板向下生长可见（宿主侧 miuix 为空实现）。
+    // 展开前解除底部锚定，标题钉在原位、面板向下生长可见。
     val releaseAnchor = LocalChatAnchorRelease.current
     val toggle: () -> Unit = {
         anchorBottom = expansionHoldsBottom()
@@ -3565,8 +3175,7 @@ private fun ToolActivityInline(
     }
     val toolCardBody: @Composable () -> Unit = {
         Column(modifier = Modifier.fillMaxWidth()) {
-        if (isMaterial3Theme()) {
-            // M3：与提问卡片共用同一标题栏构件。失败原因/浏览器状态走官方 ListItem 的
+            // 与提问卡片共用同一标题栏构件。失败原因/浏览器状态走官方 ListItem 的
             // supportingContent；状态标记与展开箭头放在 trailingContent。
             WorkCardDisclosureHeader(
                 leadingIcon = iconForTool(message.toolName),
@@ -3596,74 +3205,6 @@ private fun ToolActivityInline(
                     }
                 },
             )
-        } else {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 4.dp),
-        ) {
-            // 工具图标与思考行的灯泡共用同一前导槽位，保证卡片内左边缘对齐。
-            Icon(
-                imageVector = iconForTool(message.toolName),
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = when (message.status) {
-                    ToolActivityStatusUi.Running -> etaPrimary()
-                    ToolActivityStatusUi.Failed -> toolStatusTextColor(failed = true)
-                    ToolActivityStatusUi.Unknown -> etaOnSurfaceVariant()
-                    ToolActivityStatusUi.Success ->
-                        etaOnSurfaceVariant().copy(alpha = 0.8f)
-                }
-            )
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = chatSecondaryStyle(),
-                    color = if (message.status == ToolActivityStatusUi.Running) {
-                        etaOnSurface()
-                    } else {
-                        etaOnSurfaceVariant()
-                    },
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                val subtitle = failureSubtitle ?: browserSubtitle
-                if (subtitle != null) {
-                    Text(
-                        text = subtitle,
-                        style = chatTertiaryStyle(),
-                        color = if (failureSubtitle != null) {
-                            toolStatusTextColor(failed = true)
-                        } else {
-                            etaOnSurfaceVariant().copy(alpha = 0.8f)
-                        },
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                ToolStatusIndicator(message.status, pulseAlpha)
-                if (hasDetails) {
-                    Icon(
-                        imageVector = if (isExpanded) Icons.Rounded.ExpandMore
-                            else Icons.Rounded.ChevronRight,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp),
-                        tint = etaOnSurfaceVariant().copy(alpha = 0.7f),
-                    )
-                }
-            }
-        }
-        }
 
         AnimatedVisibility(
             visible = isExpanded && hasDetails,
@@ -3671,174 +3212,74 @@ private fun ToolActivityInline(
             exit = tailDetailsExit(anchorBottom),
             modifier = Modifier.toggleProbe(toggleProbeRef, "visible"),
         ) {
-            if (isMaterial3Theme()) {
-                // M3：下半部分统一走提问卡片的展开体（发丝分隔线 + 16dp/12dp 内容列）。
-                // 命令块本身是 surfaceContainerHighest 的官方 Surface，无需再套面板底色，
-                // 层级依旧清晰：卡片 surfaceContainer → 命令井 surfaceContainerHighest。
-                WorkCardExpandedBody(modifier = Modifier.toggleProbe(toggleProbeRef, "content")) {
-                    val bodyReady = rememberDeferredBody(deferOneFrame = expandedByTap)
-                    if (bodyReady) {
-                        if (!message.command.isNullOrBlank()) {
-                            ToolCommandBlock(
-                                command = message.command,
-                                context = message.argumentsSummary,
-                            )
-                        }
-                        if (message.resultSummary != null && message.resultSummary.isNotBlank()) {
-                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                Text(
-                                    text = stringResource(R.string.ui_result_0a2c91),
-                                    style = chatQuaternaryStyle(),
-                                    color = etaOnSurfaceVariant(),
-                                )
-                                HapticSelectionContainer {
-                                    Text(
-                                        text = message.resultSummary,
-                                        style = chatTertiaryStyle(),
-                                        // 结果是内容而非辅助信息，用主前景色保证可读性。
-                                        color = etaOnSurface(),
-                                        maxLines = 10,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                            }
-                        } else if (showCompletedPlaceholder) {
+            // 下半部分统一走提问卡片的展开体（发丝分隔线 + 16dp/12dp 内容列）。
+            // 命令块本身是 surfaceContainerHighest 的官方 Surface，无需再套面板底色，
+            // 层级依旧清晰：卡片 surfaceContainer → 命令井 surfaceContainerHighest。
+            WorkCardExpandedBody(modifier = Modifier.toggleProbe(toggleProbeRef, "content")) {
+                val bodyReady = rememberDeferredBody(deferOneFrame = expandedByTap)
+                if (bodyReady) {
+                    if (!message.command.isNullOrBlank()) {
+                        ToolCommandBlock(
+                            command = message.command,
+                            context = message.argumentsSummary,
+                        )
+                    }
+                    if (message.resultSummary != null && message.resultSummary.isNotBlank()) {
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(
-                                text = stringResource(R.string.tool_status_success),
-                                style = chatTertiaryStyle(),
+                                text = stringResource(R.string.ui_result_0a2c91),
+                                style = chatQuaternaryStyle(),
                                 color = etaOnSurfaceVariant(),
                             )
-                        }
-                        if (showBrowserShortcut) {
-                            browserSnapshot?.takeIf { it.available }?.let { snapshot ->
-                                BrowserPagePreview(
-                                    snapshot = snapshot,
-                                    enableLivePreview = enableLivePreview,
+                            HapticSelectionContainer {
+                                Text(
+                                    text = message.resultSummary,
+                                    style = chatTertiaryStyle(),
+                                    // 结果是内容而非辅助信息，用主前景色保证可读性。
+                                    color = etaOnSurface(),
+                                    maxLines = 10,
+                                    overflow = TextOverflow.Ellipsis,
                                 )
                             }
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.End,
-                            ) {
-                                M3TextButton(onClick = onOpenBrowser) {
-                                    M3Text(
-                                        text = stringResource(R.string.ui_open_current_browser_58358e),
-                                        style = MaterialTheme.typography.labelLarge,
-                                    )
-                                }
+                        }
+                    } else if (showCompletedPlaceholder) {
+                        Text(
+                            text = stringResource(R.string.tool_status_success),
+                            style = chatTertiaryStyle(),
+                            color = etaOnSurfaceVariant(),
+                        )
+                    }
+                    if (showBrowserShortcut) {
+                        browserSnapshot?.takeIf { it.available }?.let { snapshot ->
+                            BrowserPagePreview(
+                                snapshot = snapshot,
+                                enableLivePreview = enableLivePreview,
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                        ) {
+                            M3TextButton(onClick = onOpenBrowser) {
+                                M3Text(
+                                    text = stringResource(R.string.ui_open_current_browser_58358e),
+                                    style = MaterialTheme.typography.labelLarge,
+                                )
                             }
                         }
                     }
                 }
-                return@AnimatedVisibility
             }
-            // squircleSurface 已用自己的离屏层完成填充和遮罩；不要在外层再缓存相同正文。
-            // 遮罩层是视觉必需的（含动画期间），与仅停稳后启用的 retain 缓存层不同。
-            val expandedPadding = Modifier
-                .toggleProbe(toggleProbeRef, "content")
-                .padding(start = 27.dp, top = 2.dp, bottom = 8.dp)
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-            val expandedBody: @Composable () -> Unit = {
-                Column(modifier = expandedPadding) {
-                // 点击那一帧只长出卡片外壳，命令与结果的组合和文字测量放到下一帧。
-                val bodyReady = rememberDeferredBody(deferOneFrame = expandedByTap)
-                if (!bodyReady) return@Column
-                if (!message.command.isNullOrBlank()) {
-                    ToolCommandBlock(
-                        command = message.command,
-                        context = message.argumentsSummary,
-                        modifier = Modifier.padding(
-                            bottom = if (message.resultSummary.isNullOrBlank()) 0.dp else 10.dp,
-                        ),
-                    )
-                }
-                if (message.resultSummary != null && message.resultSummary.isNotBlank()) {
-                    Text(
-                        text = stringResource(R.string.ui_result_0a2c91),
-                        style = chatQuaternaryStyle(),
-                        color = etaOnSurfaceVariant(),
-                        modifier = Modifier.padding(bottom = 2.dp)
-                    )
-                    HapticSelectionContainer {
-                        Text(
-                            text = message.resultSummary,
-                            style = chatTertiaryStyle(),
-                            color = etaOnSurface(),
-                            maxLines = 10,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                } else if (showCompletedPlaceholder) {
-                    Text(
-                        text = stringResource(R.string.tool_status_success),
-                        style = chatTertiaryStyle(),
-                        color = etaOnSurfaceVariant(),
-                    )
-                }
-                if (showBrowserShortcut) {
-                    browserSnapshot?.takeIf { it.available }?.let { snapshot ->
-                        BrowserPagePreview(
-                            snapshot = snapshot,
-                            enableLivePreview = enableLivePreview,
-                            modifier = Modifier.padding(top = 4.dp),
-                        )
-                    }
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp),
-                        horizontalArrangement = Arrangement.End,
-                    ) {
-                        TextButton(
-                            text = stringResource(R.string.ui_open_current_browser_58358e),
-                            onClick = onOpenBrowser,
-                            colors = ButtonDefaults.textButtonColorsPrimary(),
-                            minHeight = 36.dp,
-                            textStyle = chatSecondaryStyle(),
-                        )
-                    }
-                }
-            }
-            }
-            Column(
-                modifier = modifier
-                    .fillMaxWidth()
-                    .squircleSurface(
-                        color = chatSurfaceContainerColor(),
-                        cornerRadius = 12.dp,
-                    ),
-            ) { expandedBody() }
         }
         }
     }
-    if (isMaterial3Theme()) {
-        // M3：独立行复用提问卡片的整卡外壳（surfaceContainer 色块、官方 shapes.large、无描边）。
-        WorkProcessCardSlice(
-            part = WorkProcessCardPart.Whole,
-            modifier = modifier
-                .let { completedContentDrawLayer(it, toolRowSettled) }
-                .fillMaxWidth(),
-        ) { toolCardBody() }
-        return
-    }
-    CollapsibleChatCard(
-        shape = chatCardShape(),
-        color = Color.Transparent,
-        borderWidth = null,
-        borderColor = chatDividerColor(0.50f),
-        onClick = if (hasDetails) toggle else null,
-        container = false,
+    // 独立行复用提问卡片的整卡外壳（surfaceContainer 色块、官方 shapes.large、无描边）。
+    WorkProcessCardSlice(
+        part = WorkProcessCardPart.Whole,
         modifier = modifier
             .let { completedContentDrawLayer(it, toolRowSettled) }
             .fillMaxWidth(),
-    ) {
-        Column(
-            modifier = Modifier.padding(
-                horizontal = if (compact) 10.dp else 20.dp,
-                vertical = 4.dp,
-            )
-        ) { toolCardBody() }
-    }
+    ) { toolCardBody() }
 }
 
 /**
@@ -3870,25 +3311,16 @@ private fun BrowserPagePreview(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // M3 Expressive：加载中用官方 CircularProgressIndicator 表达进度，
-            // 稳定后仍是一个静态状态点（直径取官方 CircularStrokeWidth 轨道厚度）；miuix 保留原圆点。
-            if (isMaterial3Theme()) {
-                if (snapshot.isLoading) {
-                    CircularProgressIndicator()
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(ProgressIndicatorDefaults.CircularStrokeWidth)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary),
-                    )
-                }
+            // 加载中用官方 CircularProgressIndicator 表达进度，
+            // 稳定后仍是一个静态状态点（直径取官方 CircularStrokeWidth 轨道厚度）。
+            if (snapshot.isLoading) {
+                CircularProgressIndicator()
             } else {
                 Box(
                     modifier = Modifier
-                        .size(6.dp)
+                        .size(ProgressIndicatorDefaults.CircularStrokeWidth)
                         .clip(CircleShape)
-                        .background(if (snapshot.isLoading) StatusRunning else StatusSuccess),
+                        .background(MaterialTheme.colorScheme.primary),
                 )
             }
             Spacer(modifier = Modifier.width(6.dp))
@@ -3944,27 +3376,14 @@ private fun BrowserPagePreview(
             }
         }
     }
-    // M3 Expressive：官方 Surface 承担预览底板（官方 shapes.medium + surfaceContainer 角色）；
-    // miuix 主题族保留 squircle 表面。
-    if (isMaterial3Theme()) {
-        Surface(
-            modifier = modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium,
-            color = MaterialTheme.colorScheme.surfaceContainer,
-        ) {
-            Column { previewBody() }
-        }
-        return
+    // 官方 Surface 承担预览底板（官方 shapes.medium + surfaceContainer 角色）。
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+    ) {
+        Column { previewBody() }
     }
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .squircleSurface(
-                color = chatSurfaceContainerColor(),
-                cornerRadius = 12.dp,
-            ),
-        content = { previewBody() },
-    )
 }
 
 @Composable
@@ -4035,33 +3454,15 @@ private fun ToolCommandBlock(
             )
         }
     }
-    // M3 Expressive：官方 Surface 承担命令块容器。内容必须包 Column——Surface 的
+    // 官方 Surface 承担命令块容器。内容必须包 Column——Surface 的
     // content 不是 ColumnScope，标题行/分割线/命令文本会被当 Box 子级叠在同一位置
     // （此前命令文字压住上下文标题的根因）。底色用 surfaceContainerHighest 与
-    // 展开面板（surfaceContainerHigh）拉开色阶层级，形状用官方 small 档、不再描边；
-    // miuix 主题族保留 squircle 表面 + squircle 描边。
-    if (isMaterial3Theme()) {
-        Surface(
-            modifier = modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.small,
-            color = MaterialTheme.colorScheme.surfaceContainerHighest,
-            content = { Column { commandBody() } },
-        )
-        return
-    }
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .squircleSurface(
-                color = chatSurfaceColor(),
-                cornerRadius = 12.dp,
-            )
-            .squircleBorder(
-                width = 0.5.dp,
-                color = chatDividerColor(0.5f),
-                cornerRadius = 12.dp,
-            ),
-        content = { commandBody() },
+    // 展开面板（surfaceContainerHigh）拉开色阶层级，形状用官方 small 档、不再描边。
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        content = { Column { commandBody() } },
     )
 }
 
@@ -4094,39 +3495,19 @@ private fun RunTraceRow(
             tint = etaOnSurfaceVariant().copy(alpha = 0.7f),
         )
     }
-    // M3 Expressive：官方 Surface(onClick) 承担可点区域、官方形状（shapes.medium）、
-    // surface 底色、outlineVariant 描边与官方涟漪；miuix 主题族保留 clip + 背景 + 描边。
-    if (isMaterial3Theme()) {
-        Surface(
-            onClick = onClick,
-            modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-            shape = MaterialTheme.shapes.medium,
-            color = MaterialTheme.colorScheme.surface,
-            border = chatCardBorder(0.55f),
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 13.dp, vertical = 11.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) { body() }
-        }
-        return
-    }
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(chatSurfaceColor())
-            .border(
-                0.5.dp,
-                chatDividerColor(0.55f),
-                RoundedCornerShape(12.dp),
-            )
-            .clickable(onClick = onClick)
-            .padding(horizontal = 13.dp, vertical = 11.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    // 官方 Surface(onClick) 承担可点区域、官方形状（shapes.medium）、
+    // surface 底色、outlineVariant 描边与官方涟漪。
+    Surface(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surface,
+        border = chatCardBorder(0.55f),
     ) {
-        body()
+        Row(
+            modifier = Modifier.padding(horizontal = 13.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) { body() }
     }
 }
 
@@ -4162,33 +3543,18 @@ private fun ToolSummaryInline(
                     color = etaOnSurfaceVariant()
                 )
             }
-            // M3 Expressive：官方 Surface 承担只读标签容器（官方形状、官方 colorScheme 角色与描边）；
-            // miuix 主题族保留 clip + 背景 + 描边。
-            if (isMaterial3Theme()) {
-                Surface(
-                    shape = MaterialTheme.shapes.small,
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        content = { chipBody() },
-                    )                }
-            } else {
+            // 官方 Surface 承担只读标签容器（官方形状、官方 colorScheme 角色与描边）。
+            Surface(
+                shape = MaterialTheme.shapes.small,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            ) {
                 Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(chatSurfaceColor())
-                        .border(
-                            0.5.dp,
-                            chatDividerColor(0.5f),
-                            RoundedCornerShape(12.dp),
-                        )
-                        .padding(horizontal = 9.dp, vertical = 4.dp),
+                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     content = { chipBody() },
-                )            }
+                )
+            }
         }
     }
 }
@@ -4205,7 +3571,6 @@ private fun ContextCompactedDivider(
     if (message.compactedCount <= 0) return
     val view = LocalView.current
     var showSummary by remember { mutableStateOf(false) }
-    val lineColor = chatDividerColor(0.55f)
     val labelColor = etaOnSurfaceVariant()
     val summaryAction = stringResource(R.string.context_compacted_summary_action)
     val countLabel = pluralStringResource(
@@ -4233,62 +3598,28 @@ private fun ContextCompactedDivider(
             overflow = TextOverflow.Ellipsis,
         )
     }
-    if (isMaterial3Theme()) {
-        // M3 Expressive：官方 HorizontalDivider 画两侧线条（官方 DividerDefaults），
-        // 官方 Surface(onClick) 承担中间可点的摘要标签（官方形状与涟漪）。
-        // contentDescription 保留，但只放「动作提示」，不放条数：官方 Surface(onClick) 链尾是
-        // `childSemantics()`，会把内容的 Text 合并进同一节点；ContentDescription 与 Text 是
-        // 两个不同的 SemanticsPropertyKey，分别落到 AccessibilityNodeInfo 的两个字段，
-        // TalkBack 会**两串都念**而非互相顶替。所以 cd 必须与子文本**互补**（"查看摘要" +
-        // "压紧了 N 条"），一旦把条数也抄进 cd 就会重复播报。
-        Row(
-            modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
+    // 官方 HorizontalDivider 画两侧线条（官方 DividerDefaults），
+    // 官方 Surface(onClick) 承担中间可点的摘要标签（官方形状与涟漪）。
+    // contentDescription 保留，但只放「动作提示」，不放条数：官方 Surface(onClick) 链尾是
+    // `childSemantics()`，会把内容的 Text 合并进同一节点；ContentDescription 与 Text 是
+    // 两个不同的 SemanticsPropertyKey，分别落到 AccessibilityNodeInfo 的两个字段，
+    // TalkBack 会**两串都念**而非互相顶替。所以 cd 必须与子文本**互补**（"查看摘要" +
+    // "压紧了 N 条"），一旦把条数也抄进 cd 就会重复播报。
+    Row(
+        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        HorizontalDivider(modifier = Modifier.weight(1f))
+        Surface(
+            onClick = openSummary,
+            modifier = Modifier.semantics { contentDescription = summaryAction },
+            shape = MaterialTheme.shapes.extraSmall,
+            color = Color.Transparent,
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
         ) {
-            HorizontalDivider(modifier = Modifier.weight(1f))
-            Surface(
-                onClick = openSummary,
-                modifier = Modifier.semantics { contentDescription = summaryAction },
-                shape = MaterialTheme.shapes.extraSmall,
-                color = Color.Transparent,
-                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            ) {
-                Row { labelBody() }
-            }
-            HorizontalDivider(modifier = Modifier.weight(1f))
+            Row { labelBody() }
         }
-    } else {
-        Row(
-            modifier = modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(0.5.dp)
-                    .background(lineColor),
-            )
-            Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable(onClick = openSummary)
-                    .semantics {
-                        contentDescription = summaryAction
-                    }
-                    .padding(horizontal = 8.dp, vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                labelBody()
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(0.5.dp)
-                        .background(lineColor),
-                )
-            }
-        }
+        HorizontalDivider(modifier = Modifier.weight(1f))
     }
     if (showSummary) {
         ContextCompactedSummarySheet(
@@ -4316,51 +3647,22 @@ private fun SuggestionChipsRow(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         message.prompts.forEach { prompt ->
-            // M3 Expressive：官方 SuggestionChip 正是「可点的建议语」，容器形状、描边、
-            // 内边距、涟漪与禁用态全部走官方默认值；miuix 主题族保留原卡片样式。
+            // 官方 SuggestionChip 正是「可点的建议语」，容器形状、描边、
+            // 内边距、涟漪与禁用态全部走官方默认值。
             // Chip 家族在 alpha29 里不合并子节点语义（只有 `role = Role.Button`），
             // 所以显式 mergeDescendants，让提示语作为按钮自身的播报文本被读一次。
-            if (isMaterial3Theme()) {
-                SuggestionChip(
-                    onClick = { onSuggestionClick(prompt) },
-                    modifier = Modifier.semantics(mergeDescendants = true) { },
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Rounded.AutoAwesome,
-                            contentDescription = null,
-                            modifier = Modifier.size(SuggestionChipDefaults.IconSize),
-                        )
-                    },
-                    label = { M3Text(prompt) },
-                )
-            } else {
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(chatSurfaceColor())
-                        .border(
-                            0.5.dp,
-                            chatDividerColor(0.55f),
-                            RoundedCornerShape(12.dp),
-                        )
-                        .clickable { onSuggestionClick(prompt) }
-                        .padding(horizontal = 13.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+            SuggestionChip(
+                onClick = { onSuggestionClick(prompt) },
+                modifier = Modifier.semantics(mergeDescendants = true) { },
+                icon = {
                     Icon(
                         imageVector = Icons.Rounded.AutoAwesome,
                         contentDescription = null,
-                        modifier = Modifier.size(12.dp),
-                        tint = etaPrimary()
+                        modifier = Modifier.size(SuggestionChipDefaults.IconSize),
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = prompt,
-                        style = chatQuaternaryStyle(),
-                        color = etaOnSurface(),
-                    )
-                }
-            }
+                },
+                label = { M3Text(prompt) },
+            )
         }
     }
 }
@@ -4371,21 +3673,21 @@ private fun SuggestionChipsRow(
  * 工具状态色。
  *
  * Material 3 Expressive 的 colorScheme 没有 success / running 语义角色，一律映射到官方
- * `primary` / `error` / `onSurfaceVariant`；miuix 主题族保留 StatusColors 里的原有取值。
+ * `primary` / `error` / `onSurfaceVariant`。
  */
 @Composable
 private fun ToolActivityStatusUi.statusColor() = when (this) {
-    ToolActivityStatusUi.Running -> if (isMaterial3Theme()) MaterialTheme.colorScheme.primary else StatusRunning
-    ToolActivityStatusUi.Success -> if (isMaterial3Theme()) MaterialTheme.colorScheme.primary else StatusSuccess
-    ToolActivityStatusUi.Failed -> if (isMaterial3Theme()) MaterialTheme.colorScheme.error else StatusError
+    ToolActivityStatusUi.Running -> MaterialTheme.colorScheme.primary
+    ToolActivityStatusUi.Success -> MaterialTheme.colorScheme.primary
+    ToolActivityStatusUi.Failed -> MaterialTheme.colorScheme.error
     ToolActivityStatusUi.Unknown -> etaOnSurfaceVariant()
 }
 
-/** 工具状态文字色：M3 用官方 error / onSurface 角色；miuix 保留 StatusError。 */
+/** 工具状态文字色：用官方 error / onSurfaceVariant 角色。 */
 @Composable
 private fun toolStatusTextColor(failed: Boolean): Color =
     if (failed) {
-        if (isMaterial3Theme()) MaterialTheme.colorScheme.error else StatusError
+        MaterialTheme.colorScheme.error
     } else {
         etaOnSurfaceVariant()
     }

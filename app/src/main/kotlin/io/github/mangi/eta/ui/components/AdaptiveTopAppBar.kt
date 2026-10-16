@@ -1,45 +1,44 @@
 package io.github.mangi.eta.ui.components
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import io.github.mangi.eta.ui.layout.rememberIsWideScreen
-import top.yukonga.miuix.kmp.basic.ScrollBehavior
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
-import top.yukonga.miuix.kmp.basic.TopAppBar
-import top.yukonga.miuix.kmp.theme.MiuixTheme
+import androidx.compose.ui.text.style.TextOverflow
 
-/** 宽屏固定小标题，手机使用可折叠大标题。 */
+/** 手机与宽屏共用的顶栏：官方 TopAppBar 承担标题排版、容器色与滚动行为。 */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdaptiveTopAppBar(
     title: String,
     modifier: Modifier = Modifier,
-    color: Color = MiuixTheme.colorScheme.surface,
-    scrollBehavior: ScrollBehavior? = null,
+    color: Color = MaterialTheme.colorScheme.surface,
+    scrollBehavior: TopAppBarScrollBehavior? = null,
     navigationIcon: @Composable () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {},
     bottomContent: @Composable () -> Unit = {},
 ) {
-    if (rememberIsWideScreen()) {
-        SmallTopAppBar(
-            title = title,
-            modifier = modifier,
-            color = color,
-            scrollBehavior = scrollBehavior,
-            navigationIcon = navigationIcon,
-            actions = actions,
-            bottomContent = bottomContent,
-        )
-    } else {
+    Column(modifier = modifier) {
         TopAppBar(
-            title = title,
-            modifier = modifier,
-            color = color,
+            title = {
+                Text(
+                    text = title,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            },
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = color),
             scrollBehavior = scrollBehavior,
             navigationIcon = navigationIcon,
             actions = actions,
-            bottomContent = bottomContent,
         )
+        bottomContent()
     }
 }

@@ -1,23 +1,16 @@
 package io.github.mangi.eta.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.ExpandMore
@@ -37,12 +30,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -51,7 +41,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
-import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.data.repository.ProviderBalanceStore
 import io.github.mangi.eta.ui.pages.providers.ProviderBalanceAmount
 import io.github.mangi.eta.ui.model.AgentContextUsageUi
@@ -60,8 +49,6 @@ import io.github.mangi.eta.ui.model.AgentModelProviderGroupUi
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
 import io.github.mangi.eta.ui.model.defaultExpandedModelProviderIds
 import io.github.mangi.eta.ui.model.formatContextUsage
-import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
-import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import androidx.compose.material3.SelectableDropdownMenuItem
 import androidx.compose.material3.CircularProgressIndicator as M3CircularProgressIndicator
 import androidx.compose.material3.CircularWavyProgressIndicator
@@ -74,10 +61,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text as M3Text
-import top.yukonga.miuix.kmp.basic.ProgressIndicatorDefaults
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.squircle.squircleSurface
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
@@ -90,12 +73,7 @@ import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.Stroke
 import io.github.mangi.eta.ui.adaptive.EtaType
-import io.github.mangi.eta.ui.adaptive.etaOnSurface
-import io.github.mangi.eta.ui.adaptive.etaPrimary
-import io.github.mangi.eta.ui.adaptive.etaSecondaryContainer
-import io.github.mangi.eta.ui.adaptive.etaSurfaceContainerHigh
 import io.github.mangi.eta.ui.adaptive.etaTextStyle
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 
 /**
  * 官方菜单窗口属性一律使用 `MenuDefaults.DefaultMenuProperties`
@@ -181,19 +159,11 @@ internal fun AgentModelPickerButton(
         ModelBrandMark(
             modelId = selected?.modelId,
             sourceType = selected?.providerSourceType,
-            size = if (isMaterial3Theme()) {
-                // 图标尺寸走官方 IconButtonDefaults 令牌，由共享助手按容器尺寸取「仍然放得下的
-                // 最大档」：XS 32/20、S 40/24、M 56/24、L 96/32、XL 136/40。
-                etaOfficialIconButtonIconSize(containerSize)
-            } else {
-                ChatInputActionIconSize
-            },
-            modifier = if (isMaterial3Theme()) {
-                // M3 下由官方禁用态配色表达不可用，不再手动调透明度。
-                Modifier
-            } else {
-                Modifier.graphicsLayer(alpha = if (pickerAvailable) 1f else 0.38f)
-            },
+            // 图标尺寸走官方 IconButtonDefaults 令牌，由共享助手按容器尺寸取「仍然放得下的
+            // 最大档」：XS 32/20、S 40/24、M 56/24、L 96/32、XL 136/40。
+            size = etaOfficialIconButtonIconSize(containerSize),
+            // 由官方禁用态配色表达不可用，不再手动调透明度。
+            modifier = Modifier,
         )
     }
     val onAnchorClick: () -> Unit = {
@@ -241,87 +211,65 @@ internal fun AgentModelPickerButton(
             containerColor = containerColor,
             containerSize = containerSize,
             connectedShapes = connectedShapes,
-            enabled = !isMaterial3Theme() || pickerAvailable,
+            enabled = pickerAvailable,
             content = anchorContent,
         )
-        if (isMaterial3Theme()) {
-            // Material 3 Expressive：官方 ModalBottomSheet（布局复刻 KernelSU MultiSelectDialog：
-            // 标题行 + 关闭按钮 + 搜索框 + 可滚动列表；仅允许 Hidden↔Expanded 两态，不进半展开）。
-            if (menuVisible) {
-                ModalBottomSheet(
-                    onDismissRequest = onMenuDismiss,
-                    sheetState = rememberBottomSheetState(
-                        initialValue = SheetValue.Hidden,
-                        enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
-                    ),
+        // Material 3 Expressive：官方 ModalBottomSheet（布局复刻 KernelSU MultiSelectDialog：
+        // 标题行 + 关闭按钮 + 搜索框 + 可滚动列表；仅允许 Hidden↔Expanded 两态，不进半展开）。
+        if (menuVisible) {
+            ModalBottomSheet(
+                onDismissRequest = onMenuDismiss,
+                sheetState = rememberBottomSheetState(
+                    initialValue = SheetValue.Hidden,
+                    enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+                ),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .padding(bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 24.dp)
-                            .padding(bottom = 24.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            M3Text(
-                                text = stringResource(R.string.model_picker_title),
-                                style = etaTextStyle(EtaType.Title),
-                                modifier = Modifier.weight(1f),
-                            )
-                            IconButton(onClick = onMenuDismiss) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Close,
-                                    contentDescription = stringResource(R.string.action_close),
-                                )
-                            }
-                        }
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f, fill = false)
-                                .verticalScroll(rememberScrollState()),
-                        ) {
-                            ModelPickerMenuContentM3(
-                                state = state,
-                                query = modelQuery,
-                                onQueryChange = { modelQuery = it },
-                                expandedProviderIds = expandedProviderIds,
-                                onProviderExpandedChange = onProviderExpandedChange,
-                                onModelSelected = onPickModel,
+                        M3Text(
+                            text = stringResource(R.string.model_picker_title),
+                            style = etaTextStyle(EtaType.Title),
+                            modifier = Modifier.weight(1f),
+                        )
+                        IconButton(onClick = onMenuDismiss) {
+                            Icon(
+                                imageVector = Icons.Rounded.Close,
+                                contentDescription = stringResource(R.string.action_close),
                             )
                         }
                     }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = false)
+                            .verticalScroll(rememberScrollState()),
+                    ) {
+                        ModelPickerMenuContentM3(
+                            state = state,
+                            query = modelQuery,
+                            onQueryChange = { modelQuery = it },
+                            expandedProviderIds = expandedProviderIds,
+                            onProviderExpandedChange = onProviderExpandedChange,
+                            onModelSelected = onPickModel,
+                        )
+                    }
                 }
-            }
-        } else {
-            EtaDropdownMenu(
-                expanded = menuVisible,
-                onDismissRequest = onMenuDismiss,
-                alignEnd = true,
-                preferAbove = true,
-                focusable = true,
-                minWidth = 220.dp,
-                maxWidth = 220.dp,
-                maxHeight = popupMaxHeight(),
-            ) {
-                ModelPickerPopupContent(
-                    state = state,
-                    query = modelQuery,
-                    onQueryChange = { modelQuery = it },
-                    expandedProviderIds = expandedProviderIds,
-                    onProviderExpandedChange = onProviderExpandedChange,
-                    onModelSelected = onPickModel,
-                )
             }
         }
     }
 }
 
 /**
- * 订阅并按需刷新各服务商的余额快照；两个主题族的菜单共用。
+ * 订阅并按需刷新各服务商的余额快照；模型选择菜单共用。
  */
 @Composable
 private fun rememberProviderBalanceStates(): Map<String, ProviderBalanceState> {
@@ -356,58 +304,11 @@ private fun filterModelProviderGroups(
     }
 }
 
-@Composable
-private fun ModelPickerPopupContent(
-    state: AgentModelPickerUiState,
-    query: String,
-    onQueryChange: (String) -> Unit,
-    expandedProviderIds: Set<String>,
-    onProviderExpandedChange: (String, Boolean) -> Unit,
-    onModelSelected: (String, String) -> Unit,
-) {
-    val balanceStates = rememberProviderBalanceStates()
-    ModelPickerSearchField(query = query, onQueryChange = onQueryChange)
-    val needle = query.trim()
-    val groups = filterModelProviderGroups(state.providerGroups, needle)
-    if (groups.isEmpty()) {
-        Text(
-            text = stringResource(R.string.model_search_empty),
-            style = etaTextStyle(EtaType.Caption),
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-        )
-        return
-    }
-    groups.forEachIndexed { groupIndex, group ->
-            if (groupIndex > 0) {
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 12.dp))
-            }
-            val expanded = needle.isNotEmpty() || group.providerId in expandedProviderIds
-            ModelProviderGroupHeader(
-                name = group.providerName,
-                expanded = expanded,
-                balance = balanceStates[group.providerId],
-                onClick = {
-                    if (needle.isEmpty()) onProviderExpandedChange(group.providerId, !expanded)
-                },
-            )
-            if (expanded) {
-                group.models.forEach { model ->
-                    ModelPickerRow(
-                        model = model,
-                        selected = model.id == state.selectedModel?.id && model.providerId == state.selectedModel?.providerId,
-                        onClick = { onModelSelected(model.providerId, model.id) },
-                    )
-                }
-            }
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Material 3 Expressive：模型选择菜单
 // ---------------------------------------------------------------------------
 
-/** 菜单行模型：把 MIUI X 的手搓行结构映射成官方 DropdownMenuItem 序列。 */
+/** 菜单行模型：映射成官方 DropdownMenuItem 序列。 */
 private sealed interface ModelMenuRow {
     data class Provider(
         val providerId: String,
@@ -572,145 +473,6 @@ private fun ModelProviderHeaderTrailingM3(row: ModelMenuRow.Provider) {
     }
 }
 
-@Composable
-private fun ModelPickerSearchField(
-    query: String,
-    onQueryChange: (String) -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(etaSurfaceContainerHigh())
-            .padding(horizontal = 8.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            imageVector = Icons.Rounded.Search,
-            contentDescription = null,
-            modifier = Modifier.size(16.dp),
-            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-        )
-        Box(modifier = Modifier.padding(start = 8.dp).weight(1f)) {
-            if (query.isEmpty()) {
-                Text(
-                    text = stringResource(R.string.model_search_hint),
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    style = etaTextStyle(EtaType.Caption),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            BasicTextField(
-                value = query,
-                onValueChange = onQueryChange,
-                singleLine = true,
-                textStyle = etaTextStyle(EtaType.Caption).copy(color = etaOnSurface()),
-                cursorBrush = SolidColor(etaPrimary()),
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-    }
-}
-
-@Composable
-private fun ModelProviderGroupHeader(
-    name: String,
-    expanded: Boolean,
-    balance: ProviderBalanceState? = null,
-    onClick: () -> Unit,
-) {
-    val view = LocalView.current
-    val arrowRotation by animateFloatAsState(
-        targetValue = if (expanded) 180f else 0f,
-        animationSpec = tween(durationMillis = 160),
-        label = "model_provider_arrow",
-    )
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable {
-                TouchHaptics.click(view)
-                onClick()
-            }
-            .padding(start = 12.dp, end = 8.dp, top = 9.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = name,
-            style = etaTextStyle(EtaType.Caption),
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
-        if (hasBalanceIndicatorContent(balance)) {
-            Spacer(modifier = Modifier.width(8.dp))
-            ProviderBalanceIndicator(state = balance)
-        }
-        Spacer(modifier = Modifier.width(8.dp))
-        Icon(
-            imageVector = Icons.Rounded.ExpandMore,
-            contentDescription = if (expanded) {
-                stringResource(R.string.model_collapse_provider, name)
-            } else {
-                stringResource(R.string.model_expand_provider, name)
-            },
-            modifier = Modifier
-                .size(16.dp)
-                .graphicsLayer { rotationZ = arrowRotation },
-            tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
-        )
-    }
-}
-
-@Composable
-private fun ModelPickerRow(
-    model: AgentModelOptionUi,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    val view = LocalView.current
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 2.dp)
-            .squircleSurface(
-                color = if (selected) {
-                    etaSurfaceContainerHigh()
-                } else {
-                    Color.Transparent
-                },
-                cornerRadius = 12.dp,
-            )
-            .clickable {
-                TouchHaptics.click(view)
-                onClick()
-            }
-            .padding(horizontal = 8.dp, vertical = 9.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = model.displayName,
-            style = etaTextStyle(EtaType.Secondary),
-            color = MiuixTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
-        if (selected) {
-            Spacer(modifier = Modifier.width(8.dp))
-            Icon(
-                imageVector = Icons.Rounded.Check,
-                contentDescription = stringResource(R.string.ui_current_model_a0af8f),
-                modifier = Modifier.size(18.dp),
-                tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
-            )
-        }
-    }
-}
-
 @OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun AgentContextUsageButton(
@@ -752,12 +514,6 @@ internal fun AgentContextUsageButton(
     val displayedUsage = child?.cloudContextUsage() ?: usage
     val selectedLabel = child?.contextLabel(context) ?: telemetry.mainModelName.ifBlank { stringResource(R.string.acm_main_agent) }
     val progress = displayedUsage.progress
-    val progressColor = when {
-        progress == null -> MiuixTheme.colorScheme.onSurfaceVariantActions
-        progress >= 0.95f -> StatusError
-        progress >= 0.80f -> StatusWarning
-        else -> etaPrimary()
-    }
     val locale = LocalConfiguration.current.locales[0]
     val summary = child?.cloudContextSummary(context, locale) ?: formatContextUsage(
         usage = displayedUsage,
@@ -778,7 +534,6 @@ internal fun AgentContextUsageButton(
         summary.replace('\n', ' '),
     )
     val keepIme = rememberKeepImeWhenOpeningMenu()
-    val material3 = isMaterial3Theme()
     Box(modifier = modifier) {
         ChatInputNonFocusableIconButton(
             onClick = {
@@ -797,104 +552,77 @@ internal fun AgentContextUsageButton(
             val ringSemantics = Modifier.semantics {
                 contentDescription = "$selectedLabel · $usageDescription"
             }
-            if (material3) {
-                // 官方 Material 3 进度指示器：圆形 / 波浪，颜色只引用 colorScheme 角色。
-                //
-                // 官方圆形内部是 `Canvas(modifier.semantics{}.size(40.dp))`、
-                // 波浪是 `Spacer(modifier.size(48.dp)…​)`，都会在调用方 modifier 之后追加一个
-                // 官方直径。但 `Modifier.size()` 的语义是「把目标尺寸收敛进传入约束」
-                // （无条件覆盖的是 `requiredSize()`），而本链上调用方的 size 在最外层：
-                //   按钮 40dp 的 Box 会以 min=0/max=40 测量子节点
-                //   → 外层 size(ringSize) 把约束收紧成 [ringSize, ringSize]
-                //   → 内层官方 size(40) 再被 coerceIn 到 [ringSize, ringSize]
-                // 所以 ringSize 在 M3 下**是生效的**，必须保留，否则环会按官方 40/48dp
-                // 顶到按钮边缘（波浪还会溢出）。
-                val scheme = MaterialTheme.colorScheme
-                val indicatorColor = when {
-                    progress == null -> scheme.onSurfaceVariant
-                    progress >= 0.95f -> scheme.error
-                    progress >= 0.80f -> scheme.tertiary
-                    else -> scheme.primary
-                }
-                if (wavy) {
-                    val strokePx = with(androidx.compose.ui.platform.LocalDensity.current) {
-                        ringStrokeWidth.toPx()
-                    }
-                    CircularWavyProgressIndicator(
-                        progress = { progress ?: 0f },
-                        modifier = ringSemantics.size(ringSize),
-                        color = indicatorColor,
-                        trackColor = scheme.secondaryContainer,
-                        stroke = Stroke(width = strokePx),
-                        trackStroke = Stroke(width = strokePx),
-                    )
-                } else {
-                    M3CircularProgressIndicator(
-                        progress = { progress ?: 0f },
-                        modifier = ringSemantics.size(ringSize),
-                        color = indicatorColor,
-                        trackColor = scheme.secondaryContainer,
-                        strokeWidth = ringStrokeWidth,
-                    )
-                }
-            } else if (wavy) {
+            // 官方 Material 3 进度指示器：圆形 / 波浪，颜色只引用 colorScheme 角色。
+            //
+            // 官方圆形内部是 `Canvas(modifier.semantics{}.size(40.dp))`、
+            // 波浪是 `Spacer(modifier.size(48.dp)…​)`，都会在调用方 modifier 之后追加一个
+            // 官方直径。但 `Modifier.size()` 的语义是「把目标尺寸收敛进传入约束」
+            // （无条件覆盖的是 `requiredSize()`），而本链上调用方的 size 在最外层：
+            //   按钮 40dp 的 Box 会以 min=0/max=40 测量子节点
+            //   → 外层 size(ringSize) 把约束收紧成 [ringSize, ringSize]
+            //   → 内层官方 size(40) 再被 coerceIn 到 [ringSize, ringSize]
+            // 所以 ringSize **是生效的**，必须保留，否则环会按官方 40/48dp
+            // 顶到按钮边缘（波浪还会溢出）。
+            val scheme = MaterialTheme.colorScheme
+            val indicatorColor = when {
+                progress == null -> scheme.onSurfaceVariant
+                progress >= 0.95f -> scheme.error
+                progress >= 0.80f -> scheme.tertiary
+                else -> scheme.primary
+            }
+            if (wavy) {
                 val strokePx = with(androidx.compose.ui.platform.LocalDensity.current) {
                     ringStrokeWidth.toPx()
                 }
                 CircularWavyProgressIndicator(
                     progress = { progress ?: 0f },
                     modifier = ringSemantics.size(ringSize),
-                    color = progressColor,
-                    trackColor = etaSecondaryContainer(),
+                    color = indicatorColor,
+                    trackColor = scheme.secondaryContainer,
                     stroke = Stroke(width = strokePx),
                     trackStroke = Stroke(width = strokePx),
                 )
             } else {
-                CircularProgressIndicator(
-                    progress = progress ?: 0f,
-                    colors = ProgressIndicatorDefaults.progressIndicatorColors(
-                        foregroundColor = progressColor,
-                        disabledForegroundColor = progressColor,
-                        backgroundColor = etaSecondaryContainer(),
-                    ),
+                M3CircularProgressIndicator(
+                    progress = { progress ?: 0f },
+                    modifier = ringSemantics.size(ringSize),
+                    color = indicatorColor,
+                    trackColor = scheme.secondaryContainer,
                     strokeWidth = ringStrokeWidth,
-                    size = ringSize,
-                    modifier = ringSemantics,
                 )
             }
         }
-        if (material3) {
-            // 官方 DropdownMenu：不抢焦点（保持输入法），菜单本体样式全部为官方默认值。
-            DropdownMenu(
-                expanded = menuState.expanded,
-                onDismissRequest = menuState::dismiss,
-            ) {
-                // 官方组标题自带 labelLarge 字阶，这里不再覆盖 style。
-                MenuDefaults.DropdownMenuGroupLabel {
-                    M3Text(text = selectedLabel)
-                }
-                M3Text(
-                    text = detail,
-                    style = etaTextStyle(EtaType.Secondary),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(MenuDefaults.DropdownMenuSelectableItemContentPadding),
-                )
+        // 官方 DropdownMenu：不抢焦点（保持输入法），菜单本体样式全部为官方默认值。
+        DropdownMenu(
+            expanded = menuState.expanded,
+            onDismissRequest = menuState::dismiss,
+        ) {
+            // 官方组标题自带 labelLarge 字阶，这里不再覆盖 style。
+            MenuDefaults.DropdownMenuGroupLabel {
+                M3Text(text = selectedLabel)
             }
-            val targets =
-                listOf("${telemetry.mainModelName.ifBlank { stringResource(R.string.acm_main_agent) }}（${stringResource(R.string.acm_main_agent)}）") +
-                    telemetry.children.map { "${it.contextLabel(context)} · ${it.contextStatusLabel(context)}" }
-            val selectedIndex = if (child == null) 0 else {
-                telemetry.children.indexOfFirst { it.taskId == selectedTaskId } + 1
-            }
-            DropdownMenu(
-                expanded = selectorState.expanded,
-                onDismissRequest = selectorState::dismiss,
-                modifier = Modifier.heightIn(max = popupMaxHeight()),
-            ) {
-                MenuDefaults.DropdownMenuGroupLabel { M3Text(text = stringResource(R.string.acm_context_stats)) }
-                targets.forEachIndexed { index, label ->
-                    SelectableDropdownMenuItem(
-                        selected = index == selectedIndex,
+            M3Text(
+                text = detail,
+                style = etaTextStyle(EtaType.Secondary),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(MenuDefaults.DropdownMenuSelectableItemContentPadding),
+            )
+        }
+        val targets =
+            listOf("${telemetry.mainModelName.ifBlank { stringResource(R.string.acm_main_agent) }}（${stringResource(R.string.acm_main_agent)}）") +
+                telemetry.children.map { "${it.contextLabel(context)} · ${it.contextStatusLabel(context)}" }
+        val selectedIndex = if (child == null) 0 else {
+            telemetry.children.indexOfFirst { it.taskId == selectedTaskId } + 1
+        }
+        DropdownMenu(
+            expanded = selectorState.expanded,
+            onDismissRequest = selectorState::dismiss,
+            modifier = Modifier.heightIn(max = popupMaxHeight()),
+        ) {
+            MenuDefaults.DropdownMenuGroupLabel { M3Text(text = stringResource(R.string.acm_context_stats)) }
+            targets.forEachIndexed { index, label ->
+                SelectableDropdownMenuItem(
+                    selected = index == selectedIndex,
                     onClick = {
                         selectTask(if (index == 0) null else telemetry.children[index - 1].taskId)
                         selectorState.dismiss()
@@ -908,46 +636,6 @@ internal fun AgentContextUsageButton(
                     },
                     shapes = MenuDefaults.itemShape(index, targets.size),
                 )
-                }
-            }
-        } else {
-            EtaDropdownMenu(
-                expanded = menuState.expanded,
-                onDismissRequest = menuState::dismiss,
-                alignEnd = true,
-                preferAbove = true,
-                focusable = false,
-                minWidth = 0.dp,
-                maxWidth = 220.dp,
-            ) {
-                Text(
-                    text = selectedLabel,
-                    style = etaTextStyle(EtaType.Body),
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                )
-                Text(
-                    text = detail,
-                    style = etaTextStyle(EtaType.Secondary),
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 8.dp),
-                )
-            }
-            EtaDropdownMenu(
-                expanded = selectorState.expanded,
-                onDismissRequest = selectorState::dismiss,
-                alignEnd = true, preferAbove = true, focusable = false,
-                minWidth = 220.dp, maxWidth = 260.dp, maxHeight = popupMaxHeight(),
-            ) {
-                Text(stringResource(R.string.acm_context_stats), style = etaTextStyle(EtaType.Caption),
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
-                ContextTargetRow("${telemetry.mainModelName.ifBlank { stringResource(R.string.acm_main_agent) }}（${stringResource(R.string.acm_main_agent)}）", child == null) {
-                    selectTask(null); selectorState.dismiss()
-                }
-                telemetry.children.forEach { target ->
-                    ContextTargetRow("${target.contextLabel(context)} · ${target.contextStatusLabel(context)}", selectedTaskId == target.taskId) {
-                        selectTask(target.taskId); selectorState.dismiss()
-                    }
-                }
             }
         }
     }
@@ -971,16 +659,8 @@ private fun ModelBrandMark(
                 .clip(CircleShape),
         )
     } else {
-        val containerColor = if (isMaterial3Theme()) {
-            MaterialTheme.colorScheme.primaryContainer
-        } else {
-            MiuixTheme.colorScheme.primaryContainer
-        }
-        val iconTint = if (isMaterial3Theme()) {
-            MaterialTheme.colorScheme.onPrimaryContainer
-        } else {
-            MiuixTheme.colorScheme.primary
-        }
+        val containerColor = MaterialTheme.colorScheme.primaryContainer
+        val iconTint = MaterialTheme.colorScheme.onPrimaryContainer
         Box(
             modifier = modifier
                 .size(size)
@@ -994,18 +674,5 @@ private fun ModelBrandMark(
                 tint = iconTint,
             )
         }
-    }
-}
-
-@Composable
-private fun ContextTargetRow(label: String, selected: Boolean, onClick: () -> Unit) {
-    val view = LocalView.current
-    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp)
-        .squircleSurface(color = if (selected) etaSurfaceContainerHigh() else Color.Transparent, cornerRadius = 12.dp)
-        .clickable { TouchHaptics.click(view); onClick() }
-        .padding(horizontal = 8.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, style = etaTextStyle(EtaType.Secondary), maxLines = 2,
-            overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-        if (selected) Icon(Icons.Rounded.Check, contentDescription = stringResource(R.string.acm_current_target), modifier = Modifier.size(18.dp))
     }
 }

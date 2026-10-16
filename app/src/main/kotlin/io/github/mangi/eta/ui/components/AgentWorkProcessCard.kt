@@ -23,23 +23,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.clipPath
-import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.ui.adaptive.etaOnSurfaceVariant
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
-import top.yukonga.miuix.kmp.squircle.addSquircleRect
-import top.yukonga.miuix.kmp.squircle.isSquircleEnabled
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** One visual card, but still one independently composed lazy item per step. */
 internal enum class WorkProcessCardPart(val startsCard: Boolean, val endsCard: Boolean) {
@@ -71,60 +61,7 @@ internal fun WorkProcessCardSlice(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    if (isMaterial3Theme()) {
-        WorkProcessCardSliceM3(part, modifier, content)
-        return
-    }
-    val surface = MiuixTheme.colorScheme.surface
-    val border = MiuixTheme.colorScheme.outline.copy(alpha = 0.50f)
-    val squircle = isSquircleEnabled()
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(
-                start = 16.dp,
-                end = 16.dp,
-                top = if (part.startsCard) 4.dp else 0.dp,
-                bottom = if (part.endsCard) 4.dp else 0.dp,
-            )
-            // Even an empty summary tail must contain the whole 15.4dp corner tile.
-            .heightIn(min = 16.dp)
-            .drawWithCache {
-                val radius = 14.dp.toPx()
-                val strokeWidth = 0.5.dp.toPx()
-                val inset = strokeWidth / 2f
-                val geometry = workProcessCardGeometry(part, size.height, radius, strokeWidth)
-                val fillPath = Path().apply {
-                    addSquircleRect(size.width, geometry.virtualHeight, radius, squircleEnabled = squircle)
-                    translate(Offset(0f, -geometry.topExtension))
-                }
-                val borderPath = Path().apply {
-                    addSquircleRect(
-                        (size.width - strokeWidth).coerceAtLeast(0f),
-                        (geometry.virtualHeight - strokeWidth).coerceAtLeast(0f),
-                        (radius - inset).coerceAtLeast(0f),
-                        squircleEnabled = squircle,
-                    )
-                    translate(Offset(inset, inset - geometry.topExtension))
-                }
-                val stroke = Stroke(strokeWidth)
-                // 中间段的圆角都被推到裁剪区外，可见区域内 fillPath 就是整矩形；
-                // 此时用 clipRect 即可，避免展开动画每帧对整段内容做路径裁剪。
-                val needsPathClip = part.startsCard || part.endsCard
-                onDrawWithContent {
-                    clipRect {
-                        drawPath(fillPath, surface)
-                        if (needsPathClip) {
-                            // 填充路径含描边外沿。文字若画到那里，会露出卡片底边一点点。
-                            clipPath(borderPath) { this@onDrawWithContent.drawContent() }
-                        } else {
-                            this@onDrawWithContent.drawContent()
-                        }
-                        drawPath(borderPath, border, style = stroke)
-                    }
-                }
-            },
-    ) { content() }
+    WorkProcessCardSliceM3(part, modifier, content)
 }
 
 /**
@@ -177,7 +114,7 @@ private fun WorkProcessCardSliceM3(
 //
 // 「提问」卡片是这一类卡片的范式：标题独立成一行，内容在展开后的下半部分。
 // 思考过程与工具调用卡片全部复用下面两个构件，保证三者的标题行、分隔线、
-// 内容内边距与行距完全一致。两者都只用于 M3 分支；miuix 主题族保留原有排版。
+// 内容内边距与行距完全一致。
 
 /** 统一展开指示箭头：形状、尺寸、色调一处定义。 */
 @Composable
