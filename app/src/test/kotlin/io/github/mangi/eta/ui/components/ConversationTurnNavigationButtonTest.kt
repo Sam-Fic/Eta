@@ -5,7 +5,6 @@ import android.content.Context
 import android.view.HapticFeedbackConstants
 import android.view.View
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -35,7 +34,6 @@ class ConversationTurnNavigationButtonTest {
     private lateinit var view: RecordingView
     private var originalTouch = true
     private val builtInHaptics = mutableListOf<HapticFeedbackType>()
-    private val direction = mutableStateOf(ConversationNavigationDirection.Down)
     private val steps = mutableListOf<ConversationNavigationDirection>()
     private val edges = mutableListOf<ConversationNavigationDirection>()
 
@@ -53,8 +51,8 @@ class ConversationTurnNavigationButtonTest {
                     }
                 }) {
                     ConversationTurnNavigationButton(
-                        direction = direction.value, visible = true,
-                        onStep = { steps += direction.value }, onEdge = { edges += direction.value },
+                        upEnabled = true, downEnabled = true, visible = true,
+                        onStep = { steps += it }, onEdge = { edges += it },
                     )
                 }
             }
@@ -82,7 +80,6 @@ class ConversationTurnNavigationButtonTest {
         }
     }
     @Test fun upClickAndLongPressEachHaveOneHaptic() {
-        compose.runOnIdle { direction.value = ConversationNavigationDirection.Up }
         button(R.string.chat_previous_user_message).performTouchInput { click() }
         button(R.string.chat_previous_user_message).performTouchInput { longClick() }
         compose.runOnIdle {

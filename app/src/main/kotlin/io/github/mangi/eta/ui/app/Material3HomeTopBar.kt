@@ -108,7 +108,8 @@ internal fun Material3HomeTopBar(
                 onOpenConversationPane()
             },
             size = EtaIconSize.S,
-            style = EtaButtonStyle.TonalEmphasis,
+            // 默认色调档（官方 FilledTonalIconButton 默认色），不再走 tertiary 强调色。
+            style = EtaButtonStyle.Tonal,
         )
         // 会话名按钮在两侧图标之间的剩余空间里居中（与官方 CenterAlignedTopAppBar 的标题布局一致）。
         Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
@@ -131,11 +132,13 @@ internal fun Material3HomeTopBar(
                     modifier = Modifier.weight(1f, fill = false),
                     buttonSize = ToggleButtonSize.Small,
                     shapes = ButtonGroupDefaults.connectedLeadingButtonShapes(),
+                    // 默认色调档：与右侧箭头按钮、顶栏两侧图标按钮统一走官方色调按钮的
+                    // 默认容器色（secondaryContainer / onSecondaryContainer），不再用 tertiary 强调色。
                     colors = ToggleButtonDefaults.colors(
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                        checkedContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                        checkedContentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        checkedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        checkedContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                     ),
                 ) {
                     Text(
@@ -156,8 +159,7 @@ internal fun Material3HomeTopBar(
                         onClick = { menuExpanded = true },
                         contentDescription = stringResource(R.string.action_more),
                         connectedShapes = ButtonGroupDefaults.connectedTrailingButtonShapes(),
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                        // 容器色/内容色留空：走该组件在连体组下的默认色调（secondaryContainer）。
                         containerSize = IconButtonDefaults.smallContainerSize().width,
                     ) {
                         Icon(
@@ -204,7 +206,8 @@ internal fun Material3HomeTopBar(
                 onNewConversation()
             },
             size = EtaIconSize.S,
-            style = EtaButtonStyle.TonalEmphasis,
+            // 默认色调档（官方 FilledTonalIconButton 默认色），不再走 tertiary 强调色。
+            style = EtaButtonStyle.Tonal,
         )
     }
 }

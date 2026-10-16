@@ -145,6 +145,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -155,6 +156,7 @@ import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -1953,16 +1955,10 @@ internal fun AgentConversationMessages(
 
         }
 
-        fun navigateUserMessage(toEdge: Boolean) {
+        fun navigateUserMessage(direction: ConversationNavigationDirection, toEdge: Boolean) {
             // Do not queue animations on rapid taps; a new drag cancels the active jump.
             if (messageNavigationJob != null) return
-            // 方向按「当前是否在底部」决定，而不是按上一次滑动方向：
-            // 不在底部 → 向下（去末尾）；已在底部 → 向上（去开头）。
-            val direction = if (scrollState.isConversationAtBottom()) {
-                ConversationNavigationDirection.Up
-            } else {
-                ConversationNavigationDirection.Down
-            }
+            // 方向由用户按的按钮决定（上一轮 / 下一轮），不再按「当前是否在底部」推断。
             val target = conversationUserMessageTarget(
                 userMessageTargets, scrollState.firstVisibleItemIndex, bottomItemIndex, direction, toEdge,
                 firstVisibleScrollOffset = scrollState.firstVisibleItemScrollOffset,
@@ -1983,35 +1979,48 @@ internal fun AgentConversationMessages(
                 }
             }
         }
-        val atConversationBottom by remember(scrollState) {
-            derivedStateOf { scrollState.isConversationAtBottom() }
+        val canGoUp by remember(scrollState) {
+            derivedStateOf { scrollState.canScrollBackward }
         }
-        val showMessageNavigation by remember(scrollState, keepBottomAnchored) {
-            derivedStateOf {
-                // 只要还能滚动就给出跳转按钮；方向由当前位置决定，避免「在底部却显示跳到顶部」。
-                !keepBottomAnchored && (scrollState.canScrollForward || scrollState.canScrollBackward)
+        val canGoDown by remember(scrollState) {
+            derivedStateOf { scrollState.canScrollForward }
+        }
+        // 手指滑动（含松手后的惯性）期间亮出按钮对；滚动停稳后再倒数几秒淡出。
+        // 跳转动画进行中也保持可见，避免按钮在动画途中先从眼前消失。
+        var turnNavigationShown by remember { mutableStateOf(false) }
+        LaunchedEffect(isUserScrolling) {
+            if (isUserScrolling) {
+                turnNavigationShown = true
+            } else {
+                delay(TurnNavigationIdleHideMillis)
+                turnNavigationShown = false
             }
         }
+        val showMessageNavigation =
+            (turnNavigationShown || messageNavigationJob != null) && (canGoUp || canGoDown)
         ConversationTurnNavigationButton(
-            direction = if (atConversationBottom) {
-                ConversationNavigationDirection.Up
-            } else {
-                ConversationNavigationDirection.Down
-            },
+            upEnabled = canGoUp,
+            downEnabled = canGoDown,
             visible = showMessageNavigation,
-            onStep = { navigateUserMessage(toEdge = false) },
-            onEdge = { navigateUserMessage(toEdge = true) },
+            onStep = { direction -> navigateUserMessage(direction, toEdge = false) },
+            onEdge = { direction -> navigateUserMessage(direction, toEdge = true) },
             modifier = Modifier
-                .align(Alignment.BottomEnd)
                 // 底栏渐变板向上溢出 ChatInputScrimOverhang（32dp）且整体压在内容层之上
-                // （miuix Scaffold 先 place body 再 place bottomBar），按钮必须抬到渐变
-                // 板之上，否则右下角会被渐变板的半透明段盖住。
-                // 水平对齐：让圆心与输入栏右下的通话圆钮（FilledIconButton Call）同心。
+                // （miuix Scaffold 先 place body 再 place bottomBar），按钮组整体贴在右下方。
+                // 垂直：让按钮组中线与「滚到底时最后一轮页脚动作组（复制/朗读/fork…）」的中线
+                // 同高——两组都贴着右下角，同高后读作一行并列的控件。
+                // 水平：让右端「下一轮」的圆心与输入栏右下的通话圆钮（FilledIconButton Call）同心。
                 // 通话钮圆心距屏幕右缘 = 屏幕留白 16dp + FloatingToolbar 官方尾部内边距 8dp
                 // （FloatingToolbarDefaults.ContentPadding / ContainerTrailingSpace 令牌）
                 // + 同心端距 ComposerConcentricGap（8dp）+ 按钮半径 20dp = 52dp；
-                // 本按钮同为 40dp（smallContainerSize），故 end = 52dp - 20dp = 32dp。
-                .padding(bottom = 12.dp + ChatInputScrimOverhang + bottomInset, end = 32.dp),
+                // 本组同样 40dp（smallContainerSize），右端按钮圆心距组右缘 20dp，
+                // 故 end = 52dp - 20dp = 32dp。
+                .align(Alignment.BottomEnd)
+                .padding(
+                    bottom = bottomInset + TurnNavigationCenterAboveBottom -
+                        IconButtonDefaults.smallContainerSize().height / 2,
+                    end = 32.dp,
+                ),
         )
     }
 }
@@ -2345,6 +2354,17 @@ private val ChatBackToBottomButtonSlot = 52.dp
 
 // 底栏渐变板向上溢出栏顶的高度：完全透明的位置随之抬高，消息提前进入淡出区。
 private val ChatInputScrimOverhang = 32.dp
+
+/**
+ * 跳转轮次按钮组「中线」距列表底部的距离。滚到底时，最后一轮页脚动作组
+ * （复制/朗读/fork…）的中线也落在这个高度，两组按钮因此同高、读作一行并列控件。
+ * 构成：输入栏间距 [ConversationComposerGap]（14dp）+ 底部哨兵（1dp）+ 页脚垂直内边距
+ * （8dp）+ 页脚按钮半径（16dp）。
+ */
+private val TurnNavigationCenterAboveBottom = 39.dp
+
+/** 手指停滑后，跳转按钮对再倒数多少毫秒才淡出。 */
+private const val TurnNavigationIdleHideMillis = 2_000L
 
 private const val CHAT_CACHE_AHEAD_VIEWPORTS = 1f
 private const val CHAT_CACHE_BEHIND_VIEWPORTS = 1f

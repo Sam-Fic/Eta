@@ -121,8 +121,8 @@ class AgentChatViewportContractTest(unittest.TestCase):
             r"size\.height\s*-\s*\(\s*bottomInset\s*\+\s*ConversationComposerGap\s*\)",
         )
         self.assertRegex(self.messages, r"bottom\s*=\s*ConversationComposerGap\s*\+\s*bottomInset")
-        # 导航钮要让出底栏渐变板向上溢出的 ChatInputScrimOverhang（32dp）。
-        self.assertRegex(self.messages, r"bottom\s*=\s*12\.dp\s*\+\s*ChatInputScrimOverhang\s*\+\s*bottomInset")
+        # 导航钮组以 bottomInset 为基准抬到底栏之上，再对齐最后一轮页脚动作组的中线。
+        self.assertRegex(self.messages, r"bottom\s*=\s*bottomInset\s*\+\s*TurnNavigationCenterAboveBottom")
         # The inset is a resting-space budget, not a reason to keep an idle
         # anchored conversation permanently clipped.
         clip_calls = list(calls(self.messages, "shouldClipChatTail"))
@@ -149,8 +149,10 @@ class AgentChatViewportContractTest(unittest.TestCase):
         self.assertRegex(
             buttons[0],
             r"\.align\s*\(\s*Alignment\.BottomEnd\s*\)\s*"
-            r"\.padding\s*\(\s*bottom\s*=\s*12\.dp\s*\+\s*ChatInputScrimOverhang\s*\+\s*bottomInset\s*,\s*end\s*=\s*32\.dp\s*,?\s*\)",
+            r"\.padding\s*\(\s*bottom\s*=\s*bottomInset\s*\+\s*TurnNavigationCenterAboveBottom\s*-\s*"
+            r"IconButtonDefaults\.smallContainerSize\(\)\.height\s*/\s*2\s*,\s*end\s*=\s*32\.dp\s*,?\s*\)",
         )
+        self.assertRegex(self.source, r"private\s+val\s+TurnNavigationCenterAboveBottom\s*=\s*39\.dp")
 
     def test_composer_surround_is_transparent(self):
         bar_start = self.source.index("private fun AgentChatBottomBar(")
