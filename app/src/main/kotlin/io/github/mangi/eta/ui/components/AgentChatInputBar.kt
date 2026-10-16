@@ -171,8 +171,10 @@ import io.github.mangi.eta.ui.adaptive.etaGptSpeedColor
 import io.github.mangi.eta.ui.adaptive.EtaIconButton
 import io.github.mangi.eta.ui.adaptive.EtaIconSize
 import io.github.mangi.eta.ui.adaptive.EtaType
+import io.github.mangi.eta.ui.adaptive.etaOnSecondaryContainer
 import io.github.mangi.eta.ui.adaptive.etaOnSurface
 import io.github.mangi.eta.ui.adaptive.etaPrimary
+import io.github.mangi.eta.ui.adaptive.etaSecondaryContainer
 import io.github.mangi.eta.ui.adaptive.etaSurfaceContainer
 import io.github.mangi.eta.ui.adaptive.etaSurfaceContainerHigh
 import io.github.mangi.eta.ui.adaptive.etaTextStyle
@@ -1288,7 +1290,9 @@ private fun PendingImageStrip(
             Box(
                 modifier = Modifier
                     .size(60.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    // 同心：图框圆角半径 = 「×」圆钮半径（18/2 = 9dp）+ 端距（4dp）= 13dp，
+                    // 圆角弧心与圆钮圆心重合（与输入胶囊端盖同一套“半径差 = 间距”的同心规则）。
+                    .clip(RoundedCornerShape(13.dp))
                     .background(etaSurfaceContainer()),
             ) {
                 rememberDataUrlBitmap(image.dataUrl, fallback = image.uri)?.let { bitmap ->
@@ -1332,7 +1336,8 @@ private fun PendingImageStrip(
                         .padding(4.dp)
                         .size(18.dp)
                         .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.58f))
+                        // 次要容器色（用户指定）：与前景 onSecondaryContainer 配对，保证「×」可读。
+                        .background(etaSecondaryContainer())
                         .clickable { onRemoveImage(image.id) },
                     contentAlignment = Alignment.Center,
                 ) {
@@ -1340,7 +1345,7 @@ private fun PendingImageStrip(
                         imageVector = Icons.Rounded.Close,
                         contentDescription = stringResource(R.string.ui_remove_image_089db3),
                         modifier = Modifier.size(12.dp),
-                        tint = Color.White,
+                        tint = etaOnSecondaryContainer(),
                     )
                 }
             }
