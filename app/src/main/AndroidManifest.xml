@@ -164,6 +164,15 @@
             </intent-filter>
         </activity>
 
+        <!-- 浮窗（TYPE_APPLICATION_OVERLAY）无法 startActivityForResult，用它代发系统选择器 /
+             权限请求并发回结果。不带 noHistory：配置变更后由 Activity 自行结束，避免残页。 -->
+        <activity
+            android:name=".agent.voice.EtaAssistantOverlayPickerActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:taskAffinity=""
+            android:theme="@style/Theme.EtaVoiceAssistBridge" />
+
         <service
             android:name=".agent.voice.EtaVoiceInteractionService"
             android:exported="true"

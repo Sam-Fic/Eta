@@ -17,8 +17,12 @@ import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
+import androidx.activity.compose.LocalActivityResultRegistryOwner
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -36,6 +40,7 @@ import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import io.github.mangi.eta.agent.accessibility.AgentAccessibilityService
 import io.github.mangi.eta.agent.media.AgentImageCodec
+import io.github.mangi.eta.agent.model.AgentFileReferencePromptCodec
 import io.github.mangi.eta.agent.model.AgentModelClient
 import io.github.mangi.eta.agent.question.AgentQuestionAnswer
 import io.github.mangi.eta.agent.question.AgentQuestionCodec
@@ -109,10 +114,29 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
     private var screenContextAttachment: EtaScreenContextAttachment? = null
     private var hiddenForForegroundOperation = false
     private var handoffInProgress = false
-    private var handoffExitRequested by mutableStateOf(false)
-    private var inputText by mutableStateOf("")
+    private var exitAnimationRequested by mutableStateOf(false)
     private var inputFocusRequestKey by mutableIntStateOf(-1)
     private var uiState by mutableStateOf(EtaVoiceUiState())
+
+    /**
+     * 浮窗的系统选择器 / 权限结果注册表：Service 窗口没有 `startActivityForResult`，
+     * 由透明跳板 Activity 代发并把结果回灌到这里（见 [EtaAssistantOverlayResultRegistry]）。
+     *
+     * 下面三个协作者都在构造期读取 `context.applicationContext`，而 Service 的字段初始化
+     * 早于框架的 `attachBaseContext()`，那一刻 `ContextWrapper` 的基类还是空的，取
+     * applicationContext 会直接抛 NPE、把整个进程崩在建 Service 对象这一步，浮窗完全唤不出来。
+     * 因此一律推迟到 [onCreate] 里创建。
+     */
+    private lateinit var overlayResultRegistry: EtaAssistantOverlayResultRegistry
+
+    /** 输入区草稿：由浮窗持有，生命周期与浮窗一致，不写入应用内当前会话。 */
+    private val composerTextFieldState = TextFieldState()
+
+    /** 输入区状态持有者：模型 / 助手 / 思考档位 / 附件都独立于应用内会话。 */
+    private lateinit var composerState: EtaAssistantComposerState
+
+    /** 语音入口控制器：通用语音对话 / 豆包实时通话都由它驱动。 */
+    private lateinit var voiceController: VoiceModeController
 
     override val lifecycle: Lifecycle get() = lifecycleRegistry
     override val savedStateRegistry: SavedStateRegistry
@@ -120,7 +144,16 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
 
     override fun onCreate() {
         super.onCreate()
+        // 基类已 attach，这里才允许读取 applicationContext（见上方字段注释）。
+        overlayResultRegistry = EtaAssistantOverlayResultRegistry(this)
+        composerState = EtaAssistantComposerState(this, scope)
+        voiceController = VoiceModeController(this, scope) { text ->
+            // 语音回调来自后台协程；提交会操作 WindowManager / Compose 状态，统一切回主线程。
+            scope.launch(Dispatchers.Main.immediate) { submitInput(text) }
+        }
         activeService = this
+        // 浮窗生命周期内对外暴露结果注册表，供透明跳板 Activity 回灌选择器 / 权限结果。
+        EtaAssistantOverlayPickerBridge.registry = overlayResultRegistry
         savedStateRegistryController.performRestore(null)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
@@ -144,10 +177,17 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         entryCaptureJob = null
         screenContextAttachment = null
         cancelCurrentRun()
+        // onCreate 之前就被销毁（例如启动即失败）时这些对象还不存在，不能直接访问。
+        if (::voiceController.isInitialized) voiceController.stop()
         removeWindow()
         scope.cancel()
         cancellationExecutor.shutdown()
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+        if (::overlayResultRegistry.isInitialized &&
+            EtaAssistantOverlayPickerBridge.registry === overlayResultRegistry
+        ) {
+            EtaAssistantOverlayPickerBridge.registry = null
+        }
         if (activeService === this) activeService = null
         super.onDestroy()
     }
@@ -166,7 +206,8 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         val generation = ++entryGeneration
         presentedEntryGeneration = -1L
         screenContextAttachment = null
-        inputText = ""
+        composerTextFieldState.setTextAndPlaceCursorAtEnd("")
+        composerState.clearAttachments()
         uiState = EtaVoiceUiState(
             screenContext = EtaScreenContextUiState(
                 phase = EtaScreenContextPhase.CAPTURING,
@@ -174,7 +215,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         )
         hiddenForForegroundOperation = false
         handoffInProgress = false
-        handoffExitRequested = false
+        exitAnimationRequested = false
         val accessibility = AgentAccessibilityService.current()
         if (accessibility == null) {
             uiState = uiState.copy(
@@ -257,28 +298,52 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         val view = createComposeView {
             val appearance by AppearanceSettingsRepository.settingsFlow()
                 .collectAsState(initial = AppearanceSettings())
+            val voiceState by voiceController.state.collectAsState()
             AgentAppTheme(
                 appearance = appearance,
                 applyInterfaceScale = false,
             ) {
                 // ColorOS 在 Overlay 窗口切换期间可能短暂使用软件画布；RuntimeShader
                 // 无法在该画布绘制，因此浮窗统一使用 Miuix 的圆角回退路径。
-                CompositionLocalProvider(LocalSquircleEnabled provides false) {
+                CompositionLocalProvider(
+                    LocalSquircleEnabled provides false,
+                    // 系统选择器 / 权限请求要拿到注册表 owner：官方组件会用
+                    // `rememberLauncherForActivityResult`，没有 owner 会直接抛异常。
+                    LocalActivityResultRegistryOwner provides overlayResultRegistry,
+                ) {
+                    // 语音会话快照：把浮窗当前的流式状态与最新助手消息同步给
+                    // [VoiceModeController]，「通用语音对话」说完后才能读到回复。
+                    LaunchedEffect(uiState.messages, uiState.phase) {
+                        val lastAssistant = uiState.messages
+                            .filterIsInstance<AgentMessageUi>()
+                            .lastOrNull()
+                        voiceController.updateChat(
+                            VoiceChatSnapshot(
+                                isStreaming = uiState.phase == EtaVoicePhase.PROCESSING,
+                                lastAgentId = lastAssistant?.id,
+                                lastAgentText = lastAssistant?.content.orEmpty(),
+                            ),
+                        )
+                    }
                     EtaVoicePanel(
                         state = uiState,
-                        input = inputText,
+                        textFieldState = composerTextFieldState,
+                        composer = composerState,
+                        voiceState = voiceState,
                         inputFocusRequestKey = inputFocusRequestKey,
-                        onInputChange = { inputText = it },
                         onScreenContextSelect = ::selectScreenContext,
                         onScreenContextRemove = ::removeScreenContext,
-                        onSubmit = ::submitInput,
+                        onSubmit = { text -> submitInput(text) },
                         onStop = ::stopCurrentRun,
                         onClose = ::dismissAndStop,
                         canOpenConversation = activeRunId == null &&
                             uiState.messages.any { message ->
                                 message is AgentMessageUi && message.content.isNotBlank()
                             },
-                        exitRequested = handoffExitRequested,
+                        exitRequested = exitAnimationRequested,
+                        composerConversationId = conversationKey,
+                        onStartVoiceMode = { mode -> voiceController.start(mode) },
+                        onStopVoiceMode = { voiceController.stop() },
                         onOpenConversation = ::openConversation,
                         onQuestionDraftChanged = ::updateQuestionDraft,
                         onSubmitQuestionAnswer = ::submitQuestionAnswer,
@@ -306,10 +371,6 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
             softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING or
                 WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN
             title = "EtaAssistantOverlay"
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && wm.isCrossWindowBlurEnabled) {
-                flags = flags or WindowManager.LayoutParams.FLAG_BLUR_BEHIND
-                blurBehindRadius = 24
-            }
         }
         runCatching { wm.addView(view, params) }.onFailure { throwable ->
             AndroidAgentLogger.warnThrottled("eta_assistant_overlay_add_failed") {
@@ -369,20 +430,27 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         inputFocusRequestKey++
     }
 
-    private fun submitInput() {
-        val prompt = inputText.trim()
-        if (prompt.isBlank() || activeRunId != null) return
-        submitPrompt(prompt)
+    private fun submitInput(prompt: String) {
+        val normalized = prompt.trim()
+        if (normalized.isBlank() || activeRunId != null) return
+        submitPrompt(normalized)
     }
 
     private fun submitPrompt(prompt: String) {
         val normalized = prompt.trim()
         if (normalized.isBlank() || activeRunId != null) return
         val attachment = screenContextAttachment.takeIf { uiState.screenContext.selected }
-        val runImages = attachment?.let { listOf(it.image) }.orEmpty()
-        val previewImages = attachment?.let { listOf(it.previewDataUrl) }.orEmpty()
+        // 屏幕上下文图片在前，用户附件图片 / 视频在后，与应用内发送路径的顺序一致。
+        val runImages = attachment?.let { listOf(it.image) }.orEmpty() +
+            composerState.outboundImages()
+        val previewImages = attachment?.let { listOf(it.previewDataUrl) }.orEmpty() +
+            composerState.pendingImages.map { it.dataUrl }
+        // 文件 / 文件夹引用按应用内同一编码写进用户消息（正文 + 引用信封）。
+        val fileReferences = composerState.pendingFileReferences.map { it.reference }
+        val runtimePrompt = AgentFileReferencePromptCodec.format(normalized, fileReferences)
         screenContextAttachment = null
-        inputText = ""
+        composerTextFieldState.setTextAndPlaceCursorAtEnd("")
+        composerState.clearAttachments()
         activeRunId = UUID.randomUUID().toString()
         val runId = activeRunId ?: return
         uiState = uiState.copy(
@@ -391,22 +459,24 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
             screenContext = EtaScreenContextStateReducer.consume(),
             messages = uiState.messages + UserMessageUi(
                 id = "user-$runId",
-                content = normalized,
+                content = runtimePrompt,
                 images = previewImages,
             ),
         )
         updateSoftInput(visible = false)
         runJob = scope.launch {
-            val config = AgentModelClient.loadConfig()
+            // 输入区携带的模型 / 助手 / 思考档位 / 工具开关 → 运行时配置；
+            // 取不到（理论上不会）时退回默认配置。
+            val config = composerState.buildRunConfig() ?: AgentModelClient.loadConfig()
             val payload = AgentExternalArchivePayload(
-                userText = normalized,
+                userText = runtimePrompt,
                 conversationKey = conversationKey,
                 title = normalized.take(40),
             )
             val result = runtimeClient.run(
                 request = AgentRuntimeWire.RunRequest(
                     runId = runId,
-                    prompt = normalized,
+                    prompt = runtimePrompt,
                     config = config,
                     images = runImages,
                     history = conversationHistory,
@@ -425,7 +495,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
                 runJob = null
                 if (result.ok) {
                     conversationHistory = conversationHistory +
-                        AgentModelClient.buildUserHistoryMessage(normalized, runImages) +
+                        AgentModelClient.buildUserHistoryMessage(runtimePrompt, runImages) +
                         result.transcript
                     uiState = uiState.copy(
                         phase = EtaVoicePhase.READY,
@@ -936,13 +1006,19 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
     }
 
     private fun dismissAndStop() {
+        // 先播放退场动画再移除浮窗：退场动画是入场的逆过程（普通非线性曲线）。
+        if (exitAnimationRequested) return
+        exitAnimationRequested = true
         entryGeneration++
         entryCaptureJob?.cancel()
         entryCaptureJob = null
-        screenContextAttachment = null
         cancelCurrentRun()
-        removeWindow()
-        stopSelf()
+        scope.launch(Dispatchers.Main.immediate) {
+            delay(EXIT_ANIMATION_DURATION_MS)
+            screenContextAttachment = null
+            removeWindow()
+            stopSelf()
+        }
     }
 
     private fun openConversation() {
@@ -997,11 +1073,11 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
 
     private fun finishHandoff() {
         if (!handoffInProgress) return
-        if (handoffExitRequested) return
+        if (exitAnimationRequested) return
         AndroidAgentLogger.info("Eta assistant handoff chat ready")
-        handoffExitRequested = true
+        exitAnimationRequested = true
         scope.launch(Dispatchers.Main.immediate) {
-            delay(HANDOFF_EXIT_DURATION_MS)
+            delay(EXIT_ANIMATION_DURATION_MS)
             handoffInProgress = false
             removeWindow()
             stopSelf()
@@ -1014,7 +1090,12 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         const val EXTRA_CONVERSATION_KEY = "io.github.mangi.eta.agent.voice.extra.CONVERSATION_KEY"
         private const val ACTION_HANDOFF_READY = "io.github.mangi.eta.agent.voice.HANDOFF_READY"
         private const val HANDOFF_TIMEOUT_MS = 5_000L
-        private const val HANDOFF_EXIT_DURATION_MS = 220L
+
+        /**
+         * 移除浮窗前等待退场动画播完的时长，略大于 [EtaVoicePanel] 的退场动画时长
+         * （[AssistantExitDurationMillis] = 220ms），保证动画不被截断。
+         */
+        private const val EXIT_ANIMATION_DURATION_MS = 240L
         private const val HANDOFF_REQUEST_CODE = 0x455441
         private const val LEGACY_STOPPED_ERROR = "已停止"
         private const val SYNTHETIC_STOPPED = "eta_status:stopped"
