@@ -77,6 +77,55 @@ internal object AgentConversationStore {
             }
         }
 
+    /**
+     * The selected conversation id alone, without loading any conversation content.
+     *
+     * Construction-time callers (sub-agent draft seeding) need the selected id before the
+     * asynchronous hydrate can finish. This is two primary-key/cheap row reads, not the full
+     * snapshot transaction: no conversation metadata, no paged messages, no history files.
+     *
+     * Mirrors [loadSnapshot]'s resolution exactly — a stored id that no longer exists falls
+     * back to the most recently updated conversation, and an empty table yields null — so
+     * the properties seeded from this value match what the full load would have produced.
+     */
+    fun persistedSelectedConversationId(context: Context): String? =
+        runBlocking(Dispatchers.IO) {
+            val dao = EtaDatabase.get(context.applicationContext).conversationDao()
+            val stored = dao.state()?.selectedConversationId
+            val exists = stored != null && dao.conversationMetadata(stored) != null
+            if (exists) stored else dao.conversationsPage(limit = 1, offset = 0).firstOrNull()?.id
+        }
+
+    /**
+     * Seed for the pre-hydration window: no conversation content is assumed to exist.
+     *
+     * [selectedConversationId] must be the persisted selection so that property
+     * initializers running after `init` still see the real owner. Content arrives later.
+     */
+    fun emptySnapshot(selectedConversationId: String? = null): Snapshot = Snapshot(
+        selectedConversationId = selectedConversationId,
+        conversationsById = emptyMap(),
+        titles = emptyMap(),
+        updatedAt = emptyMap(),
+        createdAt = emptyMap(),
+        folderIds = emptyMap(),
+        pinnedIds = emptySet(),
+        completionMarkerIds = emptySet(),
+        folders = emptyList(),
+    )
+
+    /**
+     * Cold-start counterpart of [load] for the application scope.
+     *
+     * [load] blocks its caller, which was the main thread while [io.github.mangi.eta.ui.app.AgentAppState]
+     * built its initial snapshot from a ViewModel constructor. Keeping the identical
+     * projection semantics here lets startup read Room without occupying the UI thread.
+     */
+    suspend fun loadSuspending(context: Context, selectedOnly: Boolean = false): Snapshot =
+        EtaDatabase.get(context.applicationContext).withTransaction {
+            loadSnapshot(context.applicationContext, selectedOnly)
+        }
+
     suspend fun save(
         context: Context,
         selectedConversationId: String?,

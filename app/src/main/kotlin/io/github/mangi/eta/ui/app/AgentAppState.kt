@@ -352,20 +352,85 @@ internal class AgentAppState(
     private var conversationPinned: Set<String>
     private var conversationCompletionMarkers: Set<String>
     private var conversationFolders: List<ConversationFolderUi>
+    /** Startup hydration and backup reload both publish the same maps; only one wins. */
+    private var conversationsHydrated = false
+    /**
+     * Completed once [conversationsHydrated] becomes true, so construction-time background
+     * work can wait for the real conversation map instead of observing the empty seed.
+     * Deliberately not snapshot state: it signals a one-shot lifecycle transition, and
+     * making it observable would recompose every reader on the commit frame.
+     */
+    private val conversationsHydratedSignal = kotlinx.coroutines.CompletableDeferred<Unit>()
 
     init {
         // A constructor-local snapshot must not pin the original transcript after
         // compression, deletion or backup reload replaces the live conversation map.
-        val initialConversations = AgentConversationStore.load(appContext, selectedOnly = true)
+        //
+        // Startup used to read Room here synchronously, loading every conversation's
+        // content (paged messages plus history files). AgentSessionHost is a process-wide
+        // singleton built from a ViewModel, so that runBlocking ran on the main thread and
+        // held the first frame behind the whole transaction.
+        //
+        // The selected id still has to be known NOW, because property initializers below
+        // (sub-agent draft seeding) read it as they run. That is one primary-key row read
+        // on the single-row conversation_state table, not the full snapshot. Content itself
+        // is hydrated off the main thread by hydrateConversations().
+        val initialConversations = AgentConversationStore.emptySnapshot(
+            selectedConversationId = AgentConversationStore.persistedSelectedConversationId(appContext),
+        )
         selectedConversationId = initialConversations.selectedConversationId
-        conversationsById = initialConversations.conversationsById.mapValues { (_, state) -> orderedTerminalState(state) }
+        conversationsById = initialConversations.conversationsById
         conversationTitles = initialConversations.titles
         conversationUpdatedAt = initialConversations.updatedAt
         conversationCreatedAt = initialConversations.createdAt
         conversationFolderIds = initialConversations.folderIds
         conversationPinned = initialConversations.pinnedIds
-        conversationCompletionMarkers = initialConversations.completionMarkerIds - listOfNotNull(initialConversations.selectedConversationId)
+        conversationCompletionMarkers = initialConversations.completionMarkerIds
         conversationFolders = initialConversations.folders
+        hydrateConversations()
+    }
+
+    /**
+     * Load the persisted conversation map off the main thread and publish it once.
+     *
+     * Guarded by [conversationsHydrated] so a second construction (or a backup reload
+     * landing first) cannot rewind the live maps with an older snapshot.
+     */
+    private fun hydrateConversations() {
+        scope.launch {
+            val snapshot = runCatching {
+                withContext(Dispatchers.IO) {
+                    AgentConversationStore.loadSuspending(appContext, selectedOnly = true)
+                }
+            }.getOrElse { failure ->
+                AndroidAgentLogger.error(
+                    "Startup conversation load failed: type=${failure.safeLogType()}"
+                )
+                // Release the waiters so construction-time recovery is not parked forever.
+                // conversationsHydrated stays false, so saves remain refused and the
+                // destructive image sweep is skipped: the map is still the empty seed.
+                conversationsHydratedSignal.complete(Unit)
+                return@launch
+            }
+            withContext(Dispatchers.Main.immediate) {
+                // A backup reload owns the maps once it has run; do not overwrite it.
+                if (conversationsHydrated) return@withContext
+                conversationsHydrated = true
+                conversationsHydratedSignal.complete(Unit)
+                selectedConversationId = snapshot.selectedConversationId
+                conversationsById = snapshot.conversationsById.mapValues { (_, state) -> orderedTerminalState(state) }
+                conversationTitles = snapshot.titles
+                conversationUpdatedAt = snapshot.updatedAt
+                conversationCreatedAt = snapshot.createdAt
+                conversationFolderIds = snapshot.folderIds
+                conversationPinned = snapshot.pinnedIds
+                conversationCompletionMarkers = snapshot.completionMarkerIds - listOfNotNull(snapshot.selectedConversationId)
+                conversationFolders = snapshot.folders
+                homeState = selectedConversationId?.let(::conversationState) ?: newDraftChatState()
+                conversationPaneState = conversationPaneState.copy(selectedConversationId = selectedConversationId)
+                refreshConversationSummaries()
+            }
+        }
     }
 
     // UI and Runtime use explicit owners. A selected UI owner is never a Runtime lookup key.
@@ -692,13 +757,34 @@ internal class AgentAppState(
         runtimeRecoveryInProgress.set(true)
         scope.launch(Dispatchers.IO) {
             try {
-                chatImageCache.deleteOrphans(conversationsById.keys)
+                // This runs at construction, when conversationsById is still the
+                // intentionally empty seed. Wait for hydration so recovery sees the real
+                // map instead of concluding that nothing is owned.
+                awaitConversationsHydrated()
+                // Sweep only when the persisted map actually arrived. After a failed
+                // hydration the map is still the empty seed, where every real conversation
+                // looks like an orphan and the sweep would delete the whole cache.
+                if (conversationsHydrated) {
+                    chatImageCache.deleteOrphans(conversationsById.keys)
+                }
                 recoverRuntimeRuns()
                 importArchivedExternalRuns()
             } finally {
                 runtimeRecoveryInProgress.set(false)
             }
         }
+    }
+
+    /**
+     * Suspend until startup hydration has published the persisted conversation map.
+     *
+     * Construction-time background work reads [conversationsById] and would otherwise act
+     * on the empty seed: cache sweeps treat every conversation as an orphan and recovery
+     * lookups miss. Never blocks the main thread — [hydrateConversations] publishes from
+     * the application scope.
+     */
+    private suspend fun awaitConversationsHydrated() {
+        conversationsHydratedSignal.await()
     }
 
     private fun ownerContext(ownerId: String): AgentOwnerContextState =
@@ -1277,6 +1363,9 @@ internal class AgentAppState(
             }
             pendingSubAgentDraftBindings.clear()
             // Always reload committed Room history, even when preferences cannot yet be read.
+            // Claim hydration so a late startup load cannot rewind this restored snapshot.
+            conversationsHydrated = true
+            conversationsHydratedSignal.complete(Unit)
             selectedConversationId = snapshot.selectedConversationId
             conversationsById = snapshot.conversationsById.mapValues { (_, state) -> orderedTerminalState(state) }
             conversationTitles = snapshot.titles
@@ -1357,6 +1446,17 @@ internal class AgentAppState(
         val questionConversationIds = withContext(Dispatchers.IO) {
             AgentConversationStore.questionConversationIds(appContext)
         }
+
+        // Resolve every conversation this pass will touch while still off the main thread.
+        // The projection below is synchronous and would otherwise read Room once per run
+        // on the UI thread; AgentUiHandoffPayload.from is a pure parse.
+        preloadConversationsForRecovery(
+            buildList {
+                plan.completed.forEach { add(AgentUiHandoffPayload.from(it.result.handoff.payload).conversationId) }
+                plan.interrupted.forEach { add(AgentUiHandoffPayload.from(it.handoff.payload).conversationId) }
+                plan.reattach.forEach { add(AgentUiHandoffPayload.from(it.handoff.payload).conversationId) }
+            },
+        )
 
         val acknowledgeAfterSave = mutableListOf<String>()
         val removeAfterSave = mutableListOf<String>()
@@ -2082,8 +2182,19 @@ internal class AgentAppState(
             if (nextId != null) {
                 selectedConversationId = nextId
                 conversationCompletionMarkers = conversationCompletionMarkers - nextId
-                homeState = requireNotNull(conversationState(nextId))
-                conversationsById = conversationsById + (nextId to homeState)
+                // The load below can legitimately return null: this conversation may have
+                // been removed concurrently, or the row can fail to decode. Crashing the
+                // UI on a failed switch is worse than falling back to a fresh draft.
+                val next = conversationState(nextId)
+                if (next != null) {
+                    homeState = next
+                    conversationsById = conversationsById + (nextId to next)
+                } else {
+                    conversationsById = conversationsById - nextId
+                    selectedConversationId = null
+                    beginNewSubAgentDraft()
+                    homeState = newDraftChatState()
+                }
             } else {
                 beginNewSubAgentDraft()
                 selectedConversationId = null
@@ -6253,6 +6364,43 @@ internal class AgentAppState(
         return loaded
     }
 
+    /**
+     * Hydrate the conversations a recovery pass is about to project, off the main thread.
+     *
+     * [conversationState] reads Room synchronously whenever the cached entry is still a
+     * preview, and every non-selected conversation is demoted back to a preview after any
+     * persist. The recovery loops below used to resolve their ids inside
+     * `withContext(Dispatchers.Main)`, paying one full conversation transaction per lookup
+     * on the UI thread. Loading ahead of that block turns those lookups into cache hits.
+     *
+     * Mirrors [reconcileRecoveredQuestions]: read on IO, then re-check on Main and only
+     * fill an entry that is still unloaded, so a concurrent edit/delete is never clobbered.
+     * Values published here are exactly what [conversationState] would have produced.
+     */
+    private suspend fun preloadConversationsForRecovery(conversationIds: Collection<String>) {
+        val pending = withContext(Dispatchers.Main.immediate) {
+            conversationIds.filter { id ->
+                conversationsById[id]?.conversationContentLoaded == false
+            }
+        }
+        if (pending.isEmpty()) return
+        val loaded = withContext(Dispatchers.IO) {
+            pending.mapNotNull { id ->
+                AgentConversationStore.loadConversation(appContext, id)?.let { id to it }
+            }
+        }
+        if (loaded.isEmpty()) return
+        withContext(Dispatchers.Main.immediate) {
+            loaded.forEach { (id, state) ->
+                val current = conversationsById[id]
+                if (current != null && !current.conversationContentLoaded) {
+                    conversationsById = conversationsById +
+                        (id to orderedTerminalState(state).withCurrentGptSpeedBinding())
+                }
+            }
+        }
+    }
+
     private fun releasePersistedConversationContent(saved: Map<String, AgentChatHomeUiState>) {
         if (conversationArchiveBusy) return
         val runOwners = runConversationIds.values.toSet()
@@ -6471,6 +6619,18 @@ internal class AgentAppState(
             return kotlinx.coroutines.CompletableDeferred<Boolean>().also { deferredArchiveSaves += it to onSaved }
         }
         if (io.github.mangi.eta.agent.runtime.AgentExecutionService.backupMaintenance) {
+            return kotlinx.coroutines.CompletableDeferred(false)
+        }
+        // Saves are all-or-nothing: AgentConversationStore.save deletes every stored
+        // conversation absent from the snapshot it receives. Startup hydration publishes an
+        // intentionally empty map for the first frames, so persisting during that window
+        // would erase every stored conversation. Fail closed: report "not saved" and let the
+        // caller retry once the real map is published. Hydration that fails leaves this
+        // false deliberately — refusing a save is recoverable, silently wiping data is not.
+        if (!conversationsHydrated) {
+            AndroidAgentLogger.warnThrottled("conversation_persist_before_hydration") {
+                "Refused a conversation save before startup hydration completed"
+            }
             return kotlinx.coroutines.CompletableDeferred(false)
         }
         return synchronized(persistenceLock) {

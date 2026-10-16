@@ -3,6 +3,7 @@ package io.github.mangi.eta.ui.screens.home
 import io.github.mangi.eta.ui.model.ConversationMentionInputUi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import io.github.mangi.eta.ui.app.AgentConversationRevisionReducer
 import io.github.mangi.eta.ui.components.rememberChatVoiceController
@@ -46,7 +47,12 @@ internal fun AgentHomeScreen(
             collaborationConversationId = conversationKey,
             voiceController = voiceController,
             messages = state.messages,
-            history = AgentConversationRevisionReducer.outboundHistory(state),
+            // Editing re-derives the outbound prefix (a boundary walk over history); outside
+            // edit mode this returns state.history directly. Memoise so a streaming
+            // recomposition while editing does not repeat that walk every frame.
+            history = remember(state.history, state.messageEdit) {
+                AgentConversationRevisionReducer.outboundHistory(state)
+            },
             modelPickerState = modelPickerState,
             autoCompressEnabled = autoCompressEnabled,
             requestOverheadTokens = requestOverheadTokens,
