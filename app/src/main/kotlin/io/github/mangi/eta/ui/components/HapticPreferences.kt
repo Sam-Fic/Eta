@@ -86,6 +86,16 @@ private fun M3PreferenceRow(
     }
 }
 
+/**
+ * miuix 兼容的箭头行原语（M3 下退化为官方分段列表行）。
+ *
+ * **屏幕层请优先使用 [io.github.mangi.eta.ui.adaptive.EtaClickableRow]**：它在本原语之上补齐了
+ * 「默认尾部箭头 / `showChevron` / `holdDownState` / 统一轻触反馈」等约定；直接调用本原语
+ * 只应出现在自适应组件自身的 MIUI X 回退分支里。
+ *
+ * 轻触反馈由本原语自己触发（两种主题都覆盖），调用方**不要**在 `onClick` 里再写
+ * `TouchHaptics.click`，否则会叠成两次。
+ */
 @Composable
 internal fun ArrowPreference(
     title: String,
@@ -164,7 +174,7 @@ internal fun SwitchPreference(
             modifier = modifier,
             startAction = startAction,
             onClick = if (enabled) {
-                { TouchHaptics.click(view); onCheckedChange(!checked) }
+                { TouchHaptics.toggle(view, !checked); onCheckedChange(!checked) }
             } else {
                 null
             },
@@ -172,7 +182,7 @@ internal fun SwitchPreference(
                 EtaSwitch(
                     checked = checked,
                     onCheckedChange = { value ->
-                        TouchHaptics.click(view)
+                        TouchHaptics.toggle(view, value)
                         onCheckedChange(value)
                     },
                     enabled = enabled,
@@ -185,7 +195,7 @@ internal fun SwitchPreference(
         title = title,
         checked = checked,
         onCheckedChange = { value ->
-            TouchHaptics.click(view)
+            TouchHaptics.toggle(view, value)
             onCheckedChange(value)
         },
         modifier = modifier,

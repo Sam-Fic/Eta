@@ -24,7 +24,6 @@ import androidx.compose.material3.ListItemShapes
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MaterialTheme.colorScheme
-import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Surface
@@ -50,6 +49,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.VisualTransformation
@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.round
 import androidx.compose.ui.zIndex
+import io.github.mangi.eta.ui.haptics.TouchHaptics
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -109,13 +110,20 @@ val LocalEtaSegmentedRowBare = staticCompositionLocalOf { false }
 
 /** 分段行的容器色：位于容器内时透明，否则用 surfaceBright 从页面背景浮出一档。 */
 @Composable
-internal fun etaSegmentedRowColors(): ListItemColors = if (LocalEtaSegmentedRowBare.current) {
-    ListItemDefaults.segmentedColors(containerColor = Color.Transparent)
-} else {
-    ListItemDefaults.segmentedColors(
+internal fun etaSegmentedRowColors(selectedContainerColor: Color? = null): ListItemColors {
+    if (LocalEtaSegmentedRowBare.current) {
+        return ListItemDefaults.segmentedColors(containerColor = Color.Transparent)
+    }
+    return ListItemDefaults.segmentedColors(
         containerColor = MaterialTheme.colorScheme.surfaceBright,
         disabledContainerColor = MaterialTheme.colorScheme.surfaceBright,
         supportingContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        selectedContainerColor = selectedContainerColor ?: Color.Unspecified,
+        selectedContentColor = if (selectedContainerColor != null) {
+            MaterialTheme.colorScheme.onTertiaryContainer
+        } else {
+            Color.Unspecified
+        },
     )
 }
 
@@ -370,6 +378,8 @@ internal val EtaSegmentedGap: Dp = ListItemDefaults.SegmentedGap
  *
  * 供需要自定义 leading/trailing/headline 的页面直接使用，避免各处重复写
  * `SegmentedListItem(shapes = …, colors = …)` 样板。
+ *
+ * 轻触反馈由本行自己触发，调用方**不要**在 `onClick` 里再写 `TouchHaptics.click`。
  */
 @Composable
 fun EtaSegmentedRow(
@@ -378,6 +388,9 @@ fun EtaSegmentedRow(
     onLongClick: (() -> Unit)? = null,
     enabled: Boolean = true,
     selected: Boolean = false,
+    // 选中态容器色覆盖：不传时保持官方 segmentedColors 默认。仅个别列表（如会话抽屉）
+    // 需要自定义选中色，其他调用方不受影响。
+    selectedContainerColor: Color? = null,
     leadingContent: @Composable (() -> Unit)? = null,
     trailingContent: @Composable (() -> Unit)? = null,
     overlineContent: @Composable (() -> Unit)? = null,
@@ -386,12 +399,19 @@ fun EtaSegmentedRow(
     content: @Composable () -> Unit,
 ) {
     val shapes = etaSegmentedRowShapes()
-    val colors = etaSegmentedRowColors()
+    val colors = if (selectedContainerColor != null) {
+        etaSegmentedRowColors(selectedContainerColor = selectedContainerColor)
+    } else {
+        etaSegmentedRowColors()
+    }
+    val view = LocalView.current
+    // 显式类型：let 返回嵌套 lambda 时推断器会落到 Nothing?。
+    val hapticClick: (() -> Unit)? = onClick?.let { click -> { TouchHaptics.click(view); click() } }
     if (selected) {
         SegmentedListItem(
             verticalAlignment = Alignment.CenterVertically,
             selected = true,
-            onClick = onClick ?: {},
+            onClick = hapticClick ?: {},
             onLongClick = onLongClick,
             enabled = enabled,
             shapes = shapes,
@@ -404,10 +424,10 @@ fun EtaSegmentedRow(
             contentPadding = contentPadding,
             content = content,
         )
-    } else if (onClick != null) {
+    } else if (hapticClick != null) {
         SegmentedListItem(
             verticalAlignment = Alignment.CenterVertically,
-            onClick = onClick,
+            onClick = hapticClick,
             onLongClick = onLongClick,
             enabled = enabled,
             shapes = shapes,
@@ -465,6 +485,7 @@ fun EtaSegmentedItem(
  *
  * 整行切换：`SegmentedListItem(checked = …)` 自带 Checkbox 语义、涟漪与按压形变；
  * 前导勾选框仅作视觉呈现（`onCheckedChange = null`），避免两次回调。
+ * 轻触反馈由本行自己触发，调用方**不要**在 `onCheckedChange` 里再写 `TouchHaptics.click`。
  */
 @Composable
 fun EtaSegmentedCheckboxRow(
@@ -480,10 +501,14 @@ fun EtaSegmentedCheckboxRow(
 ) {
     val shapes = etaSegmentedRowShapes()
     val colors = etaSegmentedRowColors()
+    val view = LocalView.current
     SegmentedListItem(
         verticalAlignment = Alignment.CenterVertically,
         checked = checked,
-        onCheckedChange = onCheckedChange,
+        onCheckedChange = { value ->
+            TouchHaptics.click(view)
+            onCheckedChange(value)
+        },
         enabled = enabled,
         shapes = shapes,
         colors = colors,
@@ -501,15 +526,7 @@ fun EtaSegmentedCheckboxRow(
         },
         supportingContent = when {
             supportingContent != null -> supportingContent
-            summary != null -> {
-                {
-                    Text(
-                        text = summary,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
+            summary != null -> { { Text(text = summary) } }
             else -> null
         },
         content = content,
@@ -519,6 +536,8 @@ fun EtaSegmentedCheckboxRow(
 /**
  * 带单选按钮的分段行（KernelSU 参考实现的 `SegmentedRadioItem`）。
  * 整行可选；`selected` 决定官方选中态配色。
+ *
+ * 轻触反馈由本行自己触发，调用方**不要**在 `onClick` 里再写 `TouchHaptics.click`。
  */
 @Composable
 fun EtaSegmentedRadioRow(
@@ -532,10 +551,14 @@ fun EtaSegmentedRadioRow(
 ) {
     val shapes = etaSegmentedRowShapes()
     val colors = etaSegmentedRowColors()
+    val view = LocalView.current
     SegmentedListItem(
         verticalAlignment = Alignment.CenterVertically,
         selected = selected,
-        onClick = onClick,
+        onClick = {
+            TouchHaptics.click(view)
+            onClick()
+        },
         enabled = enabled,
         shapes = shapes,
         colors = colors,
@@ -547,15 +570,7 @@ fun EtaSegmentedRadioRow(
                 enabled = enabled,
             )
         },
-        supportingContent = summary?.let {
-            {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        },
+        supportingContent = summary?.let { { Text(text = it) } },
         content = content,
     )
 }
@@ -625,11 +640,7 @@ fun EtaSegmentedTextField(
                         },
                     enabled = enabled,
                     readOnly = readOnly,
-                    textStyle = textStyle.copy(
-                        colors.supportingContentColor,
-                        fontSize = MaterialTheme.typography.bodyMedium.fontSize,
-                        lineHeight = MaterialTheme.typography.bodyMedium.lineHeight,
-                    ),
+                    textStyle = textStyle.copy(color = colors.supportingContentColor),
                     keyboardOptions = keyboardOptions,
                     keyboardActions = keyboardActions,
                     singleLine = singleLine,
@@ -645,9 +656,9 @@ fun EtaSegmentedTextField(
                                 CompositionLocalProvider(
                                     LocalContentColor provides colors.supportingContentColor,
                                 ) {
-                                    ProvideTextStyle(value = MaterialTheme.typography.bodyMedium) {
-                                        placeholder()
-                                    }
+                                    // 占位符沿用分段行的官方正文令牌（content 槽注入的 bodyLarge），
+                                    // 与输入文字/标签保持同一默认字阶，不再单独指定 bodyMedium。
+                                    placeholder()
                                 }
                             }
                         }

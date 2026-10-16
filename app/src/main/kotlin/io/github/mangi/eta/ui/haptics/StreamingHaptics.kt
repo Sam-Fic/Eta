@@ -70,7 +70,13 @@ internal object StreamingHaptics {
     fun noteToolAppeared(toolId: String, conversationId: String? = null) {
         if (toolId.isBlank() || !backgroundAllowed()) return
         val view = currentConversationView(conversationId) ?: return
-        TouchHaptics.onLiveToolActivity(view, toolId)
+        // 推理完成借这条通道进来（见 noteReasoningCompleted），用 id 后缀认领自己的开关，
+        // 这样「工具步骤震动」和「推理完成震动」可以分别关掉。
+        if (toolId.endsWith(REASONING_COMPLETED_SUFFIX)) {
+            TouchHaptics.onReasoningCompleted(view, toolId)
+        } else {
+            TouchHaptics.onLiveToolActivity(view, toolId)
+        }
     }
 
     /** 推理块从「正在推理」变成「推理已完成」时轻触一次，和工具标签共用去重与排队。 */
@@ -216,6 +222,9 @@ internal object StreamingHaptics {
 
     private const val BACKGROUND_TICK_INTERVAL_MS = 32L
     private const val MAX_BACKGROUND_TICKS = 36
+
+    /** [noteReasoningCompleted] 拼在推理 id 末尾的标记；改这里要同步那里的字面量。 */
+    private const val REASONING_COMPLETED_SUFFIX = "-completed"
 }
 
 /** One light tick per grapheme of hidden output, capped so a large chunk cannot buzz for long. */

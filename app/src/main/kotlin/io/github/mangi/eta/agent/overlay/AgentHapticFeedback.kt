@@ -1,45 +1,25 @@
 package io.github.mangi.eta.agent.overlay
 
 import android.content.Context
+import android.os.VibrationAttributes
 import android.os.VibrationEffect
-import android.os.Vibrator
 import android.os.VibratorManager
 import android.provider.Settings
 import io.github.mangi.eta.config.Prefs
-import io.github.mangi.eta.ui.haptics.TouchHaptics
 
 /**
- * Agent 前台操作的触感语义。
+ * Agent 前台操作、前台服务与本地工具回调（无 `View` 可用）的触感语义。
  *
- * 优先让系统根据线性马达能力渲染预定义 primitive；设备不支持时退回系统 effect，
- * 避免固定时长、默认振幅带来的持续嗡鸣感。
+ * 与 [io.github.mangi.eta.ui.haptics.TouchHaptics] 保持同一策略：只放系统预定义 effect，
+ * 不再叠加自定义振幅，交给系统按设备线性马达能力渲染；并显式标注 `USAGE_TOUCH`，
+ * 让系统按「触控反馈」用途分类（免打扰 / 系统总开关），避免落到 `USAGE_UNKNOWN`。
  */
 internal object AgentHapticFeedback {
-    enum class Type(
-        val primitiveId: Int,
-        val primitiveScale: Float,
-        val fallbackEffectId: Int,
-    ) {
-        TAP(
-            primitiveId = VibrationEffect.Composition.PRIMITIVE_CLICK,
-            primitiveScale = 0.45f,
-            fallbackEffectId = VibrationEffect.EFFECT_TICK,
-        ),
-        LONG_PRESS(
-            primitiveId = VibrationEffect.Composition.PRIMITIVE_LOW_TICK,
-            primitiveScale = 0.7f,
-            fallbackEffectId = VibrationEffect.EFFECT_HEAVY_CLICK,
-        ),
-        SWIPE(
-            primitiveId = VibrationEffect.Composition.PRIMITIVE_TICK,
-            primitiveScale = 0.32f,
-            fallbackEffectId = VibrationEffect.EFFECT_TICK,
-        ),
-        RUN_STARTED(
-            primitiveId = VibrationEffect.Composition.PRIMITIVE_CLICK,
-            primitiveScale = 0.62f,
-            fallbackEffectId = VibrationEffect.EFFECT_CLICK,
-        ),
+    enum class Type(val effectId: Int) {
+        TAP(VibrationEffect.EFFECT_TICK),
+        LONG_PRESS(VibrationEffect.EFFECT_HEAVY_CLICK),
+        SWIPE(VibrationEffect.EFFECT_TICK),
+        RUN_STARTED(VibrationEffect.EFFECT_CLICK),
     }
 
     fun perform(context: Context, type: Type) {
@@ -51,20 +31,12 @@ internal object AgentHapticFeedback {
         if (!vibrator.hasVibrator()) return
 
         runCatching {
-            val supportsPrimitive = vibrator
-                .arePrimitivesSupported(type.primitiveId)
-                .firstOrNull() == true
-            val effect = if (supportsPrimitive) {
-                VibrationEffect.startComposition()
-                    .addPrimitive(
-                        type.primitiveId,
-                        TouchHaptics.currentIntensity().primitiveScale(type.primitiveScale),
-                    )
-                    .compose()
-            } else {
-                VibrationEffect.createPredefined(type.fallbackEffectId)
-            }
-            vibrator.vibrate(effect)
+            vibrator.vibrate(
+                VibrationEffect.createPredefined(type.effectId),
+                VibrationAttributes.Builder()
+                    .setUsage(VibrationAttributes.USAGE_TOUCH)
+                    .build(),
+            )
         }
     }
 

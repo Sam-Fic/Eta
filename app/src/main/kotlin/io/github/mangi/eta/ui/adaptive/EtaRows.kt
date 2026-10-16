@@ -25,8 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -35,6 +34,7 @@ import io.github.mangi.eta.ui.components.ArrowPreference
 import io.github.mangi.eta.ui.components.HapticBasicComponent
 import io.github.mangi.eta.ui.components.PreferenceIcon
 import io.github.mangi.eta.ui.components.SwitchPreference
+import io.github.mangi.eta.ui.haptics.TouchHaptics
 import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import androidx.compose.material3.SegmentedListItem
@@ -54,6 +54,9 @@ private val DenseRowPadding = PaddingValues(horizontal = 0.dp, vertical = 6.dp)
  * @param leading 前导内容（图标等）；M3 下走分段行的 `leadingContent`。
  * @param dense 位于可展开项内部时使用更紧凑的内边距。
  * @param contentPadding 覆盖默认内边距（两种主题都会生效）。
+ *
+ * 轻触反馈由本行自己触发（两种主题都覆盖），调用方**不要**在 `onCheckedChange` 里再写
+ * `TouchHaptics.click`，否则 MIUI X 分支会叠成两次。
  */
 @Composable
 fun EtaSwitchRow(
@@ -70,30 +73,29 @@ fun EtaSwitchRow(
     if (isMaterial3Theme()) {
         // 官方可交互 SegmentedListItem：自带涟漪、语义、长按与按压形变，
         // 形状与容器色取外层分段列注入的 segmentedShapes/segmentedColors（KernelSU 参考实现）。
+        val view = LocalView.current
         SegmentedListItem(
             verticalAlignment = Alignment.CenterVertically,
-            onClick = { onCheckedChange(!checked) },
+            onClick = {
+                TouchHaptics.toggle(view, !checked)
+                onCheckedChange(!checked)
+            },
             modifier = modifier.fillMaxWidth(),
             enabled = enabled,
             shapes = etaSegmentedRowShapes(),
             colors = etaSegmentedRowColors(),
             leadingContent = leading,
-            content = {
-                Text(text = title, style = MaterialTheme.typography.bodyLarge)
-            },
-            supportingContent = summary?.let {
-                {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            },
+            // 标题 / 摘要不再显式覆盖排版，直接用官方 SegmentedListItem 令牌
+            // （ItemLabelTextFont = bodyLarge、ItemSupportingTextFont = bodyMedium + onSurfaceVariant）。
+            content = { Text(text = title) },
+            supportingContent = summary?.let { { Text(text = it) } },
             trailingContent = {
                 EtaSwitch(
                     checked = checked,
-                    onCheckedChange = onCheckedChange,
+                    onCheckedChange = { value ->
+                        TouchHaptics.toggle(view, value)
+                        onCheckedChange(value)
+                    },
                     enabled = enabled,
                 )
             },
@@ -120,6 +122,10 @@ fun EtaSwitchRow(
  * @param showChevron 是否在尾部显示箭头（展开型条目通常自带尾部图标，可置 false）。
  * @param leading 前导内容（图标等）；M3 走分段行的 `leadingContent`，MIUI X 走 `startAction`。
  * @param contentPadding 覆盖默认内边距（两种主题都会生效）。
+ *
+ * 轻触反馈由本行自己触发（两种主题都覆盖），调用方**不要**在 `onClick` 里再写
+ * `TouchHaptics.click`，否则 MIUI X 分支会叠成两次。`endActions` / `bottomAction`
+ * 里的 `IconButton`、`TextButton` 不是本行的一部分，仍需自行触发。
  */
 @Composable
 fun EtaClickableRow(
@@ -136,6 +142,9 @@ fun EtaClickableRow(
     contentPadding: PaddingValues? = null,
 ) {
     if (isMaterial3Theme()) {
+        val view = LocalView.current
+        // 显式类型：let 返回嵌套 lambda 时推断器会落到 Nothing?。
+        val hapticClick: (() -> Unit)? = onClick?.let { click -> { TouchHaptics.click(view); click() } }
         val trailingContent: (@Composable () -> Unit)? = if (endActions != null || showChevron) {
             {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -153,27 +162,18 @@ fun EtaClickableRow(
             null
         }
         Column(modifier = modifier.fillMaxWidth()) {
-            if (onClick != null) {
+            if (hapticClick != null) {
                 SegmentedListItem(
                     verticalAlignment = Alignment.CenterVertically,
-                    onClick = onClick,
+                    onClick = hapticClick,
                     modifier = Modifier.fillMaxWidth(),
                     enabled = enabled,
                     shapes = etaSegmentedRowShapes(),
                     colors = etaSegmentedRowColors(),
                     leadingContent = leading,
-                    content = {
-                        Text(text = title, style = MaterialTheme.typography.bodyLarge)
-                    },
-                    supportingContent = summary?.let {
-                        {
-                            Text(
-                                text = it,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    },
+                    // 同 EtaSwitchRow：标题/摘要交给官方 ListItem 令牌，不再显式覆盖。
+                    content = { Text(text = title) },
+                    supportingContent = summary?.let { { Text(text = it) } },
                     trailingContent = trailingContent,
                     contentPadding = contentPadding ?: ListItemDefaults.ContentPadding,
                 )
@@ -184,18 +184,9 @@ fun EtaClickableRow(
                     shapes = etaSegmentedRowShapes(),
                     colors = etaSegmentedRowColors(),
                     leadingContent = leading,
-                    content = {
-                        Text(text = title, style = MaterialTheme.typography.bodyLarge)
-                    },
-                    supportingContent = summary?.let {
-                        {
-                            Text(
-                                text = it,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    },
+                    // 同 EtaSwitchRow：标题/摘要交给官方 ListItem 令牌，不再显式覆盖。
+                    content = { Text(text = title) },
+                    supportingContent = summary?.let { { Text(text = it) } },
                     trailingContent = trailingContent,
                     contentPadding = contentPadding ?: ListItemDefaults.ContentPadding,
                 )
@@ -239,6 +230,9 @@ fun EtaClickableRow(
  * 菜单锚定在按下位置展开（`EtaOffsetAnchoredMenu`），选中项带 Check 前导图标。
  *
  * Material 3 下与参考实现逐参数一致；MIUI X 下退化为 [OverlayDropdownPreference]。
+ *
+ * 轻触反馈（展开菜单、选中条目）由本行自己触发，调用方**不要**在 `onItemSelected`
+ * 或 `onClick` 里再写 `TouchHaptics.click`。
  */
 @Composable
 fun EtaSegmentedDropdownRow(
@@ -266,7 +260,7 @@ fun EtaSegmentedDropdownRow(
         return
     }
 
-    val haptic = LocalHapticFeedback.current
+    val view = LocalView.current
     var expanded by remember { mutableStateOf(false) }
     var anchorOffset by remember { mutableStateOf(IntOffset.Zero) }
 
@@ -274,10 +268,10 @@ fun EtaSegmentedDropdownRow(
     val safeIndex = if (hasItems) selectedIndex.coerceIn(0, items.lastIndex) else -1
 
     // 显式类型：if 分支返回 lambda/null 时推断器会落到 Nothing?。
+    // 展开的轻触反馈由内层 [EtaSegmentedRow] 自己触发，这里不要重复。
     val rowClick: (() -> Unit)? = if (enabled) {
         {
             onClick?.invoke()
-            haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
             expanded = true
         }
     } else {
@@ -315,7 +309,7 @@ fun EtaSegmentedDropdownRow(
                     selected = index == safeIndex,
                     onClick = {
                         if (index in items.indices) {
-                            haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+                            TouchHaptics.click(view)
                             onItemSelected(index)
                         }
                         expanded = false

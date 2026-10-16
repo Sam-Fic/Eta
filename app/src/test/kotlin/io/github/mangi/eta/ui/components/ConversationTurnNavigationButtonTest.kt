@@ -14,8 +14,6 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import io.github.mangi.eta.R
 import io.github.mangi.eta.config.Prefs
-import io.github.mangi.eta.ui.haptics.HapticIntensity
-import io.github.mangi.eta.ui.haptics.TouchHaptics
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -36,7 +34,6 @@ class ConversationTurnNavigationButtonTest {
     @get:Rule val compose = createComposeRule()
     private lateinit var view: RecordingView
     private var originalTouch = true
-    private var originalIntensity = HapticIntensity.DEFAULT
     private val builtInHaptics = mutableListOf<HapticFeedbackType>()
     private val direction = mutableStateOf(ConversationNavigationDirection.Down)
     private val steps = mutableListOf<ConversationNavigationDirection>()
@@ -46,9 +43,7 @@ class ConversationTurnNavigationButtonTest {
         val context = RuntimeEnvironment.getApplication()
         Prefs.initLocal(context)
         originalTouch = Prefs.isEnabled(Prefs.Keys.HAPTIC_TOUCH_FEEDBACK)
-        originalIntensity = TouchHaptics.currentIntensity()
         Prefs.putBoolean(Prefs.Keys.HAPTIC_TOUCH_FEEDBACK, true)
-        TouchHaptics.setIntensity(HapticIntensity.DEFAULT)
         view = RecordingView(context)
         compose.setContent {
             MiuixTheme(colors = lightColorScheme()) {
@@ -67,7 +62,6 @@ class ConversationTurnNavigationButtonTest {
     }
     @After fun restorePreferences() {
         Prefs.putBoolean(Prefs.Keys.HAPTIC_TOUCH_FEEDBACK, originalTouch)
-        TouchHaptics.setIntensity(originalIntensity)
     }
     @Test fun downClickHasExactlyOneHapticAndOneStep() {
         button(R.string.chat_next_user_message).performTouchInput { click() }

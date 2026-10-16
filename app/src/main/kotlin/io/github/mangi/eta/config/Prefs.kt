@@ -65,11 +65,18 @@ internal object Prefs {
         const val AGENT_VOICE_DOUBAO_PROVIDER_ID = "agent_voice_doubao_provider_id"
         const val AGENT_VOICE_DOUBAO_VOICE = "agent_voice_doubao_voice"
         const val AGENT_VOICE_DOUBAO_INSTRUCTIONS = "agent_voice_doubao_instructions"
+        // 触感开关分三层：总开关（触控反馈 / 消息生成）→ 语义细分 → 后台补充项。
+        // 细分开关只在所属总开关打开时生效，见 TouchHaptics 的 is*Enabled()。
         const val HAPTIC_TOUCH_FEEDBACK = "haptic_touch_feedback"
+        const val HAPTIC_TAP = "haptic_tap"
+        const val HAPTIC_LONG_PRESS = "haptic_long_press"
+        const val HAPTIC_KEYBOARD = "haptic_keyboard"
         const val HAPTIC_MESSAGE_GENERATION = "haptic_message_generation"
+        const val HAPTIC_TYPING = "haptic_typing"
+        const val HAPTIC_TOOL_STEPS = "haptic_tool_steps"
+        const val HAPTIC_REASONING_DONE = "haptic_reasoning_done"
         const val HAPTIC_BACKGROUND = "haptic_background"
         const val HAPTIC_BACKGROUND_REASONING = "haptic_background_reasoning"
-        const val HAPTIC_INTENSITY = "haptic_intensity"
 
         /** 全部布尔开关及其默认值。 */
         val BOOLEAN_DEFAULTS: Map<String, Boolean> = mapOf(
@@ -91,7 +98,13 @@ internal object Prefs {
             AGENT_AUTO_COMPRESS_ENABLED to false,
             AGENT_COMPRESS_CUSTOM_MODEL_ENABLED to false,
             HAPTIC_TOUCH_FEEDBACK to true,
+            HAPTIC_TAP to true,
+            HAPTIC_LONG_PRESS to true,
+            HAPTIC_KEYBOARD to true,
             HAPTIC_MESSAGE_GENERATION to true,
+            HAPTIC_TYPING to true,
+            HAPTIC_TOOL_STEPS to true,
+            HAPTIC_REASONING_DONE to true,
             HAPTIC_BACKGROUND to true,
             HAPTIC_BACKGROUND_REASONING to true,
         )
@@ -107,7 +120,13 @@ internal object Prefs {
             AGENT_AUTO_COMPRESS_ENABLED,
             AGENT_COMPRESS_CUSTOM_MODEL_ENABLED,
             HAPTIC_TOUCH_FEEDBACK,
+            HAPTIC_TAP,
+            HAPTIC_LONG_PRESS,
+            HAPTIC_KEYBOARD,
             HAPTIC_MESSAGE_GENERATION,
+            HAPTIC_TYPING,
+            HAPTIC_TOOL_STEPS,
+            HAPTIC_REASONING_DONE,
             HAPTIC_BACKGROUND,
             HAPTIC_BACKGROUND_REASONING,
         )

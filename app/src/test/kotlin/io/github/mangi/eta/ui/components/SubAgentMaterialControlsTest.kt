@@ -8,7 +8,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.*
@@ -17,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.agent.delegation.SubAgentProfile
 import io.github.mangi.eta.agent.delegation.SubAgentTaskTier
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -147,10 +147,10 @@ class SubAgentMaterialControlsTest {
         compose.onNode(isSelectable() and hasText("复杂任务")).assertDoesNotExist()
         compose.onNodeWithContentDescription("设置执行任务分工").assertIsNotEnabled()
     }
-    @Test fun modelPickerHighlightsSelectionAndProviderRowsHaveNoPressRipple() {
-        val selectedColor = Color(0xFFB5D8F3)
+    @Test fun modelPickerGroupsByProviderAndCommitsOnlyOnConfirm() {
         var selectedModelId: String? = null
         var cleared = false
+        var dismissed = false
         val model = io.github.mangi.eta.ui.model.AgentModelOptionUi("m", "p", "测试提供商", "openai", "m", "测试模型", 10000)
         val nextModel = io.github.mangi.eta.ui.model.AgentModelOptionUi("m-next", "p-next", "下一提供商", "openai", "m-next", "下一模型", 10000)
         val picker = io.github.mangi.eta.ui.model.AgentModelPickerUiState(
@@ -159,38 +159,36 @@ class SubAgentMaterialControlsTest {
                 io.github.mangi.eta.ui.model.AgentModelProviderGroupUi("p-next", "下一提供商", "openai", listOf(nextModel)),
             ),
             selectedModel = model)
+        val resources = org.robolectric.RuntimeEnvironment.getApplication().resources
+        val confirmText = resources.getString(io.github.mangi.eta.R.string.action_confirm)
+        val cancelText = resources.getString(io.github.mangi.eta.R.string.action_cancel)
+        val noneText = resources.getString(io.github.mangi.eta.R.string.tts_none)
         compose.setContent {
-            MaterialTheme(colorScheme = lightColorScheme(surfaceVariant = selectedColor)) {
-                io.github.mangi.eta.ui.TtsModelPickerDialog(picker, true, {}, { _, id -> selectedModelId = id }, "选择模型",
-                    onClearSelection = { cleared = true }, highlightSelection = true)
+            MaterialTheme {
+                io.github.mangi.eta.ui.TtsModelPickerDialog(
+                    picker, true, { dismissed = true }, { _, id -> selectedModelId = id }, "选择模型",
+                    onClearSelection = { cleared = true })
             }
         }
-        val selected = compose.onNode(isSelectable() and hasText("测试模型")).assertIsSelected()
-        val pixels = selected.captureToImage().toPixelMap()
-        assertEquals(selectedColor, pixels[pixels.width - 12, pixels.height / 2])
-        selected.assertHeightIsEqualTo(48.dp)
-        assertTrue("top selection margin missing", pixels[pixels.width / 2, 0] != selectedColor)
-        assertTrue("bottom selection margin missing", pixels[pixels.width / 2, pixels.height - 1] != selectedColor)
-        selected.performTouchInput { click(Offset(center.x, 1f)) }
-        compose.runOnIdle { assertEquals("m", selectedModelId); selectedModelId = null }
-        selected.performTouchInput { click(Offset(center.x, height - 1f)) }
-        compose.runOnIdle { assertEquals("m", selectedModelId) }
-        val none = compose.onNode(isSelectable() and hasText("无"))
-        none.assertHeightIsEqualTo(48.dp).performTouchInput { click(Offset(center.x, height - 1f)) }
-        compose.runOnIdle { assertTrue(cleared) }
-        compose.onAllNodes(isSelectable()).assertCountEquals(2) // rows only; no separate radio widgets
-        val header = compose.onNodeWithText("测试提供商")
-        val before = header.captureToImage().toPixelMap()
-        header.performTouchInput { down(center) }
-        compose.mainClock.advanceTimeBy(240)
-        val pressed = header.captureToImage().toPixelMap()
-        // Compare the entire provider row while held, not merely a corner outside the ripple.
-        assertEquals(before.width, pressed.width)
-        assertEquals(before.height, pressed.height)
-        for (y in 0 until before.height) for (x in 0 until before.width) {
-            assertEquals(before[x, y], pressed[x, y])
+        // 提供商作分组标题平铺；模型为常显单选行，当前绑定模型默认选中。
+        compose.onNodeWithText("测试提供商").assertExists()
+        compose.onNodeWithText("下一提供商").assertExists()
+        compose.onNode(isSelectable() and hasText("测试模型")).assertIsSelected()
+        compose.onNode(isSelectable() and hasText(noneText)).assertExists()
+        // 点选其它模型仅暂存，确认后才提交。
+        compose.onNode(isSelectable() and hasText("下一模型")).performClick()
+        compose.runOnIdle { assertNull(selectedModelId) }
+        compose.onNodeWithText(confirmText).performClick()
+        compose.runOnIdle { assertEquals("m-next", selectedModelId) }
+        // 取消不提交也不清除。
+        selectedModelId = null
+        compose.onNode(isSelectable() and hasText(noneText)).performClick()
+        compose.onNodeWithText(cancelText).performClick()
+        compose.runOnIdle {
+            assertNull(selectedModelId)
+            assertTrue(dismissed)
+            assertTrue(!cleared)
         }
-        header.performTouchInput { cancel() }
     }
 
     @Test fun flatSettingsRowsPlaceValuesAfterAlignedLabels() {
