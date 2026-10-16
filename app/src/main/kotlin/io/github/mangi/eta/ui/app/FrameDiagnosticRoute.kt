@@ -27,8 +27,6 @@ internal fun AppRoute.frameDiagnosticPage(): FrameDiagnosticPage = when (this) {
     AppRoute.SubAgents -> FrameDiagnosticPage.SubAgents
     AppRoute.VoiceModeSettings -> FrameDiagnosticPage.VoiceSettings
     AppRoute.AppearanceSettings -> FrameDiagnosticPage.AppearanceSettings
-    AppRoute.WhaleMaid -> FrameDiagnosticPage.Settings
-    AppRoute.WhaleMaidMemories -> FrameDiagnosticPage.Settings
     AppRoute.DataBackup -> FrameDiagnosticPage.DataBackup
     AppRoute.Memory -> FrameDiagnosticPage.Memory
     AppRoute.LinuxEnvironment -> FrameDiagnosticPage.LinuxEnvironment

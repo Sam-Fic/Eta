@@ -40,7 +40,6 @@ import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.RecordVoiceOver
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Palette
-import androidx.compose.material.icons.rounded.Pets
 import androidx.compose.material.icons.rounded.PowerSettingsNew
 import androidx.compose.material.icons.rounded.Psychology
 import io.github.mangi.eta.ui.icons.SubAgents
@@ -370,14 +369,6 @@ internal fun SettingsScreen(
                     modifier = Modifier.settingsSectionDiagnostics("context_extensions").padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
                     title = stringResource(R.string.settings_context_extensions),
                 ) {
-                    item {
-                        EtaClickableRow(
-                            title = stringResource(R.string.whale_maid_title),
-                            leading = { PreferenceIcon(icon = Icons.Rounded.Pets) },
-                            onClick = { onNavigate(AppRoute.WhaleMaid) },
-                        )
-                    }
-
                     item {
                         EtaClickableRow(
                             title = stringResource(R.string.settings_assistants),

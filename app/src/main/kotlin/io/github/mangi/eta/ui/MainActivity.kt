@@ -82,7 +82,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        io.github.mangi.eta.agent.pet.WhaleMaidController.onHostVisibility(this, true)
         refreshRateWindowResumed = true
         applyPreferredRefreshRate()
         // Retry when the decor is attached; never leave a request queued after pause.
@@ -90,7 +89,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onPause() {
-        io.github.mangi.eta.agent.pet.WhaleMaidController.onHostVisibility(this, false)
+        super.onPause()
         refreshRateWindowResumed = false
         window.decorView.removeCallbacks(refreshRateRequest)
         val previous = previousPreferredRefreshRate

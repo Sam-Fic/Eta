@@ -1547,29 +1547,6 @@
   <string name="reconnect_error_title">错误详情</string>
   <string name="reconnect_elapsed_format">已用时 %1$s</string>
 
-  <string name="whale_maid_title">鲸鱼女仆</string>
-  <string name="whale_maid_work_speech">任务结束后说话</string>
-  <string name="whale_maid_global">全局显示</string>
-  <string name="whale_maid_scale">体型</string>
-  <string name="whale_maid_custom_model">指定说话模型</string>
-  <string name="whale_maid_select_model">说话模型</string>
-  <string name="whale_maid_cabinet">女仆储物橱柜</string>
-  <string name="whale_maid_thinking">思考中</string>
-  <string name="whale_maid_reset">重置</string>
-  <string name="whale_maid_memories">发言手账</string>
-  <string name="whale_maid_clear">清空</string>
-  <string name="whale_maid_sleep">休眠收起</string>
-  <string name="whale_maid_empty">还没有发言</string>
-  <string name="whale_maid_food_grain">一粒米饭</string>
-  <string name="whale_maid_food_spoon">一勺米饭</string>
-  <string name="whale_maid_food_bowl">一碗米饭</string>
-  <string name="whale_maid_food_pot">一锅米饭</string>
-  <string name="whale_maid_satiety_starving">快要饿死了</string>
-  <string name="whale_maid_satiety_hungry">很饿</string>
-  <string name="whale_maid_satiety_peckish">不饿，但是不介意吃多点</string>
-  <string name="whale_maid_satiety_full">饱腹满足</string>
-  <string name="whale_maid_satiety_stuffed">吃得有点撑了</string>
-
   <!-- M3 Expressive 输入区 -->
   <string name="composer_schedule_send">定时发送</string>
   <string name="composer_save_draft">保存草稿</string>
@@ -1588,11 +1565,6 @@
   <string name="error_reconnect_hint_1m">出错后自动重试，最长 1 分钟。</string>
   <string name="error_reconnect_hint_5m">出错后自动重试，最长 5 分钟。</string>
   <string name="error_reconnect_hint_continuous">持续重试，直到请求成功。</string>
-  <string name="whale_maid_group_basic">基础</string>
-  <string name="whale_maid_group_speech">说话</string>
-  <string name="whale_maid_overlay_summary">允许女仆显示在其它应用之上</string>
-  <string name="whale_maid_disabled">已停用</string>
-  <string name="whale_maid_clear_summary">清空后女仆会忘记此前所有发言，此操作不可撤销。</string>
   <string name="sap_parallel_label">并行上限</string>
   <string name="sap_parallel_reading">正在读取配置</string>
   <string name="sap_parallel_read_failed">配置读取失败</string>

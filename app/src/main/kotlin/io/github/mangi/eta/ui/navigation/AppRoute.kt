@@ -73,12 +73,6 @@ sealed interface AppRoute : NavKey {
     data object AppearanceSettings : AppRoute
 
     @Serializable
-    data object WhaleMaid : AppRoute
-
-    @Serializable
-    data object WhaleMaidMemories : AppRoute
-
-    @Serializable
     data object DataBackup : AppRoute
 
     @Serializable

@@ -491,8 +491,6 @@ private fun titleForRoute(route: AppRoute?, currentConversationTitle: String? = 
     is AppRoute.TtsSettings -> stringResource(R.string.tts_title)
     is AppRoute.VoiceModeSettings -> stringResource(R.string.voice_mode_title)
     is AppRoute.AppearanceSettings -> stringResource(R.string.appearance_title)
-    is AppRoute.WhaleMaid -> stringResource(R.string.whale_maid_title)
-    is AppRoute.WhaleMaidMemories -> stringResource(R.string.whale_maid_memories)
     is AppRoute.DataBackup -> stringResource(R.string.data_backup_title)
     is AppRoute.Memory -> stringResource(R.string.route_memory)
     is AppRoute.LinuxEnvironment -> stringResource(R.string.route_linux_environment)

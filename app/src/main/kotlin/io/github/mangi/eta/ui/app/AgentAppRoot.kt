@@ -69,8 +69,6 @@ import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.components.LocalShellTopBarInset
-import io.github.mangi.eta.ui.WhaleMaidMemoriesScreen
-import io.github.mangi.eta.ui.WhaleMaidSettingsScreen
 import io.github.mangi.eta.ui.HapticsSettingsScreen
 import io.github.mangi.eta.ui.ErrorReconnectSettingsScreen
 import io.github.mangi.eta.ui.ContextCompressionSettingsScreen
@@ -119,7 +117,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.ensureActive
 import top.yukonga.miuix.kmp.basic.TextField
-import io.github.mangi.eta.agent.pet.WhaleMaidInAppHost
 import top.yukonga.miuix.kmp.nav.core.NavDisplay
 import top.yukonga.miuix.kmp.nav.core.NavDisplayEffects
 import top.yukonga.miuix.kmp.nav.core.rememberNavBackStack
@@ -978,15 +975,6 @@ fun AgentAppRoot(
             entry<AppRoute.AppearanceSettings>(swipeDismiss = swipeDismiss) {
                 AppearanceSettingsScreen(onBack = ::popRoute)
             }
-            entry<AppRoute.WhaleMaid>(swipeDismiss = swipeDismiss) {
-                WhaleMaidSettingsScreen(
-                    onBack = ::popRoute,
-                    onNavigate = { route -> pushRoute(route) },
-                )
-            }
-            entry<AppRoute.WhaleMaidMemories>(swipeDismiss = swipeDismiss) {
-                WhaleMaidMemoriesScreen(onBack = ::popRoute)
-            }
             entry<AppRoute.DataBackup>(swipeDismiss = swipeDismiss) {
                 DataBackupScreen(
                     context = context,
@@ -1108,8 +1096,6 @@ fun AgentAppRoot(
     if (browserSheetVisible) {
         AgentBrowserScreen(onDismiss = { browserSheetVisible = false }, conversationId = agentState.conversationPaneState.selectedConversationId)
     }
-
-    WhaleMaidInAppHost()
 
     conversationRenameTarget?.let { conversation ->
         var renameInput by remember(conversation.id) { mutableStateOf(conversation.title) }

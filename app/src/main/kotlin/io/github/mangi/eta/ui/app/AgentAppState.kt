@@ -3491,7 +3491,7 @@ internal class AgentAppState(
                 )
             }
             withContext(Dispatchers.Main) {
-                applyRunResult(runId, result, acknowledgeRuntimeResult = true, petReaction = true)
+                applyRunResult(runId, result, acknowledgeRuntimeResult = true)
             }
         }
         runJobs[runId] = preparationJob
@@ -3717,11 +3717,6 @@ internal class AgentAppState(
         refreshConversationSummaries()
         persistConversations()
         if (conversationId != null) {
-            val petTitle = conversationTitles[conversationId].orEmpty()
-            val petContext = appContext
-            scope.launch(Dispatchers.IO) {
-                io.github.mangi.eta.agent.pet.WhaleMaidController.onWorkDone(petContext, petTitle)
-            }
             onConversationRunSettled(conversationId)
         }
     }
@@ -5834,7 +5829,6 @@ internal class AgentAppState(
         runId: String,
         result: AgentRuntimeWire.RunResult,
         acknowledgeRuntimeResult: Boolean = false,
-        petReaction: Boolean = false,
     ) {
         val stoppedDuringRetry = stoppingRuns.remove(runId)
         cancelStopSealWatchdog(runId)
@@ -5901,13 +5895,6 @@ internal class AgentAppState(
                 null
             }
         )
-        if (petReaction && result.ok && stoppedDuringRetry == null && conversationId != null) {
-            val petTitle = conversationTitles[conversationId].orEmpty()
-            val petContext = appContext
-            scope.launch(Dispatchers.IO) {
-                io.github.mangi.eta.agent.pet.WhaleMaidController.onWorkDone(petContext, petTitle)
-            }
-        }
         if (conversationId != null) {
             onConversationRunSettled(conversationId)
         }
