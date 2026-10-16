@@ -16,12 +16,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.repository.formatTokenCount
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
-import io.github.mangi.eta.ui.components.EtaDropdownMenu
 import io.github.mangi.eta.ui.model.ConversationTokenUsageUi
 import java.text.NumberFormat
 import java.util.Locale
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 internal fun ConversationTokenUsageDialog(
@@ -34,27 +31,15 @@ internal fun ConversationTokenUsageDialog(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            if (isMaterial3Theme()) {
-                M3Text(
-                    text = stringResource(R.string.action_token_usage),
-                    style = MaterialTheme.typography.titleSmall,
-                )
-            } else {
-                M3Text(stringResource(R.string.action_token_usage), style = MiuixTheme.textStyles.body1)
-            }
+            M3Text(
+                text = stringResource(R.string.action_token_usage),
+                style = MaterialTheme.typography.titleSmall,
+            )
             if (!usage.hasUsage) {
                 M3Text(
                     text = stringResource(R.string.token_usage_empty),
-                    style = if (isMaterial3Theme()) {
-                        MaterialTheme.typography.bodySmall
-                    } else {
-                        MiuixTheme.textStyles.body2
-                    },
-                    color = if (isMaterial3Theme()) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    } else {
-                        MiuixTheme.colorScheme.onSurfaceVariantSummary
-                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
                 UsageRow(
@@ -84,22 +69,11 @@ internal fun ConversationTokenUsageDialog(
             }
         }
     }
-    if (isMaterial3Theme()) {
-        // 官方菜单容器：内容尺寸交给官方默认，与 MIUI X 版本同为 250dp 最小宽度。
-        DropdownMenu(
-            expanded = show,
-            onDismissRequest = onDismiss,
-            modifier = Modifier.widthIn(min = 250.dp),
-        ) {
-            content()
-        }
-        return
-    }
-    EtaDropdownMenu(
+    // 官方菜单容器：内容尺寸交给官方默认，最小宽度 250dp。
+    DropdownMenu(
         expanded = show,
-        alignEnd = true,
-        minWidth = 250.dp,
         onDismissRequest = onDismiss,
+        modifier = Modifier.widthIn(min = 250.dp),
     ) {
         content()
     }
@@ -115,24 +89,12 @@ private fun UsageRow(label: String, value: String) {
         M3Text(
             text = label,
             modifier = Modifier.weight(1f).padding(end = 12.dp),
-            style = if (isMaterial3Theme()) {
-                MaterialTheme.typography.bodySmall
-            } else {
-                MiuixTheme.textStyles.body2
-            },
-            color = if (isMaterial3Theme()) {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            } else {
-                MiuixTheme.colorScheme.onSurfaceVariantSummary
-            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         M3Text(
             text = value,
-            style = if (isMaterial3Theme()) {
-                MaterialTheme.typography.bodyMedium
-            } else {
-                MiuixTheme.textStyles.body1
-            },
+            style = MaterialTheme.typography.bodyMedium,
         )
     }
 }

@@ -35,12 +35,9 @@ import io.github.mangi.eta.data.repository.AppUpdateRepository
 import io.github.mangi.eta.ui.adaptive.EtaClickableRow
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.components.AppUpdateDialog
 import io.github.mangi.eta.ui.components.PreferenceIcon
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
 /**
  * 关于页（KernelSU `AboutMaterial` 对应物）：
@@ -170,27 +167,15 @@ private fun AboutHero(versionName: String) {
                 modifier = Modifier.fillMaxSize(),
             )
         }
-        if (isMaterial3Theme()) {
-            // 直接用官方字阶令牌（含字重/行高/字距），不再只拷 fontSize 或额外覆盖字重。
-            Text(
-                modifier = Modifier.padding(top = 12.dp),
-                text = stringResource(R.string.app_name),
-                style = MaterialTheme.typography.headlineMedium,
-            )
-            Text(
-                text = versionName,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        } else {
-            MiuixText(
-                modifier = Modifier.padding(top = 12.dp),
-                text = stringResource(R.string.app_name),
-                style = MiuixTheme.textStyles.title3,
-            )
-            MiuixText(
-                text = versionName,
-                style = MiuixTheme.textStyles.body2,
-            )
-        }
+        // 直接用官方字阶令牌（含字重/行高/字距），不再只拷 fontSize 或额外覆盖字重。
+        Text(
+            modifier = Modifier.padding(top = 12.dp),
+            text = stringResource(R.string.app_name),
+            style = MaterialTheme.typography.headlineMedium,
+        )
+        Text(
+            text = versionName,
+            style = MaterialTheme.typography.bodyMedium,
+        )
     }
 }

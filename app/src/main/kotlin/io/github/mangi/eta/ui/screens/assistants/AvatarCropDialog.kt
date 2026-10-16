@@ -50,10 +50,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton as M3IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text as M3Text
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
-import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private const val MIN_ZOOM = 1f
 private const val MAX_ZOOM = 5f
@@ -169,56 +165,29 @@ internal fun AvatarCropDialog(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (isMaterial3Theme()) {
-                    M3IconButton(onClick = onCancel) {
-                        Icon(
-                            imageVector = Icons.Rounded.Close,
-                            contentDescription = stringResource(R.string.action_cancel),
-                            tint = Color.White,
-                        )
-                    }
-                    M3Text(
-                        text = stringResource(R.string.assistant_crop_title),
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleMedium,
+                M3IconButton(onClick = onCancel) {
+                    Icon(
+                        imageVector = Icons.Rounded.Close,
+                        contentDescription = stringResource(R.string.action_cancel),
+                        tint = Color.White,
                     )
-                    M3IconButton(
-                        onClick = {
-                            createAvatarCrop(bitmap, viewportSize, zoom, pan)?.let(onConfirm)
-                        },
-                        enabled = viewportSize.width > 0 && viewportSize.height > 0,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Check,
-                            contentDescription = stringResource(R.string.action_save),
-                            tint = Color.White,
-                        )
-                    }
-                } else {
-                    IconButton(onClick = onCancel) {
-                        Icon(
-                            imageVector = Icons.Rounded.Close,
-                            contentDescription = stringResource(R.string.action_cancel),
-                            tint = Color.White,
-                        )
-                    }
-                    Text(
-                        text = stringResource(R.string.assistant_crop_title),
-                        color = Color.White,
-                        style = MiuixTheme.textStyles.title3,
+                }
+                M3Text(
+                    text = stringResource(R.string.assistant_crop_title),
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                M3IconButton(
+                    onClick = {
+                        createAvatarCrop(bitmap, viewportSize, zoom, pan)?.let(onConfirm)
+                    },
+                    enabled = viewportSize.width > 0 && viewportSize.height > 0,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Check,
+                        contentDescription = stringResource(R.string.action_save),
+                        tint = Color.White,
                     )
-                    IconButton(
-                        onClick = {
-                            createAvatarCrop(bitmap, viewportSize, zoom, pan)?.let(onConfirm)
-                        },
-                        enabled = viewportSize.width > 0 && viewportSize.height > 0,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Check,
-                            contentDescription = stringResource(R.string.action_save),
-                            tint = Color.White,
-                        )
-                    }
                 }
             }
         }

@@ -27,10 +27,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.adaptive.EtaDialog
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults as M3ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -61,65 +57,35 @@ internal fun FileEntryActionsDialog(
         onDismissRequest = { if (enabled) onDismiss() },
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (isMaterial3Theme()) {
-                // 官方按钮：形状、行高与配色全部使用官方默认值。
-                if (target.canExport) {
-                    OutlinedButton(
-                        onClick = onExport,
-                        enabled = enabled,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        M3Text(text = stringResource(R.string.linux_files_export))
-                    }
-                }
-                if (target.canDelete) {
-                    Button(
-                        onClick = onDelete,
-                        enabled = enabled,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = M3ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error,
-                            contentColor = MaterialTheme.colorScheme.onError,
-                        ),
-                    ) {
-                        M3Text(text = stringResource(R.string.action_delete))
-                    }
-                }
-                M3TextButton(
-                    onClick = onDismiss,
+            // 官方按钮：形状、行高与配色全部使用官方默认值。
+            if (target.canExport) {
+                OutlinedButton(
+                    onClick = onExport,
                     enabled = enabled,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    M3Text(text = stringResource(R.string.action_cancel))
+                    M3Text(text = stringResource(R.string.linux_files_export))
                 }
-            } else {
-                if (target.canExport) {
-                    TextButton(
-                        text = stringResource(R.string.linux_files_export),
-                        onClick = onExport,
-                        enabled = enabled,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.textButtonColorsPrimary(),
-                    )
-                }
-                if (target.canDelete) {
-                    TextButton(
-                        text = stringResource(R.string.action_delete),
-                        onClick = onDelete,
-                        enabled = enabled,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.textButtonColorsPrimary(
-                            color = MiuixTheme.colorScheme.error,
-                            textColor = MiuixTheme.colorScheme.onError,
-                        ),
-                    )
-                }
-                TextButton(
-                    text = stringResource(R.string.action_cancel),
-                    onClick = onDismiss,
+            }
+            if (target.canDelete) {
+                Button(
+                    onClick = onDelete,
                     enabled = enabled,
                     modifier = Modifier.fillMaxWidth(),
-                )
+                    colors = M3ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError,
+                    ),
+                ) {
+                    M3Text(text = stringResource(R.string.action_delete))
+                }
+            }
+            M3TextButton(
+                onClick = onDismiss,
+                enabled = enabled,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                M3Text(text = stringResource(R.string.action_cancel))
             }
         }
     }
@@ -131,8 +97,6 @@ internal fun FileEntryActionsDialog(
  * 结构照 KernelSU 顶栏 `IconButton + DropdownMenuPopup` 就地写法：菜单挂在按钮内容里，
  * 由 `DropdownMenuPopup` 自动锚定到该按钮；条目全部带 `MenuDefaults.itemShape` 分段形状，
  * 破坏性的「删除」用 error 色强调。
- *
- * MIUI X 主题没有该表达，页面改用 [FileEntryActionsDialog]，因此本组件只在 Material 3 分支挂载。
  */
 @Composable
 internal fun EtaFileActionsButton(

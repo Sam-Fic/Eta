@@ -1,6 +1,5 @@
 package io.github.mangi.eta.ui
 
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -36,7 +35,6 @@ import androidx.compose.ui.window.DialogProperties
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.device.AgentTaskPrompt
 import io.github.mangi.eta.agent.device.AgentTaskSurfaceMode
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 
 /**
@@ -87,9 +85,7 @@ internal fun AgentTaskSurfaceChoiceDialog(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
                     stringResource(R.string.agent_task_surface_prompt_message),
-                    // 跨主题族：M3 用官方 typography，miuix 保留原 textStyles。
-                    style = if (isMaterial3Theme()) MaterialTheme.typography.bodyMedium
-                    else MiuixTheme.textStyles.body2,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 // 选项行自身就是官方 ListItem（自带容器形状、内边距与单选语义），

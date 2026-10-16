@@ -12,8 +12,6 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import io.github.mangi.eta.ui.adaptive.EtaType
 import io.github.mangi.eta.ui.adaptive.etaTextStyle
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 正文与思考共用同一套渲染器，只在字号、颜色与留白上区分层级。 */
 internal enum class MarkdownTone { Answer, Thinking }
@@ -62,22 +60,12 @@ internal class MarkdownStyle(
 
 @Composable
 internal fun rememberMarkdownStyle(tone: MarkdownTone): MarkdownStyle {
-    val material3 = isMaterial3Theme()
-    // Material 3 下从官方 colorScheme / typography 取值，避免在 M3 主题里读到
-    // MiuixTheme 的回退默认色（浮层上下文没有 MiuixTheme 提供者）。
-    val onSurface = if (material3) MaterialTheme.colorScheme.onSurface else MiuixTheme.colorScheme.onSurface
-    val secondaryColor = if (material3) {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    } else {
-        MiuixTheme.colorScheme.onSurfaceVariantSummary
-    }
-    val primary = if (material3) MaterialTheme.colorScheme.primary else MiuixTheme.colorScheme.primary
-    val outline = if (material3) MaterialTheme.colorScheme.outline else MiuixTheme.colorScheme.outline
-    val surfaceContainer = if (material3) {
-        MaterialTheme.colorScheme.surfaceContainerHighest
-    } else {
-        MiuixTheme.colorScheme.surfaceContainer
-    }
+    // 从官方 colorScheme 取值（浮层上下文也始终有 MaterialTheme 提供者）。
+    val onSurface = MaterialTheme.colorScheme.onSurface
+    val secondaryColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val primary = MaterialTheme.colorScheme.primary
+    val outline = MaterialTheme.colorScheme.outline
+    val surfaceContainer = MaterialTheme.colorScheme.surfaceContainerHighest
     val body1 = etaTextStyle(EtaType.Body)
     val body2 = etaTextStyle(EtaType.Secondary)
     // 主题值在 remember 之外读取：主题切换时重组并重建样式。

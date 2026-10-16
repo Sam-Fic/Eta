@@ -22,17 +22,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.app.description
 import io.github.mangi.eta.ui.app.rememberDeviceCapabilities
-import io.github.mangi.eta.ui.components.PreferenceIcon
 import io.github.mangi.eta.ui.model.AgentSystemEnhanceAction
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.Text as M3Text
-import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.TextButton
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 
@@ -157,8 +152,7 @@ fun SystemEnhanceScreen(
 /**
  * 系统增强页的设置行。
  *
- * Material 3 走官方 [ListItem]（可点击重载自带涟漪、语义与按压形变，内边距取
- * [ListItemDefaults.ContentPadding] 官方默认值）；MIUI X 保持原有 [BasicComponent]。
+ * 走官方分段行 [EtaSegmentedRow]（自带涟漪、语义与按压形变）。
  */
 @Composable
 private fun EnhanceRow(
@@ -169,46 +163,31 @@ private fun EnhanceRow(
     onClick: (() -> Unit)? = null,
     trailing: (@Composable RowScope.() -> Unit)? = null,
 ) {
-    if (isMaterial3Theme()) {
-        val leading: @Composable () -> Unit = {
-            Icon(imageVector = icon, contentDescription = null)
-        }
-        val supporting: @Composable () -> Unit = {
-            M3Text(text = summary)
-        }
-        val headline: @Composable () -> Unit = {
-            M3Text(text = title)
-        }
-        // KernelSU 式分段行：形状/容器色取自外层分段组，独立使用时退化为单条目形状。
-        EtaSegmentedRow(
-            onClick = onClick,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = enabled,
-            leadingContent = leading,
-            content = headline,
-            supportingContent = supporting,
-            trailingContent = trailing?.let { slot -> { Row { slot() } } },
-        )
-    } else {
-        BasicComponent(
-            title = title,
-            summary = summary,
-            startAction = { PreferenceIcon(icon, enabled = enabled) },
-            endActions = trailing,
-            enabled = enabled,
-            onClick = onClick,
-        )
+    val leading: @Composable () -> Unit = {
+        Icon(imageVector = icon, contentDescription = null)
     }
+    val supporting: @Composable () -> Unit = {
+        M3Text(text = summary)
+    }
+    val headline: @Composable () -> Unit = {
+        M3Text(text = title)
+    }
+    // KernelSU 式分段行：形状/容器色取自外层分段组，独立使用时退化为单条目形状。
+    EtaSegmentedRow(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        enabled = enabled,
+        leadingContent = leading,
+        content = headline,
+        supportingContent = supporting,
+        trailingContent = trailing?.let { slot -> { Row { slot() } } },
+    )
 }
 
-/** 行尾主操作按钮：M3 用官方 [Button]（不覆盖形状与配色），MIUI X 保持原有 [TextButton]。 */
+/** 行尾主操作按钮：用官方 [Button]（不覆盖形状与配色）。 */
 @Composable
 private fun EnhanceActionButton(text: String, enabled: Boolean, onClick: () -> Unit) {
-    if (isMaterial3Theme()) {
-        Button(onClick = onClick, enabled = enabled) {
-            M3Text(text = text)
-        }
-    } else {
-        TextButton(text = text, enabled = enabled, onClick = onClick)
+    Button(onClick = onClick, enabled = enabled) {
+        M3Text(text = text)
     }
 }

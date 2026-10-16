@@ -10,12 +10,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.DriveFileMove
@@ -24,15 +21,8 @@ import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
-import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material3.DropdownMenuGroup
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.DropdownMenuPopup
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Text as M3Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -66,10 +56,8 @@ import io.github.mangi.eta.ui.adaptive.EtaGroupHorizontalPadding
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedGroupSpacing
-import io.github.mangi.eta.ui.adaptive.EtaSegmentedItem
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedItemContainer
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.adaptive.rememberFabExpandedState
 import io.github.mangi.eta.ui.app.WorkspaceEntry
 import io.github.mangi.eta.ui.app.WorkspaceFileStore
@@ -81,8 +69,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 「工作区与文件」页。
@@ -93,9 +79,6 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
  * - 「公共目录访问」从顶栏菜单提到明面，成为带授权状态的分段行；
  * - 「工作区文件」分组承载目录内容，空态 / 加载态收进分段容器，导入动作交给右下角扩展 FAB；
  * - 文件操作走行尾「更多」按钮的 M3 Expressive 菜单（导出 / 删除）。
- *
- * MIUI X 主题族保持原有结构不变：页面级操作仍收进顶栏「更多」菜单，文件操作走长按 +
- * [FileEntryActionsDialog]。
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -104,7 +87,6 @@ internal fun WorkspaceScreen(onBack: () -> Unit) {
     val appContext = context.applicationContext
     val store = remember(appContext) { WorkspaceFileStore(context) }
     val scope = rememberCoroutineScope()
-    val material = isMaterial3Theme()
     val distribution by LinuxEnvironmentSettingsRepository.selectedFlow(appContext).collectAsState(
         initial = LinuxEnvironmentSettingsRepository.current(appContext),
     )
@@ -126,7 +108,6 @@ internal fun WorkspaceScreen(onBack: () -> Unit) {
     val fabExpanded by rememberFabExpandedState(listState)
     var path by rememberSaveable { mutableStateOf("") }
     var pendingExport by rememberSaveable { mutableStateOf<String?>(null) }
-    var pendingActions by remember { mutableStateOf<FileEntryActions?>(null) }
     var pendingDelete by remember { mutableStateOf<WorkspaceEntry?>(null) }
     var entries by remember { mutableStateOf<List<WorkspaceEntry>>(emptyList()) }
     var revision by remember { mutableIntStateOf(0) }
@@ -256,133 +237,30 @@ internal fun WorkspaceScreen(onBack: () -> Unit) {
         title = stringResource(R.string.capability_workspace),
         onBack = onBack,
         listState = listState,
-        // Material 3 Expressive：导入是整页主操作，落到右下角扩展 FAB；
-        // MIUI X 没有该表达，导入仍留在顶栏「更多」菜单里，因此不挂 FAB。
-        floatingActionButton = if (material) {
-            {
-                EtaExtendedFab(
-                    text = stringResource(R.string.capability_workspace_import),
-                    icon = Icons.Rounded.FileUpload,
-                    expanded = fabExpanded,
-                    onClick = { if (!busy) importLauncher.launch(arrayOf("*/*")) },
-                )
-            }
-        } else {
-            null
-        },
-        actions = {
-            if (!material) {
-                var menuExpanded by remember { mutableStateOf(false) }
-                IconButton(
-                    onClick = { menuExpanded = true },
-                    enabled = !busy,
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.MoreVert,
-                        contentDescription = stringResource(R.string.action_more),
-                    )
-                    // KernelSU 顶栏写法：菜单挂在按钮内容里，由 DropdownMenuPopup 自动锚定到按钮。
-                    DropdownMenuPopup(
-                        expanded = menuExpanded,
-                        onDismissRequest = { menuExpanded = false },
-                    ) {
-                        DropdownMenuGroup(shapes = MenuDefaults.groupShape(index = 0, count = 1)) {
-                            DropdownMenuItem(
-                                onClick = {
-                                    menuExpanded = false
-                                    importLauncher.launch(arrayOf("*/*"))
-                                },
-                                text = { M3Text(text = stringResource(R.string.capability_workspace_import)) },
-                                shape = MenuDefaults.itemShape(index = 0, count = 2).shape,
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Rounded.FileUpload,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(MenuDefaults.LeadingIconSize),
-                                    )
-                                },
-                            )
-                            DropdownMenuItem(
-                                onClick = {
-                                    menuExpanded = false
-                                    requestPublicAccess()
-                                },
-                                text = { M3Text(text = stringResource(R.string.capability_workspace_public)) },
-                                shape = MenuDefaults.itemShape(index = 1, count = 2).shape,
-                                leadingIcon = {
-                                    Icon(
-                                        // 状态用图标表达：已授权为解锁，未授权为加锁；内容色同步强调已授权。
-                                        imageVector = if (publicAccess) Icons.Rounded.LockOpen else Icons.Rounded.Lock,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(MenuDefaults.LeadingIconSize),
-                                        tint = if (publicAccess) {
-                                            MaterialTheme.colorScheme.primary
-                                        } else {
-                                            LocalContentColor.current
-                                        },
-                                    )
-                                },
-                            )
-                        }
-                    }
-                }
-            }
+        // 导入是整页主操作，落到右下角扩展 FAB。
+        floatingActionButton = {
+            EtaExtendedFab(
+                text = stringResource(R.string.capability_workspace_import),
+                icon = Icons.Rounded.FileUpload,
+                expanded = fabExpanded,
+                onClick = { if (!busy) importLauncher.launch(arrayOf("*/*")) },
+            )
         },
     ) {
-        if (material) {
-            materialWorkspaceItems(
-                context = context,
-                path = path,
-                entries = entries,
-                busy = busy,
-                listing = listing,
-                publicAccess = publicAccess,
-                message = message,
-                onRequestPublicAccess = { requestPublicAccess() },
-                onNavigateUp = { path = path.substringBeforeLast('/', "") },
-                onOpenDirectory = { target -> path = target },
-                onExport = { entry -> requestExport(entry.path, entry.name) },
-                onDelete = { entry -> requestDelete(entry.path, entry.name, entry.directory) },
-            )
-        } else {
-            miuixWorkspaceItems(
-                context = context,
-                path = path,
-                entries = entries,
-                busy = busy,
-                message = message,
-                onNavigateUp = { pendingActions = null; path = path.substringBeforeLast('/', "") },
-                onOpenDirectory = { target -> pendingActions = null; path = target },
-                onLongPressEntry = { entry ->
-                    pendingActions = FileEntryActions(
-                        path = entry.path,
-                        name = entry.name,
-                        directory = entry.directory,
-                        canExport = !entry.directory,
-                        canDelete = true,
-                    )
-                },
-            )
-        }
-    }
-
-    // MIUI X 主题没有行尾「更多」表达性菜单，沿用长按 + 对话框承载同一组操作。
-    if (!material) {
-        pendingActions?.let { target ->
-            FileEntryActionsDialog(
-                target = target,
-                enabled = !busy,
-                onExport = {
-                    pendingActions = null
-                    requestExport(target.path, target.name)
-                },
-                onDelete = {
-                    pendingActions = null
-                    requestDelete(target.path, target.name, target.directory)
-                },
-                onDismiss = { pendingActions = null },
-            )
-        }
+        materialWorkspaceItems(
+            context = context,
+            path = path,
+            entries = entries,
+            busy = busy,
+            listing = listing,
+            publicAccess = publicAccess,
+            message = message,
+            onRequestPublicAccess = { requestPublicAccess() },
+            onNavigateUp = { path = path.substringBeforeLast('/', "") },
+            onOpenDirectory = { target -> path = target },
+            onExport = { entry -> requestExport(entry.path, entry.name) },
+            onDelete = { entry -> requestDelete(entry.path, entry.name, entry.directory) },
+        )
     }
 
     pendingDelete?.let { target ->
@@ -655,104 +533,9 @@ private fun LazyListScope.materialWorkspaceItems(
     }
 }
 
-/** MIUI X 内容：保持原有扁平信息架构（说明行 → 路径 → 文件列表）不变。 */
-private fun LazyListScope.miuixWorkspaceItems(
-    context: Context,
-    path: String,
-    entries: List<WorkspaceEntry>,
-    busy: Boolean,
-    message: String?,
-    onNavigateUp: () -> Unit,
-    onOpenDirectory: (String) -> Unit,
-    onLongPressEntry: (WorkspaceEntry) -> Unit,
-) {
-    item(key = "workspace-info") {
-        EtaClickableRow(
-            title = stringResource(R.string.capability_workspace_private),
-            summary = stringResource(R.string.capability_workspace_private_summary),
-            onClick = null,
-            showChevron = false,
-            leading = {
-                Icon(
-                    imageVector = Icons.Rounded.Folder,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            },
-            contentPadding = PaddingValues(horizontal = 12.dp),
-        )
-    }
-    item(key = "path") {
-        WorkspacePathBar(path)
-    }
-    message?.let { text ->
-        item(key = "message") { HintText(text) }
-    }
-    if (path.isNotBlank()) {
-        item(key = "parent") {
-            EtaFileRow(
-                title = "../",
-                summary = null,
-                leadingIcon = Icons.Rounded.Folder,
-                enabled = !busy,
-                onClick = onNavigateUp,
-            )
-        }
-    }
-    if (entries.isEmpty()) {
-        item(key = "empty") {
-            ListEmptyState(
-                title = stringResource(R.string.capability_workspace_empty),
-                summary = stringResource(R.string.capability_workspace_empty_summary),
-            )
-        }
-    }
-    itemsIndexed(entries, key = { _, entry -> entry.path }) { index, entry ->
-        EtaSegmentedItem(index = index, count = entries.size) {
-            EtaFileRow(
-                title = entry.name,
-                summary = if (entry.directory) {
-                    stringResource(R.string.capability_workspace_directory)
-                } else {
-                    Formatter.formatShortFileSize(context, entry.size)
-                },
-                leadingIcon = if (entry.directory) {
-                    Icons.Rounded.Folder
-                } else {
-                    Icons.AutoMirrored.Rounded.InsertDriveFile
-                },
-                enabled = !busy,
-                onClick = if (entry.directory) {
-                    { onOpenDirectory(entry.path) }
-                } else {
-                    null
-                },
-                // MIUI X 没有行尾「更多」按钮，保留长按 → 对话框。
-                onLongClick = { onLongPressEntry(entry) },
-            )
-        }
-    }
-}
-
 /** 工作区路径的展示形态：始终以 `/workspace` 为根，与 Linux 环境中的挂载点一致。 */
 private fun workspaceDisplayPath(path: String): String =
     if (path.isBlank()) "/workspace" else "/workspace/${path.trim('/')}"
-
-/**
- * 工作区当前路径（MIUI X）：等宽字体行，显示映射到 Linux 环境的 `/workspace` 路径，
- * 与「Linux 文件」页的路径栏保持同构。
- */
-@Composable
-private fun WorkspacePathBar(path: String) {
-    Text(
-        text = workspaceDisplayPath(path),
-        style = MiuixTheme.textStyles.body2.copy(fontFamily = FontFamily.Monospace),
-        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-        modifier = Modifier
-            .padding(horizontal = 24.dp)
-            .padding(bottom = 8.dp),
-    )
-}
 
 private fun exportWorkspaceLinuxFile(
     context: android.content.Context,

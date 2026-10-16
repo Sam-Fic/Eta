@@ -7,7 +7,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -22,7 +21,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -51,7 +49,6 @@ import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -69,7 +66,6 @@ import io.github.mangi.eta.ui.app.ConsoleStore
 import io.github.mangi.eta.ui.app.ConsoleUiState
 import io.github.mangi.eta.ui.app.UserTerminalStore
 import io.github.mangi.eta.ui.components.toSpanStyle
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Button as M3Button
 import androidx.compose.material3.ButtonDefaults as M3ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -83,53 +79,38 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import io.github.mangi.eta.ui.adaptive.EtaButtonStyle
 import io.github.mangi.eta.ui.adaptive.EtaIconButton
 import io.github.mangi.eta.ui.adaptive.EtaIconSize
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
-import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
-import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
-import top.yukonga.miuix.kmp.basic.Text as MiuixText
-import top.yukonga.miuix.kmp.basic.ButtonDefaults as MiuixButtonDefaults
-import top.yukonga.miuix.kmp.basic.TextButton as MiuixTextButton
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-/** 终端界面的根背景色：M3 用官方 surface，MIUI X 沿用 miuix surface。 */
+/** 终端界面的根背景色。 */
 @Composable
 internal fun terminalRootSurface(): androidx.compose.ui.graphics.Color =
-    if (isMaterial3Theme()) MaterialTheme.colorScheme.surface else MiuixTheme.colorScheme.surface
+    MaterialTheme.colorScheme.surface
 
 /** 终端正文前景色。 */
 @Composable
 internal fun terminalForeground(): androidx.compose.ui.graphics.Color =
-    if (isMaterial3Theme()) MaterialTheme.colorScheme.onSurface else MiuixTheme.colorScheme.onSurface
+    MaterialTheme.colorScheme.onSurface
 
 /** 终端次要前景色（摘要、提示）。 */
 @Composable
 internal fun terminalMutedForeground(): androidx.compose.ui.graphics.Color =
-    if (isMaterial3Theme()) {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    } else {
-        MiuixTheme.colorScheme.onSurfaceVariantSummary
-    }
+    MaterialTheme.colorScheme.onSurfaceVariant
 
 /** 终端强调色。 */
 @Composable
 internal fun terminalAccentColor(): androidx.compose.ui.graphics.Color =
-    if (isMaterial3Theme()) MaterialTheme.colorScheme.primary else MiuixTheme.colorScheme.primary
+    MaterialTheme.colorScheme.primary
 
 /** 终端错误/失败态前景色。 */
 @Composable
 internal fun terminalErrorColor(): androidx.compose.ui.graphics.Color =
-    if (isMaterial3Theme()) MaterialTheme.colorScheme.error else MiuixTheme.colorScheme.error
+    MaterialTheme.colorScheme.error
 
-/** 终端等宽字符网格的字阶：M3 用官方 bodySmall + 等宽字族。 */
+/** 终端等宽字符网格的字阶：官方 bodySmall + 等宽字族。 */
 @Composable
 internal fun terminalGridTextStyle(): TextStyle =
-    if (isMaterial3Theme()) {
-        MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
-    } else {
-        MiuixTheme.textStyles.footnote1.copy(fontFamily = FontFamily.Monospace)
-    }
+    MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
 
-/** 终端等宽正文块（M3 走官方 Text，MIUI X 走 miuix Text）。 */
+/** 终端等宽正文块（官方 Text）。 */
 @Composable
 internal fun TerminalMonoText(
     text: AnnotatedString,
@@ -139,39 +120,24 @@ internal fun TerminalMonoText(
     maxLines: Int = Int.MAX_VALUE,
 ) {
     val style = terminalGridTextStyle()
-    if (isMaterial3Theme()) {
-        M3Text(
-            text = text,
-            modifier = modifier,
-            style = style,
-            color = color,
-            softWrap = softWrap,
-            maxLines = maxLines,
-            overflow = TextOverflow.Ellipsis,
-        )
-    } else {
-        MiuixText(
-            text = text,
-            modifier = modifier,
-            style = style,
-            color = color,
-            softWrap = softWrap,
-            maxLines = maxLines,
-        )
-    }
+    M3Text(
+        text = text,
+        modifier = modifier,
+        style = style,
+        color = color,
+        softWrap = softWrap,
+        maxLines = maxLines,
+        overflow = TextOverflow.Ellipsis,
+    )
 }
 
-/** 终端进行中指示：M3 用官方 CircularProgressIndicator，MIUI X 沿用 miuix 无限进度。 */
+/** 终端进行中指示：官方 CircularProgressIndicator。 */
 @Composable
 internal fun TerminalBusyIndicator(size: androidx.compose.ui.unit.Dp) {
-    if (isMaterial3Theme()) {
-        androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(size))
-    } else {
-        InfiniteProgressIndicator(size = size)
-    }
+    androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(size))
 }
 
-/** 终端日志/正文视图：M3 用官方 Text + bodyLarge，MIUI X 沿用 miuix Text。 */
+/** 终端日志/正文视图：官方 Text + bodyLarge。 */
 @Composable
 internal fun TerminalBodyText(
     text: String,
@@ -180,26 +146,15 @@ internal fun TerminalBodyText(
     textAlign: TextAlign? = null,
     maxLines: Int = Int.MAX_VALUE,
 ) {
-    if (isMaterial3Theme()) {
-        M3Text(
-            text = text,
-            modifier = modifier,
-            color = color,
-            style = MaterialTheme.typography.bodyLarge,
-            textAlign = textAlign,
-            maxLines = maxLines,
-            overflow = TextOverflow.Ellipsis,
-        )
-    } else {
-        MiuixText(
-            text = text,
-            modifier = modifier,
-            color = color,
-            style = MiuixTheme.textStyles.body1,
-            textAlign = textAlign,
-            maxLines = maxLines,
-        )
-    }
+    M3Text(
+        text = text,
+        modifier = modifier,
+        color = color,
+        style = MaterialTheme.typography.bodyLarge,
+        textAlign = textAlign,
+        maxLines = maxLines,
+        overflow = TextOverflow.Ellipsis,
+    )
 }
 
 /**
@@ -216,40 +171,17 @@ internal fun TerminalEnvironmentTabs(
     modifier: Modifier = Modifier,
 ) {
     val view = LocalView.current
-    if (isMaterial3Theme()) {
-        SingleChoiceSegmentedButtonRow(modifier = modifier) {
-            labels.forEachIndexed { index, label ->
-                SegmentedButton(
-                    selected = index == selectedIndex,
-                    onClick = {
-                        TouchHaptics.click(view)
-                        onSelect(index)
-                    },
-                    shape = SegmentedButtonDefaults.itemShape(index = index, count = labels.size),
-                ) {
-                    M3Text(text = label, style = MaterialTheme.typography.labelLarge)
-                }
-            }
-        }
-    } else {
-        Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-            labels.forEachIndexed { index, label ->
-                MiuixText(
-                    text = label,
-                    style = MiuixTheme.textStyles.footnote1,
-                    color = if (index == selectedIndex) {
-                        MiuixTheme.colorScheme.primary
-                    } else {
-                        MiuixTheme.colorScheme.onSurfaceVariantSummary
-                    },
-                    fontWeight = if (index == selectedIndex) FontWeight.SemiBold else null,
-                    modifier = Modifier
-                        .clickable(onClick = {
-                            TouchHaptics.click(view)
-                            onSelect(index)
-                        })
-                        .padding(horizontal = 8.dp, vertical = 8.dp),
-                )
+    SingleChoiceSegmentedButtonRow(modifier = modifier) {
+        labels.forEachIndexed { index, label ->
+            SegmentedButton(
+                selected = index == selectedIndex,
+                onClick = {
+                    TouchHaptics.click(view)
+                    onSelect(index)
+                },
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = labels.size),
+            ) {
+                M3Text(text = label, style = MaterialTheme.typography.labelLarge)
             }
         }
     }
@@ -264,31 +196,17 @@ internal fun TerminalIconButton(
     modifier: Modifier = Modifier,
 ) {
     val view = LocalView.current
-    if (isMaterial3Theme()) {
-        EtaIconButton(
-            icon = icon,
-            contentDescription = contentDescription,
-            onClick = {
-                TouchHaptics.click(view)
-                onClick()
-            },
-            modifier = modifier,
-            size = EtaIconSize.XS,
-            style = EtaButtonStyle.Standard,
-        )
-    } else {
-        MiuixIconButton(onClick = {
+    EtaIconButton(
+        icon = icon,
+        contentDescription = contentDescription,
+        onClick = {
             TouchHaptics.click(view)
             onClick()
-        }, modifier = modifier) {
-            Icon(
-                imageVector = icon,
-                contentDescription = contentDescription,
-                modifier = Modifier.size(18.dp),
-                tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            )
-        }
-    }
+        },
+        modifier = modifier,
+        size = EtaIconSize.XS,
+        style = EtaButtonStyle.Standard,
+    )
 }
 
 /**
@@ -306,46 +224,23 @@ internal fun TerminalTextButton(
     destructive: Boolean = false,
 ) {
     val view = LocalView.current
-    if (isMaterial3Theme()) {
-        M3TextButton(
-            onClick = {
-                TouchHaptics.click(view)
-                onClick()
-            },
-            modifier = modifier,
-            enabled = enabled,
-            colors = if (destructive) {
-                M3ButtonDefaults.textButtonColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                )
-            } else {
-                M3ButtonDefaults.textButtonColors()
-            },
-        ) {
-            M3Text(text = text, style = MaterialTheme.typography.labelLarge)
-        }
-    } else {
-        MiuixTextButton(
-            text = text,
-            onClick = {
-                TouchHaptics.click(view)
-                onClick()
-            },
-            modifier = modifier,
-            enabled = enabled,
-            minHeight = 28.dp,
-            insideMargin = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-            textStyle = MiuixTheme.textStyles.body2,
-            colors = if (destructive) {
-                MiuixButtonDefaults.textButtonColorsPrimary(
-                    color = MiuixTheme.colorScheme.error,
-                    textColor = MiuixTheme.colorScheme.onError,
-                )
-            } else {
-                MiuixButtonDefaults.textButtonColorsPrimary()
-            },
-        )
+    M3TextButton(
+        onClick = {
+            TouchHaptics.click(view)
+            onClick()
+        },
+        modifier = modifier,
+        enabled = enabled,
+        colors = if (destructive) {
+            M3ButtonDefaults.textButtonColors(
+                containerColor = MaterialTheme.colorScheme.errorContainer,
+                contentColor = MaterialTheme.colorScheme.onErrorContainer,
+            )
+        } else {
+            M3ButtonDefaults.textButtonColors()
+        },
+    ) {
+        M3Text(text = text, style = MaterialTheme.typography.labelLarge)
     }
 }
 
@@ -675,21 +570,12 @@ private fun ConsoleLine(
     val text = remember(line.id, line.version, cursorCol, defaultColor) {
         lineToAnnotated(line, cursorCol, cursorColor, cursorTextColor)
     }
-    if (isMaterial3Theme()) {
-        M3Text(
-            text = text,
-            style = style.copy(color = defaultColor),
-            softWrap = false,
-            maxLines = 1,
-        )
-    } else {
-        MiuixText(
-            text = text,
-            style = style.copy(color = defaultColor),
-            softWrap = false,
-            maxLines = 1,
-        )
-    }
+    M3Text(
+        text = text,
+        style = style.copy(color = defaultColor),
+        softWrap = false,
+        maxLines = 1,
+    )
 }
 
 /** 网格行 → AnnotatedString：连续同样式单元格合并为一个 span；光标格反色。 */
@@ -770,55 +656,28 @@ private fun KeyChip(
     onClick: () -> Unit,
 ) {
     val view = LocalView.current
-    if (isMaterial3Theme()) {
-        // 官方按钮：激活键用 FilledButton，其余用 FilledTonalButton；
-        // 胶囊形状、容器色、字阶与按压动效全部取官方默认值，不覆盖。
-        if (active) {
-            M3Button(
-                onClick = {
-                    TouchHaptics.keyboardTap(view)
-                    onClick()
-                },
-                modifier = modifier,
-            ) {
-                M3Text(text = label, style = MaterialTheme.typography.labelLarge)
-            }
-        } else {
-            FilledTonalButton(
-                onClick = {
-                    TouchHaptics.keyboardTap(view)
-                    onClick()
-                },
-                modifier = modifier,
-            ) {
-                M3Text(text = label, style = MaterialTheme.typography.labelLarge)
-            }
-        }
-        return
-    }
-    Box(
-        modifier = modifier
-            .background(
-                if (active) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.surfaceVariant,
-                RoundedCornerShape(8.dp),
-            )
-            .clickable(onClick = {
+    // 官方按钮：激活键用 FilledButton，其余用 FilledTonalButton；
+    // 胶囊形状、容器色、字阶与按压动效全部取官方默认值，不覆盖。
+    if (active) {
+        M3Button(
+            onClick = {
                 TouchHaptics.keyboardTap(view)
                 onClick()
-            })
-            .padding(vertical = 8.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        MiuixText(
-            text = label,
-            style = MiuixTheme.textStyles.footnote1,
-            color = if (active) {
-                MiuixTheme.colorScheme.onPrimary
-            } else {
-                MiuixTheme.colorScheme.onSurfaceVariantSummary
             },
-            fontWeight = if (active) FontWeight.SemiBold else null,
-        )
+            modifier = modifier,
+        ) {
+            M3Text(text = label, style = MaterialTheme.typography.labelLarge)
+        }
+    } else {
+        FilledTonalButton(
+            onClick = {
+                TouchHaptics.keyboardTap(view)
+                onClick()
+            },
+            modifier = modifier,
+        ) {
+            M3Text(text = label, style = MaterialTheme.typography.labelLarge)
+        }
     }
 }
 

@@ -4,11 +4,7 @@ import io.github.mangi.eta.ui.haptics.TouchHaptics
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -28,7 +24,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -37,13 +32,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.agent.terminal.TerminalEnvironment
 import io.github.mangi.eta.ui.adaptive.EtaDialog
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.app.DaemonTaskUi
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 守护任务列表面板；终端块视图与控制台视图共用。 */
 @Composable
@@ -96,94 +86,38 @@ private fun DaemonTaskRow(
         }
     }
 
-    if (isMaterial3Theme()) {
-        // 官方 ListItem：点按行展开日志，自带涟漪、语义与按压形变；停止动作用官方图标按钮。
-        ListItem(
-            onClick = ::toggleLogs,
-            modifier = Modifier.fillMaxWidth(),
-            content = {
-                M3Text(
-                    text = task.command,
-                    style = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            },
-            supportingContent = {
-                M3Text(
-                    text = daemonMeta(task),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (task.running) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                )
-            },
-            trailingContent = {
-                TerminalIconButton(
-                    icon = Icons.Rounded.Close,
-                    contentDescription = stringResource(R.string.terminal_stop),
-                    onClick = { onStop(task.id) },
-                )
-            },
-        )
-        DaemonLogsPanel(logsExpanded = logsExpanded, logs = logs)
-        return
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-    ) {
-        Text(
-            text = task.command,
-            style = MiuixTheme.textStyles.body2.copy(fontFamily = FontFamily.Monospace),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(
+    // 官方 ListItem：点按行展开日志，自带涟漪、语义与按压形变；停止动作用官方图标按钮。
+    ListItem(
+        onClick = ::toggleLogs,
+        modifier = Modifier.fillMaxWidth(),
+        content = {
+            M3Text(
+                text = task.command,
+                style = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        },
+        supportingContent = {
+            M3Text(
                 text = daemonMeta(task),
-                style = MiuixTheme.textStyles.footnote2,
+                style = MaterialTheme.typography.bodyMedium,
                 color = if (task.running) {
-                    MiuixTheme.colorScheme.primary
+                    MaterialTheme.colorScheme.primary
                 } else {
-                    MiuixTheme.colorScheme.onSurfaceVariantSummary
+                    MaterialTheme.colorScheme.onSurfaceVariant
                 },
-                modifier = Modifier.weight(1f),
             )
-            TextButton(
-                text = stringResource(
-                    if (logsExpanded) R.string.terminal_daemon_hide_logs else R.string.terminal_daemon_view_logs
-                ),
-                minHeight = 28.dp,
-                insideMargin = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                textStyle = MiuixTheme.textStyles.body2,
-                onClick = ::toggleLogs,
-                colors = ButtonDefaults.textButtonColorsPrimary(),
+        },
+        trailingContent = {
+            TerminalIconButton(
+                icon = Icons.Rounded.Close,
+                contentDescription = stringResource(R.string.terminal_stop),
+                onClick = { onStop(task.id) },
             )
-            TextButton(
-                text = stringResource(R.string.terminal_stop),
-                onClick = {
-                    TouchHaptics.click(view)
-                    onStop(task.id)
-                },
-                minHeight = 28.dp,
-                insideMargin = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                textStyle = MiuixTheme.textStyles.body2,
-                colors = ButtonDefaults.textButtonColorsPrimary(
-                    color = MiuixTheme.colorScheme.error,
-                    textColor = MiuixTheme.colorScheme.onError,
-                ),
-            )
-        }
-        DaemonLogsPanel(logsExpanded = logsExpanded, logs = logs)
-    }
+        },
+    )
+    DaemonLogsPanel(logsExpanded = logsExpanded, logs = logs)
 }
 
 /**
@@ -208,17 +142,7 @@ private fun DaemonLogsPanel(logsExpanded: Boolean, logs: String?) {
             }
         }
     }
-    if (isMaterial3Theme()) {
-        Card(modifier = Modifier.fillMaxWidth()) { content() }
-    } else {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(MiuixTheme.colorScheme.surfaceVariant),
-        ) {
-            content()
-        }
-    }
+    Card(modifier = Modifier.fillMaxWidth()) { content() }
 }
 
 @Composable

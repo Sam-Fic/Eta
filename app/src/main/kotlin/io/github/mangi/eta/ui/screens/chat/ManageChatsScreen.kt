@@ -1,9 +1,7 @@
 package io.github.mangi.eta.ui.screens.chat
 
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DeleteOutline
@@ -52,7 +49,6 @@ import io.github.mangi.eta.ui.adaptive.EtaSegmentedItem
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 import io.github.mangi.eta.ui.adaptive.EtaText
 import io.github.mangi.eta.ui.adaptive.EtaTextStyle
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.app.SearchHistoryDialog
 import io.github.mangi.eta.ui.components.streamDiagnosticDraw
 import io.github.mangi.eta.ui.components.streamDiagnosticMeasure
@@ -60,9 +56,6 @@ import io.github.mangi.eta.ui.components.streamDiagnosticPlacement
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.model.ConversationSummaryUi
 import io.github.mangi.eta.ui.model.MessageSearchHit
-import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 管理页列表顺序。已有会话保持原位；新会话按当前列表里的相对顺序插到最前。置顶变化才整表重排。 */
 internal fun stableManageChatOrder(
@@ -161,13 +154,7 @@ internal fun ManageChatsScreen(
                     modifier = Modifier
                         .animateItem(
                             fadeInSpec = null,
-                            // M3 Expressive：淡出/位移动效统一取官方 motionScheme 规格；
-                            // miuix 主题族保留原来的 180ms。
-                            fadeOutSpec = if (isMaterial3Theme()) {
-                                MaterialTheme.motionScheme.defaultEffectsSpec()
-                            } else {
-                                tween(180)
-                            },
+                            fadeOutSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
                             placementSpec = null,
                         )
                         .padding(horizontal = EtaGroupHorizontalPadding),
@@ -239,45 +226,31 @@ private fun TopBarIconButton(
     enabled: Boolean = true,
 ) {
     val view = LocalView.current
-    if (isMaterial3Theme()) {
-        val colors = if (destructive) {
-            IconButtonDefaults.iconButtonColors(
-                contentColor = MaterialTheme.colorScheme.error,
-            )
-        } else {
-            IconButtonDefaults.iconButtonColors()
-        }
-        M3IconButton(
-            onClick = {
-                TouchHaptics.click(view)
-                onClick()
-            },
-            enabled = enabled,
-            colors = colors,
-        ) {
-            Icon(imageVector = icon, contentDescription = contentDescription)
-        }
-        return
-    }
-    IconButton(onClick = {
-        TouchHaptics.click(view)
-        onClick()
-    }, enabled = enabled) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = if (destructive) MiuixTheme.colorScheme.error else MiuixTheme.colorScheme.onSurface,
+    val colors = if (destructive) {
+        IconButtonDefaults.iconButtonColors(
+            contentColor = MaterialTheme.colorScheme.error,
         )
+    } else {
+        IconButtonDefaults.iconButtonColors()
+    }
+    M3IconButton(
+        onClick = {
+            TouchHaptics.click(view)
+            onClick()
+        },
+        enabled = enabled,
+        colors = colors,
+    ) {
+        Icon(imageVector = icon, contentDescription = contentDescription)
     }
 }
 
 /**
- * 管理页单行（自适应）。
+ * 管理页单行。
  *
- * - Material 3 Expressive：KernelSU 式分段行（[EtaSegmentedItem] + [EtaSegmentedRow]，
- *   与抽屉会话列表同款）；尾部是两枚官方图标按钮——置顶用 [IconToggleButton]、删除用
- *   error 色的 [M3IconButton]。删除**不再**依赖左滑手势，改为可见的尾部按钮。
- * - MIUI X：保留原有卡片行外观，同样把删除从手势改成尾部按钮。
+ * KernelSU 式分段行（[EtaSegmentedItem] + [EtaSegmentedRow]，与抽屉会话列表同款）；
+ * 尾部是两枚官方图标按钮——置顶用 [IconToggleButton]、删除用 error 色的 [M3IconButton]。
+ * 删除**不再**依赖左滑手势，改为可见的尾部按钮。
  */
 @Composable
 private fun ManageChatRow(
@@ -297,158 +270,87 @@ private fun ManageChatRow(
     val deleteDescription = stringResource(R.string.action_delete)
     val statusPresent = conversation.isActiveRun || conversation.hasCompletionMarker
 
-    if (isMaterial3Theme()) {
-        EtaSegmentedItem(index = segmentIndex, count = segmentCount) {
-            Column(
-                modifier = modifier
-                    .fillMaxWidth()
-                    // 组内行距走官方分段缝隙（2dp），末行不补，交给列表底部留白收尾。
-                    .padding(
-                        bottom = if (segmentIndex == segmentCount - 1) 0.dp else EtaSegmentedGap,
-                    ),
-            ) {
-                EtaSegmentedRow(
-                    onClick = onClick,
-                    modifier = Modifier.fillMaxWidth(),
-                    content = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            M3Text(
-                                text = title,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f, fill = false),
-                            )
-                            if (statusPresent) {
-                                ManageChatStatusDot(
-                                    activeRun = conversation.isActiveRun,
-                                    color = MaterialTheme.colorScheme.primary,
-                                )
-                            }
-                        }
-                    },
-                    supportingContent = {
+    EtaSegmentedItem(index = segmentIndex, count = segmentCount) {
+        Column(
+            modifier = modifier
+                .fillMaxWidth()
+                // 组内行距走官方分段缝隙（2dp），末行不补，交给列表底部留白收尾。
+                .padding(
+                    bottom = if (segmentIndex == segmentCount - 1) 0.dp else EtaSegmentedGap,
+                ),
+        ) {
+            EtaSegmentedRow(
+                onClick = onClick,
+                modifier = Modifier.fillMaxWidth(),
+                content = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
                         M3Text(
-                            text = conversation.timeLabel,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            text = title,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
                         )
-                    },
-                    trailingContent = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            // 置顶开关：选中态给官方 secondaryContainer 容器，一眼可辨。
-                            IconToggleButton(
-                                checked = conversation.isPinned,
-                                onCheckedChange = { checked ->
-                                    TouchHaptics.toggle(view, checked)
-                                    onTogglePin()
-                                },
-                                colors = IconButtonDefaults.iconToggleButtonColors(
-                                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    checkedContainerColor =
-                                        MaterialTheme.colorScheme.secondaryContainer,
-                                    checkedContentColor =
-                                        MaterialTheme.colorScheme.onSecondaryContainer,
-                                ),
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.PushPin,
-                                    contentDescription = pinDescription,
-                                )
-                            }
-                            // 删除：破坏性动作取官方 error 角色色。
-                            M3IconButton(
-                                onClick = {
-                                    TouchHaptics.click(view)
-                                    onDelete()
-                                },
-                                colors = IconButtonDefaults.iconButtonColors(
-                                    contentColor = MaterialTheme.colorScheme.error,
-                                ),
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.DeleteOutline,
-                                    contentDescription = deleteDescription,
-                                )
-                            }
+                        if (statusPresent) {
+                            ManageChatStatusDot(
+                                activeRun = conversation.isActiveRun,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
                         }
-                    },
-                )
-            }
-        }
-        return
-    }
-
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(MiuixTheme.colorScheme.surfaceContainerHigh)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(
-                    text = title,
-                    color = MiuixTheme.colorScheme.onSurface,
-                    style = MiuixTheme.textStyles.body1,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                if (statusPresent) {
-                    ManageChatStatusDot(
-                        activeRun = conversation.isActiveRun,
-                        color = MiuixTheme.colorScheme.primary,
-                    )
-                }
-            }
-            Text(
-                text = conversation.timeLabel,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                style = MiuixTheme.textStyles.footnote1,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 2.dp),
-            )
-        }
-        IconButton(onClick = {
-            TouchHaptics.toggle(view, !conversation.isPinned)
-            onTogglePin()
-        }) {
-            Icon(
-                imageVector = Icons.Rounded.PushPin,
-                contentDescription = pinDescription,
-                modifier = Modifier.size(20.dp),
-                tint = if (conversation.isPinned) {
-                    MiuixTheme.colorScheme.onSurface
-                } else {
-                    MiuixTheme.colorScheme.onSurfaceVariantSummary
+                    }
                 },
-            )
-        }
-        IconButton(onClick = {
-            TouchHaptics.click(view)
-            onDelete()
-        }) {
-            Icon(
-                imageVector = Icons.Rounded.DeleteOutline,
-                contentDescription = deleteDescription,
-                modifier = Modifier.size(20.dp),
-                tint = MiuixTheme.colorScheme.error,
+                supportingContent = {
+                    M3Text(
+                        text = conversation.timeLabel,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                },
+                trailingContent = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // 置顶开关：选中态给官方 secondaryContainer 容器，一眼可辨。
+                        IconToggleButton(
+                            checked = conversation.isPinned,
+                            onCheckedChange = { checked ->
+                                TouchHaptics.toggle(view, checked)
+                                onTogglePin()
+                            },
+                            colors = IconButtonDefaults.iconToggleButtonColors(
+                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                checkedContainerColor =
+                                    MaterialTheme.colorScheme.secondaryContainer,
+                                checkedContentColor =
+                                    MaterialTheme.colorScheme.onSecondaryContainer,
+                            ),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.PushPin,
+                                contentDescription = pinDescription,
+                            )
+                        }
+                        // 删除：破坏性动作取官方 error 角色色。
+                        M3IconButton(
+                            onClick = {
+                                TouchHaptics.click(view)
+                                onDelete()
+                            },
+                            colors = IconButtonDefaults.iconButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error,
+                            ),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.DeleteOutline,
+                                contentDescription = deleteDescription,
+                            )
+                        }
+                    }
+                },
             )
         }
     }

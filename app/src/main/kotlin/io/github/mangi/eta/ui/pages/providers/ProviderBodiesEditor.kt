@@ -18,10 +18,7 @@ import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedItemContainer
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.haptics.TouchHaptics
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text as M3Text
 
@@ -66,18 +63,11 @@ internal fun LazyListScope.providerBodiesEditor(
                         val error = parseProviderBodies(bodies).exceptionOrNull()?.message
                         val hint = error ?: stringResource(R.string.pbe_hint_example)
                         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                            if (isMaterial3Theme()) {
-                                M3Text(
-                                    text = hint,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            } else {
-                                Text(
-                                    text = hint,
-                                    style = MiuixTheme.textStyles.body2,
-                                )
-                            }
+                            M3Text(
+                                text = hint,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                         ProviderDivider()
                         ProviderAddRow(text = stringResource(R.string.pbe_add_body_field)) {

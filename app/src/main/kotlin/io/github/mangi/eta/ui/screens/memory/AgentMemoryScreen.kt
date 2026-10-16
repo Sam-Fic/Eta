@@ -25,15 +25,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
-import io.github.mangi.eta.ui.components.MiuixScaffold
 import io.github.mangi.eta.ui.layout.horizontalCutoutPadding
 import io.github.mangi.eta.ui.model.AgentMemoryAction
 import io.github.mangi.eta.ui.model.AgentMemoryUiState
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.utils.overScrollVertical
-import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -68,8 +62,6 @@ internal fun AgentMemoryScreen(
             LazyColumn(
                 modifier = Modifier
                     .weight(1f, fill = false)
-                    .scrollEndHaptic()
-                    .overScrollVertical()
                     .nestedScroll(scrollConnection),
                 contentPadding = PaddingValues(
                     start = sidePadding,
@@ -217,20 +209,12 @@ internal fun AgentMemoryScreen(
             summary = notice,
             onDismissRequest = { onAction(AgentMemoryAction.DismissNotice) },
         ) {
-            if (isMaterial3Theme()) {
-                // 官方文字按钮：形状、行高与配色均取官方默认值。
-                M3TextButton(
-                    onClick = { onAction(AgentMemoryAction.DismissNotice) },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    M3Text(text = stringResource(R.string.ui_knew_cb63c6))
-                }
-            } else {
-                TextButton(
-                    text = stringResource(R.string.ui_knew_cb63c6),
-                    onClick = { onAction(AgentMemoryAction.DismissNotice) },
-                    modifier = Modifier.fillMaxWidth(),
-                )
+            // 官方文字按钮：形状、行高与配色均取官方默认值。
+            M3TextButton(
+                onClick = { onAction(AgentMemoryAction.DismissNotice) },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                M3Text(text = stringResource(R.string.ui_knew_cb63c6))
             }
         }
     }

@@ -1,6 +1,5 @@
 package io.github.mangi.eta.ui.app
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,13 +22,8 @@ import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaText
 import io.github.mangi.eta.ui.adaptive.EtaTextStyle
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.model.MessageSearchHit
-import top.yukonga.miuix.kmp.basic.HorizontalDivider
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import androidx.compose.material3.HorizontalDivider as M3HorizontalDivider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -67,24 +61,13 @@ internal fun SearchHistoryDialog(
         onDismissRequest = onDismiss,
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            if (isMaterial3Theme()) {
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { M3Text(text = stringResource(R.string.search_history_hint)) },
-                    singleLine = true,
-                )
-            } else {
-                TextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    label = stringResource(R.string.search_history_hint),
-                    useLabelAsPlaceholder = true,
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { M3Text(text = stringResource(R.string.search_history_hint)) },
+                singleLine = true,
+            )
             Spacer(modifier = Modifier.height(12.dp))
             when {
                 query.isBlank() -> {
@@ -115,11 +98,7 @@ internal fun SearchHistoryDialog(
                                     onDismiss()
                                 },
                             )
-                            if (isMaterial3Theme()) {
-                                M3HorizontalDivider()
-                            } else {
-                                HorizontalDivider()
-                            }
+                            HorizontalDivider()
                         }
                     }
                 }
@@ -128,7 +107,7 @@ internal fun SearchHistoryDialog(
     }
 }
 
-/** 搜索结果行：M3 用官方 [ListItem]（onClick 重载自带涟漪与语义），MIUI X 保持原有可点文本块。 */
+/** 搜索结果行：官方 [ListItem]（onClick 重载自带涟漪与语义）。 */
 @Composable
 private fun SearchHitRow(
     hit: MessageSearchHit,
@@ -136,55 +115,29 @@ private fun SearchHitRow(
     onClick: () -> Unit,
 ) {
     val detail = "${hit.roleLabel} · ${hit.snippet}"
-    if (isMaterial3Theme()) {
-        ListItem(
-            onClick = onClick,
-            modifier = Modifier.fillMaxWidth(),
-            content = {
-                M3Text(
-                    text = if (showConversationTitle) hit.conversationTitle else detail,
-                    style = MaterialTheme.typography.bodyLarge,
-                    maxLines = if (showConversationTitle) 1 else 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            },
-            supportingContent = if (showConversationTitle) {
-                {
-                    M3Text(
-                        text = detail,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            } else {
-                null
-            },
-        )
-        return
-    }
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
-    ) {
-        if (showConversationTitle) {
-            Text(
-                text = hit.conversationTitle,
-                style = MiuixTheme.textStyles.body1,
-                maxLines = 1,
+    ListItem(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        content = {
+            M3Text(
+                text = if (showConversationTitle) hit.conversationTitle else detail,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = if (showConversationTitle) 1 else 2,
                 overflow = TextOverflow.Ellipsis,
             )
-        }
-        Text(
-            text = detail,
-            style = MiuixTheme.textStyles.body2,
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 2.dp),
-        )
-    }
+        },
+        supportingContent = if (showConversationTitle) {
+            {
+                M3Text(
+                    text = detail,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        } else {
+            null
+        },
+    )
 }

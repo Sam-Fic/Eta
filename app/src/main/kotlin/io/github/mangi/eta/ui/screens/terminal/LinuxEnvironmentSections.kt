@@ -17,7 +17,6 @@ import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.terminal.LinuxDistribution
 import io.github.mangi.eta.agent.terminal.LinuxExecutionBackend
-import io.github.mangi.eta.ui.adaptive.EtaCard
 import io.github.mangi.eta.ui.adaptive.EtaClickableRow
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedDropdownRow
@@ -26,13 +25,6 @@ import io.github.mangi.eta.ui.adaptive.EtaStatusDot
 import io.github.mangi.eta.ui.adaptive.EtaText
 import io.github.mangi.eta.ui.adaptive.EtaTextButton
 import io.github.mangi.eta.ui.adaptive.EtaTextStyle
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
-import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.DropdownItem
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.preference.WindowSpinnerPreference
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 环境状态卡（页面首屏 hero）：发行版 + 版本为标题、运行方式为副标题，
@@ -54,50 +46,32 @@ internal fun LinuxEnvironmentStatusCard(
     actionEnabled: Boolean,
     onAction: () -> Unit,
 ) {
-    if (isMaterial3Theme()) {
-        // M3：hero 是分段列表里的一个条目容器（surfaceBright + 分段圆角），
-        // 与下方各分组同一套容器语言，仅少了组标题。
-        EtaSegmentedColumn(
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 13.dp),
-        ) {
-            item {
-                EtaSegmentedItemContainer {
-                    LinuxEnvironmentStatusBody(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
-                        distribution = distribution,
-                        version = version,
-                        ready = ready,
-                        backend = backend,
-                        summary = summary,
-                        busy = busy,
-                        message = message,
-                        actionText = actionText,
-                        actionEnabled = actionEnabled,
-                        onAction = onAction,
-                    )
-                }
+    // hero 是分段列表里的一个条目容器（surfaceBright + 分段圆角），
+    // 与下方各分组同一套容器语言，仅少了组标题。
+    EtaSegmentedColumn(
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 13.dp),
+    ) {
+        item {
+            EtaSegmentedItemContainer {
+                LinuxEnvironmentStatusBody(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+                    distribution = distribution,
+                    version = version,
+                    ready = ready,
+                    backend = backend,
+                    summary = summary,
+                    busy = busy,
+                    message = message,
+                    actionText = actionText,
+                    actionEnabled = actionEnabled,
+                    onAction = onAction,
+                )
             }
         }
-        return
-    }
-    EtaCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-        LinuxEnvironmentStatusBody(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            distribution = distribution,
-            version = version,
-            ready = ready,
-            backend = backend,
-            summary = summary,
-            busy = busy,
-            message = message,
-            actionText = actionText,
-            actionEnabled = actionEnabled,
-            onAction = onAction,
-        )
     }
 }
 
-/** 状态卡内容：M3 与 MIUI X 共用同一份布局，只是外层容器不同。 */
+/** 状态卡内容：状态说明与主操作按钮。 */
 @Composable
 private fun LinuxEnvironmentStatusBody(
     distribution: String,
@@ -186,97 +160,43 @@ internal fun LinuxEnvironmentConfiguration(
     val backendIndex = backends.indexOf(backend).coerceAtLeast(0)
     val canSelectBackend = rootGranted || backend == LinuxExecutionBackend.CHROOT
 
-    if (isMaterial3Theme()) {
-        EtaSegmentedColumn(
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
-            title = title,
-        ) {
-            item {
-                // 与外观/语音等兄弟页同构：KernelSU 式分段下拉行——行尾以 primary 色给出当前发行版，
-                // 点击后从按下位置弹出带分段形状与勾选图标的表达性菜单。
+    EtaSegmentedColumn(
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+        title = title,
+    ) {
+        item {
+            // 与外观/语音等兄弟页同构：KernelSU 式分段下拉行——行尾以 primary 色给出当前发行版，
+            // 点击后从按下位置弹出带分段形状与勾选图标的表达性菜单。
+            EtaSegmentedDropdownRow(
+                title = stringResource(R.string.linux_distribution_title),
+                items = distributions.map { it.displayName() },
+                selectedIndex = distributions.indexOf(distribution),
+                onItemSelected = { onDistributionSelected(distributions[it]) },
+                icon = Icons.Rounded.Layers,
+                enabled = enabled,
+            )
+        }
+        item {
+            if (canSelectBackend) {
                 EtaSegmentedDropdownRow(
-                    title = stringResource(R.string.linux_distribution_title),
-                    items = distributions.map { it.displayName() },
-                    selectedIndex = distributions.indexOf(distribution),
-                    onItemSelected = { onDistributionSelected(distributions[it]) },
-                    icon = Icons.Rounded.Layers,
+                    title = stringResource(R.string.capability_linux_backend),
+                    // 取值由行尾以 primary 色呈现，副标题只补运行方式的含义。
+                    summary = backendSummaries[backendIndex],
+                    items = backendLabels,
+                    selectedIndex = backends.indexOf(backend),
+                    onItemSelected = { onBackendSelected(backends[it]) },
+                    icon = Icons.Rounded.Security,
                     enabled = enabled,
                 )
-            }
-            item {
-                if (canSelectBackend) {
-                    EtaSegmentedDropdownRow(
-                        title = stringResource(R.string.capability_linux_backend),
-                        // 取值由行尾以 primary 色呈现，副标题只补运行方式的含义。
-                        summary = backendSummaries[backendIndex],
-                        items = backendLabels,
-                        selectedIndex = backends.indexOf(backend),
-                        onItemSelected = { onBackendSelected(backends[it]) },
-                        icon = Icons.Rounded.Security,
-                        enabled = enabled,
-                    )
-                } else {
-                    EtaClickableRow(
-                        title = stringResource(R.string.capability_linux_backend),
-                        summary = backend.displayName(),
-                        onClick = null,
-                        showChevron = false,
-                        leading = { Icon(Icons.Rounded.Security, null) },
-                    )
-                }
-            }
-        }
-        return
-    }
-
-    Card(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-        WindowSpinnerPreference(
-            title = stringResource(R.string.linux_distribution_title),
-            items = distributions.map {
-                DropdownItem(
-                    text = it.displayName(),
-                    summary = stringResource(
-                        when (it) {
-                            LinuxDistribution.ALPINE -> R.string.linux_distribution_alpine_summary
-                            LinuxDistribution.DEBIAN -> R.string.linux_distribution_debian_summary
-                        },
-                    ),
+            } else {
+                EtaClickableRow(
+                    title = stringResource(R.string.capability_linux_backend),
+                    summary = backend.displayName(),
+                    onClick = null,
+                    showChevron = false,
+                    leading = { Icon(Icons.Rounded.Security, null) },
                 )
-            },
-            selectedIndex = distributions.indexOf(distribution),
-            enabled = enabled,
-            onSelectedIndexChange = { onDistributionSelected(distributions[it]) },
-        )
-        if (canSelectBackend) {
-            WindowSpinnerPreference(
-                title = stringResource(R.string.capability_linux_backend),
-                items = backends.map {
-                    DropdownItem(
-                        text = it.displayName(),
-                        summary = stringResource(
-                            when (it) {
-                                LinuxExecutionBackend.PROOT -> R.string.capability_linux_proot_summary
-                                LinuxExecutionBackend.CHROOT -> R.string.capability_linux_chroot_summary
-                            },
-                        ),
-                        enabled = it == LinuxExecutionBackend.PROOT || rootGranted,
-                    )
-                },
-                selectedIndex = backends.indexOf(backend),
-                enabled = enabled,
-                onSelectedIndexChange = { onBackendSelected(backends[it]) },
-            )
-        } else {
-            BasicComponent(
-                title = stringResource(R.string.capability_linux_backend),
-                endActions = {
-                    Text(
-                        text = backend.displayName(),
-                        style = MiuixTheme.textStyles.body2,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                    )
-                },
-            )
+            }
         }
     }
 }

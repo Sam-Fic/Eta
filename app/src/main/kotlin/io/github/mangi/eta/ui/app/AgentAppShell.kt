@@ -25,7 +25,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -40,12 +39,10 @@ import io.github.mangi.eta.data.repository.ProviderBalanceStore
 import io.github.mangi.eta.ui.pages.providers.ProviderBalanceIndicator
 import io.github.mangi.eta.ui.pages.providers.activityLifecycleOwnerOrNull
 import io.github.mangi.eta.ui.pages.providers.hasBalanceIndicatorContent
-import io.github.mangi.eta.ui.components.AdaptiveTopAppBar
 import io.github.mangi.eta.ui.components.ConversationSidePaneScaffold
 import io.github.mangi.eta.ui.components.TopBarBackdrop
 import io.github.mangi.eta.ui.components.captureForTopBar
 import io.github.mangi.eta.ui.components.rememberTopBarBackdrop
-import io.github.mangi.eta.ui.components.topBarContainerColor
 import io.github.mangi.eta.ui.model.ConversationPaneUiState
 import io.github.mangi.eta.agent.delegation.SubAgentContextStats
 import io.github.mangi.eta.ui.model.ConversationTokenUsageUi
@@ -53,22 +50,16 @@ import io.github.mangi.eta.ui.model.MessageSearchHit
 import io.github.mangi.eta.ui.model.ConversationSummaryUi
 import io.github.mangi.eta.ui.navigation.AppRoute
 import io.github.mangi.eta.ui.adaptive.EtaTopBarBackButton
-import io.github.mangi.eta.ui.adaptive.etaLabelStyle
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.ExperimentalMaterial3Api
-import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
-import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.ScrollBehavior
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * Agent App 统一壳层。
@@ -162,28 +153,15 @@ internal fun AgentAppShell(
         }
     }
 
-    val scrollBehavior = MiuixScrollBehavior()
-    // AdaptiveTopAppBar 已改为官方 m3 实现，miuix 的 ScrollBehavior 类型不再兼容；
-    // 给走 AdaptiveTopAppBar 的二级路由单独挂官方 enterAlways 行为（与 miuix TopAppBar
-    // 的收起风格一致），与上方 miuix 行为并列接入嵌套滚动，互不影响各自顶栏。
-    val m3ScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    // 二级页的可折叠顶栏走官方 enterAlways 行为，与首页顶栏共用同一条嵌套滚动连接。
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val backdrop = rememberTopBarBackdrop()
-    // Material 3 顶栏不画底板，直接透出页面背景（与 Material3HomeTopBar 一致），
-    // 因此这里必须与 M3 页面背景同色取官方 surfaceContainer；
-    // MIUI X 仍走毛玻璃/不透明 surface，两套体系不能交叉取色。
-    val material3 = isMaterial3Theme()
-    val topBarColor = if (material3) {
-        MaterialTheme.colorScheme.surfaceContainer
-    } else {
-        topBarContainerColor(backdrop)
-    }
     val pageContent: @Composable () -> Unit = {
         Scaffold(
             // Own render node: the drawer push offset must not re-record the page.
             modifier = Modifier.fillMaxSize().graphicsLayer {},
-            // Material 3：页面背景取官方 surfaceContainer（与顶栏渐变板、二级页 TopAppBar
-            // 同色），不再沿用 miuix Scaffold 默认的 MiuixTheme.surface；MIUI X 保持默认。
-            containerColor = if (material3) MaterialTheme.colorScheme.surfaceContainer else MiuixTheme.colorScheme.surface,
+            // 页面背景取官方 surfaceContainer（与顶栏渐变板、二级页 TopAppBar 同色）。
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
             // 只取状态栏与刘海的 Top/Horizontal 两侧，且不读 safeDrawing：safeDrawing 是
             // systemBars ∪ displayCutout ∪ ime 的并集，键盘动画期间 ime 逐帧变化会让壳层
             // 每帧重组/重测量；systemBars 与 displayCutout 在键盘起落时恒定，对 Top/Horizontal
@@ -204,8 +182,6 @@ internal fun AgentAppShell(
                         AgentTopBar(
                             route = currentRoute,
                             scrollBehavior = scrollBehavior,
-                            m3ScrollBehavior = m3ScrollBehavior,
-                            color = topBarColor,
                             onBack = onBack,
                             onOpenConversationPane = onOpenConversationPane,
                             onNewConversation = onNewConversation,
@@ -247,8 +223,7 @@ internal fun AgentAppShell(
                 modifier = Modifier
                     .fillMaxSize()
                     .captureForTopBar(backdrop)
-                    .nestedScroll(scrollBehavior.nestedScrollConnection)
-                    .nestedScroll(m3ScrollBehavior.nestedScrollConnection),
+                    .nestedScroll(scrollBehavior.nestedScrollConnection),
             ) {
                 content(padding)
             }
@@ -299,9 +274,7 @@ internal fun AgentAppShell(
 private fun AgentTopBar(
     route: AppRoute?,
     currentConversationTitle: String? = null,
-    scrollBehavior: ScrollBehavior,
-    m3ScrollBehavior: TopAppBarScrollBehavior? = null,
-    color: Color,
+    scrollBehavior: TopAppBarScrollBehavior,
     onBack: () -> Unit,
     onOpenConversationPane: () -> Unit,
     onNewConversation: () -> Unit,
@@ -332,8 +305,6 @@ private fun AgentTopBar(
 ) {
     val view = LocalView.current
     val isHome = route is AppRoute.Home
-    // Material 3 下顶栏的图标按钮改用官方 IconButton（默认取 colorScheme 角色色）。
-    val material3 = isMaterial3Theme()
     val navigationIcon: @Composable () -> Unit = {
         if (isHome) {
             IconButton(onClick = {
@@ -399,18 +370,17 @@ private fun AgentTopBar(
         }
     }
 
-    if (isHome && isMaterial3Theme()) {
-        // 首页 M3 顶栏不消费滚动偏移，但壳层内容仍挂在共享 MiuixScrollBehavior 的嵌套滚动连接上。
-        // 二级页的可折叠顶栏（AdaptiveTopAppBar）会把 heightOffsetLimit 设成负的折叠区间；
-        // 切换主题必须途经设置页，返回首页后该状态残留在共享 TopAppBarState 上，连接就把
-        // 「朝最新消息方向」（available.y <= 0）的位移整段吞掉充作折叠高度：表现为只能向上滑、
-        // 不能向下滚。miuix 首页靠 SmallTopAppBar 每帧把折叠区间复位成 0 逃过这一劫，这里对
-        // M3 首页做同样的复位：区间归零后高度偏移无法移动，连接立刻回到惯性状态，不再吃位移。
+    if (isHome) {
+        // 首页顶栏不消费滚动偏移，但壳层内容仍挂在共享 TopAppBarScrollBehavior 的嵌套滚动连接上。
+        // 二级页的可折叠顶栏会把 heightOffsetLimit 设成负的折叠区间；
+        // 从二级页返回首页后该状态残留在共享 TopAppBarState 上，连接就把「朝最新消息方向」
+        // （available.y <= 0）的位移整段吞掉充作折叠高度：表现为只能向上滑、不能向下滚。
+        // 这里对首页做复位：区间归零后高度偏移无法移动，连接立刻回到惯性状态，不再吃位移。
         SideEffect {
             scrollBehavior.state.heightOffsetLimit = 0f
             scrollBehavior.state.heightOffset = 0f
         }
-        // 首页（Material 3 Expressive）：菜单 + 会话标题拆分按钮 + 新建对话，一行排开。
+        // 首页：菜单 + 会话标题拆分按钮 + 新建对话，一行排开（聊天舞台保持紧凑）。
         Material3HomeTopBar(
             title = titleForRoute(route, currentConversationTitle),
             onOpenConversationPane = onOpenConversationPane,
@@ -434,25 +404,9 @@ private fun AgentTopBar(
             canDeleteCurrentConversation = canDeleteCurrentConversation,
             onDeleteCurrentConversation = onDeleteCurrentConversation,
         )
-    } else if (isHome) {
-        // 首页聊天舞台保持紧凑；二级内容页统一使用可折叠大标题。
-        // 顶栏会话名与侧栏「新建对话 / 管理聊天」按钮文案同号（Secondary + Medium）。
-        // SmallTopAppBar 不给标题样式入口：库内部只读 textStyles.title3.fontSize
-        // （整个 miuix 也只有顶栏标题读它），所以仅在这一个构件的范围内把 title3 换成
-        // 标签档，其余档位与调色盘都按当前值继承。
-        MiuixTheme(textStyles = MiuixTheme.textStyles.copy(title3 = etaLabelStyle())) {
-            SmallTopAppBar(
-                title = titleForRoute(route, currentConversationTitle),
-                color = color,
-                scrollBehavior = scrollBehavior,
-                navigationIcon = navigationIcon,
-                actions = actions,
-            )
-        }
-    } else if (material3) {
-        // 二级路由（Chat / Terminal）在 Material 3 下改用官方 TopAppBar：
-        // 容器色与页面背景同为 surfaceContainer，标题与图标全部走官方 colorScheme 角色，
-        // 不再读 MiuixTheme 调色盘。
+    } else {
+        // 二级路由（Chat / Terminal）用官方 TopAppBar：容器色与页面背景同为 surfaceContainer，
+        // 标题与图标全部走官方 colorScheme 角色。
         TopAppBar(
             title = {
                 Text(
@@ -465,14 +419,6 @@ private fun AgentTopBar(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
                 scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
             ),
-            navigationIcon = navigationIcon,
-            actions = actions,
-        )
-    } else {
-        AdaptiveTopAppBar(
-            title = titleForRoute(route, currentConversationTitle),
-            color = color,
-            scrollBehavior = m3ScrollBehavior,
             navigationIcon = navigationIcon,
             actions = actions,
         )

@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -39,7 +38,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
@@ -66,7 +64,6 @@ import io.github.mangi.eta.ui.app.UserTerminalStore
 import io.github.mangi.eta.ui.app.UserTerminalUiState
 import io.github.mangi.eta.ui.components.ansiPlainText
 import io.github.mangi.eta.ui.components.ansiToAnnotatedString
-import top.yukonga.miuix.kmp.basic.DropdownImpl
 import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -75,17 +72,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text as M3Text
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
-import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
-import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
-import top.yukonga.miuix.kmp.basic.ListPopupColumn
-import top.yukonga.miuix.kmp.basic.PopupPositionProvider
-import top.yukonga.miuix.kmp.basic.Text as MiuixText
-import top.yukonga.miuix.kmp.basic.ButtonDefaults as MiuixButtonDefaults
-import top.yukonga.miuix.kmp.basic.TextButton as MiuixTextButton
-import top.yukonga.miuix.kmp.basic.TextField as MiuixTextField
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowListPopup
 
 /**
  * 用户手动终端：块式输出（命令、输出、退出码），给人用；与 AI 工具调用的任务模型分开。
@@ -246,8 +232,8 @@ private fun CommandBlock(
     val exitCode = block.exitCode
     val failed = exitCode != null && exitCode != 0
     // 官方组件都不提供「长按富文本内容块」的重载（Card 只有 onClick），因此这里：
-    // M3 用官方 Card 承担容器（surfaceContainerHighest + shapes.medium + 官方涟漪），
-    // 长按手势保留在 combinedClickable 上；MIUI X 分支保持原样。
+    // 用官方 Card 承担容器（surfaceContainerHighest + shapes.medium + 官方涟漪），
+    // 长按手势保留在 combinedClickable 上。
     val blockContent: @Composable () -> Unit = {
         Row(
             modifier = Modifier
@@ -312,12 +298,8 @@ private fun CommandBlock(
         }
     }
     Box {
-        if (isMaterial3Theme()) {
-            // 官方 Card 默认容器色与形状，命令块因此不再是裸文本行。
-            Card(modifier = Modifier.fillMaxWidth()) { blockContent() }
-        } else {
-            blockContent()
-        }
+        // 官方 Card 默认容器色与形状，命令块因此不再是裸文本行。
+        Card(modifier = Modifier.fillMaxWidth()) { blockContent() }
         BlockMenu(
             show = showMenu,
             block = block,
@@ -355,79 +337,34 @@ private fun BlockMenu(
     onReinput: (String) -> Unit,
 ) {
     val view = LocalView.current
-    if (isMaterial3Theme()) {
-        // 官方下拉菜单：DropdownMenu 提供 surfaceContainer 容器、extraSmall 形状与
-        // Level2 阴影；DropdownMenuItem 提供 48dp 行高与 labelLarge 字阶，均不覆盖。
-        DropdownMenu(expanded = show, onDismissRequest = onDismiss) {
-            DropdownMenuItem(
-                text = { M3Text(stringResource(R.string.terminal_copy_command)) },
-                onClick = {
-                    TouchHaptics.click(view)
-                    onDismiss()
-                    clipboard.setText(AnnotatedString(block.command))
-                },
-            )
-            DropdownMenuItem(
-                text = { M3Text(stringResource(R.string.terminal_copy_output)) },
-                enabled = block.output.isNotEmpty(),
-                onClick = {
-                    TouchHaptics.click(view)
-                    onDismiss()
-                    clipboard.setText(AnnotatedString(ansiPlainText(block.output)))
-                },
-            )
-            DropdownMenuItem(
-                text = { M3Text(stringResource(R.string.terminal_reinput)) },
-                onClick = {
-                    TouchHaptics.click(view)
-                    onDismiss()
-                    onReinput(block.command)
-                },
-            )
-        }
-        return
-    }
-    WindowListPopup(
-        show = show,
-        alignment = PopupPositionProvider.Align.Start,
-        onDismissRequest = onDismiss,
-    ) {
-        ListPopupColumn {
-            DropdownImpl(
-                text = stringResource(R.string.terminal_copy_command),
-                optionSize = 3,
-                isSelected = false,
-                index = 0,
-                onSelectedIndexChange = {
-                    TouchHaptics.click(view)
-                    onDismiss()
-                    clipboard.setText(AnnotatedString(block.command))
-                },
-            )
-            DropdownImpl(
-                text = stringResource(R.string.terminal_copy_output),
-                optionSize = 3,
-                isSelected = false,
-                index = 1,
-                enabled = block.output.isNotEmpty(),
-                onSelectedIndexChange = {
-                    TouchHaptics.click(view)
-                    onDismiss()
-                    clipboard.setText(AnnotatedString(ansiPlainText(block.output)))
-                },
-            )
-            DropdownImpl(
-                text = stringResource(R.string.terminal_reinput),
-                optionSize = 3,
-                isSelected = false,
-                index = 2,
-                onSelectedIndexChange = {
-                    TouchHaptics.click(view)
-                    onDismiss()
-                    onReinput(block.command)
-                },
-            )
-        }
+    // 官方下拉菜单：DropdownMenu 提供 surfaceContainer 容器、extraSmall 形状与
+    // Level2 阴影；DropdownMenuItem 提供 48dp 行高与 labelLarge 字阶，均不覆盖。
+    DropdownMenu(expanded = show, onDismissRequest = onDismiss) {
+        DropdownMenuItem(
+            text = { M3Text(stringResource(R.string.terminal_copy_command)) },
+            onClick = {
+                TouchHaptics.click(view)
+                onDismiss()
+                clipboard.setText(AnnotatedString(block.command))
+            },
+        )
+        DropdownMenuItem(
+            text = { M3Text(stringResource(R.string.terminal_copy_output)) },
+            enabled = block.output.isNotEmpty(),
+            onClick = {
+                TouchHaptics.click(view)
+                onDismiss()
+                clipboard.setText(AnnotatedString(ansiPlainText(block.output)))
+            },
+        )
+        DropdownMenuItem(
+            text = { M3Text(stringResource(R.string.terminal_reinput)) },
+            onClick = {
+                TouchHaptics.click(view)
+                onDismiss()
+                onReinput(block.command)
+            },
+        )
     }
 }
 
@@ -515,66 +452,32 @@ private fun InputRow(
     )
     val sendDescription = stringResource(R.string.terminal_send)
     val view = LocalView.current
-    if (isMaterial3Theme()) {
-        // 官方 OutlinedTextField + 官方 FilledIconButton（发送）；不覆盖形状、配色与容器尺寸。
-        OutlinedTextField(
-            value = input,
-            onValueChange = onInputChange,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp)
-                .padding(bottom = 8.dp),
-            label = { M3Text(hint) },
-            placeholder = { M3Text(hint) },
-            trailingIcon = {
-                FilledIconButton(
-                    onClick = {
-                        TouchHaptics.click(view)
-                        onSubmit()
-                    },
-                    enabled = canSend,
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.ArrowUpward,
-                        contentDescription = sendDescription,
-                    )
-                }
-            },
-            textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
-            maxLines = 4,
-        )
-        return
-    }
-    MiuixTextField(
+    // 官方 OutlinedTextField + 官方 FilledIconButton（发送）；不覆盖形状、配色与容器尺寸。
+    OutlinedTextField(
         value = input,
         onValueChange = onInputChange,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp)
             .padding(bottom = 8.dp),
-        label = hint,
-        useLabelAsPlaceholder = true,
-        maxLines = 4,
-        textStyle = MiuixTheme.textStyles.body2.copy(fontFamily = FontFamily.Monospace),
+        label = { M3Text(hint) },
+        placeholder = { M3Text(hint) },
         trailingIcon = {
-            MiuixIconButton(
+            FilledIconButton(
                 onClick = {
                     TouchHaptics.click(view)
                     onSubmit()
                 },
                 enabled = canSend,
-                modifier = Modifier
-                    .padding(end = 8.dp)
-                    .alpha(if (canSend) 1f else 0.34f),
             ) {
                 Icon(
                     imageVector = Icons.Rounded.ArrowUpward,
                     contentDescription = sendDescription,
-                    modifier = Modifier.size(20.dp),
-                    tint = MiuixTheme.colorScheme.onSurface,
                 )
             }
         },
+        textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+        maxLines = 4,
     )
 }
 

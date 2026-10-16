@@ -4,17 +4,15 @@ import android.content.Context
 import android.provider.Settings
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearOutSlowInEasing
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.keyframes
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -37,26 +35,18 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.data.repository.ProviderBalanceState
 import io.github.mangi.eta.data.repository.formatBalanceDisplay
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Savings
 import java.math.BigDecimal
 import java.math.RoundingMode
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import androidx.compose.animation.core.FiniteAnimationSpec
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text as M3Text
 
 /*
  * 顶部栏余额的变化动画，与静态的 ProviderBalanceIndicator 分开存放：
  * 静态指示器保持中性色、无定时逻辑；这里只在收到新的 BalanceChange 时短暂播放。
  *
- * Material 3 下的全部动效曲线都取自 MaterialTheme.motionScheme 的官方 Spec；
- * MIUI X 保持原有曲线。
+ * 全部动效曲线都取自 MaterialTheme.motionScheme 的官方 Spec。
  */
 
 /** 余额变化动画的强度档位。 */
@@ -90,102 +80,53 @@ private fun Context.animatorsEnabled(): Boolean =
 
 private data class BalanceBurst(val delta: BigDecimal, val level: BalanceEffectLevel)
 
-/** 余额上升色：M3 取官方 tertiary 角色色，MIUI X 取主题主色。 */
+/** 余额上升色：取官方 tertiary 角色色。 */
 @Composable
-private fun balanceIncreaseColor(): Color = if (isMaterial3Theme()) {
-    MaterialTheme.colorScheme.tertiary
-} else {
-    MiuixTheme.colorScheme.primary
-}
+private fun balanceIncreaseColor(): Color = MaterialTheme.colorScheme.tertiary
 
+/** 余额中性色：取官方 onSurfaceVariant 角色色。 */
 @Composable
-private fun balanceNeutralColor(): Color = if (isMaterial3Theme()) {
-    MaterialTheme.colorScheme.onSurfaceVariant
-} else {
-    MiuixTheme.colorScheme.onSurfaceVariantSummary
-}
+private fun balanceNeutralColor(): Color = MaterialTheme.colorScheme.onSurfaceVariant
 
+/** 余额下降色：取官方 error 角色色。 */
 @Composable
-private fun balanceDecreaseColor(): Color = if (isMaterial3Theme()) {
-    MaterialTheme.colorScheme.error
-} else {
-    MiuixTheme.colorScheme.error
-}
+private fun balanceDecreaseColor(): Color = MaterialTheme.colorScheme.error
 
 @Composable
 private fun floatRiseSpec(): FiniteAnimationSpec<Float> =
-    if (isMaterial3Theme()) {
-        MaterialTheme.motionScheme.slowSpatialSpec()
-    } else {
-        tween(durationMillis = 1_300, easing = LinearOutSlowInEasing)
-    }
+    MaterialTheme.motionScheme.slowSpatialSpec()
 
 @Composable
 private fun floatFadeSpec(): FiniteAnimationSpec<Float> =
-    if (isMaterial3Theme()) {
-        MaterialTheme.motionScheme.defaultEffectsSpec()
-    } else {
-        tween(durationMillis = 600)
-    }
+    MaterialTheme.motionScheme.defaultEffectsSpec()
 
 @Composable
 private fun pulseScaleSpec(): FiniteAnimationSpec<Float> =
-    if (isMaterial3Theme()) {
-        MaterialTheme.motionScheme.fastSpatialSpec()
-    } else {
-        tween(durationMillis = 120)
-    }
+    MaterialTheme.motionScheme.fastSpatialSpec()
 
 @Composable
 private fun bounceSpec(): FiniteAnimationSpec<Float> =
-    if (isMaterial3Theme()) {
-        MaterialTheme.motionScheme.defaultSpatialSpec()
-    } else {
-        spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium)
-    }
+    MaterialTheme.motionScheme.defaultSpatialSpec()
 
 @Composable
 private fun rollSpec(): FiniteAnimationSpec<Float> =
-    if (isMaterial3Theme()) {
-        MaterialTheme.motionScheme.defaultSpatialSpec()
-    } else {
-        tween(durationMillis = 600, easing = FastOutSlowInEasing)
-    }
+    MaterialTheme.motionScheme.defaultSpatialSpec()
 
 @Composable
 private fun nudgeSpec(): FiniteAnimationSpec<Float> =
-    if (isMaterial3Theme()) {
-        MaterialTheme.motionScheme.fastSpatialSpec()
-    } else {
-        tween(durationMillis = 260, easing = LinearOutSlowInEasing)
-    }
+    MaterialTheme.motionScheme.fastSpatialSpec()
 
 @Composable
 private fun shakeSpec(): FiniteAnimationSpec<Float> =
-    if (isMaterial3Theme()) {
-        // 官方 motionScheme 不提供阻尼振荡曲线，M3 下退化为一次默认空间位移。
-        MaterialTheme.motionScheme.defaultSpatialSpec()
-    } else {
-        keyframes {
-            durationMillis = 480
-            12f at 60
-            -12f at 140
-            10f at 220
-            -8f at 300
-            4f at 380
-        }
-    }
+    // 官方 motionScheme 不提供阻尼振荡曲线，退化为一次默认空间位移。
+    MaterialTheme.motionScheme.defaultSpatialSpec()
 
 @Composable
 private fun amountColorSpec(fast: Boolean): FiniteAnimationSpec<Color> =
-    if (isMaterial3Theme()) {
-        if (fast) {
-            MaterialTheme.motionScheme.fastEffectsSpec()
-        } else {
-            MaterialTheme.motionScheme.defaultEffectsSpec()
-        }
+    if (fast) {
+        MaterialTheme.motionScheme.fastEffectsSpec()
     } else {
-        tween(durationMillis = if (fast) 150 else 800)
+        MaterialTheme.motionScheme.defaultEffectsSpec()
     }
 
 @Composable
@@ -325,33 +266,18 @@ internal fun AnimatedProviderBalanceIndicator(
                     .graphicsLayer { rotationZ = iconRotation.value },
                 tint = amountColor,
             )
-            if (isMaterial3Theme()) {
-                M3Text(
-                    text = displayText,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = amountColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.graphicsLayer {
-                        val shift = amountShift.value
-                        translationY = shift * 4.dp.toPx()
-                        alpha = 1f - 0.5f * shift
-                    },
-                )
-            } else {
-                Text(
-                    text = displayText,
-                    style = MiuixTheme.textStyles.footnote1,
-                    color = amountColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.graphicsLayer {
-                        val shift = amountShift.value
-                        translationY = shift * 4.dp.toPx()
-                        alpha = 1f - 0.5f * shift
-                    },
-                )
-            }
+            M3Text(
+                text = displayText,
+                style = MaterialTheme.typography.labelSmall,
+                color = amountColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.graphicsLayer {
+                    val shift = amountShift.value
+                    translationY = shift * 4.dp.toPx()
+                    alpha = 1f - 0.5f * shift
+                },
+            )
         }
         val current = burst
         if (current != null) {
@@ -376,31 +302,17 @@ internal fun AnimatedProviderBalanceIndicator(
                     transformOrigin = TransformOrigin(1f, 0f)
                 }
                 .clearAndSetSemantics {}
-            if (isMaterial3Theme()) {
-                M3Text(
-                    text = formatBalanceDelta(current.delta),
-                    style = if (strong) {
-                        MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
-                    } else {
-                        MaterialTheme.typography.labelSmall
-                    },
-                    color = deltaColor,
-                    maxLines = 1,
-                    modifier = deltaModifier,
-                )
-            } else {
-                Text(
-                    text = formatBalanceDelta(current.delta),
-                    style = if (strong) {
-                        MiuixTheme.textStyles.footnote1.copy(fontWeight = FontWeight.Bold)
-                    } else {
-                        MiuixTheme.textStyles.footnote1
-                    },
-                    color = deltaColor,
-                    maxLines = 1,
-                    modifier = deltaModifier,
-                )
-            }
+            M3Text(
+                text = formatBalanceDelta(current.delta),
+                style = if (strong) {
+                    MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+                } else {
+                    MaterialTheme.typography.labelSmall
+                },
+                color = deltaColor,
+                maxLines = 1,
+                modifier = deltaModifier,
+            )
         }
     }
 }

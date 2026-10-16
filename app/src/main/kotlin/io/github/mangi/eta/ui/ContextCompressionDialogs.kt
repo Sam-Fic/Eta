@@ -73,7 +73,6 @@ import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedDropdownRow
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.model.AgentModelOptionUi
 import io.github.mangi.eta.ui.model.AgentModelPickerProjector
@@ -81,11 +80,6 @@ import io.github.mangi.eta.ui.model.AgentModelPickerUiState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.Text as MiuixText
-import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.material3.CircularProgressIndicator as M3CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.TextButton as M3TextButton
@@ -381,12 +375,8 @@ internal fun CompressConversationDialog(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (isMaterial3Theme()) {
-                        // 官方不确定进度指示器：尺寸/线宽/配色全部使用官方默认值。
-                        M3CircularProgressIndicator(modifier = Modifier.size(18.dp))
-                    } else {
-                        CircularProgressIndicator(size = 18.dp, strokeWidth = 2.dp)
-                    }
+                    // 官方不确定进度指示器：尺寸/线宽/配色全部使用官方默认值。
+                    M3CircularProgressIndicator(modifier = Modifier.size(18.dp))
                     Text(
                         text = stringResource(R.string.compress_conversation_in_progress),
                         style = MaterialTheme.typography.bodyMedium,
@@ -468,21 +458,12 @@ internal fun CompressModelMissingWindowDialog(
         summary = stringResource(R.string.compress_model_missing_window_summary),
         onDismissRequest = onDismiss,
     ) {
-        if (isMaterial3Theme()) {
-            // 官方文字按钮：形状、行高与配色均取官方默认值。
-            M3TextButton(
-                onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(text = stringResource(R.string.ui_knew_cb63c6))
-            }
-        } else {
-            TextButton(
-                text = stringResource(R.string.ui_knew_cb63c6),
-                onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.textButtonColorsPrimary(),
-            )
+        // 官方文字按钮：形状、行高与配色均取官方默认值。
+        M3TextButton(
+            onClick = onDismiss,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(text = stringResource(R.string.ui_knew_cb63c6))
         }
     }
 }
@@ -519,28 +500,17 @@ internal fun CompressModelPickerDialog(
                         .padding(horizontal = 4.dp, vertical = 16.dp),
                     horizontalArrangement = Arrangement.Center,
                 ) {
-                    if (isMaterial3Theme()) {
-                        M3CircularProgressIndicator(modifier = Modifier.size(22.dp))
-                    } else {
-                        CircularProgressIndicator(size = 22.dp, strokeWidth = 2.dp)
-                    }
+                    M3CircularProgressIndicator(modifier = Modifier.size(22.dp))
                 }
             } else if (state.providerGroups.isEmpty()) {
-                if (isMaterial3Theme()) {
-                    Text(
-                        text = stringResource(R.string.provider_empty),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 12.dp),
-                    )
-                } else {
-                    MiuixText(
-                        text = stringResource(R.string.provider_empty),
-                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 12.dp),
-                    )
-                }
-            } else if (isMaterial3Theme()) {
-                // M3：KernelSU 式分段单选列表——提供商作分组标题、模型为组内单选行。
+                Text(
+                    text = stringResource(R.string.provider_empty),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 12.dp),
+                )
+            } else {
+                // KernelSU 式分段单选列表——提供商作分组标题、模型为组内单选行。
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(13.dp),
@@ -563,34 +533,6 @@ internal fun CompressModelPickerDialog(
                                     )
                                 }
                             }
-                        }
-                    }
-                }
-            } else {
-                // MIUI X：提供商作分组标题 + 自绘单选行。
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .selectableGroup(),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    state.providerGroups.forEach { group ->
-                        Text(
-                            text = group.providerName,
-                            style = MiuixTheme.textStyles.subtitle,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(start = 4.dp, top = 12.dp, bottom = 4.dp),
-                        )
-                        group.models.forEach { model ->
-                            ModelPickerRadioRow(
-                                title = model.displayName,
-                                selected = pendingProviderId == model.providerId &&
-                                    pendingModelId == model.id,
-                                onClick = {
-                                    pendingProviderId = model.providerId
-                                    pendingModelId = model.id
-                                },
-                            )
                         }
                     }
                 }

@@ -7,8 +7,6 @@ import android.os.Environment
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -25,7 +23,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -50,15 +47,11 @@ import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
 import io.github.mangi.eta.ui.adaptive.EtaText
 import io.github.mangi.eta.ui.adaptive.EtaTextButton
 import io.github.mangi.eta.ui.adaptive.EtaTextStyle
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text as M3Text
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 
@@ -180,31 +173,16 @@ internal fun SharedFoldersScreen(
                 text = stringResource(R.string.shared_folders_footer),
                 style = EtaTextStyle.Footnote,
                 secondary = true,
-                // M3 与分组容器对齐 16dp；MIUI X 保持原有 24dp 观感。
-                modifier = Modifier.padding(horizontal = if (isMaterial3Theme()) 16.dp else 24.dp),
+                modifier = Modifier.padding(horizontal = 16.dp),
             )
         }
         notice?.let { message ->
             item(key = "notice-card") {
-                if (isMaterial3Theme()) {
-                    // 纯提示文字不带容器，直接排在页面背景上。
-                    EtaNoticeText(
-                        title = message,
-                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
-                    )
-                } else {
-                    EtaSegmentedColumn(
-                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
-                    ) {
-                        item {
-                            EtaClickableRow(
-                                title = message,
-                                onClick = null,
-                                showChevron = false,
-                            )
-                        }
-                    }
-                }
+                // 纯提示文字不带容器，直接排在页面背景上。
+                EtaNoticeText(
+                    title = message,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                )
             }
         }
     }
@@ -352,31 +330,19 @@ private fun SharedFolderPickerDialog(
     ) {
         Column {
             val pathLabel = stringResource(R.string.shared_folders_path_label)
-            if (isMaterial3Theme()) {
-                // 官方 OutlinedTextField + keyboardActions(onGo)。
-                androidx.compose.material3.OutlinedTextField(
-                    value = pathInput,
-                    onValueChange = { pathInput = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { M3Text(pathLabel) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                    keyboardActions = KeyboardActions(onGo = { navigateTo(pathInput) }),
-                    textStyle = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = FontFamily.Monospace,
-                    ),
-                )
-            } else {
-                TextField(
-                    value = pathInput,
-                    onValueChange = { pathInput = it },
-                    label = pathLabel,
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                    keyboardActions = KeyboardActions(onGo = { navigateTo(pathInput) }),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
+            // 官方 OutlinedTextField + keyboardActions(onGo)。
+            androidx.compose.material3.OutlinedTextField(
+                value = pathInput,
+                onValueChange = { pathInput = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { M3Text(pathLabel) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                keyboardActions = KeyboardActions(onGo = { navigateTo(pathInput) }),
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                    fontFamily = FontFamily.Monospace,
+                ),
+            )
             browseError?.let { error ->
                 EtaText(
                     text = error,
@@ -415,33 +381,18 @@ private fun SharedFolderPickerDialog(
                 modifier = Modifier.padding(top = 8.dp),
             )
             val nameLabel = stringResource(R.string.shared_folders_name_label)
-            if (isMaterial3Theme()) {
-                androidx.compose.material3.OutlinedTextField(
-                    value = nameInput,
-                    onValueChange = {
-                        nameInput = it
-                        nameTouched = true
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                    label = { M3Text(nameLabel) },
-                    singleLine = true,
-                )
-            } else {
-                TextField(
-                    value = nameInput,
-                    onValueChange = {
-                        nameInput = it
-                        nameTouched = true
-                    },
-                    label = nameLabel,
-                    singleLine = true,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                )
-            }
+            androidx.compose.material3.OutlinedTextField(
+                value = nameInput,
+                onValueChange = {
+                    nameInput = it
+                    nameTouched = true
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                label = { M3Text(nameLabel) },
+                singleLine = true,
+            )
             formError?.let { error ->
                 EtaText(
                     text = error,
@@ -489,32 +440,17 @@ private fun SharedFolderPickerDialog(
     }
 }
 
-/** 目录选择行：KernelSU 式分段行，MIUI X 保留原手写行。 */
+/** 目录选择行：KernelSU 式分段行。 */
 @Composable
 private fun PickerRow(label: String, onClick: () -> Unit) {
-    if (isMaterial3Theme()) {
-        EtaSegmentedRow(
-            onClick = onClick,
-            modifier = Modifier.fillMaxWidth(),
-            content = {
-                M3Text(
-                    text = label,
-                    style = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
-                )
-            },
-        )
-        return
-    }
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp, horizontal = 4.dp),
-    ) {
-        Text(
-            text = label,
-            style = MiuixTheme.textStyles.body2.copy(fontFamily = FontFamily.Monospace),
-        )
-    }
+    EtaSegmentedRow(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        content = {
+            M3Text(
+                text = label,
+                style = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
+            )
+        },
+    )
 }

@@ -2,10 +2,8 @@ package io.github.mangi.eta.ui.screens.skills
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FolderZip
 import androidx.compose.runtime.Composable
@@ -13,7 +11,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -25,17 +22,11 @@ import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 import io.github.mangi.eta.ui.adaptive.EtaTextButton
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.components.ListEmptyState
-import io.github.mangi.eta.ui.components.PreferenceIcon
 import io.github.mangi.eta.ui.model.AgentSkillsAction
 import io.github.mangi.eta.ui.model.AgentSkillsUiState
 import io.github.mangi.eta.ui.model.SkillItemUi
 import io.github.mangi.eta.ui.model.canDeleteUserSkill
-import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
-import top.yukonga.miuix.kmp.basic.TextButton
 import androidx.compose.material3.Button as M3Button
 import androidx.compose.material3.ButtonDefaults as M3ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -225,33 +216,20 @@ fun AgentSkillsScreen(
             summary = notice.message,
             onDismissRequest = { onAction(AgentSkillsAction.DismissNotice) },
         ) {
-            if (isMaterial3Theme()) {
-                // 官方按钮：错误提示用 error 配色，正常提示用默认主色。
-                M3Button(
-                    onClick = { onAction(AgentSkillsAction.DismissNotice) },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = if (notice.isError) {
-                        M3ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error,
-                            contentColor = MaterialTheme.colorScheme.onError,
-                        )
-                    } else {
-                        M3ButtonDefaults.buttonColors()
-                    },
-                ) {
-                    M3Text(text = stringResource(R.string.ui_knew_cb63c6))
-                }
-            } else {
-                TextButton(
-                    text = stringResource(R.string.ui_knew_cb63c6),
-                    onClick = { onAction(AgentSkillsAction.DismissNotice) },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = if (notice.isError) {
-                        ButtonDefaults.textButtonColors()
-                    } else {
-                        ButtonDefaults.textButtonColorsPrimary()
-                    },
-                )
+            // 官方按钮：错误提示用 error 配色，正常提示用默认主色。
+            M3Button(
+                onClick = { onAction(AgentSkillsAction.DismissNotice) },
+                modifier = Modifier.fillMaxWidth(),
+                colors = if (notice.isError) {
+                    M3ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError,
+                    )
+                } else {
+                    M3ButtonDefaults.buttonColors()
+                },
+            ) {
+                M3Text(text = stringResource(R.string.ui_knew_cb63c6))
             }
         }
     }
@@ -260,8 +238,8 @@ fun AgentSkillsScreen(
 /**
  * 可点击的技能行。
  *
- * Material 3 走官方 [ListItem]（onClick 重载自带涟漪与语义），加载态用官方
- * [CircularProgressIndicator]；MIUI X 保持原有 [BasicComponent] + [InfiniteProgressIndicator]。
+ * 走官方分段行 [EtaSegmentedRow]（自带涟漪与语义），加载态用官方
+ * [CircularProgressIndicator]。
  */
 @Composable
 private fun SkillActionRow(
@@ -272,45 +250,22 @@ private fun SkillActionRow(
     iconLoading: Boolean = false,
     onClick: () -> Unit,
 ) {
-    if (isMaterial3Theme()) {
-        EtaSegmentedRow(
-            onClick = onClick,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = enabled,
-            leadingContent = {
-                if (iconLoading) {
-                    CircularProgressIndicator()
-                } else {
-                    Icon(imageVector = icon, contentDescription = null)
-                }
-            },
-            content = {
-                M3Text(text = title)
-            },
-            supportingContent = {
-                M3Text(text = summary)
-            },
-        )
-    } else {
-        BasicComponent(
-            title = title,
-            summary = summary,
-            startAction = {
-                if (iconLoading) {
-                    Box(
-                        modifier = Modifier
-                            .padding(end = 8.dp)
-                            .size(24.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        InfiniteProgressIndicator(size = 22.dp)
-                    }
-                } else {
-                    PreferenceIcon(icon, enabled = enabled)
-                }
-            },
-            enabled = enabled,
-            onClick = onClick,
-        )
-    }
+    EtaSegmentedRow(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        enabled = enabled,
+        leadingContent = {
+            if (iconLoading) {
+                CircularProgressIndicator()
+            } else {
+                Icon(imageVector = icon, contentDescription = null)
+            }
+        },
+        content = {
+            M3Text(text = title)
+        },
+        supportingContent = {
+            M3Text(text = summary)
+        },
+    )
 }

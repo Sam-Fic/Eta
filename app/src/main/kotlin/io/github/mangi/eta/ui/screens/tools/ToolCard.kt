@@ -3,17 +3,19 @@ package io.github.mangi.eta.ui.screens.tools
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.IconButton as M3IconButton
@@ -42,12 +44,6 @@ import io.github.mangi.eta.ui.model.ToolItemUi
 import io.github.mangi.eta.ui.model.actualToolName
 import io.github.mangi.eta.ui.model.toolCardAction
 import io.github.mangi.eta.ui.model.toolCardRequirement
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.CardDefaults
-import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.PressFeedbackType
 
 /**
  * 工具列表的分段行（Material 3）：KernelSU `SegmentedListItem` 式条目——
@@ -141,7 +137,7 @@ internal fun ToolListRow(
 }
 
 /**
- * 工具卡片（MIUI X 主题族的网格卡）：图标行 + 标题 + 摘要 + 能力要求 + 动作行。
+ * 工具卡片（网格卡）：图标行 + 标题 + 摘要 + 能力要求 + 动作行。
  *
  * Material 3 不再使用卡片网格，改由 [ToolListRow] 以分段列表行呈现。
  */
@@ -158,8 +154,8 @@ internal fun ToolCard(
     val requirementText = toolRequirementText(tool.id, rootGranted, capabilities)
     val action = toolCardAction(tool.id, capabilities)
     val actionText = toolActionText(action)
-    val accentColor = MiuixTheme.colorScheme.primary
-    val secondaryColor = MiuixTheme.colorScheme.onSurfaceVariantActions
+    val accentColor = MaterialTheme.colorScheme.primary
+    val secondaryColor = MaterialTheme.colorScheme.onSurfaceVariant
     val titleText = tool.title
     val bodyText = description
     val requirement = requirementText
@@ -175,49 +171,49 @@ internal fun ToolCard(
                 imageVector = iconForTool(tool.id),
                 contentDescription = null,
                 modifier = Modifier.size(24.dp),
-                tint = MiuixTheme.colorScheme.onSurfaceContainer,
+                tint = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(modifier = Modifier.weight(1f))
             if (action != null) {
-                IconButton(onClick = openInfo) {
+                M3IconButton(onClick = openInfo) {
                     Icon(
                         imageVector = Icons.Rounded.Info,
                         contentDescription = infoDescription,
                         modifier = Modifier.size(18.dp),
-                        tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
-        Text(
+        M3Text(
             text = titleText,
-            style = MiuixTheme.textStyles.body2,
+            style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Medium,
-            color = MiuixTheme.colorScheme.onSurfaceContainer,
+            color = MaterialTheme.colorScheme.onSurface,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
         Spacer(modifier = Modifier.height(2.dp))
-        Text(
+        M3Text(
             text = bodyText,
-            style = MiuixTheme.textStyles.footnote1,
+            style = MaterialTheme.typography.bodySmall,
             maxLines = 3,
             overflow = TextOverflow.Ellipsis,
         )
         requirement?.let {
             Spacer(modifier = Modifier.height(8.dp))
-            Text(
+            M3Text(
                 text = it,
-                style = MiuixTheme.textStyles.footnote1,
+                style = MaterialTheme.typography.bodySmall,
                 color = secondaryColor,
             )
         }
         Spacer(modifier = Modifier.height(12.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
+            M3Text(
                 text = actionLabel,
-                style = MiuixTheme.textStyles.footnote1,
+                style = MaterialTheme.typography.bodySmall,
                 color = if (action != null) accentColor else secondaryColor,
                 modifier = Modifier.weight(1f),
             )
@@ -233,19 +229,18 @@ internal fun ToolCard(
     }
 
     Card(
-        modifier = modifier.heightIn(min = 136.dp),
-        insideMargin = PaddingValues(16.dp),
-        colors = CardDefaults.defaultColors(
-            color = MiuixTheme.colorScheme.surfaceContainer,
-            contentColor = MiuixTheme.colorScheme.onSurfaceContainer,
-        ),
-        pressFeedbackType = PressFeedbackType.Sink,
-        showIndication = true,
         onClick = {
             if (action != null) onAction(action) else showDescription = true
         },
+        modifier = modifier.heightIn(min = 136.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+        ),
     ) {
-        cardBody()
+        Column(modifier = Modifier.padding(16.dp)) {
+            cardBody()
+        }
     }
     if (showDescription) {
         ItemDescriptionDialog(

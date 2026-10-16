@@ -5,10 +5,8 @@ import io.github.mangi.eta.ui.haptics.TouchHaptics
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -26,18 +24,12 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.agent.terminal.TerminalEnvironment
 import io.github.mangi.eta.ui.adaptive.EtaDialog
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.app.displayName
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Immutable
 internal data class SessionDialogRow(
@@ -104,152 +96,69 @@ private fun SessionRow(
     onClose: () -> Unit,
 ) {
     val view = LocalView.current
-    if (isMaterial3Theme()) {
-        // 官方单选列表项：selected 语义、涟漪、按压形变与内边距全部由 ListItem 自带。
-        ListItem(
-            selected = row.active,
-            onClick = {
-                TouchHaptics.click(view)
-                onSelect()
-            },
-            modifier = Modifier.fillMaxWidth(),
-            content = {
-                M3Text(
-                    text = row.environment.displayName,
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-            },
-            supportingContent = {
-                Column {
-                    if (row.active) {
-                        M3Text(
-                            text = stringResource(R.string.terminal_session_current),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                    if (row.subtitle.isNotEmpty()) {
-                        M3Text(
-                            text = row.subtitle,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontFamily = FontFamily.Monospace,
-                            ),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-            },
-            trailingContent = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    M3Text(
-                        text = sessionStateLabel(row),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (row.running) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                    )
-                    TerminalIconButton(
-                        icon = Icons.Rounded.Refresh,
-                        contentDescription = stringResource(R.string.terminal_restart_session),
-                        onClick = onRestart,
-                    )
-                    TerminalIconButton(
-                        icon = Icons.Rounded.Close,
-                        contentDescription = stringResource(R.string.terminal_close_session),
-                        onClick = onClose,
-                    )
-                }
-            },
-        )
-        return
-    }
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = {
-                TouchHaptics.click(view)
-                onSelect()
-            })
-            .padding(vertical = 8.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
+    // 官方单选列表项：selected 语义、涟漪、按压形变与内边距全部由 ListItem 自带。
+    ListItem(
+        selected = row.active,
+        onClick = {
+            TouchHaptics.click(view)
+            onSelect()
+        },
+        modifier = Modifier.fillMaxWidth(),
+        content = {
+            M3Text(
                 text = row.environment.displayName,
-                style = MiuixTheme.textStyles.body2,
-                fontWeight = if (row.active) FontWeight.SemiBold else null,
-                color = if (row.active) {
-                    MiuixTheme.colorScheme.primary
-                } else {
-                    MiuixTheme.colorScheme.onSurface
-                },
+                style = MaterialTheme.typography.bodyLarge,
             )
-            if (row.active) {
-                Text(
-                    text = stringResource(R.string.terminal_session_current),
-                    style = MiuixTheme.textStyles.footnote2,
-                    color = MiuixTheme.colorScheme.primary,
-                    modifier = Modifier.padding(start = 8.dp),
+        },
+        supportingContent = {
+            Column {
+                if (row.active) {
+                    M3Text(
+                        text = stringResource(R.string.terminal_session_current),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                if (row.subtitle.isNotEmpty()) {
+                    M3Text(
+                        text = row.subtitle,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontFamily = FontFamily.Monospace,
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        },
+        trailingContent = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                M3Text(
+                    text = sessionStateLabel(row),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (row.running) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+                TerminalIconButton(
+                    icon = Icons.Rounded.Refresh,
+                    contentDescription = stringResource(R.string.terminal_restart_session),
+                    onClick = onRestart,
+                )
+                TerminalIconButton(
+                    icon = Icons.Rounded.Close,
+                    contentDescription = stringResource(R.string.terminal_close_session),
+                    onClick = onClose,
                 )
             }
-        }
-        if (row.subtitle.isNotEmpty()) {
-            Text(
-                text = row.subtitle,
-                style = MiuixTheme.textStyles.footnote2.copy(fontFamily = FontFamily.Monospace),
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(1.dp),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(
-                text = sessionStateLabel(row),
-                style = MiuixTheme.textStyles.footnote2,
-                color = if (row.running) {
-                    MiuixTheme.colorScheme.primary
-                } else {
-                    MiuixTheme.colorScheme.onSurfaceVariantSummary
-                },
-                modifier = Modifier.weight(1f),
-            )
-            TextButton(
-                text = stringResource(R.string.terminal_restart_session),
-                onClick = {
-                    TouchHaptics.click(view)
-                    onRestart()
-                },
-                minHeight = 28.dp,
-                insideMargin = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                textStyle = MiuixTheme.textStyles.body2,
-                colors = ButtonDefaults.textButtonColorsPrimary(),
-            )
-            TextButton(
-                text = stringResource(R.string.terminal_close_session),
-                onClick = {
-                    TouchHaptics.click(view)
-                    onClose()
-                },
-                minHeight = 28.dp,
-                insideMargin = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                textStyle = MiuixTheme.textStyles.body2,
-                colors = ButtonDefaults.textButtonColorsPrimary(
-                    color = MiuixTheme.colorScheme.error,
-                    textColor = MiuixTheme.colorScheme.onError,
-                ),
-            )
-        }
-    }
+        },
+    )
 }
 
 @Composable

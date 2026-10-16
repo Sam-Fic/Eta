@@ -1,16 +1,12 @@
 package io.github.mangi.eta.ui.markdown
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -18,7 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckBox
@@ -52,7 +47,6 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
@@ -65,51 +59,33 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
-import io.github.mangi.eta.ui.components.StatusSuccess
-import io.github.mangi.eta.ui.components.StatusWarning
 import kotlinx.coroutines.delay
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.material3.IconButton as M3IconButton
 import androidx.compose.material3.IconButtonDefaults
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.squircle.squircleBorder
-import top.yukonga.miuix.kmp.squircle.squircleClip
-import top.yukonga.miuix.kmp.squircle.squircleSurface
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-/** 代码块 / 提示块 / 表格容器的圆角：M3 走官方 shapes 令牌，miuix 保持 12dp。 */
+/** 代码块 / 提示块 / 表格容器的圆角：取官方 shapes 令牌。 */
 @Composable
 private fun markdownBlockShape(): androidx.compose.ui.graphics.Shape =
-    if (isMaterial3Theme()) MaterialTheme.shapes.medium else RoundedCornerShape(12.dp)
+    MaterialTheme.shapes.medium
 
-/** 强调色：M3 取官方 primary 角色。 */
+/** 强调色：取官方 primary 角色。 */
 @Composable
-private fun markdownAccentColor(): Color =
-    if (isMaterial3Theme()) MaterialTheme.colorScheme.primary else MiuixTheme.colorScheme.primary
+private fun markdownAccentColor(): Color = MaterialTheme.colorScheme.primary
 
-/** 危险提示色：M3 取官方 error 角色。 */
+/** 代码块顶部语言标签与列表勾选标记的排版：取官方 labelMedium。 */
 @Composable
-private fun markdownErrorColor(): Color =
-    if (isMaterial3Theme()) MaterialTheme.colorScheme.error else MiuixTheme.colorScheme.error
+private fun markdownLabelStyle(): TextStyle = MaterialTheme.typography.labelMedium
 
-/** 代码块顶部语言标签与列表勾选标记的排版：M3 取官方 labelMedium。 */
-@Composable
-private fun markdownLabelStyle(): TextStyle =
-    if (isMaterial3Theme()) MaterialTheme.typography.labelMedium else MiuixTheme.textStyles.footnote2
-
-/** 提示块标题排版：M3 取官方 labelLarge。 */
+/** 提示块标题排版：取官方 labelLarge。 */
 @Composable
 private fun markdownAlertTitleStyle(): TextStyle =
-    if (isMaterial3Theme()) {
-        MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
-    } else {
-        MiuixTheme.textStyles.body2.copy(fontWeight = FontWeight.SemiBold)
-    }
+    MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
 
 /**
  * 绘制一份已解析的 [MarkdownDocument]。
@@ -180,19 +156,7 @@ private fun MarkdownBlockView(block: MarkdownBlock, scope: MarkdownRenderScope) 
         is MarkdownTable -> MarkdownTableBlock(block, scope)
         is MarkdownTableCell -> MarkdownText(block, scope.style.table, scope)
         is MarkdownRule ->
-            // M3 Expressive：官方 HorizontalDivider 承担分隔线（官方 DividerDefaults 厚度与颜色）；
-            // miuix 主题族保留原来的自绘发丝线。
-            if (isMaterial3Theme()) {
-                HorizontalDivider(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
-            } else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp)
-                        .height(0.5.dp)
-                        .background(scope.style.dividerColor),
-                )
-            }
+            HorizontalDivider(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
     }
 }
 
@@ -292,22 +256,12 @@ private fun MarkdownCodeBlock(block: MarkdownCode, scope: MarkdownRenderScope) {
             MarkdownText(block, style.code, scope, softWrap = false)
         }
     }
-    // M3 Expressive：官方 Surface 承担代码块容器、形状与颜色；miuix 沿用 squircle 表面。
-    if (isMaterial3Theme()) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = markdownBlockShape(),
-            color = style.codeBackground,
-        ) {
-            Column(content = { codeBody() })
-        }
-    } else {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .squircleSurface(color = style.codeBackground, cornerRadius = 12.dp),
-            content = { codeBody() },
-        )
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = markdownBlockShape(),
+        color = style.codeBackground,
+    ) {
+        Column(content = { codeBody() })
     }
 }
 
@@ -322,11 +276,6 @@ private fun CopyButton(text: String, tint: Color) {
             copied = false
         }
     }
-    // miuix IconButton always builds an offscreen squircle layer even for its default
-    // transparent background, which showed up as thousands of "alpha caused saveLayer"
-    // records per scroll pass. This button is transparent, so the mask only ever carved
-    // invisible pixels: keep the same 32dp hit target, role, interaction and icon, and
-    // let it draw as a plain button.
     val copyAction: () -> Unit = {
         @Suppress("DEPRECATION")
         clipboard.setText(AnnotatedString(text))
@@ -341,29 +290,13 @@ private fun CopyButton(text: String, tint: Color) {
             tint = iconTint,
         )
     }
-    // M3 Expressive：复制动作走官方 IconButton（官方涟漪、Role 与图标槽位）。
-    // miuix 主题族继续用零 indication 的紧凑命中区，维持流式滚动性能。
-    if (isMaterial3Theme()) {
-        // 尺寸取官方 extraSmall 图标按钮令牌（容器 32dp / 图标 20dp）。
-        M3IconButton(
-            onClick = copyAction,
-            modifier = Modifier.size(IconButtonDefaults.extraSmallContainerSize()),
-            content = copyIcon,
-        )
-    } else {
-        Box(
-            modifier = Modifier
-                .defaultMinSize(minWidth = 32.dp, minHeight = 32.dp)
-                .clickable(
-                    role = Role.Button,
-                    indication = null,
-                    interactionSource = remember { MutableInteractionSource() },
-                    onClick = copyAction,
-                ),
-            contentAlignment = Alignment.Center,
-            content = { copyIcon() },
-        )
-    }
+    // 复制动作走官方 IconButton（官方涟漪、Role 与图标槽位）；
+    // 尺寸取官方 extraSmall 图标按钮令牌（容器 32dp / 图标 20dp）。
+    M3IconButton(
+        onClick = copyAction,
+        modifier = Modifier.size(IconButtonDefaults.extraSmallContainerSize()),
+        content = copyIcon,
+    )
 }
 
 // ── 引用与提示 ──────────────────────────────────────────────────────────
@@ -415,24 +348,14 @@ private fun MarkdownAlertBlock(block: MarkdownAlert, scope: MarkdownRenderScope)
             MarkdownBlockColumn(blocks = block.blocks, scope = scope, compact = false)
         }
     }
-    // M3 Expressive：官方 Surface 承担提示底板；颜色仍是语义强调色的 8% 淡色。
-    if (isMaterial3Theme()) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = markdownBlockShape(),
-            color = accent.copy(alpha = 0.08f),
-        ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
-                content = { alertBody() },
-            )
-        }
-    } else {
+    // 官方 Surface 承担提示底板；颜色仍是语义强调色的 8% 淡色。
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = markdownBlockShape(),
+        color = accent.copy(alpha = 0.08f),
+    ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .squircleSurface(color = accent.copy(alpha = 0.08f), cornerRadius = 12.dp)
-                .padding(horizontal = 12.dp, vertical = 12.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
             content = { alertBody() },
         )
     }
@@ -460,31 +383,16 @@ private val MarkdownAlertKind.label: Int
  * 提示框强调色。
  *
  * Material 3 Expressive 的 `colorScheme` 没有 success / warning / important 语义角色，
- * 一律映射到官方角色（`primary` / `tertiary` / `error` / `onSurfaceVariant`），因此 M3 下
- * 不会出现任何本地写死的颜色常量；miuix 主题族保留 StatusColors 与 AlertImportantColor 原值。
+ * 一律映射到官方角色（`primary` / `tertiary` / `error`）。
  */
 @Composable
-private fun MarkdownAlertKind.accentColor(): Color {
-    if (!isMaterial3Theme()) {
-        return when (this) {
-            MarkdownAlertKind.Note -> markdownAccentColor()
-            MarkdownAlertKind.Tip -> StatusSuccess
-            MarkdownAlertKind.Important -> AlertImportantColor
-            MarkdownAlertKind.Warning -> StatusWarning
-            MarkdownAlertKind.Caution -> markdownErrorColor()
-        }
-    }
-    return when (this) {
-        MarkdownAlertKind.Note -> MaterialTheme.colorScheme.primary
-        MarkdownAlertKind.Tip -> MaterialTheme.colorScheme.tertiary
-        MarkdownAlertKind.Important -> MaterialTheme.colorScheme.tertiary
-        MarkdownAlertKind.Warning -> MaterialTheme.colorScheme.tertiary
-        MarkdownAlertKind.Caution -> MaterialTheme.colorScheme.error
-    }
+private fun MarkdownAlertKind.accentColor(): Color = when (this) {
+    MarkdownAlertKind.Note -> MaterialTheme.colorScheme.primary
+    MarkdownAlertKind.Tip -> MaterialTheme.colorScheme.tertiary
+    MarkdownAlertKind.Important -> MaterialTheme.colorScheme.tertiary
+    MarkdownAlertKind.Warning -> MaterialTheme.colorScheme.tertiary
+    MarkdownAlertKind.Caution -> MaterialTheme.colorScheme.error
 }
-
-/** miuix 主题族沿用的历史强调色（仅在非 M3 分支读取）。 */
-private val AlertImportantColor = Color(0xFF8B5CF6)
 
 // ── 列表 ────────────────────────────────────────────────────────────────
 
@@ -701,22 +609,13 @@ private fun MarkdownTableBlock(block: MarkdownTable, scope: MarkdownRenderScope)
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState()),
         ) {
-            // M3 Expressive：官方 Surface 承担表格外框、圆角与描边（outlineVariant 角色）。
-            // miuix 主题族保留 squircle 描边 + 遮罩的原有组合。
-            if (isMaterial3Theme()) {
-                Surface(
-                    shape = markdownBlockShape(),
-                    color = Color.Transparent,
-                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
-                ) {
-                    tableGrid(Modifier)
-                }
-            } else {
-                tableGrid(
-                    Modifier
-                        .squircleBorder(width = 0.5.dp, color = lineColor, cornerRadius = 12.dp)
-                        .squircleClip(cornerRadius = 12.dp),
-                )
+            // 官方 Surface 承担表格外框、圆角与描边（outlineVariant 角色）。
+            Surface(
+                shape = markdownBlockShape(),
+                color = Color.Transparent,
+                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
+            ) {
+                tableGrid(Modifier)
             }
         }
     }

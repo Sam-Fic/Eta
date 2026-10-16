@@ -6,11 +6,9 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Download
@@ -21,7 +19,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -34,7 +31,6 @@ import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
 import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import java.io.InputStream
 import java.io.OutputStream
 import java.text.SimpleDateFormat
@@ -44,13 +40,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
-import io.github.mangi.eta.ui.components.ArrowPreference
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text as M3Text
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
@@ -129,24 +120,13 @@ internal fun DataBackupScreen(
         onBack = onBack,
     ) {
         item(key = "warning") {
-            if (isMaterial3Theme()) {
-                // 纯描述性文字不套分段卡片：直接排在页面背景上，
-                // 容器底色只留给下方可交互的分组，视觉层级更清楚。
-                BackupNoticeRow(
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
-                    title = stringResource(R.string.data_backup_warning_title),
-                    summary = stringResource(R.string.data_backup_warning_summary),
-                )
-            } else {
-                EtaSegmentedColumn(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp)) {
-                    item {
-                        BackupNoticeRow(
-                            title = stringResource(R.string.data_backup_warning_title),
-                            summary = stringResource(R.string.data_backup_warning_summary),
-                        )
-                    }
-                }
-            }
+            // 纯描述性文字不套分段卡片：直接排在页面背景上，
+            // 容器底色只留给下方可交互的分组，视觉层级更清楚。
+            BackupNoticeRow(
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                title = stringResource(R.string.data_backup_warning_title),
+                summary = stringResource(R.string.data_backup_warning_summary),
+            )
         }
         item(key = "actions-card") {
             EtaSegmentedColumn(
@@ -261,31 +241,24 @@ internal fun DataBackupScreen(
     }
 }
 
-/** 纯提示行：M3 直接以文字排在页面背景上（不带容器），MIUI X 保持原有 [BasicComponent]。 */
+/** 纯提示行：直接以文字排在页面背景上（不带容器）。 */
 @Composable
 private fun BackupNoticeRow(
     title: String,
     summary: String,
     modifier: Modifier = Modifier,
 ) {
-    if (isMaterial3Theme()) {
-        Column(modifier = modifier) {
-            M3Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            M3Text(
-                text = summary,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp),
-            )
-        }
-    } else {
-        BasicComponent(
-            title = title,
-            summary = summary,
+    Column(modifier = modifier) {
+        M3Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        M3Text(
+            text = summary,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp),
         )
     }
 }
@@ -293,8 +266,8 @@ private fun BackupNoticeRow(
 /**
  * 备份/导入入口行。
  *
- * Material 3 走官方 [ListItem]（onClick 重载自带涟漪与语义），加载态用官方
- * [CircularProgressIndicator]；MIUI X 保持原有 [ArrowPreference] + [InfiniteProgressIndicator]。
+ * 走官方分段行 [EtaSegmentedRow]（自带涟漪与语义），加载态用官方
+ * [CircularProgressIndicator]。
  */
 @Composable
 private fun BackupActionRow(
@@ -305,50 +278,22 @@ private fun BackupActionRow(
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
-    if (isMaterial3Theme()) {
-        EtaSegmentedRow(
-            onClick = onClick,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = enabled,
-            leadingContent = {
-                if (loading) {
-                    CircularProgressIndicator()
-                } else {
-                    Icon(imageVector = icon, contentDescription = null)
-                }
-            },
-            content = { M3Text(text = title) },
-            supportingContent = {
-                M3Text(text = summary)
-            },
-        )
-    } else {
-        ArrowPreference(
-            title = title,
-            summary = summary,
-            enabled = enabled,
-            startAction = {
-                Box(
-                    modifier = Modifier
-                        .padding(end = 8.dp)
-                        .size(24.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (loading) {
-                        InfiniteProgressIndicator(size = 20.dp)
-                    } else {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            modifier = Modifier.size(24.dp),
-                            tint = MiuixTheme.colorScheme.onBackground,
-                        )
-                    }
-                }
-            },
-            onClick = onClick,
-        )
-    }
+    EtaSegmentedRow(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        enabled = enabled,
+        leadingContent = {
+            if (loading) {
+                CircularProgressIndicator()
+            } else {
+                Icon(imageVector = icon, contentDescription = null)
+            }
+        },
+        content = { M3Text(text = title) },
+        supportingContent = {
+            M3Text(text = summary)
+        },
+    )
 }
 
 private fun defaultBackupFileName(context: Context): String =

@@ -35,10 +35,7 @@ import io.github.mangi.eta.data.repository.ProviderBalanceState
 import io.github.mangi.eta.data.repository.formatBalanceDisplay
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedScope
 import io.github.mangi.eta.ui.adaptive.EtaSwitch
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text as M3Text
@@ -248,20 +245,12 @@ private fun ProviderBalanceOptionBody(
 
 @Composable
 private fun BalanceHint(text: String, modifier: Modifier = Modifier) {
-    if (isMaterial3Theme()) {
-        M3Text(
-            text = text,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = modifier,
-        )
-    } else {
-        Text(
-            text = text,
-            style = MiuixTheme.textStyles.footnote2,
-            modifier = modifier,
-        )
-    }
+    M3Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier,
+    )
 }
 
 @Composable
@@ -269,11 +258,7 @@ internal fun ProviderBalanceAmount(
     amount: String,
     modifier: Modifier = Modifier,
 ) {
-    val contentColor: Color = if (isMaterial3Theme()) {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    } else {
-        MiuixTheme.colorScheme.onSurfaceVariantSummary
-    }
+    val contentColor: Color = MaterialTheme.colorScheme.onSurfaceVariant
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier,
@@ -286,23 +271,13 @@ internal fun ProviderBalanceAmount(
                 .size(12.dp),
             tint = contentColor,
         )
-        if (isMaterial3Theme()) {
-            M3Text(
-                text = amount,
-                style = MaterialTheme.typography.labelSmall,
-                color = contentColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        } else {
-            Text(
-                text = amount,
-                style = MiuixTheme.textStyles.footnote1,
-                color = contentColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+        M3Text(
+            text = amount,
+            style = MaterialTheme.typography.labelSmall,
+            color = contentColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -335,11 +310,7 @@ internal fun ProviderBalanceIndicator(
         AnimatedProviderBalanceIndicator(state = state, amount = amount, modifier = modifier)
         return
     }
-    val amountColor: Color = if (isMaterial3Theme()) {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    } else {
-        MiuixTheme.colorScheme.onSurfaceVariantSummary
-    }
+    val amountColor: Color = MaterialTheme.colorScheme.onSurfaceVariant
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier,
@@ -352,22 +323,12 @@ internal fun ProviderBalanceIndicator(
                 .size(12.dp),
             tint = amountColor,
         )
-        if (isMaterial3Theme()) {
-            M3Text(
-                text = amount,
-                style = MaterialTheme.typography.labelSmall,
-                color = amountColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        } else {
-            Text(
-                text = amount,
-                style = MiuixTheme.textStyles.footnote1,
-                color = amountColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+        M3Text(
+            text = amount,
+            style = MaterialTheme.typography.labelSmall,
+            color = amountColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
