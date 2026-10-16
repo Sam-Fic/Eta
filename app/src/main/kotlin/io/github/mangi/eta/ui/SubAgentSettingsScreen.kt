@@ -65,6 +65,7 @@ import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 import io.github.mangi.eta.ui.adaptive.EtaSwitch
 import io.github.mangi.eta.ui.adaptive.rememberFabExpandedState
 import io.github.mangi.eta.ui.components.ConversationSubAgentEditor
+import io.github.mangi.eta.ui.components.ListEmptyState
 import io.github.mangi.eta.ui.components.LocalConversationSubAgentEditor
 import io.github.mangi.eta.ui.components.SubAgentDropdownMenu
 import io.github.mangi.eta.ui.components.SubAgentEditorState
@@ -152,7 +153,16 @@ internal fun SubAgentSettingsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 6.dp),
                     )
-                    Box(Modifier.padding(horizontal = 16.dp)) { SubAgentPresetDirectoryStatus(directory) }
+                    Box(Modifier.padding(horizontal = 16.dp)) {
+                        if (editable && directory.entries.isEmpty()) {
+                            // 空态参考 MCP servers 页：分段容器做底板，文案居中，避免裸文本悬空。
+                            EtaSegmentedItemContainer {
+                                ListEmptyState(title = stringResource(R.string.spc_empty))
+                            }
+                        } else {
+                            SubAgentPresetDirectoryStatus(directory)
+                        }
+                    }
                 }
                 item(key = "groups") {
                     EtaSegmentedColumn(
