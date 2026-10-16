@@ -5,14 +5,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 主页与会话历史侧栏共用的统一语义字阶。
  *
- * 只统一“语义档位”，不强行让两个主题族的像素值完全相等：每个档位分别映射到
- * Material 3 官方 `typography` 与 miuix `textStyles` 中语义最接近的一档，
- * 因此同一处文字在两种主题下观感一致，又都仍是各自主题的官方字阶。
+ * 只统一“语义档位”，不强行让像素值完全相等：每个档位映射到 Material 3 官方
+ * `typography` 中语义最接近的一档，因此同一处文字观感一致，又仍是官方字阶。
  *
  * 档位与典型用途：
  * - [EtaType.Hero]      空状态主标语
@@ -40,24 +38,13 @@ internal fun etaTextStyle(
     emphasized: Boolean = false,
     monospace: Boolean = false,
 ): TextStyle {
-    val base = if (isMaterial3Theme()) {
-        when (type) {
-            EtaType.Hero -> MaterialTheme.typography.headlineSmall
-            EtaType.Title -> MaterialTheme.typography.titleLarge
-            EtaType.Body -> MaterialTheme.typography.bodyLarge
-            EtaType.Secondary -> MaterialTheme.typography.bodyMedium
-            EtaType.Caption -> MaterialTheme.typography.bodySmall
-            EtaType.Micro -> MaterialTheme.typography.labelSmall
-        }
-    } else {
-        when (type) {
-            EtaType.Hero -> MiuixTheme.textStyles.title2
-            EtaType.Title -> MiuixTheme.textStyles.title3
-            EtaType.Body -> MiuixTheme.textStyles.body1
-            EtaType.Secondary -> MiuixTheme.textStyles.body2
-            EtaType.Caption -> MiuixTheme.textStyles.footnote1
-            EtaType.Micro -> MiuixTheme.textStyles.footnote2
-        }
+    val base = when (type) {
+        EtaType.Hero -> MaterialTheme.typography.headlineSmall
+        EtaType.Title -> MaterialTheme.typography.titleLarge
+        EtaType.Body -> MaterialTheme.typography.bodyLarge
+        EtaType.Secondary -> MaterialTheme.typography.bodyMedium
+        EtaType.Caption -> MaterialTheme.typography.bodySmall
+        EtaType.Micro -> MaterialTheme.typography.labelSmall
     }
     var style = base
     if (emphasized) style = style.copy(fontWeight = FontWeight.SemiBold)
@@ -66,7 +53,7 @@ internal fun etaTextStyle(
 }
 
 /**
- * 标签档：[EtaType.Secondary] 字号 + Medium 字重（两个主题都是 14sp / Medium）。
+ * 标签档：[EtaType.Secondary] 字号 + Medium 字重（14sp / Medium）。
  *
  * 这是「按钮 / 顶栏标题」这类短标签的档位：侧栏的「新建对话」「管理聊天」与主页顶栏的
  * 会话名共用它，所以顶栏标题不再走更大的 [EtaType.Title]。

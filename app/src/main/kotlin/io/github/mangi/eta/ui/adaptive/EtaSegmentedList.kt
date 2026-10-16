@@ -71,9 +71,6 @@ import kotlin.math.roundToInt
  *   首项上角大圆角、末项下角大圆角、中间项小圆角，条目间 2dp 露出背景缝隙；
  * - 容器底色走官方 `segmentedColors` 默认值，不再是整块大卡片；
  * - 组标题取官方 `titleSmallEmphasized` + primary 色，起点与列表条目对齐。
- *
- * 与 miuix 的 `SmallTitle + Card` 信息架构一一对应：`EtaSectionTitle` = SmallTitle，
- * `EtaSegmentedColumn` = Card，`EtaSegmented*` 行组件 = Card 内的偏好行。
  */
 val LocalEtaSegmentedShapes = staticCompositionLocalOf<ListItemShapes?> { null }
 
@@ -152,9 +149,7 @@ internal val EtaSegmentedGroupSpacing = 13.dp
 internal val EtaGroupHorizontalPadding = 16.dp
 
 /**
- * 一组分段列表（自适应）：
- * - Material 3：KernelSU 式分段条目 + `titleSmallEmphasized` primary 组标题；
- * - MIUI X：退化为 `EtaSectionTitle` + [EtaCard]（原 SmallTitle + Card 结构）。
+ * 一组分段列表：KernelSU 式分段条目 + `titleSmallEmphasized` primary 组标题。
  *
  * [modifier] 同时作用于标题与条目容器（调用方传水平边距与组间距）。
  * 标题起点 16dp 与分段条目的内容起点对齐。
@@ -168,15 +163,6 @@ fun EtaSegmentedColumn(
     content: List<@Composable () -> Unit>,
 ) {
     if (content.isEmpty()) return
-    if (!isMaterial3Theme()) {
-        Column(modifier = modifier) {
-            if (!title.isNullOrEmpty()) EtaSectionTitle(title)
-            EtaCard {
-                content.forEach { it() }
-            }
-        }
-        return
-    }
     Column(modifier = modifier) {
         if (!title.isNullOrEmpty()) {
             Text(
@@ -203,8 +189,8 @@ fun EtaSegmentedColumn(
 /**
  * [EtaSegmentedColumn] 的 DSL 形式：条目按注册顺序编号，支持条件注册与 `visible` 隐藏。
  *
- * Material 3 下与 KernelSU `SegmentedColumn` DSL 版一致：隐藏条目以 spring 动画收缩高度、
- * 淡出并把首/末圆角让给相邻可见条目；MIUI X 下无显隐动画，直接过滤隐藏条目。
+ * 与 KernelSU `SegmentedColumn` DSL 版一致：隐藏条目以 spring 动画收缩高度、
+ * 淡出并把首/末圆角让给相邻可见条目。
  */
 @Composable
 fun EtaSegmentedColumn(
@@ -213,14 +199,6 @@ fun EtaSegmentedColumn(
     content: EtaSegmentedScope.() -> Unit,
 ) {
     val entries = EtaSegmentedScope().apply(content).items
-    if (!isMaterial3Theme()) {
-        EtaSegmentedColumn(
-            modifier = modifier,
-            title = title,
-            content = entries.filter { it.visible }.map { it.content },
-        )
-        return
-    }
 
     Column(modifier = modifier) {
         if (!title.isNullOrEmpty()) {
@@ -348,10 +326,6 @@ fun EtaSegmentedItemContainer(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    if (!isMaterial3Theme()) {
-        EtaCard(modifier = modifier) { content() }
-        return
-    }
     val shapes = currentSegmentedShapes() ?: ListItemDefaults.segmentedShapes(0, 1)
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -461,7 +435,7 @@ fun EtaSegmentedRow(
  * 动态列表的单个分段条目：按 `index`/`count` 计算首项/末项圆角。
  *
  * 对应 KernelSU 参考实现的 `SegmentedItem`，供 `LazyColumn` + `itemsIndexed`
- * 这类无法预先构造整个组列表的场景使用。非 Material 3 主题下不做任何包装。
+ * 这类无法预先构造整个组列表的场景使用。
  */
 @Composable
 fun EtaSegmentedItem(
@@ -469,10 +443,6 @@ fun EtaSegmentedItem(
     count: Int,
     content: @Composable () -> Unit,
 ) {
-    if (!isMaterial3Theme()) {
-        content()
-        return
-    }
     CompositionLocalProvider(
         LocalEtaSegmentedShapes provides defaultSegmentedShape(index, count),
     ) {

@@ -4,29 +4,23 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AlertDialogDefaults
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
-import io.github.mangi.eta.ui.components.MiuixDialogActions
 import io.github.mangi.eta.ui.haptics.TouchHaptics
-import top.yukonga.miuix.kmp.basic.TextField as MiuixTextField
-import top.yukonga.miuix.kmp.window.WindowDialog
-import androidx.compose.ui.Alignment
 
 /**
  * 自适应弹窗。内容由调用方提供（通常是输入框 + [EtaDialogActions]）。
@@ -41,46 +35,35 @@ fun EtaDialog(
     icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
     content: @Composable () -> Unit,
 ) {
-    if (isMaterial3Theme()) {
-        if (!show) return
-        AlertDialog(
-            onDismissRequest = onDismissRequest,
-            modifier = modifier,
-            icon = icon?.let { image ->
-                {
-                    // 尺寸与配色沿用官方 AlertDialog 的 icon 槽位默认令牌。
-                    androidx.compose.material3.Icon(
-                        imageVector = image,
-                        contentDescription = null,
+    if (!show) return
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        modifier = modifier,
+        icon = icon?.let { image ->
+            {
+                // 尺寸与配色沿用官方 AlertDialog 的 icon 槽位默认令牌。
+                androidx.compose.material3.Icon(
+                    imageVector = image,
+                    contentDescription = null,
+                )
+            }
+        },
+        title = { Text(text = title, style = MaterialTheme.typography.titleLarge) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                summary?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-            },
-            title = { Text(text = title, style = MaterialTheme.typography.titleLarge) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    summary?.let {
-                        Text(
-                            text = it,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    content()
-                }
-            },
-            shape = MaterialTheme.shapes.extraLarge,
-            confirmButton = {},
-        )
-    } else {
-        WindowDialog(
-            show = show,
-            title = title,
-            summary = summary,
-            onDismissRequest = onDismissRequest,
-        ) {
-            content()
-        }
-    }
+                content()
+            }
+        },
+        shape = MaterialTheme.shapes.extraLarge,
+        confirmButton = {},
+    )
 }
 
 /**
@@ -157,51 +140,38 @@ fun EtaDialogActions(
     confirmEnabled: Boolean = true,
     destructive: Boolean = false,
 ) {
-    if (isMaterial3Theme()) {
-        val view = LocalView.current
-        // KernelSU（ExpressiveDialog）写法：动作右对齐、一律 TextButton（AlertDialog 的官方
-        // 动作形态——没有整宽填充按钮），破坏性确认以 error 色文案区分，不加按钮底色。
-        Row(
-            modifier = modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+    val view = LocalView.current
+    // KernelSU（ExpressiveDialog）写法：动作右对齐、一律 TextButton（AlertDialog 的官方
+    // 动作形态——没有整宽填充按钮），破坏性确认以 error 色文案区分，不加按钮底色。
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+    ) {
+        TextButton(
+            onClick = {
+                TouchHaptics.click(view)
+                onCancel()
+            },
+            enabled = cancelEnabled,
         ) {
-            TextButton(
-                onClick = {
-                    TouchHaptics.click(view)
-                    onCancel()
-                },
-                enabled = cancelEnabled,
-            ) {
-                Text(text = cancelText ?: stringResource(R.string.action_cancel))
-            }
-            TextButton(
-                onClick = {
-                    TouchHaptics.click(view)
-                    onConfirm()
-                },
-                enabled = confirmEnabled,
-            ) {
-                Text(
-                    text = confirmText,
-                    color = if (destructive) {
-                        MaterialTheme.colorScheme.error
-                    } else {
-                        MaterialTheme.colorScheme.primary
-                    },
-                )
-            }
+            Text(text = cancelText ?: stringResource(R.string.action_cancel))
         }
-    } else {
-        MiuixDialogActions(
-            confirmText = confirmText,
-            onCancel = onCancel,
-            onConfirm = onConfirm,
-            modifier = modifier,
-            cancelText = cancelText,
-            cancelEnabled = cancelEnabled,
-            confirmEnabled = confirmEnabled,
-            destructive = destructive,
-        )
+        TextButton(
+            onClick = {
+                TouchHaptics.click(view)
+                onConfirm()
+            },
+            enabled = confirmEnabled,
+        ) {
+            Text(
+                text = confirmText,
+                color = if (destructive) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.primary
+                },
+            )
+        }
     }
 }
 
@@ -216,24 +186,13 @@ fun EtaTextField(
     keyboardActions: KeyboardActions = KeyboardActions.Default,
     singleLine: Boolean = true,
 ) {
-    if (isMaterial3Theme()) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            modifier = modifier.fillMaxWidth(),
-            label = { Text(text = label) },
-            singleLine = singleLine,
-            keyboardOptions = keyboardOptions,
-            keyboardActions = keyboardActions,
-        )
-    } else {
-        MiuixTextField(
-            value = value,
-            onValueChange = onValueChange,
-            modifier = modifier.fillMaxWidth(),
-            label = label,
-            singleLine = singleLine,
-            keyboardOptions = keyboardOptions,
-        )
-    }
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier.fillMaxWidth(),
+        label = { Text(text = label) },
+        singleLine = singleLine,
+        keyboardOptions = keyboardOptions,
+        keyboardActions = keyboardActions,
+    )
 }

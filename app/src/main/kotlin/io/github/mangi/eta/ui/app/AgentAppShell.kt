@@ -40,7 +40,6 @@ import io.github.mangi.eta.ui.pages.providers.activityLifecycleOwnerOrNull
 import io.github.mangi.eta.ui.pages.providers.hasBalanceIndicatorContent
 import io.github.mangi.eta.ui.components.AdaptiveTopAppBar
 import io.github.mangi.eta.ui.components.ConversationSidePaneScaffold
-import io.github.mangi.eta.ui.components.MiuixBackButton
 import io.github.mangi.eta.ui.components.TopBarBackdrop
 import io.github.mangi.eta.ui.components.captureForTopBar
 import io.github.mangi.eta.ui.components.rememberTopBarBackdrop
@@ -317,8 +316,7 @@ private fun AgentTopBar(
 ) {
     val view = LocalView.current
     val isHome = route is AppRoute.Home
-    // Material 3 下顶栏的图标按钮改用官方 IconButton（默认取 colorScheme 角色色），
-    // 不用 miuix 的 IconButton / MiuixBackButton——后者读 MiuixTheme 调色盘。
+    // Material 3 下顶栏的图标按钮改用官方 IconButton（默认取 colorScheme 角色色）。
     val material3 = isMaterial3Theme()
     val navigationIcon: @Composable () -> Unit = {
         if (isHome) {
@@ -331,13 +329,11 @@ private fun AgentTopBar(
                     contentDescription = stringResource(R.string.action_conversation_history),
                 )
             }
-        } else if (material3) {
+        } else {
             EtaTopBarBackButton(
                 onClick = onBack,
                 contentDescription = stringResource(R.string.action_back),
             )
-        } else {
-            MiuixBackButton(onClick = onBack)
         }
     }
     val balanceStates by ProviderBalanceStore.states.collectAsState()

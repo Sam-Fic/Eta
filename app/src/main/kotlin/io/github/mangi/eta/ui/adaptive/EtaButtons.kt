@@ -1,16 +1,12 @@
 package io.github.mangi.eta.ui.adaptive
 
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -25,15 +21,13 @@ import androidx.compose.material3.ToggleButtonColors
 import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.material3.ToggleButtonShapes
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
- * KernelSU 式 Expressive 按钮组件（仅 Material 3 分支有意义；调用方自行做主题分流）：
+ * KernelSU 式 Expressive 按钮组件：
  *
  * - [EtaTopBarBackButton]：顶栏返回钮带 surfaceContainerHighest 底色圆形，返回键从
  *   「裸图标」升级为「可感知的可点目标」；
@@ -147,12 +141,9 @@ fun EtaExpressiveToggleButton(
 }
 
 /**
- * 自适应扩展 FAB：
- *
- * - Material 3：官方 [SmallExtendedFloatingActionButton]（KernelSU `TemplateMaterial` 同款），
- *   形状 / 容器色 / 图标尺寸全部取 `FloatingActionButtonDefaults` 默认值；[expanded] 由调用方
- *   的滚动状态机驱动，收起时只留图标，与 KernelSU 的 fabExpanded 一致；
- * - MIUI X：保持本页原有的胶囊文字按钮（`FilledTonalButton`）不变，避免 MIUI X 分支失去文字标签。
+ * 自适应扩展 FAB：官方 [SmallExtendedFloatingActionButton]（KernelSU `TemplateMaterial` 同款），
+ * 形状 / 容器色 / 图标尺寸全部取 `FloatingActionButtonDefaults` 默认值；[expanded] 由调用方
+ * 的滚动状态机驱动，收起时只留图标，与 KernelSU 的 fabExpanded 一致。
  *
  * 位置与底部安全区由宿主骨架（`EtaScaffoldPage`）负责，本组件只负责外观。
  */
@@ -164,23 +155,13 @@ fun EtaExtendedFab(
     modifier: Modifier = Modifier,
     expanded: Boolean = true,
 ) {
-    if (isMaterial3Theme()) {
-        SmallExtendedFloatingActionButton(
-            expanded = expanded,
-            onClick = onClick,
-            icon = { Icon(imageVector = icon, contentDescription = null) },
-            text = { Text(text = text) },
-            modifier = modifier,
-        )
-    } else {
-        FilledTonalButton(
-            onClick = onClick,
-            modifier = modifier.heightIn(min = 48.dp).widthIn(min = 168.dp),
-            shape = RoundedCornerShape(50),
-        ) {
-            Text(text = text, style = MiuixTheme.textStyles.body1)
-        }
-    }
+    SmallExtendedFloatingActionButton(
+        expanded = expanded,
+        onClick = onClick,
+        icon = { Icon(imageVector = icon, contentDescription = null) },
+        text = { Text(text = text) },
+        modifier = modifier,
+    )
 }
 
 /** 预留：与 KernelSU expressiveToggleButtonColors 等价的取色入口（供需要覆盖默认色的调用方）。 */
