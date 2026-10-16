@@ -9,7 +9,10 @@ SRC = ROOT / "app/src/main/kotlin/io/github/mangi/eta"
 class ConversationMemoryContractTest(unittest.TestCase):
     def test_app_loads_selected_content_only(self):
         text = (SRC / "ui/app/AgentAppState.kt").read_text()
-        self.assertGreaterEqual(text.count("AgentConversationStore.load(appContext, selectedOnly = true)"), 2)
+        # 启动水合改走 loadSuspending（IO 线程一次性发布），备份重载仍走阻塞式 load；
+        # 两条路径都必须带 selectedOnly，只加载选中会话的内容。
+        self.assertIn("AgentConversationStore.loadSuspending(appContext, selectedOnly = true)", text)
+        self.assertIn("AgentConversationStore.load(appContext, selectedOnly = true)", text)
         self.assertNotIn("private val initialConversations", text)
 
     def test_placeholder_is_an_explicit_state_not_empty_messages(self):

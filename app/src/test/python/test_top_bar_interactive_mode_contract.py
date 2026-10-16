@@ -75,7 +75,9 @@ class TopBarInteractiveModeContractTest(unittest.TestCase):
             else:
                 entry = balanced(cls.content, match.end() - 1)
                 cls.entries.append(entry)
-                label = re.search(r"text\s*=\s*\{\s*Text\(stringResource\(R\.string\.(\w+)\)\)", entry)
+                # 行文案可以是 Text(stringResource(...))，也可以再带着色参数
+                # （如「删除当前会话」的 error 色）；标签只认资源名。
+                label = re.search(r"text\s*=\s*\{\s*Text\(\s*stringResource\(R\.string\.(\w+)\)", entry)
                 if label:
                     cls.sequence.append(label.group(1))
                 elif "text = { Text(kimiWebLabel) }" in entry:

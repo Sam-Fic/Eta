@@ -30,7 +30,7 @@ class VoiceFormStyleHapticsContractTest(unittest.TestCase):
     def test_chat_shell_matches_form_style_without_replacing_stateful_editor(self):
         chat = read('ui/components/AgentChatInputBar.kt')
         self.assertIn('private val InputContainerShape = RoundedCornerShape(EtaInputCornerRadius)', chat)
-        shell = chat.split('inputContainerTopPx = coordinates', 1)[1].split('ChatComposerActionRow(', 1)[0]
+        shell = chat.split('inputContainerTopPx[0] = coordinates', 1)[1].split('ChatComposerActionRow(', 1)[0]
         self.assertIn('.clip(InputContainerShape)', shell)
         self.assertIn('.background(etaInputContainerColor())', shell)
         self.assertIn('width = 0.5.dp', shell)
@@ -55,17 +55,23 @@ class VoiceFormStyleHapticsContractTest(unittest.TestCase):
         self.assertNotIn('mutableStateOf', field)  # draft ownership stays at callers
 
     def test_screens_and_question_use_same_shared_field(self):
-        names = ('ui/PersonalVoicesScreen.kt', 'ui/VoiceModeSettingsScreen.kt',
-                 'ui/VoiceConversationRecognitionSettings.kt', 'ui/DoubaoVoiceSettings.kt',
-                 'ui/components/AgentQuestionCard.kt')
-        for path in names:
+        # M3E 分段化后分成两个家族，各自只有一份共享实现、都不允许裸写 OutlinedTextField：
+        # 设置页用 EtaSegmentedTextField（分段输入行），提问卡片用 EtaFormTextField
+        # （带浮动Label的表单输入框）。
+        screens = ('ui/PersonalVoicesScreen.kt', 'ui/VoiceModeSettingsScreen.kt',
+                   'ui/VoiceConversationRecognitionSettings.kt', 'ui/DoubaoVoiceSettings.kt')
+        for path in screens:
             with self.subTest(path=path):
                 source = read(path)
-                self.assertIn('EtaFormTextField(', source)
+                self.assertIn('EtaSegmentedTextField(', source)
                 self.assertNotIn('OutlinedTextField(', source)
+        question = read('ui/components/AgentQuestionCard.kt')
+        self.assertIn('EtaFormTextField(', question)
+        self.assertNotIn('OutlinedTextField(', question)
         mimo = read('ui/PersonalVoicesScreen.kt')
         self.assertIn('name = it.take(80)', mimo)
-        self.assertIn('singleLine = true, enabled = !busy', mimo)
+        self.assertIn('enabled = !busy', mimo)
+        self.assertIn('singleLine = true', mimo)
         self.assertIn('sample = it.take(300)', mimo)
         realtime = read('ui/VoiceModeSettingsScreen.kt')
         self.assertIn('minLines = 2', realtime)

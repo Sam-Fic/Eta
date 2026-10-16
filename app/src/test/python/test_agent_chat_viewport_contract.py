@@ -121,7 +121,8 @@ class AgentChatViewportContractTest(unittest.TestCase):
             r"size\.height\s*-\s*\(\s*bottomInset\s*\+\s*ConversationComposerGap\s*\)",
         )
         self.assertRegex(self.messages, r"bottom\s*=\s*ConversationComposerGap\s*\+\s*bottomInset")
-        self.assertRegex(self.messages, r"bottom\s*=\s*12\.dp\s*\+\s*bottomInset")
+        # 导航钮要让出底栏渐变板向上溢出的 ChatInputScrimOverhang（32dp）。
+        self.assertRegex(self.messages, r"bottom\s*=\s*12\.dp\s*\+\s*ChatInputScrimOverhang\s*\+\s*bottomInset")
         # The inset is a resting-space budget, not a reason to keep an idle
         # anchored conversation permanently clipped.
         clip_calls = list(calls(self.messages, "shouldClipChatTail"))
@@ -147,8 +148,8 @@ class AgentChatViewportContractTest(unittest.TestCase):
         self.assertEqual(len(buttons), 1, "Expected the messages navigation button")
         self.assertRegex(
             buttons[0],
-            r"\.align\s*\(\s*Alignment\.BottomCenter\s*\)\s*"
-            r"\.padding\s*\(\s*bottom\s*=\s*12\.dp\s*\+\s*bottomInset\s*,?\s*\)",
+            r"\.align\s*\(\s*Alignment\.BottomEnd\s*\)\s*"
+            r"\.padding\s*\(\s*bottom\s*=\s*12\.dp\s*\+\s*ChatInputScrimOverhang\s*\+\s*bottomInset\s*,\s*end\s*=\s*32\.dp\s*,?\s*\)",
         )
 
     def test_composer_surround_is_transparent(self):
