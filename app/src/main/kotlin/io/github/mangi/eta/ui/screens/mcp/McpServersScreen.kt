@@ -118,10 +118,7 @@ internal fun McpServersScreen(
                     // 空态是「非行」内容，用分段容器承载；新增入口交给右下角 FAB，避免重复按钮。
                     item {
                         EtaSegmentedItemContainer {
-                            ListEmptyState(
-                                title = stringResource(R.string.mcp_empty_title),
-                                summary = stringResource(R.string.mcp_empty_summary),
-                            )
+                            ListEmptyState(title = stringResource(R.string.mcp_empty_title))
                         }
                     }
                 } else {

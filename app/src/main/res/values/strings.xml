@@ -1309,7 +1309,6 @@
   <string name="mcp_add_server">Add server</string>
   <string name="mcp_configured_servers">Servers · %1$d</string>
   <string name="mcp_empty_title">No MCP servers</string>
-  <string name="mcp_empty_summary">Tap to add a server</string>
   <string name="mcp_server_row_summary">%1$d of %2$d tools enabled</string>
   <string name="mcp_server_name">Name</string>
   <string name="mcp_server_url">Server URL</string>

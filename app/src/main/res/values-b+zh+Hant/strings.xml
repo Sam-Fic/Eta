@@ -1329,7 +1329,6 @@
   <string name="mcp_add_server">新增伺服器</string>
   <string name="mcp_configured_servers">伺服器 · %1$d</string>
   <string name="mcp_empty_title">尚無 MCP 伺服器</string>
-  <string name="mcp_empty_summary">點選新增伺服器</string>
   <string name="mcp_server_row_summary">已啟用 %1$d/%2$d 個工具</string>
   <string name="mcp_server_name">名稱</string>
   <string name="mcp_server_url">伺服器位址</string>
