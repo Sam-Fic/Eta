@@ -96,6 +96,7 @@ import io.github.mangi.eta.ui.components.ChatInputPopupMargin
 import io.github.mangi.eta.ui.components.Material3ComposerBody
 import io.github.mangi.eta.ui.components.PendingFileReferenceStrip
 import io.github.mangi.eta.ui.components.rememberDataUrlBitmap
+import io.github.mangi.eta.ui.components.rememberImeVisible
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
 import io.github.mangi.eta.ui.model.AgentMessageUi
 import io.github.mangi.eta.ui.model.ConversationMentionInputUi
@@ -819,6 +820,7 @@ private fun AssistantComposer(
             focusRequester = focusRequester,
             // 生成中禁止聚焦输入框（与应用内旧浮层行为一致）；发送 / 停止按钮不受影响。
             interactionBlocked = processing,
+            imeVisible = rememberImeVisible(),
             // 入口浮层没有「编辑消息」与「暂停运行」，这些槽位按不适用处理。
             isEditingMessage = false,
             isStreaming = processing,

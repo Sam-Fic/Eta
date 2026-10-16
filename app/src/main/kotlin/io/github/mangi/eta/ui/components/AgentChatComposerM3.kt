@@ -24,6 +24,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -79,6 +81,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
@@ -90,6 +93,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -125,6 +129,23 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
+ * 键盘（IME）可见性，供 [Material3ComposerBody] 决定左侧动作组的收起 / 展开。
+ *
+ * 只在起落翻转时写入离散状态：IME inset 在键盘动画期间逐帧变化，若直接在输入区组合里读取
+ * 会让整条输入栏按帧重组；这里改由 [snapshotFlow] 在组合外观察，仅把布尔结果写回状态。
+ */
+@Composable
+internal fun rememberImeVisible(): Boolean {
+    val imeInsets = WindowInsets.ime
+    val density = LocalDensity.current
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(density) {
+        snapshotFlow { imeInsets.getBottom(density) > 0 }.collect { visible = it }
+    }
+    return visible
+}
+
+/**
  * Material 3 Expressive 输入区：官方浮动工具栏（Floating Toolbar）里的单行布局。
  *
  * 结构（自左向右）：
@@ -135,8 +156,9 @@ import kotlinx.coroutines.launch
  *    （助手 / 模型两个页签，底部为思考档位与上下文用量）。
  * 4. 胶囊输入框（官方 Filled 文本框，`surfaceContainer` 容器、固定 `extraLarge` 28dp 圆角），
  *    单行时 56dp 高即胶囊；多行时是圆角矩形（圆角不变），语音 / 发送按钮固定在右下角，
- *    与内层圆角保持同心（端距 8dp = 28 − 20）。有输入内容（文字 / 图片 / 文件 / 引用）时
- *    左侧动作组按官方 Expressive 弹簧规格收起、输入框展开占满，发送 / 停止按钮替代语音按钮的位置。
+ *    与内层圆角保持同心（端距 8dp = 28 − 20）。键盘弹出且已有输入内容（文字 / 图片 / 文件 / 引用）时
+ *    左侧动作组按官方 Expressive 弹簧规格收起、输入框展开占满，发送 / 停止按钮替代语音按钮的位置；
+ *    键盘收起（未进入输入焦点）时动作组始终保持展开可见，方便随时再加号、再选图或切换助手与模型。
  *
  * 同心圆角：内层半径 = 外层半径 − 间距。外层固定 36dp（28 + 8，单行 72dp 高时即胶囊），
  * 内层固定 28dp，尾部 40dp 圆钮端距 8dp，三者两两满足规则；不用官方 CornerFull，
@@ -155,6 +177,11 @@ internal fun Material3ComposerBody(
     textFieldState: TextFieldState,
     focusRequester: FocusRequester,
     interactionBlocked: Boolean,
+    /**
+     * 键盘（IME）是否可见。由调用方通过 [rememberImeVisible] 提供；键盘收起（未进入输入焦点）
+     * 时左侧动作组必须保持可见，即便已有输入内容。
+     */
+    imeVisible: Boolean,
     isEditingMessage: Boolean,
     isStreaming: Boolean,
     isPaused: Boolean,
@@ -316,10 +343,10 @@ internal fun Material3ComposerBody(
                 )
                 Spacer(modifier = Modifier.width(ComposerToolbarGap))
             } else {
-                // 有输入内容（文字 / 图片 / 文件 / 引用）或语音进行中时左侧动作组收起，胶囊展开占满，
-                // 尾部按钮同步让位；清空 / 结束语音后按官方弹簧规格展开回来。
+                // 语音进行中时左侧动作组收起；键盘弹出且已有输入内容（文字 / 图片 / 文件 / 引用）时
+                // 也收起，把宽度让给胶囊；键盘收起（未进入输入焦点）时动作组始终展开可见。
                 AnimatedVisibility(
-                    visible = !voiceActive && !hasContent,
+                    visible = !voiceActive && (!hasContent || !imeVisible),
                     // 同上：与输入框竖直居中，避免整组按钮偏高。
                     modifier = Modifier.align(Alignment.CenterVertically),
                     enter = fadeIn(enterSpec) +

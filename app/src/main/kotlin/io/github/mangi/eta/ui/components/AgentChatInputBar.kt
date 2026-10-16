@@ -344,6 +344,8 @@ internal fun AgentChatInputBar(
     val keyboard = LocalSoftwareKeyboardController.current
     val view = LocalView.current
     val drawerBlocksIme = LocalConversationDrawerBlocksIme.current
+    // 键盘（IME）可见性：键盘收起时左侧动作组必须保持可见（见 Material3ComposerBody）。
+    val imeVisible = rememberImeVisible()
     LaunchedEffect(isEditingMessage) {
         // 编辑模式切换由业务状态驱动；日常输入使用会话拥有的 TextFieldState，
         // 不让每个字符触发消息列表和 Markdown 重组。
@@ -483,6 +485,7 @@ internal fun AgentChatInputBar(
                 textFieldState = textFieldState,
                 focusRequester = focusRequester,
                 interactionBlocked = drawerBlocksIme,
+                imeVisible = imeVisible,
                 isEditingMessage = isEditingMessage,
                 isStreaming = isStreaming,
                 isPaused = isPaused,

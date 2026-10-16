@@ -55,10 +55,11 @@ class M3ComposerToolbarLayoutTest {
     @get:Rule val compose = createComposeRule()
 
     @Test
-    fun contentCollapsesActionGroupAndSwapsVoiceForSendButton() {
+    fun keyboardCollapsesActionGroupAndContentSwapsVoiceForSendButton() {
         val field = TextFieldState()
         val voiceStateHolder = mutableStateOf(VoiceModeState())
-        compose.setComposerContent(field, voiceStateHolder)
+        val imeVisible = mutableStateOf(false)
+        compose.setComposerContent(field, voiceStateHolder, imeVisible = imeVisible)
         // 空输入：左侧三个入口（+ / 相机 / 助手与模型）都在，尾部还没有发送按钮。
         compose.onNodeWithContentDescription("Add attachment").assertExists()
         compose.onNodeWithContentDescription("Image").assertExists()
@@ -106,8 +107,23 @@ class M3ComposerToolbarLayoutTest {
             0.5f,
         )
 
-        // 输入文字：左侧动作组收起，输入框展开占满，发送按钮替代语音按钮的位置。
+        // 输入文字但键盘收起：左侧动作组保持展开可见（未进入输入焦点），
+        // 尾部语音入口让位给发送按钮；输入框宽度不变。
         compose.runOnIdle { field.setTextAndPlaceCursorAtEnd("hello") }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Add attachment").assertExists()
+        compose.onNodeWithContentDescription("Image").assertExists()
+        compose.onNodeWithContentDescription("Assistant & model").assertExists()
+        compose.onNodeWithContentDescription("Send").assertExists()
+        assertEquals(
+            "键盘收起时动作组不收起，输入框宽度不变",
+            expandedActionsFieldWidth,
+            fieldWidth(),
+            0.5f,
+        )
+
+        // 键盘弹出且已有内容：左侧动作组收起，输入框展开占满，发送按钮替代语音按钮的位置。
+        compose.runOnIdle { imeVisible.value = true }
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Add attachment").assertDoesNotExist()
         compose.onNodeWithContentDescription("Image").assertDoesNotExist()
@@ -133,6 +149,17 @@ class M3ComposerToolbarLayoutTest {
             "尾部按钮到输入框右端与上下的间距应一致",
             (fieldBounds.height - sendBounds.height) / 2f,
             fieldBounds.right - sendBounds.right,
+            0.5f,
+        )
+
+        // 键盘再次收起：动作组展开回来，输入框缩回动作组可见时的宽度。
+        compose.runOnIdle { imeVisible.value = false }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Add attachment").assertExists()
+        assertEquals(
+            "键盘收起后动作组展开，输入框宽度回到动作组可见时",
+            expandedActionsFieldWidth,
+            fieldWidth(),
             0.5f,
         )
 
@@ -456,6 +483,7 @@ class M3ComposerToolbarLayoutTest {
     private fun ComposeContentTestRule.setComposerContent(
         field: TextFieldState,
         voiceStateHolder: MutableState<VoiceModeState>,
+        imeVisible: MutableState<Boolean> = mutableStateOf(false),
         colorScheme: androidx.compose.material3.ColorScheme = lightColorScheme(),
         material3ThemeFamily: Boolean = false,
     ) {
@@ -469,6 +497,7 @@ class M3ComposerToolbarLayoutTest {
                     textFieldState = field,
                     focusRequester = remember { FocusRequester() },
                     interactionBlocked = false,
+                    imeVisible = imeVisible.value,
                     isEditingMessage = false,
                     isStreaming = false,
                     isPaused = false,
