@@ -2884,12 +2884,12 @@ private fun ExpressiveSuggestionBlobs(
     val specs = listOf(
         // 形状 / 边长 / 左边距 / 上边距 / 旋转角（度），尺寸与位置均为容器宽度的比例；
         // 按边长从大到小排，调用方把标题最长的建议放在最前面，于是最长的那条落在最大的形状里。
-        // 落位故意错开、不排成整齐的网格：左上 Clover、右下 Bun、右上 Pill、左下 Ghostish，
+        // 落位故意错开、不排成整齐的网格：左上 Cookie6Sided、右下 Cookie4Sided、右上 Pill、左下 Circle，
         // 相邻外框之间只留 0.02~0.08 的窄间隙（比原来更挤），旋转角也收小到 ≤6°，
         // 保证收窄后四块正比例形状仍不会互相压到。
-        ExpressiveBlobSpec(MaterialShapes.Clover4Leaf, size = 0.48f, left = 0.00f, top = 0.00f, rotation = -5f),
-        ExpressiveBlobSpec(MaterialShapes.Bun, size = 0.46f, left = 0.52f, top = 0.50f, rotation = 4f),
-        ExpressiveBlobSpec(MaterialShapes.Ghostish, size = 0.44f, left = 0.02f, top = 0.50f, rotation = -4f),
+        ExpressiveBlobSpec(MaterialShapes.Cookie6Sided, size = 0.48f, left = 0.00f, top = 0.00f, rotation = -5f),
+        ExpressiveBlobSpec(MaterialShapes.Cookie4Sided, size = 0.46f, left = 0.52f, top = 0.50f, rotation = 4f),
+        ExpressiveBlobSpec(MaterialShapes.Circle, size = 0.44f, left = 0.02f, top = 0.50f, rotation = 0f),
         ExpressiveBlobSpec(MaterialShapes.Pill, size = 0.38f, left = 0.51f, top = 0.04f, rotation = 6f),
     )
     if (suggestions.size != specs.size) {
