@@ -368,8 +368,9 @@ fun ConversationSidePaneScaffold(
         // 只在真的越过瞬间触发一次（拿上一帧的 bool 做边沿检测），来回蹭不会连续震。
         // offset 语义：闭合锚点是「-面板宽度」，打开锚点是 0，
         // 所以「越过过半」等价于 |offset| < 面板宽度 / 2。
-        LaunchedEffect(drawerState, paneWidth, view) {
-            val density = LocalDensity.current
+        // density 是 @Composable getter，必须在组合期读取；LaunchedEffect 块里读不到。
+        val density = LocalDensity.current
+        LaunchedEffect(drawerState, paneWidth, view, density) {
             val halfPanePx = with(density) { paneWidth.toPx() / 2f }
             var wasPastCommitLine by mutableStateOf(false)
             snapshotFlow {
@@ -2172,11 +2173,17 @@ private object DrawerMotionSetters {
 
     // 阈值和规格的 setter 在 AnchoredDraggableState 上，不在 DrawerState 上，别找错类。
     // 参数类型也得对上：阈值是 Function1/Function0，规格是 AnimationSpec/DecayAnimationSpec。
+    // function1Class / function0Class 是 runCatching 探测结果，可能为空：空着就不挂对应
+    // setter，手势回退到官方默认阈值，不能把 null 传进 getMethod。
     private val positionalSetter by lazy {
-        anchoredClass?.let { method(it, "setPositionalThreshold\$foundation", function1Class) }
+        val anchored = anchoredClass ?: return@lazy null
+        val arg = function1Class ?: return@lazy null
+        method(anchored, "setPositionalThreshold\$foundation", arg)
     }
     private val velocitySetter by lazy {
-        anchoredClass?.let { method(it, "setVelocityThreshold\$foundation", function0Class) }
+        val anchored = anchoredClass ?: return@lazy null
+        val arg = function0Class ?: return@lazy null
+        method(anchored, "setVelocityThreshold\$foundation", arg)
     }
     private val snapSetter by lazy {
         anchoredClass?.let {
@@ -2262,7 +2269,7 @@ private object DrawerMotionSetters {
      * `absVelocityThreshold` 是官方要求 >0 的收敛速度，取一个极小值，
      * 让惯性尽量用满、不要过早判定结束。
      */
-    private fun decaySpec(): Any = exponentialDecay(
+    private fun decaySpec(): Any = exponentialDecay<Float>(
         frictionMultiplier = DrawerMetrics.SettleFriction,
         absVelocityThreshold = DrawerMetrics.SettleDecayVelocityThreshold,
     )
