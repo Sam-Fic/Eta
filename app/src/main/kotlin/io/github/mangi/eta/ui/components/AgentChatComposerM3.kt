@@ -337,9 +337,13 @@ internal fun Material3ComposerBody(
                 Spacer(modifier = Modifier.width(ComposerConcentricGap))
                 M3ComposerCancelButton(
                     onClick = onCancelMessageEdit,
-                    // 官方工具栏的内容 Row 是顶对齐（Row 默认 Alignment.Top），
-                    // 40dp 按钮相对 56dp 输入框会高出 8dp，必须显式竖直居中。
-                    modifier = Modifier.align(Alignment.CenterVertically),
+                    // 官方工具栏的内容 Row 是顶对齐（Row 默认 Alignment.Top），必须显式对齐。
+                    // 40dp 圆钮贴底：与尾部发送按钮共用同一条基线（距输入框底端 8dp 的同心端距）。
+                    // 单行（56dp）时上下各 8dp，与竖直居中等价；多行输入框长高后按钮跟随下沉贴底，
+                    // 不再停在中间。
+                    modifier = Modifier
+                        .align(Alignment.Bottom)
+                        .padding(bottom = ComposerConcentricGap),
                 )
                 Spacer(modifier = Modifier.width(ComposerToolbarGap))
             } else {
@@ -347,8 +351,11 @@ internal fun Material3ComposerBody(
                 // 也收起，把宽度让给胶囊；键盘收起（未进入输入焦点）时动作组始终展开可见。
                 AnimatedVisibility(
                     visible = !voiceActive && (!hasContent || !imeVisible),
-                    // 同上：与输入框竖直居中，避免整组按钮偏高。
-                    modifier = Modifier.align(Alignment.CenterVertically),
+                    // 同上：整组圆钮贴底，与尾部发送按钮同一条基线（距底端 8dp）。
+                    // 单行时与竖直居中等价；多行输入框长高后整组跟随下沉贴底，不再停在中间。
+                    modifier = Modifier
+                        .align(Alignment.Bottom)
+                        .padding(bottom = ComposerConcentricGap),
                     enter = fadeIn(enterSpec) +
                         expandHorizontally(growSpec, expandFrom = Alignment.Start),
                     exit = fadeOut(exitSpec) +
@@ -789,8 +796,9 @@ private fun voicePhaseText(state: VoiceModeState): String = when {
  * 编辑态下的“取消编辑”按钮：占据工具栏左侧入口位置（与发送按钮对称），官方
  * 色调图标按钮（尺寸/图标/水波纹/按压形变均为官方默认）。
  *
- * [modifier] 供调用方传入 `Modifier.align(Alignment.CenterVertically)`：
- * 官方工具栏内容 Row 是顶对齐，不显式居中会相对输入框偏高。
+ * [modifier] 供调用方传入 `Modifier.align(Alignment.Bottom)`（配 8dp 底内边距）：
+ * 官方工具栏内容 Row 是顶对齐，不显式对齐会相对输入框偏高；贴底后与尾部发送按钮同一条基线，
+ * 多行输入框长高时按钮随之下沉。
  */
 @Composable
 private fun M3ComposerCancelButton(onClick: () -> Unit, modifier: Modifier = Modifier) {

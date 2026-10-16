@@ -66,8 +66,9 @@ class M3ComposerToolbarLayoutTest {
         compose.onNodeWithContentDescription("Assistant & model").assertExists()
         compose.onNodeWithContentDescription("Send").assertDoesNotExist()
         val expandedActionsFieldWidth = fieldWidth()
-        // 左侧三个按钮与输入框竖直居中：官方工具栏内容 Row 是顶对齐（Row 默认 Alignment.Top），
-        // 必须显式 align 居中，否则 40dp 按钮相对 56dp 输入框会偏高 8dp。
+        // 左侧三个按钮贴底：官方工具栏内容 Row 是顶对齐（Row 默认 Alignment.Top），
+        // 必须显式 align，否则 40dp 按钮相对 56dp 输入框会偏高 8dp。
+        // 单行（56dp）时贴底与竖直居中重合（上下各 8dp），故这里断言居中仍然成立。
         val root = compose.onRoot().fetchSemanticsNode().boundsInRoot
         val idleFieldBounds = fieldBounds()
         // 空输入（未触发输入）时工具栏应保持单行高度：输入框 56dp + 上下各 8dp 内边距 = 72dp，
@@ -84,7 +85,7 @@ class M3ComposerToolbarLayoutTest {
             val buttonBounds = compose.onNodeWithContentDescription(description)
                 .fetchSemanticsNode().boundsInRoot
             assertEquals(
-                "$description 应与输入框竖直居中对齐",
+                "$description 单行时应与输入框竖直居中（贴底与居中在此高度下重合）",
                 idleFieldBounds.center.y,
                 buttonBounds.center.y,
                 0.5f,
@@ -196,6 +197,17 @@ class M3ComposerToolbarLayoutTest {
             multiLineBounds.bottom - multiLineSend.bottom,
             0.5f,
         )
+        // 多行时左侧三个按钮必须与发送按钮同底（贴底下沉），而不是停在输入框竖直中间。
+        listOf("Add attachment", "Image", "Assistant & model").forEach { description ->
+            val buttonBounds = compose.onNodeWithContentDescription(description)
+                .fetchSemanticsNode().boundsInRoot
+            assertEquals(
+                "多行时 $description 应与发送按钮同底（距输入框底端 8dp）",
+                multiLineSend.bottom,
+                buttonBounds.bottom,
+                0.5f,
+            )
+        }
 
         // 语音进行中（听写）：整条工具栏切换为聆听条——输入框与动作组消失，
         // 出现实时转写文本与官方色调停止圆钮（“End voice conversation”）。
