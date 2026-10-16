@@ -55,6 +55,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -63,9 +64,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -545,12 +546,19 @@ private fun ToolbarIcon(
 /** Globe icon with a spinning arc border when loading. */
 @Composable
 private fun BrowserAddressBarIcon(isLoading: Boolean, accent: Color) {
-    val transition = rememberInfiniteTransition(label = "addrIcon")
-    val angle by transition.animateFloat(
-        initialValue = 0f, targetValue = 360f,
-        animationSpec = infiniteRepeatable(tween(1000, easing = LinearEasing)),
-        label = "angle",
-    )
+    // Only hold the clock while actually loading. rememberInfiniteTransition keeps
+    // requesting frames for as long as it is composed, so an always-on instance would
+    // burn the frame clock (and battery) on an idle spinner that is not even drawn.
+    val angleState: State<Float>? = if (isLoading) {
+        val transition = rememberInfiniteTransition(label = "addrIcon")
+        transition.animateFloat(
+            initialValue = 0f, targetValue = 360f,
+            animationSpec = infiniteRepeatable(tween(1000, easing = LinearEasing)),
+            label = "angle",
+        )
+    } else {
+        null
+    }
     Box(
         modifier = Modifier.size(24.dp),
         contentAlignment = Alignment.Center,
@@ -561,11 +569,15 @@ private fun BrowserAddressBarIcon(isLoading: Boolean, accent: Color) {
             modifier = Modifier.size(16.dp),
             tint = if (isLoading) accent else MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        if (isLoading) {
+        if (angleState != null) {
+            val angle = angleState
             CircularProgressIndicator(
+                // The animated value is read inside the layer, not in composition: the
+                // State object is stable, so each frame invalidates only this layer
+                // instead of recomposing the composable and its address-bar row.
                 modifier = Modifier
                     .size(20.dp)
-                    .rotate(angle),
+                    .graphicsLayer { rotationZ = angle.value },
                 color = accent,
                 strokeWidth = 1.5.dp,
             )
@@ -577,11 +589,14 @@ private fun BrowserAddressBarIcon(isLoading: Boolean, accent: Color) {
 @Composable
 private fun AgentBrowsingOverlay(accent: Color, onTakeover: () -> Unit) {
     val transition = rememberInfiniteTransition(label = "breathing")
-    val breathingAlpha by transition.animateFloat(
+    val breathingAlpha = transition.animateFloat(
         initialValue = 0.3f, targetValue = 1f,
         animationSpec = infiniteRepeatable(tween(1500), RepeatMode.Reverse),
         label = "breathingAlpha",
     )
+    // Read the pulsing State inside the layer rather than destructuring it here. Reading
+    // the value in composition would recompose the whole overlay — dim layer, label, and
+    // the takeover button — on every frame of a 1.5s loop, for one 8dp dot.
 
     Box(
         modifier = Modifier
@@ -599,7 +614,8 @@ private fun AgentBrowsingOverlay(accent: Color, onTakeover: () -> Unit) {
             Box(
                 modifier = Modifier
                     .size(8.dp)
-                    .background(accent.copy(alpha = breathingAlpha), CircleShape),
+                    .graphicsLayer { alpha = breathingAlpha.value }
+                    .background(accent, CircleShape),
             )
             Spacer(Modifier.width(12.dp))
             Text(
