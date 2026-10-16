@@ -2014,6 +2014,9 @@ internal fun AgentConversationMessages(
                 .padding(
                     bottom = bottomInset + TurnNavigationCenterAboveBottom -
                         IconButtonDefaults.smallContainerSize().height / 2,
+                    // 页边距取全站惯用的 16dp 屏幕留白；与上面同高对齐的页脚动作组
+                    // （horizontal = 16dp）右缘因此也落在同一条竖线上。
+                    end = 16.dp,
                 ),
         )
     }
