@@ -17,7 +17,7 @@ import okhttp3.Request
 
 internal object AppUpdateRepository {
     const val FILE_PROVIDER_AUTHORITY = "io.github.mangi.eta.fileprovider"
-    const val LATEST_RELEASE_URL = "https://api.github.com/repos/y2485871697/Eta/releases/latest"
+    const val LATEST_RELEASE_URL = "https://api.github.com/repos/Sam-Fic/Eta/releases/latest"
     private const val AUTO_CHECK_INTERVAL_MS = 30_000L
     private const val MAX_APK_BYTES = 120L * 1024L * 1024L
 
