@@ -2005,21 +2005,15 @@ internal fun AgentConversationMessages(
             onStep = { direction -> navigateUserMessage(direction, toEdge = false) },
             onEdge = { direction -> navigateUserMessage(direction, toEdge = true) },
             modifier = Modifier
+                // 右下角默认落位：只用 Box 的 BottomEnd 对齐，不再为「与通话圆钮同心」手算水平偏移。
                 // 底栏渐变板向上溢出 ChatInputScrimOverhang（32dp）且整体压在内容层之上
                 // （miuix Scaffold 先 place body 再 place bottomBar），按钮组整体贴在右下方。
                 // 垂直：让按钮组中线与「滚到底时最后一轮页脚动作组（复制/朗读/fork…）」的中线
                 // 同高——两组都贴着右下角，同高后读作一行并列的控件。
-                // 水平：让右端「下一轮」的圆心与输入栏右下的通话圆钮（FilledIconButton Call）同心。
-                // 通话钮圆心距屏幕右缘 = 屏幕留白 16dp + FloatingToolbar 官方尾部内边距 8dp
-                // （FloatingToolbarDefaults.ContentPadding / ContainerTrailingSpace 令牌）
-                // + 同心端距 ComposerConcentricGap（8dp）+ 按钮半径 20dp = 52dp；
-                // 本组同样 40dp（smallContainerSize），右端按钮圆心距组右缘 20dp，
-                // 故 end = 52dp - 20dp = 32dp。
                 .align(Alignment.BottomEnd)
                 .padding(
                     bottom = bottomInset + TurnNavigationCenterAboveBottom -
                         IconButtonDefaults.smallContainerSize().height / 2,
-                    end = 32.dp,
                 ),
         )
     }
