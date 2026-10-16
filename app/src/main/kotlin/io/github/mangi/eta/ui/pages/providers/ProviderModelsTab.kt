@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -37,12 +36,10 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text as MaterialText
 import androidx.compose.runtime.Composable
@@ -91,6 +88,8 @@ import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
 import io.github.mangi.eta.ui.adaptive.EtaSectionTitle
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedCheckboxRow
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedGap
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedItem
 import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.haptics.TouchHaptics
@@ -1284,81 +1283,134 @@ private fun RemoteModelPickDialog(
         }
     }
     fun keyOf(model: Model) = model.modelId.trim().lowercase()
-    AlertDialog(
+    // 自适应弹窗：M3 → 官方 AlertDialog；MIUI X → WindowDialog。正文自带限高滚动容器。
+    EtaDialog(
+        show = true,
+        title = stringResource(R.string.provider_remote_pick_title),
         onDismissRequest = onDismiss,
-        title = { MaterialText(stringResource(R.string.provider_remote_pick_title)) },
-        text = {
-            Column(Modifier.fillMaxWidth().height(420.dp)) {
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    singleLine = true,
-                    label = { MaterialText(stringResource(R.string.ui_search_model_df5586)) },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Row(
-                    Modifier.fillMaxWidth().padding(top = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    TextButton(onClick = {
-                        selectedKeys = selectedKeys + visible.map(::keyOf)
-                    }) { MaterialText(stringResource(R.string.provider_remote_select_all)) }
-                    TextButton(onClick = {
-                        val visibleKeys = visible.map(::keyOf).toSet()
-                        val kept = selectedKeys - visibleKeys
-                        val flipped = visibleKeys - selectedKeys
-                        selectedKeys = kept + flipped
-                    }) { MaterialText(stringResource(R.string.provider_remote_invert)) }
-                    Spacer(Modifier.weight(1f))
-                    MaterialText(
-                        "${selectedKeys.size}/${models.size}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    ) {
+        Column {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .modelDialogScrollableBody()
+                    .scrollEndHaptic(),
+            ) {
+                // 搜索框与「全选 / 反选 / 计数」行随列表滚动，信息架构与供应商列表页保持一致。
+                item(key = "search") {
+                    ProviderSearchField(
+                        query = query,
+                        onQueryChange = { query = it },
+                        placeholder = stringResource(R.string.ui_search_model_df5586),
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
-                LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
-                    items(visible, key = { keyOf(it) }) { model ->
-                        val key = keyOf(model)
-                        val checked = key in selectedKeys
-                        EtaSegmentedCheckboxRow(
-                            checked = checked,
-                            onCheckedChange = { on: Boolean ->
-                                selectedKeys = if (on) selectedKeys + key else selectedKeys - key
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            content = {
-                                MaterialText(
-                                    model.displayName.ifBlank { model.modelId },
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            },
-                            supportingContent = if (model.displayName.isNotBlank() && model.displayName != model.modelId) {
-                                {
-                                    MaterialText(
-                                        model.modelId,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                            } else {
-                                null
-                            },
+                item(key = "toolbar") {
+                    val view = LocalView.current
+                    val onSelectAll = {
+                        TouchHaptics.click(view)
+                        selectedKeys = selectedKeys + visible.map(::keyOf)
+                    }
+                    val onInvert = {
+                        TouchHaptics.click(view)
+                        val visibleKeys = visible.map(::keyOf).toSet()
+                        selectedKeys = (selectedKeys - visibleKeys) + (visibleKeys - selectedKeys)
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        // M3：官方 TextButton；MIUI X：主色文本 + clickable（与页内全选行一致）。
+                        if (isMaterial3Theme()) {
+                            TextButton(onClick = onSelectAll) {
+                                MaterialText(stringResource(R.string.provider_remote_select_all))
+                            }
+                            TextButton(onClick = onInvert) {
+                                MaterialText(stringResource(R.string.provider_remote_invert))
+                            }
+                        } else {
+                            Text(
+                                text = stringResource(R.string.provider_remote_select_all),
+                                style = MiuixTheme.textStyles.body2,
+                                color = MiuixTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .clickable(onClick = onSelectAll)
+                                    .padding(end = 16.dp),
+                            )
+                            Text(
+                                text = stringResource(R.string.provider_remote_invert),
+                                style = MiuixTheme.textStyles.body2,
+                                color = MiuixTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .clickable(onClick = onInvert)
+                                    .padding(end = 16.dp),
+                            )
+                        }
+                        Spacer(Modifier.weight(1f))
+                        MaterialText(
+                            "${selectedKeys.size}/${models.size}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
+                if (visible.isEmpty()) {
+                    item(key = "empty") {
+                        ListEmptyState(
+                            title = stringResource(R.string.page_no_matching_model_found_ae7e96),
+                        )
+                    }
+                } else {
+                    itemsIndexed(
+                        items = visible,
+                        key = { _, model -> keyOf(model) },
+                    ) { index, model ->
+                        val key = keyOf(model)
+                        // 分段条目：首/末项由官方分段形状收外圆角，行间 2dp 露出背景缝隙
+                        //（与供应商列表页的 `EtaSegmentedItem` 用法一致）。
+                        EtaSegmentedItem(index = index, count = visible.size) {
+                            EtaSegmentedCheckboxRow(
+                                checked = key in selectedKeys,
+                                onCheckedChange = { on: Boolean ->
+                                    selectedKeys = if (on) selectedKeys + key else selectedKeys - key
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(
+                                        bottom = if (index == visible.lastIndex) 0.dp else EtaSegmentedGap,
+                                    ),
+                                content = {
+                                    MaterialText(
+                                        model.displayName.ifBlank { model.modelId },
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                },
+                                supportingContent = if (model.displayName.isNotBlank() && model.displayName != model.modelId) {
+                                    {
+                                        MaterialText(
+                                            model.modelId,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
+                                } else {
+                                    null
+                                },
+                            )
+                        }
+                    }
+                }
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onConfirm(models.filter { keyOf(it) in selectedKeys }) },
-                enabled = selectedKeys.isNotEmpty(),
-            ) { MaterialText(stringResource(R.string.provider_remote_add)) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { MaterialText(stringResource(R.string.action_cancel)) }
-        },
-    )
+            EtaDialogActions(
+                confirmText = stringResource(R.string.provider_remote_add),
+                confirmEnabled = selectedKeys.isNotEmpty(),
+                onCancel = onDismiss,
+                onConfirm = { onConfirm(models.filter { keyOf(it) in selectedKeys }) },
+                modifier = Modifier.padding(top = 16.dp),
+            )
+        }
+    }
 }
