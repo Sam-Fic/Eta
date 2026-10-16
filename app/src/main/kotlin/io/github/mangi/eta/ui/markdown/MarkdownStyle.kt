@@ -10,6 +10,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
+import io.github.mangi.eta.ui.adaptive.EtaType
+import io.github.mangi.eta.ui.adaptive.etaTextStyle
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -76,22 +78,13 @@ internal fun rememberMarkdownStyle(tone: MarkdownTone): MarkdownStyle {
     } else {
         MiuixTheme.colorScheme.surfaceContainer
     }
-    val body1 = if (material3) {
-        MaterialTheme.typography.bodyLarge
-    } else {
-        MiuixTheme.textStyles.body1
-    }
-    val body2 = if (material3) {
-        MaterialTheme.typography.bodyMedium
-    } else {
-        MiuixTheme.textStyles.body2
-    }
+    val body1 = etaTextStyle(EtaType.Body)
+    val body2 = etaTextStyle(EtaType.Secondary)
     // 主题值在 remember 之外读取：主题切换时重组并重建样式。
     return remember(tone, onSurface, secondaryColor, primary, outline, surfaceContainer, body1, body2) {
         val answer = tone == MarkdownTone.Answer
         val textColor = if (answer) onSurface else secondaryColor
         val body = (if (answer) body1 else body2).copy(
-            fontSize = if (answer) 16.sp else 14.sp,
             lineHeight = if (answer) ANSWER_LINE_HEIGHT_SP.sp else THINKING_LINE_HEIGHT_SP.sp,
             color = textColor,
         )

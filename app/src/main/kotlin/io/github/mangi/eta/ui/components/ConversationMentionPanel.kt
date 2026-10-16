@@ -25,6 +25,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.adaptive.EtaType
+import io.github.mangi.eta.ui.adaptive.etaTextStyle
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.model.ConversationMention
 import io.github.mangi.eta.ui.model.ConversationMentionInputUi
@@ -73,7 +75,7 @@ internal fun ConversationMentionPanel(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 color = MaterialTheme.colorScheme.primary,
-                                style = MaterialTheme.typography.labelLarge,
+                                style = etaTextStyle(EtaType.Secondary),
                             )
                             IconButton(
                                 onClick = { state.onRemove(mention.id) },
@@ -102,7 +104,7 @@ internal fun ConversationMentionPanel(
                     ) {
                         Text("@${mention.title}", modifier = Modifier.weight(1f, fill = false),
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
-                            color = MiuixTheme.colorScheme.primary, style = MiuixTheme.textStyles.body2)
+                            color = MiuixTheme.colorScheme.primary, style = etaTextStyle(EtaType.Secondary))
                         MiuixIconButton(onClick = { state.onRemove(mention.id) }, minWidth = 40.dp, minHeight = 48.dp) {
                             Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cmp_remove_mention, mention.title), modifier = Modifier.size(18.dp))
                         }
@@ -137,7 +139,7 @@ internal fun ConversationMentionPanel(
                             } else {
                                 stringResource(R.string.cmp_no_match)
                             },
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = etaTextStyle(EtaType.Secondary),
                         )
                     },
                 )
@@ -150,7 +152,7 @@ internal fun ConversationMentionPanel(
                             content = {
                                 M3Text(
                                     text = "@${candidate.title}",
-                                    style = MaterialTheme.typography.bodyLarge,
+                                    style = etaTextStyle(EtaType.Body),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
@@ -159,7 +161,7 @@ internal fun ConversationMentionPanel(
                                 M3Text(
                                     text = listOf(candidate.preview, candidate.timeLabel, if (candidate.isActiveRun) stringResource(R.string.cmp_running) else "")
                                         .filter { it.isNotBlank() }.joinToString(" · "),
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = etaTextStyle(EtaType.Secondary),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
@@ -183,10 +185,10 @@ internal fun ConversationMentionPanel(
                 items(candidates, key = { it.id }) { candidate ->
                     Column(modifier = Modifier.fillMaxWidth().clickable { onSelect(candidate.id) }
                         .padding(horizontal = 12.dp, vertical = 8.dp)) {
-                        Text("@${candidate.title}", style = MiuixTheme.textStyles.body1, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("@${candidate.title}", style = etaTextStyle(EtaType.Body), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(listOf(candidate.preview, candidate.timeLabel, if (candidate.isActiveRun) stringResource(R.string.cmp_running) else "")
                             .filter { it.isNotBlank() }.joinToString(" · "),
-                            style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            style = etaTextStyle(EtaType.Secondary), color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }

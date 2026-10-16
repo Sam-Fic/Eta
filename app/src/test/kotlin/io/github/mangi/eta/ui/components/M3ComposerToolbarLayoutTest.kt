@@ -7,12 +7,20 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.agent.voice.VoiceModePhase
@@ -20,6 +28,9 @@ import io.github.mangi.eta.agent.voice.VoiceModeState
 import io.github.mangi.eta.agent.voice.VoiceEntryMode
 import io.github.mangi.eta.data.model.GptSpeedMode
 import io.github.mangi.eta.data.model.ReasoningEffort
+import androidx.compose.runtime.CompositionLocalProvider
+import io.github.mangi.eta.data.model.AppearanceThemeFamily
+import io.github.mangi.eta.ui.app.LocalThemeFamily
 import io.github.mangi.eta.ui.model.AgentContextUsageUi
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
 import io.github.mangi.eta.ui.model.ConversationMentionInputUi
@@ -47,59 +58,7 @@ class M3ComposerToolbarLayoutTest {
     fun contentCollapsesActionGroupAndSwapsVoiceForSendButton() {
         val field = TextFieldState()
         val voiceStateHolder = mutableStateOf(VoiceModeState())
-        compose.setContent {
-            MaterialExpressiveTheme(
-                colorScheme = lightColorScheme(),
-                motionScheme = MotionScheme.expressive(),
-            ) {
-                // 与生产调用方一致：只有存在草稿内容时才允许发送。
-                val canSend = field.text.isNotBlank()
-                Material3ComposerBody(
-                    textFieldState = field,
-                    focusRequester = remember { FocusRequester() },
-                    interactionBlocked = false,
-                    isEditingMessage = false,
-                    isStreaming = false,
-                    isPaused = false,
-                    isCompressingContext = false,
-                    canContinueDisconnected = false,
-                    contextSendBlocked = false,
-                    canSend = canSend,
-                    usage = AgentContextUsageUi(contextTokens = null, contextWindow = null),
-                    popupMaxHeight = 360.dp,
-                    onPositionedTopPx = {},
-                    conversationId = null,
-                    assistantId = "",
-                    modelPickerState = AgentModelPickerUiState(),
-                    reasoningEffort = ReasoningEffort.OFF,
-                    availableReasoningEfforts = emptyList(),
-                    gptSpeedMode = GptSpeedMode.NORMAL,
-                    gptSpeedSupported = false,
-                    voiceState = voiceStateHolder.value,
-                    showMorphLoading = false,
-                    pendingImages = emptyList(),
-                    pendingFileReferences = emptyList(),
-                    conversationMentions = ConversationMentionInputUi(),
-                    onStartVoiceMode = {},
-                    onStopVoiceMode = {},
-                    onCancelMessageEdit = {},
-                    onAttachImage = {},
-                    onAttachVideo = {},
-                    onAttachFiles = {},
-                    onAttachFolder = {},
-                    onAttachFilePath = {},
-                    onEditAssistant = {},
-                    onAssistantSelected = {},
-                    onModelSelected = { _, _ -> },
-                    onReasoningEffortChange = {},
-                    onCycleGptSpeedMode = {},
-                    onSubmit = {},
-                    onStop = {},
-                    onContinue = {},
-                    onAbortPausedRun = {},
-                )
-            }
-        }
+        compose.setComposerContent(field, voiceStateHolder)
         // 空输入：左侧三个入口（+ / 相机 / 助手与模型）都在，尾部还没有发送按钮。
         compose.onNodeWithContentDescription("Add attachment").assertExists()
         compose.onNodeWithContentDescription("Image").assertExists()
@@ -223,6 +182,344 @@ class M3ComposerToolbarLayoutTest {
         compose.waitForIdle()
         compose.onNode(hasSetTextAction()).assertDoesNotExist()
         compose.onNodeWithContentDescription("End voice conversation").assertExists()
+    }
+
+    /**
+     * “无输入框 → 聆听条”的过渡必须与“有输入内容时动作组收起”同款：
+     * 动作组按弹簧横向收起、聆听条以右端为锚展开，两段过渡连续。
+     *
+     * 曾经的实现用 `if (!voiceActive)` 把动作组整组硬切换掉，开始 / 结束语音时动作组
+     * 瞬间消失 / 出现，胶囊宽度跳变；这里锁定住该回归——进入语音后的过渡中段，
+     * 动作组必须仍在组合中（正在横向收起），而不是被立即移除。
+     */
+    @Test
+    fun enteringVoiceModeAnimatesActionGroupInsteadOfHardCut() {
+        val field = TextFieldState()
+        val voiceStateHolder = mutableStateOf(VoiceModeState())
+        compose.setComposerContent(field, voiceStateHolder)
+        compose.onNodeWithContentDescription("Add attachment").assertExists()
+
+        // 冻结时钟后切到语音态，逐帧推进到过渡中段（远未结束）。
+        compose.mainClock.autoAdvance = false
+        compose.runOnIdle {
+            voiceStateHolder.value = VoiceModeState(
+                mode = VoiceEntryMode.DICTATION,
+                phase = VoiceModePhase.Listening,
+            )
+        }
+        repeat(8) {
+            compose.mainClock.advanceTimeByFrame()
+            compose.waitForIdle()
+        }
+
+        // 动作组此时必须仍在组合中（正在按弹簧横向收起），而不是像硬切换那样在语音态生效的
+        // 下一帧就被整体移除。旧实现用 `if (!voiceActive) { … }` 直接换分支，会让这里立刻
+        // 找不到节点：动作组瞬间消失、胶囊宽度跳变——正是“无输入框 → 聆听条”过渡不正确的根因。
+        assertEquals(
+            "进入语音的过渡中段，左侧动作组应仍在（正在收起），而非被硬切换移除",
+            1,
+            compose.onAllNodesWithContentDescription("Add attachment").fetchSemanticsNodes().size,
+        )
+        // 聆听条的停止圆钮也应已进入组合（AnimatedContent 交叉过渡中）。
+        assertTrue(
+            "进入语音的过渡中段，聆听条的停止圆钮应已就位",
+            compose.onAllNodesWithContentDescription("End voice conversation")
+                .fetchSemanticsNodes().isNotEmpty(),
+        )
+
+        // 推进到动画结束：动作组完全收走，输入框让位给聆听条。
+        compose.mainClock.advanceTimeBy(2_000)
+        assertEquals(
+            "过渡结束后左侧动作组应完全收起",
+            0,
+            compose.onAllNodesWithContentDescription("Add attachment").fetchSemanticsNodes().size,
+        )
+        compose.onNode(hasSetTextAction()).assertDoesNotExist()
+        compose.onNodeWithContentDescription("End voice conversation").assertExists()
+    }
+
+    /**
+     * 「+」按钮外观：空闲态是透明的标准图标按钮（无背景），展开菜单后才转为填充主色
+     * （`primary`，与尾部「通话」按钮同一组色槽），同时图标旋转 45° 成为「×」。
+     *
+     * 这里对按钮容器像素取样：空闲态应仍是工具栏底色（透明），展开态应落在 primary 上。
+     */
+    @Test
+    fun addButtonIsTransparentUntilExpandedThenFilledAndRotated() {
+        val field = TextFieldState()
+        val voiceStateHolder = mutableStateOf(VoiceModeState())
+        val primary = Color(0xFF123456)
+        compose.setComposerContent(
+            field = field,
+            voiceStateHolder = voiceStateHolder,
+            colorScheme = lightColorScheme(primary = primary),
+            material3ThemeFamily = true,
+        )
+        val add = compose.onNodeWithContentDescription("Add attachment")
+        add.assertExists()
+
+        // 空闲态：容器透明，采样点仍是外层工具栏的 vibrant 底色，而不是 primary。
+        val idlePixels = add.captureToImage().toPixelMap()
+        val idleEdge = idlePixels[1, idlePixels.height / 2]
+        assertTrue(
+            "空闲的「+」按钮不应有填充背景（采样点 $idleEdge 不应等于 primary）",
+            idleEdge != primary,
+        )
+
+        // 展开菜单：容器变为实心 primary，取靠近左缘的容器环带避开中心的图标。
+        add.performClick()
+        compose.waitForIdle()
+        val openPixels = compose.onNodeWithContentDescription("Add attachment")
+            .captureToImage().toPixelMap()
+        assertEquals(
+            "展开后「+」按钮应为 primary 填充",
+            primary,
+            openPixels[1, openPixels.height / 2],
+        )
+
+        // 空闲与展开两种图标朝向不同：45° 旋转把「+」化成「×」，逐像素比较应存在差异。
+        var diff = 0
+        for (y in 0 until minOf(idlePixels.height, openPixels.height)) {
+            for (x in 0 until minOf(idlePixels.width, openPixels.width)) {
+                if (idlePixels[x, y] != openPixels[x, y]) diff++
+            }
+        }
+        assertTrue("展开后的图标应发生旋转（逐像素应存在差异）", diff > 0)
+
+        // 再次点击关闭菜单：回到透明空闲态。
+        compose.onNodeWithContentDescription("Add attachment").performClick()
+        compose.waitForIdle()
+        val closedPixels = compose.onNodeWithContentDescription("Add attachment")
+            .captureToImage().toPixelMap()
+        assertTrue(
+            "收起菜单后「+」按钮应恢复透明背景",
+            closedPixels[1, closedPixels.height / 2] != primary,
+        )
+    }
+
+    /**
+     * 「无输入框 → 聆听条」的衔接期间，胶囊必须**全程不透明**：底衬始终是不透明的实心胶囊，
+     * 只允许在输入框底色（`surfaceContainer`）与聆听条底色（`surfaceContainerHigh`）之间平滑插值，
+     * 绝不能把外层 vibrant 工具栏的 `primaryContainer` 透出来。
+     *
+     * 回归背景：交叉淡化时输入框与聆听条同时只有部分 alpha，两层半透明源叠加后整体不满不透明，
+     * 外层工具栏底色就会从中间透出，观感是“胶囊中间变色 / 发虚”。修复方式是在该槽位铺一层
+     * 同形的实心底衬，底色随语音态在两种胶囊色之间同步渐变。这里对槽位像素取样验证。
+     */
+    @Test
+    fun pillBackdropStaysOpaqueThroughVoiceCrossfade() {
+        val field = TextFieldState()
+        val voiceStateHolder = mutableStateOf(VoiceModeState())
+        // 三色互不相同且对比强烈，任何混入工具栏底色的像素都会在 red 通道上暴露。
+        val toolbarColor = Color(0xFFE80000)
+        val inputPillColor = Color(0xFF0000E8)
+        val voicePillColor = Color(0xFF00E800)
+        compose.setComposerContent(
+            field = field,
+            voiceStateHolder = voiceStateHolder,
+            colorScheme = lightColorScheme(
+                primaryContainer = toolbarColor,
+                surfaceContainer = inputPillColor,
+                surfaceContainerHigh = voicePillColor,
+            ),
+        )
+        val slot = compose.onNodeWithTag("composer-pill-slot", useUnmergedTree = true)
+        slot.assertExists()
+
+        // 静止态：整块胶囊就是输入框底色。
+        val idleSample = pillSample()
+        assertEquals("静止态胶囊底色应为 surfaceContainer", inputPillColor, idleSample)
+
+        // 冻结时钟，切到语音态并在过渡中逐帧取样。
+        compose.mainClock.autoAdvance = false
+        compose.runOnIdle {
+            voiceStateHolder.value = VoiceModeState(
+                mode = VoiceEntryMode.DICTATION,
+                phase = VoiceModePhase.Listening,
+            )
+        }
+        repeat(10) {
+            compose.mainClock.advanceTimeByFrame()
+            compose.waitForIdle()
+            val sample = pillSample()
+            // 关键断言：过渡期间不得出现外层工具栏底色（primaryContainer 的红色）。
+            // 只要底衬不透明，红通道就应恒为 0；一旦让工具栏底色透出，红通道立即 > 0。
+            assertEquals(
+                "胶囊衔接中不应透出外层工具栏底色（采样 $sample）",
+                0f,
+                sample.red,
+                1f / 255f,
+            )
+        }
+
+        // 过渡结束后应落到聆听条底色。
+        compose.mainClock.advanceTimeBy(2_000)
+        compose.mainClock.autoAdvance = true
+        assertEquals("语音态胶囊底色应为 surfaceContainerHigh", voicePillColor, pillSample())
+    }
+
+    /**
+     * 「通话按钮 → 停止按钮」（进入语音）必须与「通话按钮 → 发送按钮」（输入文字）同款：
+     * 同一槽位、同一枚按钮做**淡入淡出 + 0.8 缩放**的官方 Expressive 弹簧形变，
+     * 而不是让整块胶囊各自淡入淡出（那样尾部按钮只是简单渐变、尺寸不变）。
+     *
+     * 语义节点尺寸不会反映 `graphicsLayer` 缩放，因此这里对尾部槽位截图，只统计停止圆钮
+     * 容器色（`tertiaryContainer`）的像素横向跨度，并在过渡中逐帧测量：
+     *  - 带缩放：圆钮自 0.8 倍起逐渐放大到 1.0 倍，必然出现“已可见但明显小于终值”的帧；
+     *  - 纯交叉淡化：透明度是整圆均匀的，要么匹配不到、要么一出现就是满尺寸，不存在中间帧。
+     * 于是“存在 0 < 跨度 < 终值”即可区分两者，且不依赖具体像素阈值。
+     */
+    @Test
+    fun trailingButtonMorphsWithScaleInsteadOfPlainCrossfade() {
+        val field = TextFieldState()
+        val voiceStateHolder = mutableStateOf(VoiceModeState())
+        // 停止圆钮取 tertiaryContainer，用高饱和绿把它与底衬 / Call 按钮在像素上分开。
+        val stopColor = Color(0xFF00E800)
+        compose.setComposerContent(
+            field = field,
+            voiceStateHolder = voiceStateHolder,
+            colorScheme = lightColorScheme(tertiaryContainer = stopColor),
+        )
+
+        // 先进入语音并等动画结束，量出停止圆钮的“终值跨度”作为基准。
+        compose.runOnIdle {
+            voiceStateHolder.value = VoiceModeState(
+                mode = VoiceEntryMode.DOUBAO_DUPLEX,
+                phase = VoiceModePhase.Listening,
+            )
+        }
+        compose.waitForIdle()
+        val settledWidth = compose.stopButtonWidth(stopColor)
+        assertTrue("停止圆钮静止态应可见", settledWidth > 0)
+
+        // 退出语音、回到通话按钮，冻结时钟重新进入语音，逐帧采样。
+        compose.runOnIdle { voiceStateHolder.value = VoiceModeState() }
+        compose.waitForIdle()
+        compose.mainClock.autoAdvance = false
+        compose.runOnIdle {
+            voiceStateHolder.value = VoiceModeState(
+                mode = VoiceEntryMode.DOUBAO_DUPLEX,
+                phase = VoiceModePhase.Listening,
+            )
+        }
+        var sawIntermediate = false
+        repeat(20) {
+            compose.mainClock.advanceTimeByFrame()
+            compose.waitForIdle()
+            val width = compose.stopButtonWidth(stopColor)
+            if (width > 0 && width < settledWidth) sawIntermediate = true
+        }
+        assertTrue(
+            "进入语音时停止圆钮应带缩放形变（过渡中应出现比终值窄的中间帧）；" +
+                "若只是交叉淡化，则圆钮一出现就是满尺寸",
+            sawIntermediate,
+        )
+        compose.mainClock.autoAdvance = true
+    }
+
+    /**
+     * 只统计停止圆钮容器色（[stopColor]）像素的横向跨度（px，@mdpi 下 1dp = 1px）。
+     *
+     * 透明度是整圆均匀的，因此纯淡入淡出只会给出 0 或满宽；带缩放才能给出中间宽度。
+     * 容差 0.05 用于吸收抗锯齿与色值插值的少量误差。
+     */
+    private fun ComposeContentTestRule.stopButtonWidth(stopColor: Color): Int {
+        val pixels = onNodeWithTag("composer-trailing-slot", useUnmergedTree = true)
+            .captureToImage().toPixelMap()
+        var lo = -1
+        var hi = -1
+        for (y in 0 until pixels.height) {
+            for (x in 0 until pixels.width) {
+                val c = pixels[x, y]
+                val hit = kotlin.math.abs(c.red - stopColor.red) < 0.05f &&
+                    kotlin.math.abs(c.green - stopColor.green) < 0.05f &&
+                    kotlin.math.abs(c.blue - stopColor.blue) < 0.05f
+                if (hit) {
+                    if (lo < 0) lo = x
+                    if (x > hi) hi = x
+                }
+            }
+        }
+        return if (lo < 0) 0 else hi - lo + 1
+    }
+
+    /**
+     * 取胶囊槽位顶边中点附近的像素：位于实心底衬的平坦区（28dp 圆角只影响两端），
+     * 同时避开了输入框内部的文本与控件（起始侧形变加载指示器此处关闭）。
+     */
+    private fun pillSample(): Color {
+        val pixels = compose.onNodeWithTag("composer-pill-slot", useUnmergedTree = true)
+            .captureToImage().toPixelMap()
+        return pixels[pixels.width / 2, 1]
+    }
+
+    private fun ComposeContentTestRule.setComposerContent(
+        field: TextFieldState,
+        voiceStateHolder: MutableState<VoiceModeState>,
+        colorScheme: androidx.compose.material3.ColorScheme = lightColorScheme(),
+        material3ThemeFamily: Boolean = false,
+    ) {
+        setContent {
+            MaterialExpressiveTheme(
+                colorScheme = colorScheme,
+                motionScheme = MotionScheme.expressive(),
+            ) {
+                val body: @androidx.compose.runtime.Composable () -> Unit = {
+                Material3ComposerBody(
+                    textFieldState = field,
+                    focusRequester = remember { FocusRequester() },
+                    interactionBlocked = false,
+                    isEditingMessage = false,
+                    isStreaming = false,
+                    isPaused = false,
+                    isCompressingContext = false,
+                    canContinueDisconnected = false,
+                    contextSendBlocked = false,
+                    canSend = field.text.isNotBlank(),
+                    usage = AgentContextUsageUi(contextTokens = null, contextWindow = null),
+                    popupMaxHeight = { 360.dp },
+                    onPositionedTopPx = {},
+                    conversationId = null,
+                    assistantId = "",
+                    modelPickerState = AgentModelPickerUiState(),
+                    reasoningEffort = ReasoningEffort.OFF,
+                    availableReasoningEfforts = emptyList(),
+                    gptSpeedMode = GptSpeedMode.NORMAL,
+                    gptSpeedSupported = false,
+                    voiceState = voiceStateHolder.value,
+                    showMorphLoading = false,
+                    pendingImages = emptyList(),
+                    pendingFileReferences = emptyList(),
+                    conversationMentions = ConversationMentionInputUi(),
+                    onStartVoiceMode = {},
+                    onStopVoiceMode = {},
+                    onCancelMessageEdit = {},
+                    onAttachImage = {},
+                    onAttachVideo = {},
+                    onAttachFiles = {},
+                    onAttachFolder = {},
+                    onAttachFilePath = {},
+                    onEditAssistant = {},
+                    onAssistantSelected = {},
+                    onModelSelected = { _, _ -> },
+                    onReasoningEffortChange = {},
+                    onCycleGptSpeedMode = {},
+                    onSubmit = {},
+                    onStop = {},
+                    onContinue = {},
+                    onAbortPausedRun = {},
+                )
+                }
+                if (material3ThemeFamily) {
+                    CompositionLocalProvider(
+                        LocalThemeFamily provides AppearanceThemeFamily.MATERIAL3_EXPRESSIVE,
+                        content = body,
+                    )
+                } else {
+                    body()
+                }
+            }
+        }
     }
 
     private fun fieldBounds() =

@@ -281,6 +281,24 @@ internal fun List<AgentTimelineRow>.lazyUserMessageIndices(): List<Int> = mapInd
     index.takeIf { user != null && !user.isResumeAfterCompress() }
 }
 
+/**
+ * 渲染层连续 User 气泡分组：两个相邻 User 气泡之间没有任何行（工作过程 / 正文 / 其它消息）即同组。
+ *
+ * 组边界只由相邻行决定：流式内容到达只会改变「自身→下一条」一侧，组不随内容跳变。
+ */
+internal fun List<AgentTimelineRow>.userBubblePosition(index: Int): UserBubblePosition {
+    fun isUserBubble(row: AgentTimelineRow?): Boolean =
+        (row as? AgentTimelineRow.Message)?.message is UserMessageUi
+    val stickyUp = index > 0 && isUserBubble(getOrNull(index - 1))
+    val stickyDown = index < lastIndex && isUserBubble(getOrNull(index + 1))
+    return when {
+        stickyUp && stickyDown -> UserBubblePosition.GroupMid
+        stickyUp -> UserBubblePosition.GroupLast
+        stickyDown -> UserBubblePosition.GroupFirst
+        else -> UserBubblePosition.Single
+    }
+}
+
 internal fun AgentTimelineRow.containsMessageId(id: String): Boolean = when (this) {
     is AgentTimelineRow.Message -> message.id == id
     is AgentTimelineRow.WorkHeader -> key == id || (!expanded && group.messages.any { it.id == id })

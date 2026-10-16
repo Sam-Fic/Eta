@@ -89,10 +89,12 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.Stroke
+import io.github.mangi.eta.ui.adaptive.EtaType
 import io.github.mangi.eta.ui.adaptive.etaOnSurface
 import io.github.mangi.eta.ui.adaptive.etaPrimary
 import io.github.mangi.eta.ui.adaptive.etaSecondaryContainer
 import io.github.mangi.eta.ui.adaptive.etaSurfaceContainerHigh
+import io.github.mangi.eta.ui.adaptive.etaTextStyle
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 
 /**
@@ -127,8 +129,9 @@ internal fun AgentModelPickerButton(
     isStreaming: Boolean,
     isPaused: Boolean = false,
     collaborationTaskRunning: Boolean = isStreaming,
-    popupAnchorTopPx: Int,
-    popupMaxHeight: Dp,
+    // Deferred: invoked when the menu is composed, so the input bar does not read its own
+    // window position (and therefore does not recompose while the keyboard animates).
+    popupMaxHeight: () -> Dp,
     onModelSelected: (String, String) -> Unit,
     modifier: Modifier = Modifier,
     containerShape: androidx.compose.ui.graphics.Shape? = null,
@@ -265,7 +268,7 @@ internal fun AgentModelPickerButton(
                         ) {
                             M3Text(
                                 text = stringResource(R.string.model_picker_title),
-                                style = MaterialTheme.typography.titleLarge,
+                                style = etaTextStyle(EtaType.Title),
                                 modifier = Modifier.weight(1f),
                             )
                             IconButton(onClick = onMenuDismiss) {
@@ -302,7 +305,7 @@ internal fun AgentModelPickerButton(
                 focusable = true,
                 minWidth = 220.dp,
                 maxWidth = 220.dp,
-                maxHeight = popupMaxHeight,
+                maxHeight = popupMaxHeight(),
             ) {
                 ModelPickerPopupContent(
                     state = state,
@@ -369,7 +372,7 @@ private fun ModelPickerPopupContent(
     if (groups.isEmpty()) {
         Text(
             text = stringResource(R.string.model_search_empty),
-            style = MiuixTheme.textStyles.footnote1,
+            style = etaTextStyle(EtaType.Caption),
             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
         )
@@ -594,7 +597,7 @@ private fun ModelPickerSearchField(
                 Text(
                     text = stringResource(R.string.model_search_hint),
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    style = MiuixTheme.textStyles.footnote1,
+                    style = etaTextStyle(EtaType.Caption),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -603,7 +606,7 @@ private fun ModelPickerSearchField(
                 value = query,
                 onValueChange = onQueryChange,
                 singleLine = true,
-                textStyle = MiuixTheme.textStyles.footnote1.copy(color = etaOnSurface()),
+                textStyle = etaTextStyle(EtaType.Caption).copy(color = etaOnSurface()),
                 cursorBrush = SolidColor(etaPrimary()),
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -636,7 +639,7 @@ private fun ModelProviderGroupHeader(
     ) {
         Text(
             text = name,
-            style = MiuixTheme.textStyles.footnote1,
+            style = etaTextStyle(EtaType.Caption),
             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -690,7 +693,7 @@ private fun ModelPickerRow(
     ) {
         Text(
             text = model.displayName,
-            style = MiuixTheme.textStyles.body2,
+            style = etaTextStyle(EtaType.Secondary),
             color = MiuixTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -713,7 +716,7 @@ private fun ModelPickerRow(
 internal fun AgentContextUsageButton(
     usage: AgentContextUsageUi,
     sendBlocked: Boolean = false,
-    popupMaxHeight: Dp = 360.dp,
+    popupMaxHeight: () -> Dp = { 360.dp },
     modifier: Modifier = Modifier,
     containerSize: Dp = ChatInputActionSize,
     /**
@@ -872,7 +875,7 @@ internal fun AgentContextUsageButton(
                 }
                 M3Text(
                     text = detail,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = etaTextStyle(EtaType.Secondary),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(MenuDefaults.DropdownMenuSelectableItemContentPadding),
                 )
@@ -886,7 +889,7 @@ internal fun AgentContextUsageButton(
             DropdownMenu(
                 expanded = selectorState.expanded,
                 onDismissRequest = selectorState::dismiss,
-                modifier = Modifier.heightIn(max = popupMaxHeight),
+                modifier = Modifier.heightIn(max = popupMaxHeight()),
             ) {
                 MenuDefaults.DropdownMenuGroupLabel { M3Text(text = stringResource(R.string.acm_context_stats)) }
                 targets.forEachIndexed { index, label ->
@@ -919,12 +922,12 @@ internal fun AgentContextUsageButton(
             ) {
                 Text(
                     text = selectedLabel,
-                    style = MiuixTheme.textStyles.body1,
+                    style = etaTextStyle(EtaType.Body),
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                 )
                 Text(
                     text = detail,
-                    style = MiuixTheme.textStyles.body2,
+                    style = etaTextStyle(EtaType.Secondary),
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 8.dp),
                 )
@@ -933,9 +936,9 @@ internal fun AgentContextUsageButton(
                 expanded = selectorState.expanded,
                 onDismissRequest = selectorState::dismiss,
                 alignEnd = true, preferAbove = true, focusable = false,
-                minWidth = 220.dp, maxWidth = 260.dp, maxHeight = popupMaxHeight,
+                minWidth = 220.dp, maxWidth = 260.dp, maxHeight = popupMaxHeight(),
             ) {
-                Text(stringResource(R.string.acm_context_stats), style = MiuixTheme.textStyles.footnote1,
+                Text(stringResource(R.string.acm_context_stats), style = etaTextStyle(EtaType.Caption),
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
                 ContextTargetRow("${telemetry.mainModelName.ifBlank { stringResource(R.string.acm_main_agent) }}（${stringResource(R.string.acm_main_agent)}）", child == null) {
                     selectTask(null); selectorState.dismiss()
@@ -1001,7 +1004,7 @@ private fun ContextTargetRow(label: String, selected: Boolean, onClick: () -> Un
         .squircleSurface(color = if (selected) etaSurfaceContainerHigh() else Color.Transparent, cornerRadius = 12.dp)
         .clickable { TouchHaptics.click(view); onClick() }
         .padding(horizontal = 8.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, style = MiuixTheme.textStyles.body2, maxLines = 2,
+        Text(label, style = etaTextStyle(EtaType.Secondary), maxLines = 2,
             overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
         if (selected) Icon(Icons.Rounded.Check, contentDescription = stringResource(R.string.acm_current_target), modifier = Modifier.size(18.dp))
     }

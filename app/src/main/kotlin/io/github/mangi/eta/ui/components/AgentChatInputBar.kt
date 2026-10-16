@@ -72,6 +72,9 @@ import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.produceState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -105,6 +108,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
@@ -118,6 +122,7 @@ import io.github.mangi.eta.agent.voice.VoiceModeState
 import io.github.mangi.eta.agent.voice.VoiceModePhase
 import io.github.mangi.eta.agent.model.AgentModelClient
 import io.github.mangi.eta.agent.skill.SkillCompatibilityChecker
+import io.github.mangi.eta.agent.skill.SkillIndexEntry
 import io.github.mangi.eta.agent.skill.SkillRuntime
 import io.github.mangi.eta.data.model.GptSpeedMode
 import io.github.mangi.eta.data.model.ReasoningEffort
@@ -152,7 +157,10 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider as M3Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.rememberSliderState
 import androidx.compose.material3.Text as M3Text
 import androidx.compose.ui.text.style.TextOverflow
 import io.github.mangi.eta.data.repository.ComposerQueueStore
@@ -162,10 +170,12 @@ import io.github.mangi.eta.ui.adaptive.EtaConnectedGroupRow
 import io.github.mangi.eta.ui.adaptive.etaGptSpeedColor
 import io.github.mangi.eta.ui.adaptive.EtaIconButton
 import io.github.mangi.eta.ui.adaptive.EtaIconSize
+import io.github.mangi.eta.ui.adaptive.EtaType
 import io.github.mangi.eta.ui.adaptive.etaOnSurface
 import io.github.mangi.eta.ui.adaptive.etaPrimary
 import io.github.mangi.eta.ui.adaptive.etaSurfaceContainer
 import io.github.mangi.eta.ui.adaptive.etaSurfaceContainerHigh
+import io.github.mangi.eta.ui.adaptive.etaTextStyle
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Slider
@@ -250,15 +260,23 @@ internal fun AgentChatInputBar(
     val skillAppContext = LocalContext.current.applicationContext
     val assistantProfiles by AssistantRepository.profiles.collectAsState()
     val repositoryActiveId by AssistantRepository.activeId.collectAsState()
-    val availableSkills = remember(assistantId, skillAppContext, assistantProfiles, repositoryActiveId) {
-        val profile = assistantProfiles.firstOrNull { it.id == assistantId }
-            ?: assistantProfiles.firstOrNull { it.id == repositoryActiveId }
-            ?: AssistantRepository.active()
-        val enabledIds = profile.enabledSkillIds.toSet()
-        SkillRuntime.createIndexService(skillAppContext)
-            .listSkillsForManagement()
-            .filter { it.installed && it.id in enabledIds }
-            .filter { SkillCompatibilityChecker.evaluate(it).available }
+    // The index walk takes a cross-process file lock and recursively scans the skills
+    // root, so it must not run inside a composition on the main thread. Empty until the
+    // first background result lands; the mention panel simply offers nothing until then.
+    val availableSkills by produceState<List<SkillIndexEntry>>(
+        initialValue = emptyList(),
+        assistantId, skillAppContext, assistantProfiles, repositoryActiveId,
+    ) {
+        value = withContext(Dispatchers.IO) {
+            val profile = assistantProfiles.firstOrNull { it.id == assistantId }
+                ?: assistantProfiles.firstOrNull { it.id == repositoryActiveId }
+                ?: AssistantRepository.active()
+            val enabledIds = profile.enabledSkillIds.toSet()
+            SkillRuntime.createIndexService(skillAppContext)
+                .listSkillsForManagement()
+                .filter { it.installed && it.id in enabledIds }
+                .filter { SkillCompatibilityChecker.evaluate(it).available }
+        }
     }
     val supportsVision = modelPickerState.selectedModel?.supportsVision == true
     val supportsVideo = modelPickerState.selectedModel?.supportsVideo == true
@@ -306,11 +324,22 @@ internal fun AgentChatInputBar(
         )
     val density = LocalDensity.current
     val statusBarTopPx = WindowInsets.statusBars.getTop(density)
-    var inputContainerTopPx by remember { mutableIntStateOf(0) }
-    val thinkingPopupMaxHeight = with(density) {
-        (inputContainerTopPx - statusBarTopPx).coerceAtLeast(0).toDp()
-    }.minus(ChatInputPopupMargin * 2)
-        .coerceAtLeast(ListPopupDefaults.MinPopupHeight)
+    // Deliberately NOT snapshot state. The composer reports its window Y position on every
+    // layout, and `imePadding` moves it on every frame of the keyboard show/hide animation.
+    // Holding that in mutableIntStateOf made this whole input bar — text field, mention
+    // panels, attachment strips — recompose once per keyboard frame, which is the stutter
+    // felt when tapping into the field. Nothing observable is written here now, so moving
+    // the composer costs no recomposition at all.
+    val inputContainerTopPx = remember { intArrayOf(0) }
+    // Read on demand, at the moment a popup is composed, so the value is current rather than
+    // captured at this composable's last recomposition.
+    val popupMaxHeight: () -> Dp = remember(density, statusBarTopPx) {
+        {
+            with(density) { (inputContainerTopPx[0] - statusBarTopPx).coerceAtLeast(0).toDp() }
+                .minus(ChatInputPopupMargin * 2)
+                .coerceAtLeast(ListPopupDefaults.MinPopupHeight)
+        }
+    }
 
     val keyboard = LocalSoftwareKeyboardController.current
     val view = LocalView.current
@@ -415,7 +444,7 @@ internal fun AgentChatInputBar(
                 } else {
                     stringResource(R.string.chat_edit_replace_message)
                 },
-                style = MiuixTheme.textStyles.body2,
+                style = etaTextStyle(EtaType.Secondary),
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 modifier = Modifier.padding(start = 8.dp, bottom = 8.dp),
             )
@@ -428,7 +457,7 @@ internal fun AgentChatInputBar(
         ) {
             Text(
                 text = stringResource(R.string.context_window_send_blocked),
-                style = MiuixTheme.textStyles.body2,
+                style = etaTextStyle(EtaType.Secondary),
                 color = StatusError,
                 modifier = Modifier.padding(start = 8.dp, bottom = 8.dp),
             )
@@ -441,7 +470,7 @@ internal fun AgentChatInputBar(
         ) {
             Text(
                 text = stringResource(R.string.compress_conversation_in_progress),
-                style = MiuixTheme.textStyles.body2,
+                style = etaTextStyle(EtaType.Secondary),
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 modifier = Modifier.padding(start = 8.dp, bottom = 8.dp),
             )
@@ -462,8 +491,8 @@ internal fun AgentChatInputBar(
                 contextSendBlocked = contextSendBlocked,
                 canSend = canSend,
                 usage = liveUsage,
-                popupMaxHeight = thinkingPopupMaxHeight,
-                onPositionedTopPx = { inputContainerTopPx = it },
+                popupMaxHeight = popupMaxHeight,
+                onPositionedTopPx = { inputContainerTopPx[0] = it },
                 conversationId = collaborationConversationId,
                 assistantId = assistantId,
                 modelPickerState = modelPickerState,
@@ -499,7 +528,7 @@ internal fun AgentChatInputBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .onGloballyPositioned { coordinates ->
-                    inputContainerTopPx = coordinates.positionInWindow().y.roundToInt()
+                    inputContainerTopPx[0] = coordinates.positionInWindow().y.roundToInt()
                 },
         ) {
             Column(
@@ -530,7 +559,7 @@ internal fun AgentChatInputBar(
                         if (textFieldState.text.isBlank()) {
                             Text(
                                 text = if (isStreaming) stringResource(R.string.chat_eta_working) else stringResource(R.string.chat_input_hint),
-                                style = MiuixTheme.textStyles.body1,
+                                style = etaTextStyle(EtaType.Body),
                                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             )
                         }
@@ -543,7 +572,7 @@ internal fun AgentChatInputBar(
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
                             textStyle = TextStyle(
                                 color = etaOnSurface(),
-                                fontSize = MiuixTheme.textStyles.body1.fontSize,
+                                fontSize = etaTextStyle(EtaType.Body).fontSize,
                                 lineHeight = 22.sp,
                             ),
                             cursorBrush = SolidColor(etaPrimary()),
@@ -612,7 +641,7 @@ internal fun AgentChatInputBar(
                         AgentContextUsageButton(
                             // liveUsage is cloud-first; the separate sendBudget must never drive the ring.
                             usage = liveUsage,
-                            popupMaxHeight = thinkingPopupMaxHeight,
+                            popupMaxHeight = popupMaxHeight,
                             sendBlocked = contextSendBlocked,
                         )
                         Spacer(modifier = Modifier.width(2.dp))
@@ -623,8 +652,7 @@ internal fun AgentChatInputBar(
                             state = modelPickerState,
                             isStreaming = isStreaming,
                             isPaused = isPaused,
-                            popupAnchorTopPx = inputContainerTopPx,
-                            popupMaxHeight = thinkingPopupMaxHeight,
+                            popupMaxHeight = popupMaxHeight,
                             onModelSelected = onModelSelected,
                         )
 
@@ -928,6 +956,21 @@ internal fun ThinkingEffortChip(
     )
 }
 
+/**
+ * 思考深度选择弹窗：一个“当前档位”的大标题 + 官方离散滑块 + 档位标签。
+ *
+ * 两套主题族各自用原生组件，不再混用：
+ * - **Material 3 Expressive**：官方 `Slider`（离散 steps + 官方刻度/停止指示器）、官方
+ *   `SliderDefaults` 配色、`MaterialTheme` 排版与色角色；选中值的展示用官方
+ *   `headlineMediumEmphasized`（Expressive 强调字阶），而不是 miuix 的 title。
+ * - **MIUI X**：保留原先的 miuix `Slider`（关键点吸附 + 大圆拇指）与 `MiuixTheme` 配色。
+ *
+ * 之前的实现无论哪套主题都用 miuix 滑块 / `MiuixTheme` 颜色——这就是 M3E 下弹窗里出现
+ * 胶囊轨道 + 大圆拇指（MIUI 观感）的根因。
+ *
+ * 交互与旧实现一致：点击 / 拖动落在最近的离散档位，跨档位时触发一次轻触反馈，
+ * 档位变化即时回调 [onEffortChange]。
+ */
 @Composable
 internal fun ThinkingEffortPickerDialog(
     show: Boolean,
@@ -955,99 +998,261 @@ internal fun ThinkingEffortPickerDialog(
     val preview = options[previewIndex]
     val maxIndex = (options.size - 1).toFloat().coerceAtLeast(0f)
 
+    // 离散滑块的拖动层：无论哪套主题族都以“最近档位”驱动 sliderValue / 触感 / 回调，
+    // 因此轨道外观可以完全交给各主题族的原生组件，交互逻辑只有一份。
+    val discreteScrub: Modifier = Modifier
+        .pointerInput(options.size) {
+            awaitEachGesture {
+                val down = awaitFirstDown()
+                down.consume()
+                val width = size.width.toFloat().coerceAtLeast(1f)
+                var current = discreteSliderIndexForTap(
+                    down.position.x,
+                    width,
+                    latestOptions.size,
+                )
+                sliderValue = current.toFloat()
+                lastHapticIndex = current
+                TouchHaptics.click(view)
+                while (true) {
+                    val event = awaitPointerEvent()
+                    val change = event.changes.firstOrNull() ?: break
+                    val index = discreteSliderIndexForTap(
+                        change.position.x,
+                        width,
+                        latestOptions.size,
+                    )
+                    if (index != current) {
+                        current = index
+                        sliderValue = current.toFloat()
+                        if (current != lastHapticIndex) {
+                            lastHapticIndex = current
+                            TouchHaptics.click(view)
+                        }
+                    }
+                    change.consume()
+                    if (!event.changes.any { it.pressed }) break
+                }
+                val coerced = current.coerceIn(0, latestOptions.lastIndex)
+                sliderValue = coerced.toFloat()
+                lastHapticIndex = coerced
+                val next = latestOptions[coerced]
+                if (next != latestEffort) latestOnEffortChange(next)
+            }
+        }
+
+    // M3E 分支交给官方 Slider 自己处理拖动 / 点击 / 吸附（它已经按刻度对齐，且轨道两端有
+    // 拇指半宽的留白，自绘坐标层反而会错位）。这里只接收“当前值”和“结束”两个信号。
+    val onScrub: (Float) -> Unit = { raw ->
+        val coerced = raw.coerceIn(0f, maxIndex)
+        sliderValue = coerced
+        val index = coerced.roundToInt().coerceIn(0, latestOptions.lastIndex)
+        if (index != lastHapticIndex) {
+            lastHapticIndex = index
+            TouchHaptics.click(view)
+        }
+    }
+    val onCommit: () -> Unit = {
+        val index = sliderValue.roundToInt().coerceIn(0, latestOptions.lastIndex)
+        val next = latestOptions[index]
+        if (next != latestEffort) latestOnEffortChange(next)
+    }
+
     EtaDialog(
         show = show,
         title = stringResource(R.string.reasoning_picker_title),
         onDismissRequest = onDismiss,
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            if (description != null) {
-                Text(
-                    text = description,
-                    style = MiuixTheme.textStyles.footnote1,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    modifier = Modifier.padding(bottom = 8.dp),
+        if (isMaterial3Theme()) {
+            M3ThinkingEffortPickerBody(
+                description = description,
+                preview = preview,
+                options = options,
+                sliderValue = sliderValue.coerceIn(0f, maxIndex),
+                maxIndex = maxIndex,
+                onScrub = onScrub,
+                onCommit = onCommit,
+            )
+        } else {
+            MiuixThinkingEffortPickerBody(
+                description = description,
+                preview = preview,
+                options = options,
+                sliderValue = sliderValue.coerceIn(0f, maxIndex),
+                maxIndex = maxIndex,
+                scrub = discreteScrub,
+            )
+        }
+    }
+}
+
+/**
+ * Material 3 Expressive 分支：官方组件 + 官方令牌，不引用任何 miuix 类型。
+ *
+ * 滑块直接用官方 `Slider`（离散 `steps`）的拖动 / 点击 / 吸附行为，不再叠加自绘坐标层：
+ * 官方实现已按刻度对齐，且对轨道两端做了“拇指半宽”的留白，自绘的线性映射会与其错位。
+ * 这里只把「当前值」与「拖动结束」两个信号回传给父层统一做触感与业务回调。
+ */
+@Composable
+private fun M3ThinkingEffortPickerBody(
+    description: String?,
+    preview: ReasoningEffort,
+    options: List<ReasoningEffort>,
+    sliderValue: Float,
+    maxIndex: Float,
+    onScrub: (Float) -> Unit,
+    onCommit: () -> Unit,
+) {
+    // 官方离散滑块状态：steps = 档位数 − 2（首尾落在 trackRange 两端）。
+    val state = rememberSliderState(
+        value = sliderValue,
+        steps = (options.size - 2).coerceAtLeast(0),
+        trackRange = 0f..maxIndex,
+    )
+    // 外部（重新打开弹窗 / 复位）改变档位时同步到官方状态；拖动过程中不回灌，避免与手势抢状态。
+    LaunchedEffect(sliderValue) {
+        if (!state.isDragging && state.value != sliderValue) state.value = sliderValue
+    }
+    val on = preview != ReasoningEffort.OFF
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        description?.let {
+            M3Text(
+                text = it,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+        }
+        // AI 思考语义的星形图标，颜色跟随官方强调色 / 中性色。
+        Icon(
+            imageVector = Icons.Rounded.AutoAwesome,
+            contentDescription = null,
+            modifier = Modifier
+                .padding(top = 8.dp)
+                .size(32.dp),
+            tint = if (on) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        )
+        // 当前档位：Expressive 强调字阶（headlineMediumEmphasized），比 title 更大更醒目。
+        M3Text(
+            text = preview.displayName,
+            style = MaterialTheme.typography.headlineMediumEmphasized,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),
+        )
+        if (options.size > 1) {
+            M3Slider(
+                state = state,
+                // 官方 Slider 只回调、不写 state：这里就地回写（onScrub 内已做档位吸附），
+                // 再通知父层更新大字预览与触感。
+                onValueChange = { raw ->
+                    if (state.value != raw) state.value = raw
+                    onScrub(state.value)
+                },
+                onValueChangeFinished = onCommit,
+                // 供回归测试定位官方滑块（见 ThinkingEffortPickerThemeTest）。
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("thinking-effort-slider"),
+            )
+            // 离散滑块的官方做法：两端各标一个边界文案，让人一眼知道可选范围。
+            Row(modifier = Modifier.fillMaxWidth()) {
+                M3Text(
+                    text = options.first().displayName,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                M3Text(
+                    text = options.last().displayName,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Icon(
-                // 官方图标替代自绘 ic_atom：AutoAwesome＝AI 思考/生成中。
-                imageVector = Icons.Rounded.AutoAwesome,
-                contentDescription = null,
-                modifier = Modifier
-                    .padding(top = 8.dp)
-                    .size(32.dp),
-                tint = if (preview != ReasoningEffort.OFF) {
-                    etaPrimary()
-                } else {
-                    MiuixTheme.colorScheme.onSurface
-                },
-            )
+        } else {
+            // 单档位：没有可拖动轨道，只给一条官方容器的静态说明条。
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                M3Text(
+                    text = preview.displayName,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * MIUI X 分支：保留原 miuix 滑块与 miuix 配色（关键点吸附 + 大圆拇指）。
+ */
+@Composable
+private fun MiuixThinkingEffortPickerBody(
+    description: String?,
+    preview: ReasoningEffort,
+    options: List<ReasoningEffort>,
+    sliderValue: Float,
+    maxIndex: Float,
+    scrub: Modifier,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        if (description != null) {
             Text(
-                text = preview.displayName,
-                style = MiuixTheme.textStyles.title3,
-                color = MiuixTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),
+                text = description,
+                style = etaTextStyle(EtaType.Caption),
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                modifier = Modifier.padding(bottom = 8.dp),
             )
-            if (options.size > 1) {
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    Slider(
-                        value = sliderValue.coerceIn(0f, maxIndex),
-                        onValueChange = {},
-                        modifier = Modifier.fillMaxWidth(),
-                        valueRange = 0f..maxIndex,
-                        steps = (options.size - 2).coerceAtLeast(0),
-                        showKeyPoints = true,
-                        keyPoints = options.indices.map { it.toFloat() },
-                        magnetThreshold = 0.18f,
-                        hapticEffect = SliderDefaults.SliderHapticEffect.None,
-                    )
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .pointerInput(options.size) {
-                                awaitEachGesture {
-                                    val down = awaitFirstDown()
-                                    down.consume()
-                                    val width = size.width.toFloat().coerceAtLeast(1f)
-                                    var current = discreteSliderIndexForTap(
-                                        down.position.x,
-                                        width,
-                                        latestOptions.size,
-                                    )
-                                    sliderValue = current.toFloat()
-                                    lastHapticIndex = current
-                                    TouchHaptics.click(view)
-                                    while (true) {
-                                        val event = awaitPointerEvent()
-                                        val change = event.changes.firstOrNull() ?: break
-                                        val index = discreteSliderIndexForTap(
-                                            change.position.x,
-                                            width,
-                                            latestOptions.size,
-                                        )
-                                        if (index != current) {
-                                            current = index
-                                            sliderValue = current.toFloat()
-                                            if (current != lastHapticIndex) {
-                                                lastHapticIndex = current
-                                                TouchHaptics.click(view)
-                                            }
-                                        }
-                                        change.consume()
-                                        if (!event.changes.any { it.pressed }) break
-                                    }
-                                    val coerced = current.coerceIn(0, latestOptions.lastIndex)
-                                    sliderValue = coerced.toFloat()
-                                    lastHapticIndex = coerced
-                                    val next = latestOptions[coerced]
-                                    if (next != latestEffort) latestOnEffortChange(next)
-                                }
-                            },
-                    )
-                }
+        }
+        Icon(
+            // 官方图标替代自绘 ic_atom：AutoAwesome＝AI 思考/生成中。
+            imageVector = Icons.Rounded.AutoAwesome,
+            contentDescription = null,
+            modifier = Modifier
+                .padding(top = 8.dp)
+                .size(32.dp),
+            tint = if (preview != ReasoningEffort.OFF) {
+                etaPrimary()
+            } else {
+                MiuixTheme.colorScheme.onSurface
+            },
+        )
+        Text(
+            text = preview.displayName,
+            style = etaTextStyle(EtaType.Title),
+            color = MiuixTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),
+        )
+        if (options.size > 1) {
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Slider(
+                    value = sliderValue,
+                    onValueChange = {},
+                    modifier = Modifier.fillMaxWidth(),
+                    valueRange = 0f..maxIndex,
+                    steps = (options.size - 2).coerceAtLeast(0),
+                    showKeyPoints = true,
+                    keyPoints = options.indices.map { it.toFloat() },
+                    magnetThreshold = 0.18f,
+                    hapticEffect = SliderDefaults.SliderHapticEffect.None,
+                )
+                Box(modifier = Modifier.matchParentSize().then(scrub))
             }
         }
     }
@@ -1105,7 +1310,7 @@ private fun PendingImageStrip(
                     ) {
                         Text(
                             text = AgentVideoCodec.formatDuration(image.durationMs ?: 0L),
-                            style = MiuixTheme.textStyles.body2,
+                            style = etaTextStyle(EtaType.Secondary),
                             color = Color.White,
                         )
                     }
@@ -1238,6 +1443,22 @@ internal fun VoiceEntryButton(
      * 打开后空闲态与通话态同为填充色（图标区分状态），与参考稿一致。
      */
     idleFilled: Boolean = false,
+    /**
+     * 语音进行中是否把入口图标换成挂断图标（`CallEnd`）。
+     *
+     * 复合输入区（M3 胶囊）的语音入口在语音进行中会被整块替换成聆听条，挂断钮由聆听条提供；
+     * 这个实例只剩交叉淡出的那一两帧。若仍跟着 `voiceState.active` 切图标，退场瞬间会先闪出
+     * 挂断图标（“躺平的电话”）再消失。传 false 只冻结图标外观，点击行为不变（仍是结束语音）。
+     */
+    swapIconWhenActive: Boolean = true,
+    /**
+     * 听写采集是否进行中（仅 [VoiceEntryMode.DICTATION] 入口会报告）。
+     *
+     * 听写的采集协程与麦克风都在 `ChatSpeechIndicator` 内部，调用方无法自行判断；而听写的
+     * 第一个转写分片一写进输入框，输入框就有内容了，尾部槽会立刻换成发送按钮、把听写入口
+     * 移出组合 → `onDispose` 收停采集。调用方据此在采集期间保留听写入口。
+     */
+    onCaptureActiveChange: (Boolean) -> Unit = {},
 ) {
     val view = LocalView.current
     val context = LocalContext.current
@@ -1248,6 +1469,9 @@ internal fun VoiceEntryButton(
         Prefs.putString(Prefs.Keys.AGENT_VOICE_LAST_ENTRY, mode.wireValue)
     }
     var pendingMode by remember { mutableStateOf<VoiceEntryMode?>(null) }
+    // 听写的“开始采集”请求计数：选中「语音输入」时递增，由 ChatSpeechIndicator 的
+    // startRequest 消费（它独占采集协程与麦克风，只有它能真正开录）。
+    var dictationStartRequest by remember { mutableIntStateOf(0) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         val mode = pendingMode
         pendingMode = null
@@ -1288,8 +1512,46 @@ internal fun VoiceEntryButton(
     }
     val active = voiceState.active || voiceState.error != null
     val choose: (() -> Unit)? = if (canChoose) ({ picker = true }) else null
+    // 听写入口：只要“当前生效的语音模式”是听写，就必须走真正的听写组件——它独占采集协程与
+    // 麦克风，并把转写结果实时写进输入框。旧分支顺序被 `icon != null` 抢先命中（M3 输入区尾部
+    // 传了 icon=Call），于是选中「语音输入」后点击落到 VoiceModeController.start(DICTATION)，
+    // 而控制器对听写是空实现（DICTATION -> Unit）——表现就是“点了没反应”。
+    // directMode == DICTATION 覆盖两种情况：选中听写作默认、或听写是唯一可用模式；
+    // 另外保留 icon == null 的旧语义：那时任何含听写的模式都仍用该组件承载点击
+    // （非听写模式走 onIdleClick 启动通话或打开模式选择）。
+    val showsDictationEntry = !active && VoiceEntryMode.DICTATION in modes &&
+        (icon == null || directMode == VoiceEntryMode.DICTATION)
     Box {
-    if (icon != null) {
+    if (showsDictationEntry) {
+        ChatSpeechIndicator(
+            textFieldState = textFieldState,
+            showGeneration = showGeneration,
+            interactionBlocked = interactionBlocked,
+            resetKey = resetKey,
+            onLongClick = choose,
+            onUnavailableClick = if (canChoose) ({ picker = true }) else null,
+            onIdleClick = when (directMode) {
+                VoiceEntryMode.DICTATION -> null
+                null -> if (canChoose) ({ picker = true }) else null
+                else -> ({ startMode(directMode) })
+            },
+            idleDescription = context.getString(directLabel),
+            onStartRequested = { rememberMode(VoiceEntryMode.DICTATION) },
+            suspendCapture = picker,
+            forceVisible = true,
+            onCaptureActiveChange = onCaptureActiveChange,
+            // 选中「语音输入」后立即开录（否则这一下只是记住默认值，还要再点一次）。
+            startRequest = dictationStartRequest,
+            // 与同槽位的语音 / 发送按钮同宽同高（40dp），命中区由按钮自身的
+            // minimumInteractiveComponentSize 补到 48dp，不会挤动尾部槽位。
+            modifier = Modifier.size(IconButtonDefaults.smallContainerSize()),
+            // 配色与相邻的 FilledTonalIconButton 一致（secondaryContainer /
+            // onSecondaryContainer）：外层浮动工具栏是 primaryContainer，主题默认的圆底
+            // 正好与工具栏同色，圆钮会整个“消失”在胶囊里。
+            indicatorContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+            indicatorTint = MaterialTheme.colorScheme.onSecondaryContainer,
+        )
+    } else if (icon != null) {
         // Material 3 Expressive：官方图标按钮。进行中用 FilledIconButton（官方默认
         // primary/onPrimary），空闲用 FilledTonalIconButton（官方默认
         // secondaryContainer/onSecondaryContainer）；形状取官方 filledShape（整圆），
@@ -1304,8 +1566,9 @@ internal fun VoiceEntryButton(
             }
         }
         val voiceIcon: @Composable () -> Unit = {
+            val showsStop = active && swapIconWhenActive
             Icon(
-                imageVector = if (active) Icons.Rounded.CallEnd else icon,
+                imageVector = if (showsStop) Icons.Rounded.CallEnd else icon,
                 contentDescription = context.getString(
                     if (active) R.string.voice_mode_stop else directLabel,
                 ),
@@ -1341,24 +1604,6 @@ internal fun VoiceEntryButton(
                 content = voiceContent,
             )
         }
-    } else if (VoiceEntryMode.DICTATION in modes && !active) {
-        ChatSpeechIndicator(
-            textFieldState = textFieldState,
-            showGeneration = showGeneration,
-            interactionBlocked = interactionBlocked,
-            resetKey = resetKey,
-            onLongClick = choose,
-            onUnavailableClick = if (canChoose) ({ picker = true }) else null,
-            onIdleClick = when (directMode) {
-                VoiceEntryMode.DICTATION -> null
-                null -> if (canChoose) ({ picker = true }) else null
-                else -> ({ startMode(directMode) })
-            },
-            idleDescription = context.getString(directLabel),
-            onStartRequested = { rememberMode(VoiceEntryMode.DICTATION) },
-            suspendCapture = picker,
-            forceVisible = true,
-        )
     } else if (isMaterial3Theme()) {
         // Material 3 Expressive：没有显式图标的语音入口（通话进行中 / 免提模式）改用官方
         // IconButton 承担命中区、官方形状与官方涟漪；长按切换语音模式用官方按钮内容里的
@@ -1472,8 +1717,16 @@ internal fun VoiceEntryButton(
             if (!interactionBlocked && io.github.mangi.eta.agent.voice.VoiceEntryPolicy.enabled(
                     io.github.mangi.eta.agent.voice.doubao.DoubaoVoiceConfig.state.value, mode)) {
                 TouchHaptics.click(view)
-                // Choosing changes the default only; a separate tap starts capture or a call.
+                // 选中即开始：听写交给 ChatSpeechIndicator 采集（它独占麦克风并把转写写进
+                // 输入框），其余模式走 startMode 开始通话 / 实时对话。注意这里不能用
+                // startMode(mode)：它对 DICTATION 会落到 VoiceModeController.start 的
+                // `DICTATION -> Unit` 空实现，选完依然没反应。
                 rememberMode(mode)
+                if (mode == VoiceEntryMode.DICTATION) {
+                    dictationStartRequest++
+                } else {
+                    startMode(mode)
+                }
             }
         },
     )
@@ -1516,7 +1769,7 @@ private fun VoiceEntryPickerDialog(
                 DropdownMenuItem(
                     modifier = Modifier.heightIn(min = 40.dp),
                     contentPadding = PaddingValues(horizontal = 12.dp),
-                    text = { Text(stringResource(label), style = MiuixTheme.textStyles.body2) },
+                    text = { Text(stringResource(label), style = etaTextStyle(EtaType.Secondary)) },
                     leadingIcon = { Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp)) },
                     onClick = {
                         dismiss()
@@ -1578,7 +1831,7 @@ internal fun VoiceModeStatusPanel(
             Text(
                 text = phase,
                 modifier = Modifier.padding(start = 8.dp).weight(1f),
-                style = MiuixTheme.textStyles.body1,
+                style = etaTextStyle(EtaType.Body),
                 color = MiuixTheme.colorScheme.onSurface,
             )
             IconButton(onClick = onStop, minWidth = 36.dp, minHeight = 36.dp) {
@@ -1638,7 +1891,7 @@ private fun VoiceTranscript(detail: String, resetKey: Any?) {
     Text(
         text = detail,
         color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-        style = MiuixTheme.textStyles.body2,
+        style = etaTextStyle(EtaType.Secondary),
         modifier = Modifier.padding(start = 30.dp, end = 8.dp, bottom = 4.dp)
             .heightIn(max = 160.dp).nestedScroll(connection).verticalScroll(scroll),
     )

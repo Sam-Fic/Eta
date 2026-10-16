@@ -13,6 +13,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import io.github.mangi.eta.ui.adaptive.EtaType
+import io.github.mangi.eta.ui.adaptive.etaTextStyle
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -37,7 +39,7 @@ fun ToolChip(
                 modifier = Modifier
                     .defaultMinSize(minHeight = AssistChipDefaults.Height)
                     .padding(AssistChipDefaults.ContentPadding),
-                style = MaterialTheme.typography.labelLarge,
+                style = etaTextStyle(EtaType.Caption),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -51,7 +53,7 @@ fun ToolChip(
         Text(
             text = text,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-            style = MiuixTheme.textStyles.footnote1,
+            style = etaTextStyle(EtaType.Caption),
             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
         )
     }

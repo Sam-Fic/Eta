@@ -99,7 +99,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.layout.onSizeChanged
@@ -125,6 +127,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextMotion
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -162,10 +165,12 @@ import com.mikepenz.markdown.utils.getUnescapedTextInNode
 import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.adaptive.EtaConnectedGroupRow
+import io.github.mangi.eta.ui.adaptive.EtaType
 import io.github.mangi.eta.ui.adaptive.etaOnSurface
 import io.github.mangi.eta.ui.adaptive.etaOnSurfaceVariant
 import io.github.mangi.eta.ui.adaptive.etaPrimary
 import io.github.mangi.eta.ui.adaptive.etaSurfaceContainerHigh
+import io.github.mangi.eta.ui.adaptive.etaTextStyle
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.agent.browser.AgentBrowserSession
 import io.github.mangi.eta.agent.browser.BrowserSessionSnapshot
@@ -277,25 +282,21 @@ private fun chatCardBorder(alpha: Float = 1f): BorderStroke =
 private fun chatMediaShape(): Shape =
     if (isMaterial3Theme()) MaterialTheme.shapes.medium else RoundedCornerShape(12.dp)
 
-/** 正文档位：M3 → bodyMedium；miuix → body1。 */
+/** 正文档位：统一走 [EtaType.Body]（miuix body1 / M3 bodyLarge）。 */
 @Composable
-private fun chatBodyStyle(): TextStyle =
-    if (isMaterial3Theme()) MaterialTheme.typography.bodyMedium else MiuixTheme.textStyles.body1
+private fun chatBodyStyle(): TextStyle = etaTextStyle(EtaType.Body)
 
-/** 次级正文档位：M3 → bodySmall；miuix → body2。 */
+/** 次级正文档位：统一走 [EtaType.Secondary]（miuix body2 / M3 bodyMedium）。 */
 @Composable
-internal fun chatSecondaryStyle(): TextStyle =
-    if (isMaterial3Theme()) MaterialTheme.typography.bodySmall else MiuixTheme.textStyles.body2
+internal fun chatSecondaryStyle(): TextStyle = etaTextStyle(EtaType.Secondary)
 
-/** 小号说明档位：M3 → labelMedium；miuix → footnote2。 */
+/** 说明档位：统一走 [EtaType.Caption]（miuix footnote1 / M3 bodySmall）。 */
 @Composable
-internal fun chatTertiaryStyle(): TextStyle =
-    if (isMaterial3Theme()) MaterialTheme.typography.labelMedium else MiuixTheme.textStyles.footnote2
+internal fun chatTertiaryStyle(): TextStyle = etaTextStyle(EtaType.Caption)
 
-/** 更小一档的标签：M3 → labelSmall；miuix → footnote1。 */
+/** 极小注档位：统一走 [EtaType.Micro]（miuix footnote2 / M3 labelSmall）。 */
 @Composable
-private fun chatQuaternaryStyle(): TextStyle =
-    if (isMaterial3Theme()) MaterialTheme.typography.labelSmall else MiuixTheme.textStyles.footnote1
+private fun chatQuaternaryStyle(): TextStyle = etaTextStyle(EtaType.Micro)
 
 /**
  * 发丝分隔线。
@@ -533,6 +534,7 @@ internal fun ChatMessageItem(
     isPaused: Boolean = false,
     enableLivePreview: Boolean = true,
     speechPreface: String = "",
+    userBubblePosition: UserBubblePosition = UserBubblePosition.Single,
     onThinkingToggle: ((String, Boolean) -> Unit)? = null,
 ) {
     when (message) {
@@ -544,6 +546,7 @@ internal fun ChatMessageItem(
             actionsEnabled = messageActionsEnabled,
             branchEnabled = branchEnabled,
             isEditing = isEditing,
+            position = userBubblePosition,
             onEdit = { actions.onEditMessage(message.id) },
             onDelete = { actions.onDeleteMessage(message.id) },
             onBranch = { actions.onBranchMessage(message.id) },
@@ -783,12 +786,98 @@ internal fun AgentWorkProcessHeader(
 
 // ── 用户消息：轻盈美观气泡 ──────────────────────────────────────────────
 
+/**
+ * User 气泡在连续用户消息组内的位置（渲染层分组：相邻 User 气泡之间无任何内容即同组，
+ * 见 [userBubblePosition]）。
+ */
+internal enum class UserBubblePosition {
+    /** 独立单条：右上圆角、右下直角 + 尾巴。 */
+    Single,
+
+    /** 组首：右上圆角、右下接缝角。 */
+    GroupFirst,
+
+    /** 组中：右上、右下均为接缝角。 */
+    GroupMid,
+
+    /** 组末：右上接缝角、右下直角 + 尾巴。 */
+    GroupLast,
+}
+
+/** 接缝侧小圆角（组内 User 气泡相接角与尾巴底角共用）。 */
+private val UserBubbleInnerCorner = 2.dp
+
+/** User 气泡普通角半径（附件行复用同档圆角）。 */
+private val UserBubbleCornerRadius = 24.dp
+
+/** User 气泡四角半径：外侧大圆角、接缝侧小圆角、带尾巴的角为直角。 */
+private data class UserBubbleCorners(
+    val topStart: Dp,
+    val topEnd: Dp,
+    val bottomEnd: Dp,
+    val bottomStart: Dp,
+)
+
+private fun userBubbleCorners(position: UserBubblePosition): UserBubbleCorners = when (position) {
+    UserBubblePosition.Single -> UserBubbleCorners(
+        topStart = UserBubbleCornerRadius,
+        topEnd = UserBubbleCornerRadius,
+        bottomEnd = 0.dp,
+        bottomStart = UserBubbleCornerRadius,
+    )
+
+    UserBubblePosition.GroupFirst -> UserBubbleCorners(
+        topStart = UserBubbleCornerRadius,
+        topEnd = UserBubbleCornerRadius,
+        bottomEnd = UserBubbleInnerCorner,
+        bottomStart = UserBubbleCornerRadius,
+    )
+
+    UserBubblePosition.GroupMid -> UserBubbleCorners(
+        topStart = UserBubbleCornerRadius,
+        topEnd = UserBubbleInnerCorner,
+        bottomEnd = UserBubbleInnerCorner,
+        bottomStart = UserBubbleCornerRadius,
+    )
+
+    UserBubblePosition.GroupLast -> UserBubbleCorners(
+        topStart = UserBubbleCornerRadius,
+        topEnd = UserBubbleInnerCorner,
+        bottomEnd = 0.dp,
+        bottomStart = UserBubbleCornerRadius,
+    )
+}
+
+/**
+ * 右下角尾巴：沿气泡右缘向上突的小竖条。右上角 1/4 圆角、右下角小圆角与接缝一致，
+ * 顶边平直、左缘贴气泡右缘、底缘贴气泡底边，不叠入主体（避免半透明背景两次绘制产生色差）。
+ */
+private fun DrawScope.drawUserBubbleTail(color: Color) {
+    val w = size.width
+    val h = size.height
+    val tw = 5.dp.toPx()
+    val th = 8.dp.toPx()
+    val rTop = 4.dp.toPx()
+    val rBot = UserBubbleInnerCorner.toPx()
+    val path = Path().apply {
+        moveTo(w, h)
+        lineTo(w + tw - rBot, h)
+        quadraticTo(w + tw, h, w + tw, h - rBot)
+        lineTo(w + tw, h - th + rTop)
+        quadraticTo(w + tw, h - th, w + tw - rTop, h - th)
+        lineTo(w, h - th)
+        close()
+    }
+    drawPath(path, color)
+}
+
 @Composable
 private fun UserMessageBubble(
     message: UserMessageUi,
     actionsEnabled: Boolean,
     branchEnabled: Boolean,
     isEditing: Boolean,
+    position: UserBubblePosition,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onBranch: () -> Unit,
@@ -820,6 +909,14 @@ private fun UserMessageBubble(
     }
     val view = LocalView.current
 
+    // 组尾（含单条）承载右下角尾巴，并独占可展开的操作行；避免多个空操作行常驻。
+    val isGroupTail = position == UserBubblePosition.Single || position == UserBubblePosition.GroupLast
+    var actionsRevealed by rememberSaveable(message.id) { mutableStateOf(false) }
+    val bubbleBg = etaPrimary().copy(alpha = 0.18f)
+    val hasBubbleBody = visiblePrompt.request.isNotBlank() ||
+        visiblePrompt.conversations.isNotEmpty() ||
+        message.isEdited
+
     Column(
         modifier = modifier
             .streamDiagnosticMeasure("render.userBubble.measure", diagnosticRow)
@@ -828,309 +925,341 @@ private fun UserMessageBubble(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.End,
     ) {
-        val bubbleBody: @Composable () -> Unit = {
-            if (message.images.isNotEmpty()) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(bottom = 8.dp)
-                ) {
-                    message.images.forEachIndexed { index, dataUrl ->
-                        key(index, dataUrl, message.fullImageSourceAt(index)) {
-                            val bitmap = rememberDataUrlBitmap(
-                                dataUrl.ifBlank { message.fullImageSourceAt(index) },
-                                fallback = message.fullImageSourceAt(index),
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .size(100.dp)
-                                    .clip(chatMediaShape())
-                                    .background(chatSurfaceContainerColor()),
-                            ) {
-                                if (bitmap != null) {
-                                    ChatClickableImage(
-                                        source = message.fullImageSourceAt(index),
-                                        bitmap = bitmap,
-                                        contentDescription = stringResource(
-                                            if (message.isVideoAt(index)) {
-                                                R.string.chat_video_preview
-                                            } else {
-                                                R.string.chat_image_preview
-                                            },
-                                        ),
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop,
-                                    )
-                                }
-                                if (message.isVideoAt(index)) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.PlayArrow,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier
-                                            .align(Alignment.Center)
-                                            .size(28.dp),
-                                    )
-                                    Text(
-                                        text = AgentVideoCodec.formatDuration(message.durationMsAt(index) ?: 0L),
-                                        style = chatTertiaryStyle(),
-                                        color = Color.White,
-                                        modifier = Modifier
-                                            .align(Alignment.BottomStart)
-                                            .padding(8.dp),
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            visiblePrompt.conversations.forEach { mention ->
-                Text(
-                    text = "@${mention.title}" + if (mention.transcript.contains("[已截取：")) stringResource(R.string.cmi_transcript_truncated) else stringResource(R.string.cmi_transcript_full),
-                    style = chatSecondaryStyle(),
-                    color = etaPrimary(),
-                    modifier = Modifier.padding(bottom = 8.dp),
-                )
-            }
-            if (visibleFiles.isNotEmpty()) {
-                SentFileReferenceFlow(
-                    references = visibleFiles,
-                    modifier = Modifier.padding(
-                        bottom = if (visiblePrompt.request.isNotBlank()) 8.dp else 0.dp
-                    ),
-                )
-            }
-            if (visiblePrompt.request.isNotBlank()) {
-                HapticSelectionContainer {
-                    Text(
-                        text = visiblePrompt.request,
-                        modifier = Modifier
-                            .streamDiagnosticMeasure("render.userText.measure", diagnosticRow)
-                            .streamDiagnosticDraw("render.userText.draw", diagnosticRow),
-                        style = chatBodyStyle(),
-                        color = etaOnSurface(),
-                    )
-                }
-            }
-            if (message.isEdited) {
-                Text(
-                    text = stringResource(R.string.ui_edited_c36776),
-                    style = chatTertiaryStyle(),
-                    color = etaOnSurfaceVariant(),
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-            }
-        }
-        val bubbleShape: Shape =
-            if (isMaterial3Theme()) MaterialTheme.shapes.extraLarge else RoundedCornerShape(20.dp)
-        // M3 Expressive：官方 Surface 承担气泡容器、官方形状令牌与编辑态描边（primary 角色）。
-        // miuix 主题族保留 squircle 的非对称圆角（尾角 6dp）。
-        if (isMaterial3Theme()) {
-            Surface(
-                modifier = Modifier.widthIn(max = 320.dp),
-                shape = bubbleShape,
-                color = etaSurfaceContainerHigh(),
-                border = if (isEditing) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
+        // 附件行：图片与文件移出气泡，镜像气泡对齐（右对齐、同 0.82 宽度上限）。
+        if (message.images.isNotEmpty() || visibleFiles.isNotEmpty()) {
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = if (hasBubbleBody) 6.dp else 0.dp),
+                contentAlignment = Alignment.CenterEnd,
             ) {
                 Column(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 11.dp),
-                    content = { bubbleBody() },
-                )
+                    modifier = Modifier.widthIn(max = maxWidth * 0.82f),
+                    horizontalAlignment = Alignment.End,
+                ) {
+                    if (message.images.isNotEmpty()) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            message.images.forEachIndexed { index, dataUrl ->
+                                key(index, dataUrl, message.fullImageSourceAt(index)) {
+                                    val bitmap = rememberDataUrlBitmap(
+                                        dataUrl.ifBlank { message.fullImageSourceAt(index) },
+                                        fallback = message.fullImageSourceAt(index),
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .size(100.dp)
+                                            .clip(chatMediaShape())
+                                            .background(chatSurfaceContainerColor()),
+                                    ) {
+                                        if (bitmap != null) {
+                                            ChatClickableImage(
+                                                source = message.fullImageSourceAt(index),
+                                                bitmap = bitmap,
+                                                contentDescription = stringResource(
+                                                    if (message.isVideoAt(index)) {
+                                                        R.string.chat_video_preview
+                                                    } else {
+                                                        R.string.chat_image_preview
+                                                    },
+                                                ),
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentScale = ContentScale.Crop,
+                                            )
+                                        }
+                                        if (message.isVideoAt(index)) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.PlayArrow,
+                                                contentDescription = null,
+                                                tint = Color.White,
+                                                modifier = Modifier
+                                                    .align(Alignment.Center)
+                                                    .size(28.dp),
+                                            )
+                                            Text(
+                                                text = AgentVideoCodec.formatDuration(message.durationMsAt(index) ?: 0L),
+                                                style = chatTertiaryStyle(),
+                                                color = Color.White,
+                                                modifier = Modifier
+                                                    .align(Alignment.BottomStart)
+                                                    .padding(8.dp),
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (visibleFiles.isNotEmpty()) {
+                        SentFileReferenceFlow(
+                            references = visibleFiles,
+                            modifier = Modifier.padding(top = if (message.images.isNotEmpty()) 8.dp else 0.dp),
+                        )
+                    }
+                }
             }
-        } else {
-            Column(
+        }
+
+        // 气泡本体：半透明 primary 底、按组内位置的连续圆角、右对齐、0.82 宽度上限。
+        if (hasBubbleBody) {
+            BoxWithConstraints(
                 modifier = Modifier
-                    .widthIn(max = 320.dp)
-                    .squircleSurface(
-                        color = etaSurfaceContainerHigh(),
-                        topStart = 20.dp,
-                        topEnd = 20.dp,
-                        bottomEnd = 6.dp,
-                        bottomStart = 20.dp,
+                    .fillMaxWidth()
+                    .then(if (isGroupTail) Modifier.clickable { actionsRevealed = !actionsRevealed } else Modifier),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                val corners = userBubbleCorners(position)
+                val bubbleShape: Shape = RoundedCornerShape(
+                    corners.topStart,
+                    corners.topEnd,
+                    corners.bottomEnd,
+                    corners.bottomStart,
+                )
+                val bubbleSurface = if (isMaterial3Theme()) {
+                    Modifier
+                        .clip(bubbleShape)
+                        .background(bubbleBg)
+                } else {
+                    Modifier.squircleSurface(
+                        color = bubbleBg,
+                        topStart = corners.topStart,
+                        topEnd = corners.topEnd,
+                        bottomEnd = corners.bottomEnd,
+                        bottomStart = corners.bottomStart,
                     )
+                }
+                val bubbleModifier = Modifier
+                    .widthIn(max = maxWidth * 0.82f)
+                    .then(if (isGroupTail) Modifier.drawBehind { drawUserBubbleTail(bubbleBg) } else Modifier)
+                    .then(bubbleSurface)
                     .then(
                         if (isEditing) {
-                            Modifier.squircleBorder(
-                                width = 1.dp,
-                                color = etaPrimary(),
-                                cornerRadius = 16.dp,
-                            )
+                            if (isMaterial3Theme()) {
+                                Modifier.border(
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                                    shape = bubbleShape,
+                                )
+                            } else {
+                                Modifier.squircleBorder(
+                                    width = 1.dp,
+                                    color = etaPrimary(),
+                                    cornerRadius = UserBubbleCornerRadius,
+                                )
+                            }
                         } else {
                             Modifier
-                        }
-                    )
-                    .padding(horizontal = 16.dp, vertical = 11.dp),
-                content = { bubbleBody() },
-            )
-        }
-        Row(
-            modifier = Modifier.padding(top = 2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (isMaterial3Theme()) {
-                // M3 Expressive：与 AI 消息操作行同款的官方连体按钮组（KernelSU 模式），
-                // 尺寸统一 ToggleButtonSize.Small，配色 tertiaryContainer/onTertiaryContainer。
-                val copyTooltip = stringResource(R.string.ui_copy_4edd1d)
-                val editTooltip = stringResource(R.string.ui_edit_a7f814)
-                val branchTooltip = stringResource(R.string.ui_branch_conversation)
-                val deleteTooltip = stringResource(R.string.ui_delete_3755f5)
-                val groupActions: List<@Composable (Int, Int) -> Unit> = buildList {
-                    add { index, count ->
-                        FooterTooltipBox(copyTooltip, true) {
-                            M3ConnectedIconAction(
-                                onClick = {
-                                    TouchHaptics.click(view)
-                                    @Suppress("DEPRECATION")
-                                    clipboardManager.setText(AnnotatedString(copyText))
-                                    copied = true
-                                },
-                                enabled = true,
-                                index = index,
-                                count = count,
-                            ) {
-                                Icon(
-                                    imageVector = if (copied) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
-                                    contentDescription = stringResource(
-                                        if (copied) R.string.copy_copied else R.string.ui_copy_4edd1d,
-                                    ),
-                                    modifier = Modifier.size(IconButtonDefaults.extraSmallIconSize),
-                                )
-                            }
-                        }
-                    }
-                    add { index, count ->
-                        FooterTooltipBox(editTooltip, actionsEnabled) {
-                            M3ConnectedIconAction(
-                                onClick = {
-                                    TouchHaptics.click(view)
-                                    onEdit()
-                                },
-                                enabled = actionsEnabled,
-                                index = index,
-                                count = count,
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Edit,
-                                    contentDescription = editTooltip,
-                                    modifier = Modifier.size(IconButtonDefaults.extraSmallIconSize),
-                                )
-                            }
-                        }
-                    }
-                    add { index, count ->
-                        FooterTooltipBox(branchTooltip, branchEnabled) {
-                            M3ConnectedIconAction(
-                                onClick = {
-                                    TouchHaptics.click(view)
-                                    onBranch()
-                                },
-                                enabled = branchEnabled,
-                                index = index,
-                                count = count,
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Rounded.CallSplit,
-                                    contentDescription = branchTooltip,
-                                    modifier = Modifier.size(IconButtonDefaults.extraSmallIconSize),
-                                )
-                            }
-                        }
-                    }
-                    add { index, count ->
-                        FooterTooltipBox(deleteTooltip, actionsEnabled) {
-                            M3ConnectedIconAction(
-                                onClick = {
-                                    TouchHaptics.click(view)
-                                    onDelete()
-                                },
-                                enabled = actionsEnabled,
-                                index = index,
-                                count = count,
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Delete,
-                                    contentDescription = deleteTooltip,
-                                    modifier = Modifier.size(IconButtonDefaults.extraSmallIconSize),
-                                )
-                            }
-                        }
-                    }
-                }
-                EtaConnectedGroupRow {
-                    groupActions.forEachIndexed { index, action -> action(index, groupActions.size) }
-                }
-            } else {
-            TooltipBox(text = stringResource(R.string.ui_copy_4edd1d), enabled = true) {
-                ChatIconAction(
-                    onClick = {
-                        TouchHaptics.click(view)
-                        @Suppress("DEPRECATION")
-                        clipboardManager.setText(AnnotatedString(copyText))
-                        copied = true
-                    },
-                ) {
-                    Icon(
-                        imageVector = if (copied) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
-                        contentDescription = stringResource(
-                            if (copied) R.string.copy_copied else R.string.ui_copy_4edd1d,
-                        ),
-                        modifier = Modifier.size(16.dp),
-                        tint = if (copied) {
-                            etaPrimary()
-                        } else {
-                            etaOnSurfaceVariant().copy(alpha = 0.75f)
                         },
                     )
+                    .padding(horizontal = 18.dp, vertical = 12.dp)
+                Column(modifier = bubbleModifier) {
+                    visiblePrompt.conversations.forEach { mention ->
+                        Text(
+                            text = "@${mention.title}" + if (mention.transcript.contains("[已截取：")) stringResource(R.string.cmi_transcript_truncated) else stringResource(R.string.cmi_transcript_full),
+                            style = chatSecondaryStyle(),
+                            color = etaPrimary(),
+                            modifier = Modifier.padding(bottom = 8.dp),
+                        )
+                    }
+                    if (visiblePrompt.request.isNotBlank()) {
+                        HapticSelectionContainer {
+                            Text(
+                                text = visiblePrompt.request,
+                                modifier = Modifier
+                                    .streamDiagnosticMeasure("render.userText.measure", diagnosticRow)
+                                    .streamDiagnosticDraw("render.userText.draw", diagnosticRow),
+                                style = if (isMaterial3Theme()) MaterialTheme.typography.bodyLarge else MiuixTheme.textStyles.body1,
+                                color = if (isMaterial3Theme()) MaterialTheme.colorScheme.onSurface else MiuixTheme.colorScheme.onSurface,
+                                textAlign = TextAlign.Start,
+                            )
+                        }
+                    }
+                    if (message.isEdited) {
+                        Text(
+                            text = stringResource(R.string.ui_edited_c36776),
+                            style = chatTertiaryStyle(),
+                            color = etaOnSurfaceVariant(),
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
                 }
             }
-            TooltipBox(text = stringResource(R.string.ui_edit_a7f814), enabled = actionsEnabled) {
-                ChatIconAction(
-                    onClick = {
-                        TouchHaptics.click(view)
-                        onEdit()
-                    },
-                    enabled = actionsEnabled,
+        }
+        // 操作行：仅组尾承载，点气泡先展开，再点气泡收起。
+        if (isGroupTail) {
+            AnimatedVisibility(
+                visible = actionsRevealed,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut(),
+            ) {
+                Row(
+                    modifier = Modifier.padding(top = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Edit,
-                        contentDescription = stringResource(R.string.ui_edit_a7f814),
-                        modifier = Modifier.size(16.dp),
-                        tint = etaOnSurfaceVariant().copy(alpha = 0.75f),
-                    )
+                    if (isMaterial3Theme()) {
+                        // M3 Expressive：与 AI 消息操作行同款的官方连体按钮组（KernelSU 模式），
+                        // 尺寸统一 ToggleButtonSize.Small，配色 secondaryContainer/onSecondaryContainer。
+                        val copyTooltip = stringResource(R.string.ui_copy_4edd1d)
+                        val editTooltip = stringResource(R.string.ui_edit_a7f814)
+                        val branchTooltip = stringResource(R.string.ui_branch_conversation)
+                        val deleteTooltip = stringResource(R.string.ui_delete_3755f5)
+                        val groupActions: List<@Composable (Int, Int) -> Unit> = buildList {
+                            add { index, count ->
+                                FooterTooltipBox(copyTooltip, true) {
+                                    M3ConnectedIconAction(
+                                        onClick = {
+                                            TouchHaptics.click(view)
+                                            @Suppress("DEPRECATION")
+                                            clipboardManager.setText(AnnotatedString(copyText))
+                                            copied = true
+                                        },
+                                        enabled = true,
+                                        index = index,
+                                        count = count,
+                                    ) {
+                                        Icon(
+                                            imageVector = if (copied) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
+                                            contentDescription = stringResource(
+                                                if (copied) R.string.copy_copied else R.string.ui_copy_4edd1d,
+                                            ),
+                                            modifier = Modifier.size(IconButtonDefaults.extraSmallIconSize),
+                                        )
+                                    }
+                                }
+                            }
+                            add { index, count ->
+                                FooterTooltipBox(editTooltip, actionsEnabled) {
+                                    M3ConnectedIconAction(
+                                        onClick = {
+                                            TouchHaptics.click(view)
+                                            onEdit()
+                                        },
+                                        enabled = actionsEnabled,
+                                        index = index,
+                                        count = count,
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Edit,
+                                            contentDescription = editTooltip,
+                                            modifier = Modifier.size(IconButtonDefaults.extraSmallIconSize),
+                                        )
+                                    }
+                                }
+                            }
+                            add { index, count ->
+                                FooterTooltipBox(branchTooltip, branchEnabled) {
+                                    M3ConnectedIconAction(
+                                        onClick = {
+                                            TouchHaptics.click(view)
+                                            onBranch()
+                                        },
+                                        enabled = branchEnabled,
+                                        index = index,
+                                        count = count,
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Rounded.CallSplit,
+                                            contentDescription = branchTooltip,
+                                            modifier = Modifier.size(IconButtonDefaults.extraSmallIconSize),
+                                        )
+                                    }
+                                }
+                            }
+                            add { index, count ->
+                                FooterTooltipBox(deleteTooltip, actionsEnabled) {
+                                    M3ConnectedIconAction(
+                                        onClick = {
+                                            TouchHaptics.click(view)
+                                            onDelete()
+                                        },
+                                        enabled = actionsEnabled,
+                                        index = index,
+                                        count = count,
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Delete,
+                                            contentDescription = deleteTooltip,
+                                            modifier = Modifier.size(IconButtonDefaults.extraSmallIconSize),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        EtaConnectedGroupRow {
+                            groupActions.forEachIndexed { index, action -> action(index, groupActions.size) }
+                        }
+                    } else {
+                    TooltipBox(text = stringResource(R.string.ui_copy_4edd1d), enabled = true) {
+                        ChatIconAction(
+                            onClick = {
+                                TouchHaptics.click(view)
+                                @Suppress("DEPRECATION")
+                                clipboardManager.setText(AnnotatedString(copyText))
+                                copied = true
+                            },
+                        ) {
+                            Icon(
+                                imageVector = if (copied) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
+                                contentDescription = stringResource(
+                                    if (copied) R.string.copy_copied else R.string.ui_copy_4edd1d,
+                                ),
+                                modifier = Modifier.size(16.dp),
+                                tint = if (copied) {
+                                    etaPrimary()
+                                } else {
+                                    etaOnSurfaceVariant().copy(alpha = 0.75f)
+                                },
+                            )
+                        }
+                    }
+                    TooltipBox(text = stringResource(R.string.ui_edit_a7f814), enabled = actionsEnabled) {
+                        ChatIconAction(
+                            onClick = {
+                                TouchHaptics.click(view)
+                                onEdit()
+                            },
+                            enabled = actionsEnabled,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Edit,
+                                contentDescription = stringResource(R.string.ui_edit_a7f814),
+                                modifier = Modifier.size(16.dp),
+                                tint = etaOnSurfaceVariant().copy(alpha = 0.75f),
+                            )
+                        }
+                    }
+                    TooltipBox(text = stringResource(R.string.ui_branch_conversation), enabled = branchEnabled) {
+                        ChatIconAction(
+                            onClick = {
+                                TouchHaptics.click(view)
+                                onBranch()
+                            },
+                            enabled = branchEnabled,
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Rounded.CallSplit,
+                                contentDescription = stringResource(R.string.ui_branch_conversation),
+                                modifier = Modifier.size(16.dp),
+                                tint = etaOnSurfaceVariant().copy(alpha = 0.75f),
+                            )
+                        }
+                    }
+                    TooltipBox(text = stringResource(R.string.ui_delete_3755f5), enabled = actionsEnabled) {
+                        ChatIconAction(
+                            onClick = {
+                                TouchHaptics.click(view)
+                                onDelete()
+                            },
+                            enabled = actionsEnabled,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Delete,
+                                contentDescription = stringResource(R.string.ui_delete_3755f5),
+                                modifier = Modifier.size(16.dp),
+                                tint = etaOnSurfaceVariant().copy(alpha = 0.75f),
+                            )
+                        }
+                    }
+                    }
                 }
-            }
-            TooltipBox(text = stringResource(R.string.ui_branch_conversation), enabled = branchEnabled) {
-                ChatIconAction(
-                    onClick = {
-                        TouchHaptics.click(view)
-                        onBranch()
-                    },
-                    enabled = branchEnabled,
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.CallSplit,
-                        contentDescription = stringResource(R.string.ui_branch_conversation),
-                        modifier = Modifier.size(16.dp),
-                        tint = etaOnSurfaceVariant().copy(alpha = 0.75f),
-                    )
-                }
-            }
-            TooltipBox(text = stringResource(R.string.ui_delete_3755f5), enabled = actionsEnabled) {
-                ChatIconAction(
-                    onClick = {
-                        TouchHaptics.click(view)
-                        onDelete()
-                    },
-                    enabled = actionsEnabled,
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Delete,
-                        contentDescription = stringResource(R.string.ui_delete_3755f5),
-                        modifier = Modifier.size(16.dp),
-                        tint = etaOnSurfaceVariant().copy(alpha = 0.75f),
-                    )
-                }
-            }
             }
         }
     }
@@ -2029,33 +2158,33 @@ private enum class ChatMarkdownTone {
 @Composable
 private fun chatMarkdownTypography(tone: ChatMarkdownTone) = markdownTypography(
     h1 = chatMarkdownBodyStyle(tone).copy(
-        fontSize = if (tone == ChatMarkdownTone.Answer) 21.sp else 17.sp,
-        lineHeight = if (tone == ChatMarkdownTone.Answer) 29.sp else 25.sp,
+        fontSize = if (tone == ChatMarkdownTone.Answer) 20.sp else 15.sp,
+        lineHeight = if (tone == ChatMarkdownTone.Answer) 28.sp else 22.sp,
         fontWeight = FontWeight.Bold,
     ),
     h2 = chatMarkdownBodyStyle(tone).copy(
-        fontSize = if (tone == ChatMarkdownTone.Answer) 19.sp else 16.sp,
-        lineHeight = if (tone == ChatMarkdownTone.Answer) 27.sp else 24.sp,
+        fontSize = if (tone == ChatMarkdownTone.Answer) 18.sp else 15.sp,
+        lineHeight = if (tone == ChatMarkdownTone.Answer) 26.sp else 22.sp,
         fontWeight = FontWeight.Bold,
     ),
     h3 = chatMarkdownBodyStyle(tone).copy(
-        fontSize = if (tone == ChatMarkdownTone.Answer) 18.sp else 15.sp,
-        lineHeight = if (tone == ChatMarkdownTone.Answer) 26.sp else 23.sp,
-        fontWeight = FontWeight.SemiBold,
-    ),
-    h4 = chatMarkdownBodyStyle(tone).copy(
-        fontSize = if (tone == ChatMarkdownTone.Answer) 17.sp else 14.sp,
+        fontSize = if (tone == ChatMarkdownTone.Answer) 17.sp else 15.sp,
         lineHeight = if (tone == ChatMarkdownTone.Answer) 25.sp else 22.sp,
         fontWeight = FontWeight.SemiBold,
     ),
+    h4 = chatMarkdownBodyStyle(tone).copy(
+        fontSize = if (tone == ChatMarkdownTone.Answer) 16.sp else 15.sp,
+        lineHeight = if (tone == ChatMarkdownTone.Answer) 26.sp else 22.sp,
+        fontWeight = FontWeight.SemiBold,
+    ),
     h5 = chatMarkdownBodyStyle(tone).copy(
-        fontSize = if (tone == ChatMarkdownTone.Answer) 16.sp else 14.sp,
-        lineHeight = if (tone == ChatMarkdownTone.Answer) 24.sp else 22.sp,
+        fontSize = if (tone == ChatMarkdownTone.Answer) 16.sp else 15.sp,
+        lineHeight = if (tone == ChatMarkdownTone.Answer) 26.sp else 22.sp,
         fontWeight = FontWeight.SemiBold,
     ),
     h6 = chatMarkdownBodyStyle(tone).copy(
-        fontSize = if (tone == ChatMarkdownTone.Answer) 15.sp else 14.sp,
-        lineHeight = if (tone == ChatMarkdownTone.Answer) 23.sp else 22.sp,
+        fontSize = if (tone == ChatMarkdownTone.Answer) 16.sp else 15.sp,
+        lineHeight = if (tone == ChatMarkdownTone.Answer) 26.sp else 22.sp,
         fontWeight = FontWeight.SemiBold,
     ),
     text = chatMarkdownBodyStyle(tone),
@@ -2064,13 +2193,13 @@ private fun chatMarkdownTypography(tone: ChatMarkdownTone) = markdownTypography(
     bullet = chatMarkdownBodyStyle(tone),
     list = chatMarkdownBodyStyle(tone),
     quote = chatSecondaryStyle().copy(
-        fontSize = if (tone == ChatMarkdownTone.Answer) 15.sp else 14.sp,
-        lineHeight = if (tone == ChatMarkdownTone.Answer) 24.sp else 22.sp,
+        fontSize = if (tone == ChatMarkdownTone.Answer) 16.sp else 14.sp,
+        lineHeight = if (tone == ChatMarkdownTone.Answer) 26.sp else 22.sp,
         color = chatMarkdownTextColor(ChatMarkdownTone.Thinking),
     ),
     code = TextStyle(
-        fontSize = 13.sp,
-        lineHeight = 20.sp,
+        fontSize = if (tone == ChatMarkdownTone.Answer) 13.sp else 12.sp,
+        lineHeight = if (tone == ChatMarkdownTone.Answer) 20.sp else 18.sp,
         fontFamily = FontFamily.Monospace,
         color = chatMarkdownTextColor(tone),
     ),
@@ -2079,8 +2208,8 @@ private fun chatMarkdownTypography(tone: ChatMarkdownTone) = markdownTypography(
         fontFamily = FontFamily.Monospace,
     ),
     table = chatSecondaryStyle().copy(
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
+        fontSize = if (tone == ChatMarkdownTone.Answer) 14.sp else 13.sp,
+        lineHeight = if (tone == ChatMarkdownTone.Answer) 21.sp else 19.sp,
         color = chatMarkdownTextColor(tone),
     ),
     textLink = TextLinkStyles(

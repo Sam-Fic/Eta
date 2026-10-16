@@ -47,8 +47,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.EtaType
 import io.github.mangi.eta.ui.adaptive.etaPrimary
 import io.github.mangi.eta.ui.adaptive.etaSurfaceContainerHigh
+import io.github.mangi.eta.ui.adaptive.etaTextStyle
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -153,7 +155,7 @@ internal fun rememberAgentAttachmentActions(
                             text = stringResource(
                                 R.string.ui_supports_files_and_folders_under_internal_storage_or_520786
                             ),
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = etaTextStyle(EtaType.Secondary),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         OutlinedTextField(
@@ -401,7 +403,7 @@ internal fun PendingFileReferenceStrip(
                 Text(
                     text = reference.displayName +
                         if (reference.kind == AgentFileReferenceKind.Directory) "/" else "",
-                    style = MiuixTheme.textStyles.body2,
+                    style = etaTextStyle(EtaType.Secondary),
                     color = MiuixTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -468,7 +470,7 @@ internal fun SentFileReferenceFlow(
                 Text(
                     text = reference.displayName +
                         if (reference.kind == AgentFileReferenceKind.Directory) "/" else "",
-                    style = MiuixTheme.textStyles.body2,
+                    style = etaTextStyle(EtaType.Secondary),
                     color = MiuixTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

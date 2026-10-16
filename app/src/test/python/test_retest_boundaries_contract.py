@@ -29,8 +29,10 @@ class RetestBoundariesContract(unittest.TestCase):
         self.assertIn('StreamPerformanceDiagnostics.measure("render.userPrompt.parse")', user)
         self.assertEqual(user.count('AgentFileReferencePromptCodec.parse(message.content)'), 1)
         self.assertIn('text = visiblePrompt.request', user)
-        self.assertIn('style = MiuixTheme.textStyles.body1', user)
-        self.assertIn('color = MiuixTheme.colorScheme.onSurface', user)
+        # 自适应：M3 走官方 bodyLarge / onSurface，miuix 保留 body1 / onSurface 兜底。
+        self.assertIn('MaterialTheme.typography.bodyLarge', user)
+        self.assertIn('MiuixTheme.textStyles.body1', user)
+        self.assertIn('MiuixTheme.colorScheme.onSurface', user)
         self.assertIn('val diagnosticRow = LocalStreamDiagnosticRow.current', user)
         for label in ['render.userBubble.measure', 'render.userText.measure']:
             self.assertIn(f'.streamDiagnosticMeasure("{label}", diagnosticRow)', user)

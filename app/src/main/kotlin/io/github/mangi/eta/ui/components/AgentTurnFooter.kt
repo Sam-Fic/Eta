@@ -34,7 +34,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.adaptive.EtaConnectedGroupRow
+import io.github.mangi.eta.ui.adaptive.EtaType
 import io.github.mangi.eta.ui.adaptive.etaPrimary
+import io.github.mangi.eta.ui.adaptive.etaTextStyle
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.app.LocalAppearanceSettings
 import io.github.mangi.eta.ui.haptics.TouchHaptics
@@ -122,7 +124,7 @@ internal fun FooterTooltipBox(
     val state = rememberTooltipState()
     M3TooltipBox(
         positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
-        tooltip = { PlainTooltip { M3Text(text = text, style = MaterialTheme.typography.labelMedium) } },
+        tooltip = { PlainTooltip { M3Text(text = text, style = etaTextStyle(EtaType.Caption)) } },
         state = state,
         enableUserInput = enabled,
         content = content,
@@ -130,15 +132,15 @@ internal fun FooterTooltipBox(
 }
 
 /**
- * 连体按钮组统一配色（用户指定）：tertiaryContainer 容器 + onTertiaryContainer 内容，
- * 选中态同色，避免官方默认 secondaryContainer 与页面其他组件撞色。
+ * 连体按钮组统一配色（用户指定）：官方默认 secondaryContainer 档。
+ * 选中态同色，与页面其他 FilledTonal 系组件同色阶。
  */
 @Composable
 internal fun M3ConnectedGroupColors() = ToggleButtonDefaults.colors(
-    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-    checkedContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
-    checkedContentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+    checkedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+    checkedContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
 )
 
 /**
@@ -293,7 +295,7 @@ internal fun AgentMessageActionRow(
         if (material3) {
             // M3 Expressive：KernelSU 同款官方连体按钮组 —— EtaConnectedGroupRow
             // （ConnectedSpaceBetween）+ 每个动作一个官方 ToggleButton（连体形状按
-            // 首位/中间/末位分配），尺寸统一 ToggleButtonSize.Small，配色 tertiaryContainer。
+            // 首位/中间/末位分配），尺寸统一 ToggleButtonSize.Small，配色 secondaryContainer。
             val copyDescription = stringResource(if (copied) R.string.copy_copied else R.string.copy_answer)
             val copyTooltip = stringResource(R.string.ui_copy_4edd1d)
             val branchLabel = stringResource(R.string.ui_branch_conversation)
@@ -423,7 +425,7 @@ internal fun AgentMessageActionRow(
                     M3Text(
                         text = label,
                         modifier = Modifier.weight(1f).padding(start = 8.dp),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = etaTextStyle(EtaType.Caption),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = androidx.compose.ui.text.style.TextAlign.End,
                         maxLines = 1,
@@ -434,7 +436,7 @@ internal fun AgentMessageActionRow(
                         text = label,
                         modifier = Modifier.weight(1f).padding(start = 8.dp),
                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
-                        fontSize = MiuixTheme.textStyles.footnote2.fontSize,
+                        fontSize = etaTextStyle(EtaType.Caption).fontSize,
                         textAlign = androidx.compose.ui.text.style.TextAlign.End,
                         maxLines = 1,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,

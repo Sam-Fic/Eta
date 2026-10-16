@@ -9,12 +9,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -47,6 +43,8 @@ import io.github.mangi.eta.data.model.ReasoningEffort
 import io.github.mangi.eta.data.repository.AssistantRepository
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
+import io.github.mangi.eta.ui.adaptive.EtaType
+import io.github.mangi.eta.ui.adaptive.etaTextStyle
 import io.github.mangi.eta.ui.model.AgentContextUsageUi
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
 import io.github.mangi.eta.ui.model.defaultExpandedModelProviderIds
@@ -61,7 +59,7 @@ import kotlinx.coroutines.withContext
  * 「助手与模型」二合一选择弹窗（官方 `ModalBottomSheet`，仅 Hidden↔Expanded 两态）。
  *
  * 结构：
- * 1. 标题行（标题 + 官方关闭按钮）。
+ * 1. 标题。（关闭走 ModalBottomSheet 的下拉 / 点遮罩，不放关闭按钮。）
  * 2. 官方单选分段按钮的页签：助手 / 模型。
  *    - 助手页签：官方搜索框 + KernelSU 式分段列表（行左滑露出复制 / 编辑 / 删除）。
  *    - 模型页签：官方搜索框 + 服务商分组 + 官方 `SelectableDropdownMenuItem`（选中态为 RadioButton）。
@@ -82,7 +80,7 @@ internal fun M3ComposerPickerSheet(
     onModelSelected: (String, String) -> Unit,
     usage: AgentContextUsageUi,
     contextSendBlocked: Boolean,
-    popupMaxHeight: Dp,
+    popupMaxHeight: () -> Dp,
     reasoningEffort: ReasoningEffort,
     availableReasoningEfforts: List<ReasoningEffort>,
     gptSpeedMode: GptSpeedMode,
@@ -113,22 +111,10 @@ internal fun M3ComposerPickerSheet(
                 .padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    text = stringResource(R.string.composer_picker_title),
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.weight(1f),
-                )
-                IconButton(onClick = onDismiss) {
-                    Icon(
-                        imageVector = Icons.Rounded.Close,
-                        contentDescription = stringResource(R.string.action_close),
-                    )
-                }
-            }
+            Text(
+                text = stringResource(R.string.composer_picker_title),
+                style = etaTextStyle(EtaType.Title),
+            )
             val tabs = listOf(
                 stringResource(R.string.assistant_list_title),
                 stringResource(R.string.conversation_dock_models),
@@ -184,7 +170,7 @@ internal fun M3ComposerPickerSheet(
                 ) {
                     Text(
                         text = stringResource(R.string.composer_thinking_effort_label),
-                        style = MaterialTheme.typography.bodyLarge,
+                        style = etaTextStyle(EtaType.Body),
                         modifier = Modifier.weight(1f),
                     )
                     ThinkingEffortChip(
@@ -206,7 +192,7 @@ internal fun M3ComposerPickerSheet(
             ) {
                 Text(
                     text = stringResource(R.string.acm_context_stats),
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = etaTextStyle(EtaType.Body),
                     modifier = Modifier.weight(1f),
                 )
                 AgentContextUsageButton(
@@ -274,7 +260,7 @@ private fun M3AssistantPickerTab(
     if (filtered.isEmpty()) {
         Text(
             text = stringResource(R.string.assistant_empty),
-            style = MaterialTheme.typography.bodyMedium,
+            style = etaTextStyle(EtaType.Secondary),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(vertical = 12.dp),
         )

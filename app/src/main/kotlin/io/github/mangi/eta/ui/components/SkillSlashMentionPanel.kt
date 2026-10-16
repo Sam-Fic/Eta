@@ -17,6 +17,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.skill.SkillIndexEntry
+import io.github.mangi.eta.ui.adaptive.EtaType
+import io.github.mangi.eta.ui.adaptive.etaTextStyle
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.model.SkillSlashMention
 import androidx.compose.material3.ListItem
@@ -56,7 +58,7 @@ internal fun SkillSlashMentionPanel(
                     content = {
                         M3Text(
                             text = stringResource(R.string.ssm_no_match),
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = etaTextStyle(EtaType.Secondary),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     },
@@ -70,7 +72,7 @@ internal fun SkillSlashMentionPanel(
                             content = {
                                 M3Text(
                                     text = skill.name.ifBlank { skill.id },
-                                    style = MaterialTheme.typography.bodyLarge,
+                                    style = etaTextStyle(EtaType.Body),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
@@ -78,7 +80,7 @@ internal fun SkillSlashMentionPanel(
                             supportingContent = {
                                 M3Text(
                                     text = "/skill:${skill.id} · ${skill.description.ifBlank { stringResource(R.string.ssm_no_description) }}",
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = etaTextStyle(EtaType.Secondary),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
@@ -100,7 +102,7 @@ internal fun SkillSlashMentionPanel(
             Text(
                 text = stringResource(R.string.ssm_no_match),
                 modifier = Modifier.padding(12.dp),
-                style = MiuixTheme.textStyles.body2,
+                style = etaTextStyle(EtaType.Secondary),
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             )
         } else {
@@ -112,13 +114,13 @@ internal fun SkillSlashMentionPanel(
                     ) {
                         Text(
                             text = skill.name.ifBlank { skill.id },
-                            style = MiuixTheme.textStyles.body1,
+                            style = etaTextStyle(EtaType.Body),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
                             text = "/skill:${skill.id} · ${skill.description.ifBlank { stringResource(R.string.ssm_no_description) }}",
-                            style = MiuixTheme.textStyles.body2,
+                            style = etaTextStyle(EtaType.Secondary),
                             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,

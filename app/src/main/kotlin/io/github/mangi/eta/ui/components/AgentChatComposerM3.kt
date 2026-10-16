@@ -5,7 +5,9 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -59,6 +61,7 @@ import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Surface
@@ -83,13 +86,20 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
@@ -101,6 +111,8 @@ import io.github.mangi.eta.agent.voice.VoiceModeState
 import io.github.mangi.eta.data.model.GptSpeedMode
 import io.github.mangi.eta.data.model.ReasoningEffort
 import io.github.mangi.eta.data.repository.ComposerQueueStore
+import io.github.mangi.eta.ui.adaptive.EtaType
+import io.github.mangi.eta.ui.adaptive.etaTextStyle
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.model.AgentContextUsageUi
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
@@ -151,7 +163,14 @@ internal fun Material3ComposerBody(
     contextSendBlocked: Boolean,
     canSend: Boolean,
     usage: AgentContextUsageUi,
-    popupMaxHeight: Dp,
+    /**
+     * Popup height budget, deferred.
+     *
+     * Reading the input bar's window position during composition made the whole bar
+     * recompose on every frame of the keyboard show/hide animation. Invoking this lambda
+     * at popup-composition time keeps the value current without that cost.
+     */
+    popupMaxHeight: () -> Dp,
     onPositionedTopPx: (Int) -> Unit,
     conversationId: String?,
     assistantId: String,
@@ -160,6 +179,12 @@ internal fun Material3ComposerBody(
     availableReasoningEfforts: List<ReasoningEffort>,
     gptSpeedMode: GptSpeedMode,
     gptSpeedSupported: Boolean,
+    /**
+     * 是否显示左侧动作组里的「助手与模型」按钮及其选择弹窗。
+     *
+     * 入口浮层不需要它：浮层不承载助手/模型切换，发送一律用当前全局默认选择。
+     */
+    showModelPicker: Boolean = true,
     voiceState: VoiceModeState,
     showMorphLoading: Boolean,
     pendingImages: List<PendingImageUi>,
@@ -232,6 +257,26 @@ internal fun Material3ComposerBody(
     val growSpec: FiniteAnimationSpec<IntSize> = MaterialTheme.motionScheme.defaultSpatialSpec()
     val shrinkSpec: FiniteAnimationSpec<IntSize> = MaterialTheme.motionScheme.defaultSpatialSpec()
 
+    // 听写采集是否进行中：由尾部语音入口（内部是听写组件）回调。
+    // 原先这个状态记在 M3ComposerTextField 内部；现在尾部按钮被上提到“胶囊交叉淡化之外”的
+    // 共享槽位（见下方 composer_trailing），状态必须跟着上提，否则重组 / 移出组合时会丢失。
+    var voiceCaptureActive by remember { mutableStateOf(false) }
+    // 尾部按钮（Call ⇄ Send ⇄ Stop）形变规格：与“输入文字后 Call→Send”同款，
+    // 即淡入淡出 + 0.8 缩放的官方 Expressive 弹簧。
+    val trailingFadeSpec: FiniteAnimationSpec<Float> = MaterialTheme.motionScheme.defaultSpatialSpec()
+    val trailingScaleSpec: FiniteAnimationSpec<Float> = MaterialTheme.motionScheme.defaultSpatialSpec()
+    // 尾部槽位是否显示发送 / 停止 / 继续（而非语音入口）。
+    // 有内容时让位给发送按钮；没有内容但生成 / 压缩中时保留停止按钮。
+    // 例外：听写采集进行中必须保留语音入口——听写会把转写结果写进输入框，第一个分片到达后
+    // hasContent 即为真（sendMode 也随之变成 "send"），若按“有内容就换发送按钮”，听写入口会被
+    // 移出组合，听写的 onDispose 随即收停采集（表现就是点了语音输入没有反应）。
+    // 听写期间只有“停止 / 继续”这类运行控制值得占用尾部，发送按钮让位给听写入口。
+    val trailingShowsSend = if (voiceCaptureActive) {
+        sendMode == "stop" || sendMode == "continue"
+    } else {
+        hasContent || sendMode != "idle"
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -255,122 +300,208 @@ internal fun Material3ComposerBody(
             leadingContent = {},
             modifier = Modifier.fillMaxWidth(),
         ) {
-            // 左侧动作组：语音进行中或已有内容时整组收起（官方弹簧收起，胶囊随之变宽）；
-            // 编辑态改由取消按钮占据该位置（语音与编辑互斥，此时取消按钮直接让位）。
-            if (!voiceActive) {
-                if (isEditingMessage) {
-                    // 编辑态：取消按钮占据左侧入口位置（与发送按钮对称），尾部仍为发送按钮。
-                    Spacer(modifier = Modifier.width(ComposerConcentricGap))
-                    M3ComposerCancelButton(
-                        onClick = onCancelMessageEdit,
-                        // 官方工具栏的内容 Row 是顶对齐（Row 默认 Alignment.Top），
-                        // 40dp 按钮相对 56dp 输入框会高出 8dp，必须显式竖直居中。
-                        modifier = Modifier.align(Alignment.CenterVertically),
-                    )
-                    Spacer(modifier = Modifier.width(ComposerToolbarGap))
-                } else {
-                    // 有输入内容（文字 / 图片 / 文件 / 引用）时左侧动作组收起，输入框展开占满，
-                    // 尾部语音按钮同步让位给发送按钮；清空后按官方弹簧规格展开回来。
-                    AnimatedVisibility(
-                        visible = !hasContent,
-                        // 同上：与输入框竖直居中，避免整组按钮偏高。
-                        modifier = Modifier.align(Alignment.CenterVertically),
-                        enter = fadeIn(enterSpec) +
-                            expandHorizontally(growSpec, expandFrom = Alignment.Start),
-                        exit = fadeOut(exitSpec) +
-                            shrinkHorizontally(shrinkSpec, shrinkTowards = Alignment.Start),
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            // 组首间距：第一个 40dp 圆形按钮距工具栏左端 = 官方内容内边距 8dp
-                            // + 本间距 8dp = 16dp，与圆钮到上下的间距（(72 − 40)/2 = 16dp）相等，
-                            // 即 36dp 外层半径 − 20dp 圆钮半径 = 16dp 的同心间距——端盖才是同心的；
-                            // 只有官方内边距时圆钮会贴左端 8dp，与上下 16dp 不同心。
-                            Spacer(modifier = Modifier.width(ComposerConcentricGap))
-                            M3ComposerAddButton(
-                                actions = actions,
-                                expanded = attachMenuExpanded,
-                                onExpandedChange = { attachMenuExpanded = it },
-                                onScheduleSend = { showScheduleDialog = true },
-                                onSaveDraft = {
-                                    scope.launch {
-                                        ComposerQueueStore.saveDraft(context, conversationKey, draftText)
-                                        Toast.makeText(
-                                            context,
-                                            context.getString(R.string.composer_draft_saved),
-                                            Toast.LENGTH_SHORT,
-                                        ).show()
-                                    }
-                                },
-                                onShare = { shareDraft(context, draftText) },
-                            )
-                            Spacer(modifier = Modifier.width(ComposerToolbarGap))
-                            M3ComposerPickImageButton(actions = actions)
+            // 左侧动作组：编辑态由取消按钮占据；其余情况在“有输入内容”或“语音进行中”时整组收起。
+            // 关键：语音态不能像编辑态那样硬切换分支——否则开始 / 结束语音时动作组会瞬间消失 / 出现，
+            // 胶囊宽度发生跳变，这正是“无输入框 → 聆听条”过渡不正确的原因。
+            // 这里让语音态与“输入内容时动作组收起”共用同一条 AnimatedVisibility 弹簧：动作组向左收起、
+            // 聆听条以右端为锚连续变宽，两段过渡完全同款（结束后反向展开）。
+            if (isEditingMessage && !voiceActive) {
+                // 编辑态：取消按钮占据左侧入口位置（与发送按钮对称），尾部仍为发送按钮。
+                Spacer(modifier = Modifier.width(ComposerConcentricGap))
+                M3ComposerCancelButton(
+                    onClick = onCancelMessageEdit,
+                    // 官方工具栏的内容 Row 是顶对齐（Row 默认 Alignment.Top），
+                    // 40dp 按钮相对 56dp 输入框会高出 8dp，必须显式竖直居中。
+                    modifier = Modifier.align(Alignment.CenterVertically),
+                )
+                Spacer(modifier = Modifier.width(ComposerToolbarGap))
+            } else {
+                // 有输入内容（文字 / 图片 / 文件 / 引用）或语音进行中时左侧动作组收起，胶囊展开占满，
+                // 尾部按钮同步让位；清空 / 结束语音后按官方弹簧规格展开回来。
+                AnimatedVisibility(
+                    visible = !voiceActive && !hasContent,
+                    // 同上：与输入框竖直居中，避免整组按钮偏高。
+                    modifier = Modifier.align(Alignment.CenterVertically),
+                    enter = fadeIn(enterSpec) +
+                        expandHorizontally(growSpec, expandFrom = Alignment.Start),
+                    exit = fadeOut(exitSpec) +
+                        shrinkHorizontally(shrinkSpec, shrinkTowards = Alignment.Start),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // 组首间距：第一个 40dp 圆形按钮距工具栏左端 = 官方内容内边距 8dp
+                        // + 本间距 8dp = 16dp，与圆钮到上下的间距（(72 − 40)/2 = 16dp）相等，
+                        // 即 36dp 外层半径 − 20dp 圆钮半径 = 16dp 的同心间距——端盖才是同心的；
+                        // 只有官方内边距时圆钮会贴左端 8dp，与上下 16dp 不同心。
+                        Spacer(modifier = Modifier.width(ComposerConcentricGap))
+                        M3ComposerAddButton(
+                            actions = actions,
+                            expanded = attachMenuExpanded,
+                            onExpandedChange = { attachMenuExpanded = it },
+                            onScheduleSend = { showScheduleDialog = true },
+                            onSaveDraft = {
+                                scope.launch {
+                                    ComposerQueueStore.saveDraft(context, conversationKey, draftText)
+                                    Toast.makeText(
+                                        context,
+                                        context.getString(R.string.composer_draft_saved),
+                                        Toast.LENGTH_SHORT,
+                                    ).show()
+                                }
+                            },
+                            onShare = { shareDraft(context, draftText) },
+                        )
+                        Spacer(modifier = Modifier.width(ComposerToolbarGap))
+                        M3ComposerPickImageButton(actions = actions)
+                        // 「助手与模型」按钮连同它前面的间距一起隐藏：动作组收起/展开时
+                        // 胶囊端盖的同心间距只依赖单个 ComposerToolbarGap，留一个空的间距会多出一段。
+                        if (showModelPicker) {
                             Spacer(modifier = Modifier.width(ComposerToolbarGap))
                             M3ComposerPickerButton(
                                 enabled = pickerEnabled,
                                 collaborationTaskRunning = isStreaming || isPaused || isCompressingContext,
                                 onClick = { showPickerSheet = true },
                             )
-                            // 组尾间距放进动画组：收起后输入框左右各贴工具栏 8dp 内边距
-                            // （与上下间距一致），两个胶囊端盖保持同心。
-                            Spacer(modifier = Modifier.width(ComposerToolbarGap))
                         }
+                        // 组尾间距放进动画组：收起后输入框左右各贴工具栏 8dp 内边距
+                        // （与上下间距一致），两个胶囊端盖保持同心。
+                        Spacer(modifier = Modifier.width(ComposerToolbarGap))
                     }
                 }
             }
 
-            // 胶囊内容：正常输入框 ⇄ 聆听条（语音进行中）。过渡与“输入内容时动作组收起”同款：
-            // 横向展开 / 收起 + 淡入淡出（不用缩放交叉淡化）——动作组向左收起时，聆听条以右端为锚
-            // 向左展开填满；结束语音时反向，与动作组从左侧展开形成连续的“胶囊变宽”。
-            AnimatedContent(
-                targetState = voiceActive,
-                modifier = Modifier.weight(1f),
-                contentAlignment = Alignment.Center,
-                transitionSpec = {
-                    (fadeIn(enterSpec) + expandHorizontally(growSpec, expandFrom = Alignment.End))
-                        .togetherWith(
-                            fadeOut(exitSpec) +
-                                shrinkHorizontally(shrinkSpec, shrinkTowards = Alignment.End),
-                        )
-                },
-                label = "composer_pill",
-            ) { listening ->
-                if (listening) {
-                    // 聆听条：麦克风状态圆钮 + 实时转写与阶段文案 + 官方色调停止圆钮（参考稿第二图）。
-                    M3VoiceBar(state = voiceState, onStop = onStopVoiceMode)
+            // 胶囊内容：正常输入框 ⇄ 聆听条（语音进行中）。
+            // 这里只做交叉淡化，并显式关掉 AnimatedContent 自带的尺寸动画（`.using(null)`）：
+            // 胶囊宽度不在这里动画，而是由左侧动作组的弹簧收起 / 展开驱动——本槽位是 Row 里的
+            // weight(1f)，动作组收窄多少，胶囊左端就往左长出多少，右端始终贴住工具栏内边距，
+            // 天然就是“以右端为锚向左展开 / 向右收回”，与“输入内容时动作组收起”是同一条弹簧。
+            // 反过来，只要留下尺寸动画（更不用说再叠加横向 expandHorizontally / shrinkHorizontally），
+            // 过渡期间必然出现两层矩形裁切：sizeTransform 默认 clip=true 按“动画尺寸”裁一次，
+            // 子内容自身的 changeSize 也默认 clip=true 再裁一次；而尺寸动画的宽度总是滞后于
+            // weight 槽位的真实宽度，内容于是被塞进一个更窄的矩形里——两端 28dp 圆角就是这样
+            // 被切成平口的（“展开过程中两头有裁切”）。宽度改由布局驱动后不再有任何裁切。
+            //
+            // 槽位底衬（关键）：交叉淡化期间两份内容（输入框 surfaceContainer ⇄ 聆听条
+            // surfaceContainerHigh）同时只有部分 alpha，两层半透明源叠加后整体仍不满不透明，
+            // 外层 vibrant 工具栏的 primaryContainer 会从中间透出来——就是“胶囊衔接中间出现
+            // 透明度变化、看着发虚/变色”。这里在本槽位先铺一层同形（28dp 圆角）不透明底，
+            // 底色随语音态在两种胶囊色之间同步渐变：前景怎么交叉淡化，下面始终是一块实心底，
+            // 胶囊全程不透明（中间只会是两种胶囊色之间的平滑插值，不再混入工具栏底色）。
+            val pillBackdropColor by animateColorAsState(
+                targetValue = if (voiceActive) {
+                    MaterialTheme.colorScheme.surfaceContainerHigh
                 } else {
-                    M3ComposerTextField(
-                        textFieldState = textFieldState,
-                        focusRequester = focusRequester,
-                        interactionBlocked = interactionBlocked,
-                        isStreaming = isStreaming,
-                        isPaused = isPaused,
-                        isEditingMessage = isEditingMessage,
-                        showMorphLoading = showMorphLoading,
-                        voiceState = voiceState,
-                        onStartVoiceMode = onStartVoiceMode,
-                        onStopVoiceMode = onStopVoiceMode,
-                        onSend = {
-                            val text = textFieldState.text.toString()
-                            // 发送后草稿失效，清掉本机保存的副本。
-                            scope.launch {
-                                ComposerQueueStore.saveDraft(context, conversationKey, "")
-                            }
-                            onSubmit(text)
+                    MaterialTheme.colorScheme.surfaceContainer
+                },
+                animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+                label = "composer_pill_backdrop",
+            )
+            // 胶囊与尾部按钮的共享容器：胶囊内容（输入框 ⇄ 聆听条）只做交叉淡化，
+            // 尾部按钮（Call ⇄ 发送 ⇄ 停止）单独用同一条弹簧形变——两者互不牵连。
+            Box(modifier = Modifier.weight(1f)) {
+                AnimatedContent(
+                    targetState = voiceActive,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(pillBackdropColor, MaterialTheme.shapes.extraLarge)
+                        // 供回归测试对“胶囊衔接”期间的像素取样（见 M3ComposerToolbarLayoutTest）。
+                        .testTag("composer-pill-slot"),
+                    // 内容宽度恒等于槽位宽度，横向对齐实际不参与；万一某帧两份内容尺寸不等，
+                    // 也保持右端对齐，与“以右端为锚”的方向一致。
+                    contentAlignment = Alignment.CenterEnd,
+                    transitionSpec = {
+                        (fadeIn(enterSpec).togetherWith(fadeOut(exitSpec))).using(null)
+                    },
+                    label = "composer_pill",
+                ) { listening ->
+                    if (listening) {
+                        // 聆听条：麦克风状态圆钮 + 实时转写与阶段文案（末端停止圆钮由下面的
+                        // 尾部按钮槽提供，见 composer_trailing）。
+                        M3VoiceBar(state = voiceState)
+                    } else {
+                        M3ComposerTextField(
+                            textFieldState = textFieldState,
+                            focusRequester = focusRequester,
+                            interactionBlocked = interactionBlocked,
+                            isStreaming = isStreaming,
+                            showMorphLoading = showMorphLoading,
+                        )
+                    }
+                }
+
+                // 尾部按钮槽：Call（语音入口）⇄ 发送 / 停止 / 继续 ⇄ 停止（语音进行中）。
+                // 关键：必须放在上面 AnimatedContent 之外。若留在胶囊内容里，进入语音时它只会跟着
+                // 整块胶囊一起交叉淡化，“通话按钮 → 停止按钮”就退化成简单渐变；移到这里后它与
+                // “输入文字 Call→Send”共用同一条官方 Expressive 缩放 + 淡入淡出弹簧，形变一致。
+                val trailingState = when {
+                    voiceActive -> ComposerTrailing.VOICE_STOP
+                    trailingShowsSend -> ComposerTrailing.SEND
+                    else -> ComposerTrailing.VOICE_ENTRY
+                }
+                // 发送动作与“上下文已满”提示：与旧实现一致，发送成功后清掉本机保存的草稿副本。
+                val sendDraft: () -> Unit = {
+                    val text = textFieldState.text.toString()
+                    scope.launch { ComposerQueueStore.saveDraft(context, conversationKey, "") }
+                    onSubmit(text)
+                }
+                val blockedNotice: () -> Unit = {
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.context_window_send_blocked),
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                }
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        // 同心端距：40dp 圆钮半径 20dp 与内层 28dp 圆角相差 8dp。
+                        .padding(end = ComposerConcentricGap, bottom = ComposerConcentricGap)
+                        // 供回归测试对“尾部按钮形变”期间的像素取样（见 M3ComposerToolbarLayoutTest）。
+                        .testTag("composer-trailing-slot"),
+                ) {
+                    AnimatedContent(
+                        targetState = trailingState,
+                        transitionSpec = {
+                            // 与“输入文字后 Call→Send”同款：淡入淡出 + 0.8 缩放的官方弹簧。
+                            (fadeIn(trailingFadeSpec) +
+                                scaleIn(trailingScaleSpec, initialScale = 0.8f))
+                                .togetherWith(
+                                    fadeOut(trailingFadeSpec) +
+                                        scaleOut(trailingScaleSpec, targetScale = 0.8f),
+                                )
                         },
-                        onStop = onStop,
-                        onContinue = onContinue,
-                        onAbortPausedRun = onAbortPausedRun,
-                        onBlocked = {
-                            Toast.makeText(
-                                context,
-                                context.getString(R.string.context_window_send_blocked),
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                        },
-                        sendMode = sendMode,
-                        hasContent = hasContent,
-                    )
+                        label = "composer_trailing",
+                    ) { trailing ->
+                        when (trailing) {
+                            // 语音进行中：参考稿的粉色圆钮取官方 tertiaryContainer 角色。
+                            ComposerTrailing.VOICE_STOP -> M3VoiceStopButton(onStop = onStopVoiceMode)
+                            ComposerTrailing.SEND -> M3ComposerSendButton(
+                                sendMode = sendMode,
+                                isPaused = isPaused,
+                                onSend = sendDraft,
+                                onStop = onStop,
+                                onContinue = onContinue,
+                                onAbortPausedRun = onAbortPausedRun,
+                                onBlocked = blockedNotice,
+                            )
+                            ComposerTrailing.VOICE_ENTRY -> VoiceEntryButton(
+                                textFieldState = textFieldState,
+                                showGeneration = showMorphLoading,
+                                interactionBlocked = interactionBlocked,
+                                resetKey = isStreaming to isEditingMessage,
+                                voiceState = voiceState,
+                                onStartVoiceMode = onStartVoiceMode,
+                                onStopVoiceMode = onStopVoiceMode,
+                                // 设计稿：尾部是 call 图标的填充圆形按钮，属于主要动作。
+                                icon = Icons.Rounded.Call,
+                                idleFilled = true,
+                                // 进入语音时本入口会被换成上面的停止钮（同一槽位形变）；形变期间
+                                // 它仍以 Call 外观缩放淡出。若跟着 voiceState.active 换成挂断图标，
+                                // 退场瞬间会先闪一下“躺平的电话”。点击行为不受影响。
+                                swapIconWhenActive = false,
+                                onCaptureActiveChange = { voiceCaptureActive = it },
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -398,7 +529,8 @@ internal fun Material3ComposerBody(
     }
 
     M3ComposerPickerSheet(
-        show = showPickerSheet,
+        // 浮层不显示选择按钮，弹窗也一并屏蔽（按钮已无法点亮 showPickerSheet，这里只是兜底）。
+        show = showPickerSheet && showModelPicker,
         onDismiss = { showPickerSheet = false },
         assistantId = assistantId,
         onEditAssistant = onEditAssistant,
@@ -418,6 +550,15 @@ internal fun Material3ComposerBody(
         onCycleGptSpeedMode = onCycleGptSpeedMode,
     )
 }
+
+/**
+ * 胶囊尾部按钮的三种形态：语音入口（`Call`）⇄ 发送 / 停止 / 继续 ⇄ 语音进行中的停止。
+ *
+ * 三者共用同一枚叠放在胶囊右下角的按钮槽位，切换走同一条官方 Expressive 弹簧的
+ * 缩放 + 淡入淡出形变——这样“通话按钮 → 发送按钮”（输入文字）与“通话按钮 → 停止按钮”
+ * （进入语音）就是同一套动效，而不是让整块胶囊各自淡入淡出。
+ */
+private enum class ComposerTrailing { VOICE_ENTRY, SEND, VOICE_STOP }
 
 /** 工具栏内图标按钮之间的间距（官方浮动工具栏的容器间隔令牌值，4dp）。 */
 private val ComposerToolbarGap = 4.dp
@@ -449,130 +590,84 @@ private fun M3ComposerTextField(
     focusRequester: FocusRequester,
     interactionBlocked: Boolean,
     isStreaming: Boolean,
-    isPaused: Boolean,
-    isEditingMessage: Boolean,
     showMorphLoading: Boolean,
-    voiceState: VoiceModeState,
-    onStartVoiceMode: (VoiceEntryMode) -> Unit,
-    onStopVoiceMode: () -> Unit,
-    onSend: () -> Unit,
-    onStop: () -> Unit,
-    onContinue: () -> Unit,
-    onAbortPausedRun: () -> Unit,
-    onBlocked: () -> Unit,
-    sendMode: String,
-    hasContent: Boolean,
 ) {
-    // 有内容时尾部让位给发送按钮；没有内容但生成 / 压缩中时，尾部必须保留停止按钮。
-    val trailingShowsSend = hasContent || sendMode != "idle"
-    // 麦克风 ↔ 发送按钮的切换动效取官方 Expressive 弹簧规格。
-    val fadeSpec: FiniteAnimationSpec<Float> = MaterialTheme.motionScheme.defaultSpatialSpec()
-    val scaleSpec: FiniteAnimationSpec<Float> = MaterialTheme.motionScheme.defaultSpatialSpec()
-    Box(modifier = Modifier.fillMaxWidth()) {
-        TextField(
-            state = textFieldState,
-            modifier = Modifier
-                .fillMaxWidth()
-                .focusRequester(focusRequester)
-                .focusProperties { canFocus = !interactionBlocked },
-            textStyle = MaterialTheme.typography.bodyLarge,
-            placeholder = {
-                Text(
-                    text = if (isStreaming) {
-                        stringResource(R.string.chat_eta_working)
-                    } else {
-                        stringResource(R.string.chat_input_hint)
-                    },
-                    style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            },
-            lineLimits = TextFieldLineLimits.MultiLine(
-                minHeightInLines = 1,
-                maxHeightInLines = 6,
-            ),
-            // 圆角固定为官方 extraLarge（28dp），单行 56dp 高即胶囊；多行时是圆角矩形，
-            // 与外层固定 36dp 仍满足“半径差 = 间距”（36 − 28 = 8dp）。
-            shape = MaterialTheme.shapes.extraLarge,
-            // 生成中的形变加载指示器（“生成时显示加载指示”设置项）：放在胶囊内部起始侧，
-            // 不占用尾部的语音 / 发送按钮位置。
-            leadingIcon = if (showMorphLoading) {
-                { ContainedMorphLoadingIndicator(indicatorSize = IconButtonDefaults.smallIconSize) }
-            } else {
-                null
-            },
-            // 尾部槽仅预留与按钮同宽的横向空间（48dp 触控区由官方槽自身保证），
-            // 按钮本体在下方以右下角对齐叠放，多行长高时贴住右下角。
-            trailingIcon = {
-                Spacer(modifier = Modifier.size(IconButtonDefaults.smallContainerSize()))
-            },
-            colors = TextFieldDefaults.colors(
-                // 内层胶囊取官方 surfaceContainer：与外层 primaryContainer 工具栏形成两层表面。
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                // 参考稿没有描边，指示线取官方透明值。
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
-                disabledIndicatorColor = Color.Transparent,
-            ),
-        )
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                // 同心端距：40dp 圆钮半径 20dp 与内层 28dp 圆角相差 8dp。
-                .padding(end = ComposerConcentricGap, bottom = ComposerConcentricGap),
-        ) {
-            AnimatedContent(
-                targetState = trailingShowsSend,
-                transitionSpec = {
-                    // 轻微缩放 + 淡入淡出的弹簧过渡（官方 Expressive Motion Scheme）。
-                    (fadeIn(fadeSpec) + scaleIn(scaleSpec, initialScale = 0.8f))
-                        .togetherWith(fadeOut(fadeSpec) + scaleOut(scaleSpec, targetScale = 0.8f))
-                },
-                label = "composer_trailing",
-            ) { showsSend ->
-                if (showsSend) {
-                    M3ComposerSendButton(
-                        sendMode = sendMode,
-                        isPaused = isPaused,
-                        onSend = onSend,
-                        onStop = onStop,
-                        onContinue = onContinue,
-                        onAbortPausedRun = onAbortPausedRun,
-                        onBlocked = onBlocked,
-                    )
+    TextField(
+        state = textFieldState,
+        modifier = Modifier
+            .fillMaxWidth()
+            .focusRequester(focusRequester)
+            .focusProperties { canFocus = !interactionBlocked },
+        textStyle = etaTextStyle(EtaType.Body),
+        placeholder = {
+            Text(
+                text = if (isStreaming) {
+                    stringResource(R.string.chat_eta_working)
                 } else {
-                    VoiceEntryButton(
-                        textFieldState = textFieldState,
-                        showGeneration = showMorphLoading,
-                        interactionBlocked = interactionBlocked,
-                        resetKey = isStreaming to isEditingMessage,
-                        voiceState = voiceState,
-                        onStartVoiceMode = onStartVoiceMode,
-                        onStopVoiceMode = onStopVoiceMode,
-                        // 设计稿：尾部是 call 图标的填充圆形按钮，属于主要动作。
-                        icon = Icons.Rounded.Call,
-                        idleFilled = true,
-                    )
-                }
+                    stringResource(R.string.chat_input_hint)
+                },
+                style = etaTextStyle(EtaType.Body),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        },
+        lineLimits = TextFieldLineLimits.MultiLine(
+            minHeightInLines = 1,
+            maxHeightInLines = 6,
+        ),
+        // 圆角固定为官方 extraLarge（28dp），单行 56dp 高即胶囊；多行时是圆角矩形，
+        // 与外层固定 36dp 仍满足“半径差 = 间距”（36 − 28 = 8dp）。
+        shape = MaterialTheme.shapes.extraLarge,
+        // 生成中的形变加载指示器（“生成时显示加载指示”设置项）：放在胶囊内部起始侧，
+        // 不占用尾部的语音 / 发送按钮位置。
+        leadingIcon = if (showMorphLoading) {
+            {
+                // 与尾部圆钮同尺寸（40dp），并与胶囊端盖同心。
+                // 官方 leadingIcon 槽会用 minimumInteractiveComponentSize() 把内容居中到 48dp：
+                // 若直接放 40dp 圆钮，它会被居中成 4dp 端距、看着偏心。这里在圆钮起始侧补一个
+                // 同心间距（8dp），48dp 槽内圆钮恰好落在距内胶囊端盖 8dp 处
+                // （内层圆角 28dp − 圆钮半径 20dp = 8dp），与右侧发送 / 停止钮的 8dp 端距对称；
+                // 再加外层工具栏 8dp 内边距，圆心距最外端盖 8 + 28 = 36dp = 外层圆角半径，
+                // 内外两层圆角同时同心。
+                ContainedMorphLoadingIndicator(
+                    indicatorSize = IconButtonDefaults.smallContainerSize().width,
+                    modifier = Modifier.padding(start = ComposerConcentricGap),
+                )
             }
-        }
-    }
+        } else {
+            null
+        },
+        // 尾部槽仅预留与按钮同宽的横向空间（48dp 触控区由官方槽自身保证），
+        // 按钮本体在共享容器里以右下角对齐叠放（见 composer_trailing），多行长高时贴住右下角。
+        trailingIcon = {
+            Spacer(modifier = Modifier.size(IconButtonDefaults.smallContainerSize()))
+        },
+        colors = TextFieldDefaults.colors(
+            // 内层胶囊取官方 surfaceContainer：与外层 primaryContainer 工具栏形成两层表面。
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+            // 参考稿没有描边，指示线取官方透明值。
+            focusedIndicatorColor = Color.Transparent,
+            unfocusedIndicatorColor = Color.Transparent,
+            disabledIndicatorColor = Color.Transparent,
+        ),
+    )
 }
 
 /**
  * 语音进行中的“聆听条”（参考稿第二图）：vibrant 外胶囊里的单枚内胶囊——
- * 起始侧麦克风状态圆钮（指示，非按钮）、中间实时转写与阶段文案、末端官方色调停止圆钮。
+ * 起始侧麦克风状态圆钮（指示，非按钮）、中间实时转写与阶段文案。
  *
  * 几何与正常态一致：内胶囊固定 28dp 圆角、56dp 最小高；麦克风圆钮（半径 20dp）距端盖
  * 8dp（28 − 20 的同心间距）。听写时中间显示实时转写，无转写时显示阶段文案；
  * 通话模式图标为 GraphicEq，其余为 RecordVoiceOver。结束后由调用方切回正常输入区。
+ *
+ * 末尾的停止圆钮**不在这里**：它由胶囊右下角的共享尾部槽位（见 composer_trailing）提供，
+ * 从而能与“输入文字 Call→Send”走同一条弹簧形变。这里只预留出同宽的尾部内边距。
  */
 @Composable
-private fun M3VoiceBar(state: VoiceModeState, onStop: () -> Unit) {
-    val view = LocalView.current
+private fun M3VoiceBar(state: VoiceModeState) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -609,7 +704,7 @@ private fun M3VoiceBar(state: VoiceModeState, onStop: () -> Unit) {
             modifier = Modifier
                 .weight(1f)
                 .padding(horizontal = 12.dp),
-            style = MaterialTheme.typography.bodyLarge,
+            style = etaTextStyle(EtaType.Body),
             color = if (state.error != null) {
                 MaterialTheme.colorScheme.error
             } else {
@@ -618,24 +713,36 @@ private fun M3VoiceBar(state: VoiceModeState, onStop: () -> Unit) {
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        FilledTonalIconButton(
-            onClick = {
-                TouchHaptics.click(view)
-                onStop()
-            },
-            modifier = Modifier.size(IconButtonDefaults.smallContainerSize()),
-            // 参考稿的粉色圆钮取官方 tertiaryContainer / onTertiaryContainer 角色。
-            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-            ),
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Stop,
-                contentDescription = stringResource(R.string.voice_mode_stop),
-                modifier = Modifier.size(IconButtonDefaults.smallIconSize),
-            )
-        }
+        // 为共享的停止圆钮预留同宽空间（圆钮本体在 composer_trailing 里叠放在右下角）。
+        Spacer(modifier = Modifier.size(IconButtonDefaults.smallContainerSize()))
+    }
+}
+
+/**
+ * 语音进行中的停止圆钮：参考稿的粉色圆钮取官方 `tertiaryContainer` / `onTertiaryContainer` 角色。
+ *
+ * 与尾部其它形态（Call / 发送）同尺寸同形状，由 composer_trailing 槽位负责切换动效，
+ * 因此这里只画按钮本身，不带任何进出场动画。
+ */
+@Composable
+private fun M3VoiceStopButton(onStop: () -> Unit) {
+    val view = LocalView.current
+    FilledTonalIconButton(
+        onClick = {
+            TouchHaptics.click(view)
+            onStop()
+        },
+        modifier = Modifier.size(IconButtonDefaults.smallContainerSize()),
+        colors = IconButtonDefaults.filledTonalIconButtonColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+            contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+        ),
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.Stop,
+            contentDescription = stringResource(R.string.voice_mode_stop),
+            modifier = Modifier.size(IconButtonDefaults.smallIconSize),
+        )
     }
 }
 
@@ -677,9 +784,13 @@ private fun M3ComposerCancelButton(onClick: () -> Unit, modifier: Modifier = Mod
 }
 
 /**
- * 「+」主操作按钮：官方 `FilledIconButton`（primary／onPrimary，官方默认色），
- * 点击展开附件与发送选项菜单：定时发送 / 存草稿 / 分享，以及视频 / 文件 / 文件夹 /
- * 输入路径等附件项（动作由共享的 `rememberAgentAttachmentActions` 提供）。
+ * 「+」主操作按钮：空闲态是官方标准图标按钮（透明容器，只有图标），展开附件与发送选项
+ * 菜单后转为填充圆钮并带上主色（`primary`／`onPrimary`，与尾部「通话」按钮同一组色槽）。
+ * 点击展开菜单：定时发送 / 存草稿 / 分享，以及视频 / 文件 / 文件夹 / 输入路径等附件项
+ * （动作由共享的 `rememberAgentAttachmentActions` 提供）。
+ *
+ * 菜单展开时「+」同时旋转 45° 成为「×」（关闭语义），收起时转回，旋转取官方 Expressive
+ * 弹簧规格；图标本身是同一个 `Icons.Rounded.Add`，旋转由 `graphicsLayer` 承担。
  * 菜单用官方 `DropdownMenu` + `DropdownMenuItem`，行形状取官方 `MenuDefaults` 令牌。
  */
 @Composable
@@ -691,17 +802,66 @@ private fun M3ComposerAddButton(
     onSaveDraft: () -> Unit,
     onShare: () -> Unit,
 ) {
+    // 展开态把「+」转到 45°：视觉上成为「×」，与菜单“关闭”动作一致。
+    val iconRotation by animateFloatAsState(
+        targetValue = if (expanded) 45f else 0f,
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+        label = "composer_add_icon_rotation",
+    )
+    // 变色（透明空闲态 ↔ primary 展开态）不硬切：容器色与内容色各自沿官方
+    // Expressive 弹簧平滑渐变。
+    //
+    // 颜色随主题自动适配（深 / 浅色模式都取自 MaterialTheme.colorScheme，非写死）：
+    //  - 空闲态：容器透明；图标取工具栏的内容色 `onPrimaryContainer`（同排「图库 / 助手与模型」
+    //    标准 IconButton 的图标即取此色，见 LocalContentColor），在深浅色下与工具栏（vibrant
+    //    primaryContainer）都保持一致对比度。
+    //  - 展开态：容器 `primary`、图标 `onPrimary`，与尾部「通话」按钮同一组色槽。
+    // 两端都用明确颜色，animateColorAsState 才能稳定插值。
+    val idleContentColor = LocalContentColor.current
+    val containerColor by animateColorAsState(
+        targetValue = if (expanded) MaterialTheme.colorScheme.primary else Color.Transparent,
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+        label = "composer_add_container_color",
+    )
+    val contentColor by animateColorAsState(
+        targetValue = if (expanded) MaterialTheme.colorScheme.onPrimary else idleContentColor,
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+        label = "composer_add_content_color",
+    )
+    val view = LocalView.current
+    val context = LocalContext.current
     Box {
-        ChatInputNonFocusableIconButton(
-            onClick = { onExpandedChange(!expanded) },
-            contentDescription = stringResource(R.string.ui_add_attachment_dba9e8),
-            containerColor = MaterialTheme.colorScheme.primary,
-            containerSize = IconButtonDefaults.smallContainerSize().width,
+        // 容器 / 内容色只由上面的渐变驱动，两种颜色之间平滑过渡。
+        //
+        // 这里刻意不走官方 `IconButton`（它带 `ripple` 水波纹，按压瞬间会叠加一层高亮，
+        // 与渐变一起造成“闪烁”）；改为纯背景绘制 + `clickable(indication = null)`，
+        // 按下没有任何额外高亮 / 涟漪，颜色变化只剩渐变这一条来源。
+        Box(
+            modifier = Modifier
+                .size(IconButtonDefaults.smallContainerSize())
+                .clip(CircleShape)
+                .background(containerColor, CircleShape)
+                .focusProperties { canFocus = false }
+                .semantics {
+                    role = Role.Button
+                    contentDescription = context.getString(R.string.ui_add_attachment_dba9e8)
+                }
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                ) {
+                    TouchHaptics.click(view)
+                    onExpandedChange(!expanded)
+                },
+            contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = Icons.Rounded.Add,
                 contentDescription = null,
-                modifier = Modifier.size(IconButtonDefaults.smallIconSize),
+                tint = contentColor,
+                modifier = Modifier
+                    .size(IconButtonDefaults.smallIconSize)
+                    .graphicsLayer { rotationZ = iconRotation },
             )
         }
         DropdownMenu(

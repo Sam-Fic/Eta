@@ -15,6 +15,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.adaptive.EtaType
+import io.github.mangi.eta.ui.adaptive.etaTextStyle
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -30,7 +32,7 @@ internal fun TaskCompletedDivider(modifier: Modifier = Modifier) {
             HorizontalDivider(Modifier.weight(1f))
             M3Text(
                 text = stringResource(R.string.system_notice_completed),
-                style = MaterialTheme.typography.labelSmall,
+                style = etaTextStyle(EtaType.Micro),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 8.dp),
             )
@@ -46,7 +48,7 @@ internal fun TaskCompletedDivider(modifier: Modifier = Modifier) {
         Box(Modifier.weight(1f).height(0.5.dp).background(lineColor))
         Text(
             text = stringResource(R.string.system_notice_completed),
-            style = MiuixTheme.textStyles.footnote2,
+            style = etaTextStyle(EtaType.Micro),
             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             modifier = Modifier.padding(horizontal = 8.dp),
         )

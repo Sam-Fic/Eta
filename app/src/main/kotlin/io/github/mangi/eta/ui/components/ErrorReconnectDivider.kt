@@ -32,6 +32,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.adaptive.EtaType
+import io.github.mangi.eta.ui.adaptive.etaTextStyle
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.model.ErrorReconnectMessageUi
@@ -62,6 +64,19 @@ internal fun ErrorReconnectDivider(message: ErrorReconnectMessageUi, modifier: M
     }
     val label = errorReconnectLabel(message, elapsed)
     val title = stringResource(R.string.reconnect_error_title)
+    // 只在「实时观察到的状态翻转」上补一发结果触感：成功 confirm、失败 reject。
+    // remember(message.id) 在 LazyColumn 回收后重置为当前状态，因此滚动历史记录不会误触。
+    var lastStatus by remember(message.id) { mutableStateOf(message.status) }
+    LaunchedEffect(message.id, message.status) {
+        val previous = lastStatus
+        if (previous == message.status) return@LaunchedEffect
+        lastStatus = message.status
+        when (message.status) {
+            ErrorReconnectStatus.Succeeded -> TouchHaptics.confirm(view)
+            ErrorReconnectStatus.Failed -> TouchHaptics.reject(view)
+            else -> Unit
+        }
+    }
     if (isMaterial3Theme()) {
         // M3 Expressive：官方 HorizontalDivider 承担线条粗细与颜色（DividerDefaults），
         // 官方 Surface(onClick) 承担可点区域、形状（shapes.extraSmall）与官方涟漪，
@@ -85,7 +100,7 @@ internal fun ErrorReconnectDivider(message: ErrorReconnectMessageUi, modifier: M
             ) {
                 M3Text(
                     text = label,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = etaTextStyle(EtaType.Caption),
                     textAlign = TextAlign.Center,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -108,7 +123,7 @@ internal fun ErrorReconnectDivider(message: ErrorReconnectMessageUi, modifier: M
                     .clickable { TouchHaptics.click(view); showDetails = true }
                     .semantics { contentDescription = "$label. $title" }
                     .padding(horizontal = 8.dp, vertical = 2.dp),
-                style = MiuixTheme.textStyles.footnote2,
+                style = etaTextStyle(EtaType.Caption),
                 color = labelColor,
                 textAlign = TextAlign.Center,
                 maxLines = 1,

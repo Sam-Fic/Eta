@@ -19,8 +19,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.adaptive.EtaType
 import io.github.mangi.eta.ui.adaptive.etaOnSurfaceVariant
 import io.github.mangi.eta.ui.adaptive.etaPrimary
+import io.github.mangi.eta.ui.adaptive.etaTextStyle
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.model.ActiveRunSummaryUi
 import io.github.mangi.eta.ui.model.RunStatusUi
@@ -61,7 +63,7 @@ fun AgentStatusCard(
                     M3Text(
                         text = activeRun.title,
                         modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.titleMedium,
+                        style = etaTextStyle(EtaType.Body, emphasized = true),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -69,7 +71,7 @@ fun AgentStatusCard(
                 Spacer(modifier = Modifier.height(8.dp))
                 M3Text(
                     text = activeRun.currentStep,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = etaTextStyle(EtaType.Secondary),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(modifier = Modifier.height(12.dp))
@@ -77,7 +79,7 @@ fun AgentStatusCard(
                     M3Text(
                         text = activeRun.elapsedLabel,
                         modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = etaTextStyle(EtaType.Caption),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     if (activeRun.status == RunStatusUi.Running) {
@@ -106,7 +108,7 @@ fun AgentStatusCard(
                 Text(
                     text = activeRun.title,
                     modifier = Modifier.weight(1f),
-                    style = MiuixTheme.textStyles.headline1,
+                    style = etaTextStyle(EtaType.Body, emphasized = true),
                     color = MiuixTheme.colorScheme.onSurfaceContainer,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -115,7 +117,7 @@ fun AgentStatusCard(
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = activeRun.currentStep,
-                style = MiuixTheme.textStyles.body2,
+                style = etaTextStyle(EtaType.Secondary),
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             )
             Spacer(modifier = Modifier.height(12.dp))
@@ -123,7 +125,7 @@ fun AgentStatusCard(
                 Text(
                     text = activeRun.elapsedLabel,
                     modifier = Modifier.weight(1f),
-                    style = MiuixTheme.textStyles.footnote1,
+                    style = etaTextStyle(EtaType.Caption),
                     color = MiuixTheme.colorScheme.onSurfaceVariantActions,
                 )
                 if (activeRun.status == RunStatusUi.Running) {

@@ -59,9 +59,11 @@ import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.question.AgentQuestionAnswer
 import io.github.mangi.eta.agent.question.AgentQuestionCodec
 import io.github.mangi.eta.agent.question.AgentQuestionStatus
+import io.github.mangi.eta.ui.adaptive.EtaType
 import io.github.mangi.eta.ui.adaptive.etaOnSurface
 import io.github.mangi.eta.ui.adaptive.etaOnSurfaceVariant
 import io.github.mangi.eta.ui.adaptive.etaPrimary
+import io.github.mangi.eta.ui.adaptive.etaTextStyle
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.app.AgentQuestionProjection
 import io.github.mangi.eta.ui.model.AgentQuestionMessageUi
@@ -144,10 +146,10 @@ private fun AgentQuestionCardContent(
                     Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(request.title, modifier = Modifier.fillMaxWidth(),
-                            style = if (m3) MaterialTheme.typography.titleMedium else MiuixTheme.textStyles.headline2,
+                            style = etaTextStyle(EtaType.Body),
                             color = if (m3) etaOnSurface() else colors.onSurface)
                         Text(request.question, modifier = Modifier.fillMaxWidth(),
-                            style = if (m3) MaterialTheme.typography.bodyLarge else MiuixTheme.textStyles.body1,
+                            style = etaTextStyle(EtaType.Body),
                             fontWeight = if (m3) null else FontWeight.Medium,
                             color = if (m3) etaOnSurface() else colors.onSurface)
                         if (!waiting) {
@@ -187,7 +189,7 @@ private fun AgentQuestionCardContent(
                                 label = stringResource(R.string.question_note))
                             message.error?.let {
                                 Text(it, color = if (m3) MaterialTheme.colorScheme.error else colors.error,
-                                    style = if (m3) MaterialTheme.typography.bodySmall else MiuixTheme.textStyles.body2)
+                                    style = etaTextStyle(EtaType.Caption))
                             }
                             if (m3) {
                                 // M3 Expressive：官方 Button 的默认形状、容器高度、内边距、
@@ -255,7 +257,7 @@ private fun QuestionDisclosureHeader(
         Icon(Icons.Rounded.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(16.dp),
             tint = if (waiting) colors.primary else colors.onSurfaceVariantSummary)
         Text("$statusText · $title", modifier = Modifier.weight(1f),
-            style = MiuixTheme.textStyles.body2, color = colors.onSurfaceVariantSummary,
+            style = etaTextStyle(EtaType.Secondary), color = colors.onSurfaceVariantSummary,
             maxLines = 1, overflow = TextOverflow.Ellipsis)
         Icon(if (expanded) Icons.Rounded.ExpandMore else Icons.Rounded.ChevronRight,
             contentDescription = null, modifier = Modifier.size(16.dp),
@@ -294,7 +296,7 @@ private fun QuestionOptionRow(
                 {
                     Text(
                         text = description,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = etaTextStyle(EtaType.Secondary),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -320,7 +322,7 @@ private fun QuestionOptionRow(
                 disabledUnselectedColor = colors.onSurfaceVariantActions.copy(alpha = 0.38f)))
         Column(Modifier.weight(1f).alpha(if (enabled) 1f else 0.6f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             QuestionOptionLabel(label, recommended)
-            if (description.isNotBlank()) Text(description, modifier = Modifier.fillMaxWidth(), style = MiuixTheme.textStyles.body2,
+            if (description.isNotBlank()) Text(description, modifier = Modifier.fillMaxWidth(), style = etaTextStyle(EtaType.Secondary),
                 color = colors.onSurfaceVariantSummary)
         }
     }
@@ -331,25 +333,25 @@ private fun QuestionOptionLabel(label: String, recommended: Boolean) {
     if (isMaterial3Theme()) {
         // M3 Expressive：「推荐」标签用官方 Badge（官方容器色与内边距），不再自绘底色圆角块。
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+            Text(label, Modifier.weight(1f), style = etaTextStyle(EtaType.Body), color = MaterialTheme.colorScheme.onSurface)
             if (recommended) {
                 Badge(
                     containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                     contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                 ) {
-                    Text(stringResource(R.string.question_recommended), style = MaterialTheme.typography.labelSmall)
+                    Text(stringResource(R.string.question_recommended), style = etaTextStyle(EtaType.Micro))
                 }
             }
         }
         return
     }
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(label, Modifier.weight(1f), style = MiuixTheme.textStyles.body1,
+        Text(label, Modifier.weight(1f), style = etaTextStyle(EtaType.Body),
             color = MiuixTheme.colorScheme.onSurface)
         if (recommended) Text(stringResource(R.string.question_recommended),
             Modifier.background(MiuixTheme.colorScheme.primaryContainer, RoundedCornerShape(8.dp))
                 .padding(horizontal = 8.dp, vertical = 4.dp),
-            style = MiuixTheme.textStyles.footnote1, color = MiuixTheme.colorScheme.onPrimaryContainer)
+            style = etaTextStyle(EtaType.Micro), color = MiuixTheme.colorScheme.onPrimaryContainer)
     }
 }
 
@@ -442,7 +444,7 @@ private fun QuestionHistoryOption(label: String, description: String, selected: 
                 {
                     Text(
                         text = description,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = etaTextStyle(EtaType.Secondary),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -464,7 +466,7 @@ private fun QuestionHistoryOption(label: String, description: String, selected: 
         else Box(Modifier.size(20.dp).border(1.5.dp, colors.onSurfaceVariantActions, CircleShape))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             QuestionOptionLabel(label, recommended)
-            if (description.isNotBlank()) Text(description, modifier = Modifier.fillMaxWidth(), style = MiuixTheme.textStyles.body2,
+            if (description.isNotBlank()) Text(description, modifier = Modifier.fillMaxWidth(), style = etaTextStyle(EtaType.Secondary),
                 color = colors.onSurfaceVariantSummary)
         }
     }

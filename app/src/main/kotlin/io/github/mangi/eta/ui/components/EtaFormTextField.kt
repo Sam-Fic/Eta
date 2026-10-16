@@ -17,6 +17,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Text
+import io.github.mangi.eta.ui.adaptive.EtaType
+import io.github.mangi.eta.ui.adaptive.etaTextStyle
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -81,7 +83,7 @@ internal fun EtaFormTextField(
                 modifier = modifier.fillMaxWidth().heightIn(min = 48.dp)
                     .semantics { contentDescription = hint },
                 shape = RoundedCornerShape(EtaInputCornerRadius),
-                textStyle = MiuixTheme.textStyles.body1,
+                textStyle = etaTextStyle(EtaType.Body),
                 label = { Text(hint) },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = container,

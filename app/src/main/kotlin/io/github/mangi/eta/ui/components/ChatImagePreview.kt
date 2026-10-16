@@ -65,6 +65,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.adaptive.EtaType
+import io.github.mangi.eta.ui.adaptive.etaTextStyle
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
@@ -101,14 +103,9 @@ private fun previewPlaceholderColor(): Color =
 private fun previewMediaShape(): Shape =
     if (isMaterial3Theme()) MaterialTheme.shapes.medium else RoundedCornerShape(12.dp)
 
-/** 失败提示文字：M3 走官方 bodyMedium 档位。 */
+/** 失败提示文字：走主页统一字阶的 Secondary 档。 */
 @Composable
-private fun previewBodyStyle(): TextStyle =
-    if (isMaterial3Theme()) {
-        MaterialTheme.typography.bodyMedium
-    } else {
-        MiuixTheme.textStyles.body1
-    }
+private fun previewBodyStyle(): TextStyle = etaTextStyle(EtaType.Secondary)
 
 /**
  * 图片加载指示：M3 用官方 `CircularProgressIndicator`（官方颜色角色与官方笔画宽度），
