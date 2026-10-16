@@ -20,6 +20,9 @@ import android.view.WindowManager
 import android.view.WindowInsets
 import androidx.compose.runtime.Composable
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
@@ -63,10 +66,9 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
 import kotlin.math.roundToInt
 import kotlinx.coroutines.runBlocking
+import io.github.mangi.eta.ui.app.toMiuixCompatColors
 import top.yukonga.miuix.kmp.squircle.LocalSquircleEnabled
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.theme.darkColorScheme
-import top.yukonga.miuix.kmp.theme.lightColorScheme
 
 /**
  * 模块进程内的通用 Agent Runtime。
@@ -1237,16 +1239,21 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
             setViewTreeLifecycleOwner(this@AgentRuntimeService)
             setViewTreeSavedStateRegistryOwner(this@AgentRuntimeService)
             setContent {
-                MiuixTheme(colors = if (isNightMode()) darkColorScheme() else lightColorScheme()) {
-                    // 部分 ROM 会给 TYPE_ACCESSIBILITY_OVERLAY 分配软件 Canvas；Miuix 的
-                    // RuntimeShader 只检查系统版本，因此系统浮层统一使用其普通圆角回退。
-                    CompositionLocalProvider(
-                        LocalSquircleEnabled provides false,
-                        // 系统浮层另起一套 MiuixTheme，不经过 AgentAppTheme，
-                        // 而 Material3 的 Icon/Text 默认取 LocalContentColor，需在此补上。
-                        LocalContentColor provides MiuixTheme.colorScheme.onSurface,
-                    ) {
-                        content()
+                val isDark = isNightMode()
+                val m3Colors = if (isDark) darkColorScheme() else lightColorScheme()
+                MaterialTheme(colorScheme = m3Colors) {
+                    // 过渡期兼容层：系统浮层不经过 AgentAppTheme，仍需为尚未迁移的 miuix 组件
+                    // 提供与 M3 同源的配色；阶段 5 随 miuix 依赖一起删除。
+                    MiuixTheme(colors = m3Colors.toMiuixCompatColors(isDark)) {
+                        // 部分 ROM 会给 TYPE_ACCESSIBILITY_OVERLAY 分配软件 Canvas；Miuix 的
+                        // RuntimeShader 只检查系统版本，因此系统浮层统一使用其普通圆角回退。
+                        CompositionLocalProvider(
+                            LocalSquircleEnabled provides false,
+                            // Material3 的 Icon/Text 默认取 LocalContentColor，需在此补上。
+                            LocalContentColor provides m3Colors.onSurface,
+                        ) {
+                            content()
+                        }
                     }
                 }
             }

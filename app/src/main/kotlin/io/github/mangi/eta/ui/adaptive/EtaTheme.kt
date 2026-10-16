@@ -3,20 +3,16 @@ package io.github.mangi.eta.ui.adaptive
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import io.github.mangi.eta.data.model.AppearanceThemeFamily
 import io.github.mangi.eta.data.model.GptSpeedMode
-import io.github.mangi.eta.ui.app.LocalThemeFamily
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 当前是否处于 Material 3 Expressive（标准组件）模式。
  *
- * 自适应组件层（`Eta*`）据此在 miuix 与 Compose Material 3 两套实现间切换：
- * 设置里的「主题风格」=`Material Design 3` 时返回 true。
+ * 全量迁移到 M3 后恒为 true；miuix 分支已成为待删除的死代码（阶段 2 清理）。
  */
 @Composable
-internal fun isMaterial3Theme(): Boolean =
-    LocalThemeFamily.current == AppearanceThemeFamily.MATERIAL3_EXPRESSIVE
+internal fun isMaterial3Theme(): Boolean = true
 
 /** 次要前景色（摘要文本、尾部图标着色）。 */
 @Composable
@@ -88,6 +84,24 @@ internal fun etaOnSecondaryContainer(): Color =
         MaterialTheme.colorScheme.onSecondaryContainer
     } else {
         MiuixTheme.colorScheme.onSecondaryContainer
+    }
+
+/** 第三容器色（强调标签、待发送缩略图「×」圆钮底色）。 */
+@Composable
+internal fun etaTertiaryContainer(): Color =
+    if (isMaterial3Theme()) {
+        MaterialTheme.colorScheme.tertiaryContainer
+    } else {
+        MiuixTheme.colorScheme.tertiaryContainer
+    }
+
+/** 第三容器色上的前景。 */
+@Composable
+internal fun etaOnTertiaryContainer(): Color =
+    if (isMaterial3Theme()) {
+        MaterialTheme.colorScheme.onTertiaryContainer
+    } else {
+        MiuixTheme.colorScheme.onTertiaryContainer
     }
 
 /** 中层表面色（缩略图、嵌套卡片底）。 */

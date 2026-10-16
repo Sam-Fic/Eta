@@ -85,7 +85,6 @@ import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.AppearanceAccentColor
 import io.github.mangi.eta.data.model.AppearancePaletteStyle
 import io.github.mangi.eta.data.model.AppearanceSettings
-import io.github.mangi.eta.data.model.AppearanceThemeFamily
 import io.github.mangi.eta.data.model.AppearanceThemeMode
 import io.github.mangi.eta.data.model.AppearanceTopBarBlurStyle
 import io.github.mangi.eta.data.model.MAX_INTERFACE_SCALE
@@ -159,11 +158,6 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
         update { current -> current.copy(interfaceScale = scale) }
     }
 
-    val themeFamilies = AppearanceThemeFamily.entries
-    val themeFamilyLabels = listOf(
-        stringResource(R.string.appearance_theme_family_miui),
-        stringResource(R.string.appearance_theme_family_material3),
-    )
     val themeModes = AppearanceThemeMode.entries
     val themeModeLabels = listOf(
         stringResource(R.string.appearance_theme_system),
@@ -220,8 +214,6 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
                 themeModeLabels = themeModeLabels,
                 paletteStyles = paletteStyles,
                 paletteLabels = paletteLabels,
-                themeFamilyLabels = themeFamilyLabels,
-                onSetThemeFamily = { family -> update { current -> current.copy(themeFamily = family) } },
                 scaleDraft = scaleDraft,
                 onScaleDraftChange = { scaleDraft = it },
                 onCommitScale = { commitScale(it) },
@@ -256,19 +248,6 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
                     title = stringResource(R.string.appearance_group_color),
                 ) {
-                    item {
-                        EtaSegmentedDropdownRow(
-                            title = stringResource(R.string.appearance_theme_family),
-                            items = themeFamilyLabels,
-                            selectedIndex = appearance.themeFamily.ordinal,
-                            onItemSelected = { index ->
-                                themeFamilies.getOrNull(index)?.let { family ->
-                                    update { current -> current.copy(themeFamily = family) }
-                                }
-                            },
-                        )
-                    }
-
                     item {
                         EtaSegmentedDropdownRow(
                             title = stringResource(R.string.appearance_theme_mode),
@@ -563,8 +542,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.appearanceMaterial3Co
     themeModeLabels: List<String>,
     paletteStyles: List<AppearancePaletteStyle>,
     paletteLabels: List<String>,
-    themeFamilyLabels: List<String>,
-    onSetThemeFamily: (AppearanceThemeFamily) -> Unit,
     scaleDraft: Float,
     onScaleDraftChange: (Float) -> Unit,
     onCommitScale: (Float) -> Unit,
@@ -688,9 +665,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.appearanceMaterial3Co
         )
     }
 
-    // ④ 主题家族与配色规格组（分段下拉行）
-    // 主题家族（MIUI X ↔ Material 3 Expressive）必须与 MIUI X 版页面同款常驻：
-    // 该下拉是切回 MIUI X 的唯一入口，缺了它切到 Material 后无法返回。
+    // ④ 配色规格组（分段下拉行）
     item(key = "m3_color_spec") {
         EtaSegmentedColumn(
             modifier = Modifier.padding(
@@ -699,16 +674,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.appearanceMaterial3Co
                 bottom = EtaSegmentedGroupSpacing,
             ),
         ) {
-            item {
-                EtaSegmentedDropdownRow(
-                    title = stringResource(R.string.appearance_theme_family),
-                    items = themeFamilyLabels,
-                    selectedIndex = appearance.themeFamily.ordinal,
-                    onItemSelected = { index ->
-                        AppearanceThemeFamily.entries.getOrNull(index)?.let(onSetThemeFamily)
-                    },
-                )
-            }
             item {
                 EtaSegmentedDropdownRow(
                     title = stringResource(R.string.appearance_palette_style),

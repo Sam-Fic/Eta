@@ -28,9 +28,6 @@ import io.github.mangi.eta.agent.voice.VoiceModeState
 import io.github.mangi.eta.agent.voice.VoiceEntryMode
 import io.github.mangi.eta.data.model.GptSpeedMode
 import io.github.mangi.eta.data.model.ReasoningEffort
-import androidx.compose.runtime.CompositionLocalProvider
-import io.github.mangi.eta.data.model.AppearanceThemeFamily
-import io.github.mangi.eta.ui.app.LocalThemeFamily
 import io.github.mangi.eta.ui.model.AgentContextUsageUi
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
 import io.github.mangi.eta.ui.model.ConversationMentionInputUi
@@ -292,7 +289,6 @@ class M3ComposerToolbarLayoutTest {
             field = field,
             voiceStateHolder = voiceStateHolder,
             colorScheme = lightColorScheme(primary = primary),
-            material3ThemeFamily = true,
         )
         val add = compose.onNodeWithContentDescription("Add attachment")
         add.assertExists()
@@ -497,14 +493,12 @@ class M3ComposerToolbarLayoutTest {
         voiceStateHolder: MutableState<VoiceModeState>,
         imeVisible: MutableState<Boolean> = mutableStateOf(false),
         colorScheme: androidx.compose.material3.ColorScheme = lightColorScheme(),
-        material3ThemeFamily: Boolean = false,
     ) {
         setContent {
             MaterialExpressiveTheme(
                 colorScheme = colorScheme,
                 motionScheme = MotionScheme.expressive(),
             ) {
-                val body: @androidx.compose.runtime.Composable () -> Unit = {
                 Material3ComposerBody(
                     textFieldState = field,
                     focusRequester = remember { FocusRequester() },
@@ -550,15 +544,6 @@ class M3ComposerToolbarLayoutTest {
                     onContinue = {},
                     onAbortPausedRun = {},
                 )
-                }
-                if (material3ThemeFamily) {
-                    CompositionLocalProvider(
-                        LocalThemeFamily provides AppearanceThemeFamily.MATERIAL3_EXPRESSIVE,
-                        content = body,
-                    )
-                } else {
-                    body()
-                }
             }
         }
     }

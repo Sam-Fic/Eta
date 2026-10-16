@@ -16,6 +16,7 @@ okhttp = "5.4.0"
 kotlinx-serialization = "1.11.0"
 kotlinx-coroutines = "1.11.0"
 material3 = "1.5.0-alpha29"
+material-color-utilities = "5.0.0"
 hiddenApiBypass = "6.1"
 room = "2.8.4"
 junit = "4.13.2"
@@ -41,6 +42,7 @@ activity-compose = { group = "androidx.activity", name = "activity-compose", ver
 markdown-renderer = { group = "com.mikepenz", name = "multiplatform-markdown-renderer-android", version.ref = "markdownRenderer" }
 markdown-renderer-m3 = { group = "com.mikepenz", name = "multiplatform-markdown-renderer-m3-android", version.ref = "markdownRenderer" }
 material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
+material-color-utilities = { group = "com.materialkolor", name = "material-color-utilities", version.ref = "material-color-utilities" }
 hidden-api-bypass = { group = "org.lsposed.hiddenapibypass", name = "hiddenapibypass", version.ref = "hiddenApiBypass" }
 datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }

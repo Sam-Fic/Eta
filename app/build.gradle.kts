@@ -157,6 +157,8 @@ dependencies {
     implementation(libs.markdown.renderer.m3)
     // markdown-renderer-m3 将 material3 作为 compileOnly，需显式引入以满足运行时依赖
     implementation(libs.material3)
+    // 取色引擎：由强调色种子 + 配色风格生成 9 套 DynamicScheme（Spec2025）
+    implementation(libs.material.color.utilities)
     implementation(libs.hidden.api.bypass)
 
     // DataStore：Provider / Model 结构化 JSON 与当前选中 ID 等键值

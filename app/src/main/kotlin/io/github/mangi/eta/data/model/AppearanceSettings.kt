@@ -9,7 +9,6 @@ const val DEFAULT_INTERFACE_SCALE = 1f
 @Serializable
 data class AppearanceSettings(
     val themeMode: AppearanceThemeMode = AppearanceThemeMode.LIGHT,
-    val themeFamily: AppearanceThemeFamily = AppearanceThemeFamily.MIUI_X,
     val monetEnabled: Boolean = true,
     val paletteStyle: AppearancePaletteStyle = AppearancePaletteStyle.NEUTRAL,
     val accentColor: AppearanceAccentColor = AppearanceAccentColor.SYSTEM,
@@ -50,25 +49,6 @@ enum class AppearanceThemeMode(val persistedValue: String) {
     companion object {
         fun fromPersistedValue(value: String?): AppearanceThemeMode =
             entries.firstOrNull { it.persistedValue == value } ?: LIGHT
-    }
-}
-
-/**
- * UI 组件体系（主题族）。
- *
- * - [MIUI_X]：使用 miuix（`top.yukonga.miuix.kmp`）组件，即当前默认实现。
- * - [MATERIAL3_EXPRESSIVE]：使用标准 Compose Material 3 Expressive 组件重写后的界面。
- *
- * 两套实现共存，可在「设置 → 外观与主题」里实时切换。
- */
-@Serializable
-enum class AppearanceThemeFamily(val persistedValue: String) {
-    MIUI_X("miui_x"),
-    MATERIAL3_EXPRESSIVE("material3_expressive");
-
-    companion object {
-        fun fromPersistedValue(value: String?): AppearanceThemeFamily =
-            entries.firstOrNull { it.persistedValue == value } ?: MIUI_X
     }
 }
 

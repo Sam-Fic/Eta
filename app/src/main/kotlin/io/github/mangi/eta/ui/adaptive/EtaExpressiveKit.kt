@@ -48,7 +48,7 @@ import androidx.compose.ui.unit.dp
 /**
  * Material 3 Expressive 基础组件套件。
  *
- * 仅在 `MATERIAL3_EXPRESSIVE` 主题族下使用，全部基于 androidx.compose.material3 标准组件与官方令牌，
+ * 全部基于 androidx.compose.material3 标准组件与官方令牌，
  * 颜色一律通过 `MaterialTheme.colorScheme` 角色引用，不写死颜色值；尺寸、形状、间距、
  * 动效曲线均取官方默认值（IconButtonDefaults / ButtonGroupDefaults /
  * MaterialTheme.motionScheme），不自行定义。
