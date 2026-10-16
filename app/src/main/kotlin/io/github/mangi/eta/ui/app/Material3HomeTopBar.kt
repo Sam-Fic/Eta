@@ -45,6 +45,7 @@ import io.github.mangi.eta.ui.adaptive.EtaButtonStyle
 import io.github.mangi.eta.ui.adaptive.EtaConnectedGroupRow
 import io.github.mangi.eta.ui.adaptive.EtaIconButton
 import io.github.mangi.eta.ui.adaptive.EtaIconSize
+import io.github.mangi.eta.ui.adaptive.etaLabelStyle
 import io.github.mangi.eta.ui.components.ChatInputNonFocusableIconButton
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.model.ConversationTokenUsageUi
@@ -81,6 +82,8 @@ internal fun Material3HomeTopBar(
     onOpenHistoryHit: (MessageSearchHit) -> Unit,
     tokenUsage: ConversationTokenUsageUi,
     subAgentStatuses: List<SubAgentContextStats>,
+    canDeleteCurrentConversation: Boolean = false,
+    onDeleteCurrentConversation: () -> Unit = {},
 ) {
     val view = LocalView.current
     // 不加 Surface 底板：顶栏直接透在页面背景上，与下方内容保持同一底色。
@@ -105,7 +108,7 @@ internal fun Material3HomeTopBar(
                 onOpenConversationPane()
             },
             size = EtaIconSize.S,
-            style = EtaButtonStyle.Tonal,
+            style = EtaButtonStyle.TonalEmphasis,
         )
         // 会话名按钮在两侧图标之间的剩余空间里居中（与官方 CenterAlignedTopAppBar 的标题布局一致）。
         Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
@@ -137,53 +140,60 @@ internal fun Material3HomeTopBar(
                 ) {
                     Text(
                         text = title,
-                        // 内容色由官方 ToggleButton 提供。字号随按钮文案档位：
-                        // titleSmall(14sp/Medium) 与侧边栏按钮文案（body2 14sp + Medium）
-                        // 同号同字重，不再用 titleLarge(22sp)。
-                        style = MaterialTheme.typography.titleSmall,
+                        // 内容色由官方 ToggleButton 提供；字号与侧栏「新建对话 / 管理聊天」
+                        // 按钮文案同号（Secondary + Medium）。
+                        style = etaLabelStyle(),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                ChatInputNonFocusableIconButton(
-                    onClick = { menuExpanded = true },
-                    contentDescription = stringResource(R.string.action_more),
-                    connectedShapes = ButtonGroupDefaults.connectedTrailingButtonShapes(),
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                    containerSize = IconButtonDefaults.smallContainerSize().width,
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.KeyboardArrowDown,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(IconButtonDefaults.smallIconSize)
-                            .graphicsLayer { rotationZ = arrowRotation },
-                    )
+                // 弹窗锚点必须落在箭头按钮自己的 Box 上：Popup 以组合位置的布局节点为锚，
+                // 若挂在整行居中的标题 Box 上，菜单会掉到屏幕左侧（汉堡按钮下方）。
+                // 官方 DropdownMenu 的对齐策略是 start-to-start 优先、放不下自动退到
+                // end-to-end，锚在 40dp 的箭头按钮上时右缘自然与按钮右缘对齐。
+                Box {
+                    ChatInputNonFocusableIconButton(
+                        onClick = { menuExpanded = true },
+                        contentDescription = stringResource(R.string.action_more),
+                        connectedShapes = ButtonGroupDefaults.connectedTrailingButtonShapes(),
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                        containerSize = IconButtonDefaults.smallContainerSize().width,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.KeyboardArrowDown,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(IconButtonDefaults.smallIconSize)
+                                .graphicsLayer { rotationZ = arrowRotation },
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false },
+                    ) {
+                        TopBarMenuItems(
+                            dismiss = { menuExpanded = false },
+                            onOpenTerminal = onOpenTerminal,
+                            onLaunchKimiWeb = onLaunchKimiWeb,
+                            kimiWebLabel = kimiWebLabel,
+                            canStopKimiWeb = canStopKimiWeb,
+                            onStopKimiWeb = onStopKimiWeb,
+                            onOpenBrowser = onOpenBrowser,
+                            onOpenWorkspace = onOpenWorkspace,
+                            autoCompressEnabled = autoCompressEnabled,
+                            isCompressingContext = isCompressingContext,
+                            onToggleAutoCompress = onToggleAutoCompress,
+                            onCompressConversation = onCompressConversation,
+                            onSearchHistory = onSearchHistory,
+                            onOpenHistoryHit = onOpenHistoryHit,
+                            tokenUsage = tokenUsage,
+                            subAgentStatuses = subAgentStatuses,
+                            canDeleteCurrentConversation = canDeleteCurrentConversation,
+                            onDeleteCurrentConversation = onDeleteCurrentConversation,
+                        )
+                    }
                 }
-            }
-            DropdownMenu(
-                expanded = menuExpanded,
-                onDismissRequest = { menuExpanded = false },
-            ) {
-                TopBarMenuItems(
-                    dismiss = { menuExpanded = false },
-                    onOpenTerminal = onOpenTerminal,
-                    onLaunchKimiWeb = onLaunchKimiWeb,
-                    kimiWebLabel = kimiWebLabel,
-                    canStopKimiWeb = canStopKimiWeb,
-                    onStopKimiWeb = onStopKimiWeb,
-                    onOpenBrowser = onOpenBrowser,
-                    onOpenWorkspace = onOpenWorkspace,
-                    autoCompressEnabled = autoCompressEnabled,
-                    isCompressingContext = isCompressingContext,
-                    onToggleAutoCompress = onToggleAutoCompress,
-                    onCompressConversation = onCompressConversation,
-                    onSearchHistory = onSearchHistory,
-                    onOpenHistoryHit = onOpenHistoryHit,
-                    tokenUsage = tokenUsage,
-                    subAgentStatuses = subAgentStatuses,
-                )
             }
         }
         EtaIconButton(
@@ -194,7 +204,7 @@ internal fun Material3HomeTopBar(
                 onNewConversation()
             },
             size = EtaIconSize.S,
-            style = EtaButtonStyle.Tonal,
+            style = EtaButtonStyle.TonalEmphasis,
         )
     }
 }

@@ -19,11 +19,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.adaptive.EtaClickableRow
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaText
 import io.github.mangi.eta.ui.adaptive.EtaTextStyle
-import io.github.mangi.eta.ui.components.ArrowPreference
 import io.github.mangi.eta.ui.components.PreferenceIcon
 import io.github.mangi.eta.ui.components.color
 import io.github.mangi.eta.ui.components.label
@@ -81,10 +81,10 @@ private fun PermissionItemRow(
         else -> Icons.Rounded.Shield
     }
 
-    ArrowPreference(
+    EtaClickableRow(
         title = item.title,
         summary = item.summary.takeIf { it.isNotBlank() },
-        startAction = {
+        leading = {
             PreferenceIcon(icon = icon)
         },
         endActions = {

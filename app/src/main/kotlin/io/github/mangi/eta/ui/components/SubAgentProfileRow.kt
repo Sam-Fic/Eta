@@ -70,7 +70,7 @@ internal fun SubAgentProfileRow(profile: SubAgentProfile, providers: List<Provid
                 ?: if (profile.modelId.isBlank()) stringResource(R.string.sap_select_model) else stringResource(R.string.sap_model_unavailable),
                 Icons.Rounded.ViewInAr, stringResource(R.string.spr_model_for, profile.name), enabled = usable, badge = config?.providerName,
                 onClick = { if (currentUsable) { TouchHaptics.click(view); modelPicker = true } },
-                onLongClick = { if (currentUsable && canThink) { TouchHaptics.longPress(view); thinkingPicker = true } },
+                onLongClick = { if (currentUsable && canThink) { thinkingPicker = true } },
                 trailing = { SubAgentGptSpeedButton(profile, providers, usable) })
             Box(Modifier.fillMaxWidth()) {
                 SubAgentSettingRow(stringResource(R.string.sap_role), profile.roleLabel, Icons.AutoMirrored.Rounded.Assignment,
@@ -123,7 +123,7 @@ internal fun SubAgentProfileRow(profile: SubAgentProfile, providers: List<Provid
                 // 天然落在点击区之外，不会被吞进同一次点按，所以不需要 combinedClickable 兜手势。
                 ListItem(
                     onClick = { if (currentUsable) { TouchHaptics.click(view); modelPicker = true } },
-                    onLongClick = { if (currentUsable && canThink) { TouchHaptics.longPress(view); thinkingPicker = true } },
+                    onLongClick = { if (currentUsable && canThink) { thinkingPicker = true } },
                     onLongClickLabel = stringResource(R.string.spr_adjust_thinking_for, profile.name),
                     // 不再手写 semantics contentDescription：ListItem 内部已是
                     // semantics(mergeDescendants = true)，headline(代理名) + supportingContent(模型/接口·思考)

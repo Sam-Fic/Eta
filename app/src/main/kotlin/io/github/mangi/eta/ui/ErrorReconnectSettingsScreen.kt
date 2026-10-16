@@ -105,14 +105,12 @@ internal fun EtaSegmentedScope.ErrorReconnectPolicyOptions(
     ErrorReconnectPolicy.entries.forEach { policy ->
         item(key = policy.name) {
             if (isMaterial3Theme()) {
-                val view = LocalView.current
                 EtaSegmentedRadioRow(
                     title = stringResource(errorReconnectPolicyLabel(policy)),
                     summary = stringResource(errorReconnectPolicyHint(policy)),
                     selected = selectedPolicy == policy,
                     enabled = enabled,
                     onClick = {
-                        TouchHaptics.click(view)
                         onSelect(policy)
                     },
                 )

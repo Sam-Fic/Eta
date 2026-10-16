@@ -311,11 +311,7 @@ internal fun ProviderClickableRow(
         val supportingText = summary
         val supporting: (@Composable () -> Unit)? = if (supportingText != null) {
             {
-                M3Text(
-                    text = supportingText,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                M3Text(text = supportingText)
             }
         } else {
             null
@@ -325,7 +321,7 @@ internal fun ProviderClickableRow(
             modifier = Modifier.fillMaxWidth(),
             enabled = enabled,
             leadingContent = leading,
-            content = { M3Text(text = title, style = MaterialTheme.typography.bodyLarge) },
+            content = { M3Text(text = title) },
             supportingContent = supporting,
         )
     } else {
@@ -351,11 +347,7 @@ internal fun ProviderNoticeRow(
         val supportingText = summary
         val supporting: (@Composable () -> Unit)? = if (supportingText != null) {
             {
-                M3Text(
-                    text = supportingText,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                M3Text(text = supportingText)
             }
         } else {
             null
@@ -364,7 +356,7 @@ internal fun ProviderNoticeRow(
             modifier = Modifier.fillMaxWidth(),
             enabled = enabled,
             leadingContent = leading,
-            content = { M3Text(text = title, style = MaterialTheme.typography.bodyLarge) },
+            content = { M3Text(text = title) },
             supportingContent = supporting,
         )
     } else {
@@ -401,11 +393,7 @@ internal fun ProviderExpandableRow(
         val supportingText = summary
         val supporting: (@Composable () -> Unit)? = if (supportingText != null) {
             {
-                M3Text(
-                    text = supportingText,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                M3Text(text = supportingText)
             }
         } else {
             null
@@ -413,7 +401,7 @@ internal fun ProviderExpandableRow(
         EtaSegmentedRow(
             onClick = { onExpandedChange(!expanded) },
             modifier = Modifier.fillMaxWidth(),
-            content = { M3Text(text = title, style = MaterialTheme.typography.bodyLarge) },
+            content = { M3Text(text = title) },
             supportingContent = supporting,
             trailingContent = {
                 Row(verticalAlignment = Alignment.CenterVertically) {

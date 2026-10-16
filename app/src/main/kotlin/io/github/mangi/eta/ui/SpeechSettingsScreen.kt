@@ -10,7 +10,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -26,12 +25,10 @@ import io.github.mangi.eta.ui.adaptive.EtaSegmentedTextField
 import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
 import io.github.mangi.eta.ui.adaptive.EtaText
 import io.github.mangi.eta.ui.adaptive.EtaTextStyle
-import io.github.mangi.eta.ui.haptics.TouchHaptics
 
 @Composable
 internal fun SpeechSettingsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
-    val view = LocalView.current
     val state by OfflineSpeechPack.state.collectAsState()
     val config by DoubaoVoiceConfig.state.collectAsState()
     var confirmDownload by remember { mutableStateOf(false) }
@@ -45,7 +42,6 @@ internal fun SpeechSettingsScreen(onBack: () -> Unit) {
                     checked = config.inputEnabled,
                     enabled = true,
                     onCheckedChange = { enabled ->
-                        TouchHaptics.click(view)
                         DoubaoVoiceConfig.save(context, config.copy(inputEnabled = enabled))
                     },
                 )
@@ -60,7 +56,6 @@ internal fun SpeechSettingsScreen(onBack: () -> Unit) {
                     items = listOf(stringResource(R.string.speech_recognition_local), stringResource(R.string.speech_recognition_doubao)),
                     selectedIndex = if (config.cloudAsr) 1 else 0,
                     onItemSelected = { index ->
-                        TouchHaptics.click(view)
                         DoubaoVoiceConfig.save(context, config.copy(cloudAsr = index == 1))
                     },
                 )
@@ -83,7 +78,6 @@ internal fun SpeechSettingsScreen(onBack: () -> Unit) {
                     items = DoubaoAsrProtocol.resources,
                     selectedIndex = DoubaoAsrProtocol.resources.indexOf(config.resource).coerceAtLeast(0),
                     onItemSelected = { index ->
-                        TouchHaptics.click(view)
                         DoubaoVoiceConfig.save(context, config.copy(resource = DoubaoAsrProtocol.resources[index]))
                     },
                 )
@@ -108,7 +102,6 @@ internal fun SpeechSettingsScreen(onBack: () -> Unit) {
                     ),
                     enabled = !state.checking && !state.ready,
                     onClick = {
-                        TouchHaptics.click(view)
                         if (state.downloading) OfflineSpeechPack.cancelDownload() else confirmDownload = true
                     },
                 )

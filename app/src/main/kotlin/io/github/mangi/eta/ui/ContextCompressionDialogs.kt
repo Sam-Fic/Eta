@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.ListItem
-import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.ui.semantics.contentDescription
@@ -74,21 +73,19 @@ import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedDropdownRow
-import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.model.AgentModelOptionUi
 import io.github.mangi.eta.ui.model.AgentModelPickerProjector
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
-import io.github.mangi.eta.ui.model.defaultExpandedModelProviderIds
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
-import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.material3.CircularProgressIndicator as M3CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.TextButton as M3TextButton
@@ -499,14 +496,11 @@ internal fun CompressModelPickerDialog(
     onModelSelected: (String, String) -> Unit,
     title: String? = null,
 ) {
-    val view = LocalView.current
-    var expandedProviderIds by remember { mutableStateOf(emptySet<String>()) }
-    LaunchedEffect(show, state.selectedModel?.providerId, state.providerGroups) {
-        if (!show) return@LaunchedEffect
-        expandedProviderIds = defaultExpandedModelProviderIds(state.selectedModel).ifEmpty {
-            state.providerGroups.singleOrNull()?.providerId?.let(::setOf).orEmpty()
-        }
-    }
+    // 弹窗内的「待确认」选择：与其它模型选择弹窗一致——先选中，再点确认提交；取消直接丢弃。
+    // 以 show / 当前已选模型为键，保证每次打开都从最新绑定回填、加载完成后补上默认选中。
+    var pendingProviderId by remember(show, state.selectedModel) { mutableStateOf(state.selectedModel?.providerId) }
+    var pendingModelId by remember(show, state.selectedModel) { mutableStateOf(state.selectedModel?.id) }
+    val hasPending = pendingModelId != null
     EtaDialog(
         show = show,
         title = title ?: stringResource(R.string.ui_compress_model_title),
@@ -546,111 +540,73 @@ internal fun CompressModelPickerDialog(
                     )
                 }
             } else if (isMaterial3Theme()) {
-                // M3：KernelSU 式分段选择列表——每个提供商一组，提供商行带展开/收起指示；
-                // 模型行选中时 primary 高亮 + Check 尾标，条目形状由分段列统一接管。
+                // M3：KernelSU 式分段单选列表——提供商作分组标题、模型为组内单选行。
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(13.dp),
                 ) {
                     state.providerGroups.forEach { group ->
-                        val expanded = group.providerId in expandedProviderIds
-                        EtaSegmentedColumn(modifier = Modifier.fillMaxWidth()) {
-                            item {
-                                EtaSegmentedRow(
-                                    onClick = {
-                                        TouchHaptics.click(view)
-                                        expandedProviderIds = if (expanded) {
-                                            emptySet()
-                                        } else {
-                                            setOf(group.providerId)
-                                        }
-                                    },
-                                    content = { Text(group.providerName) },
-                                    trailingContent = {
-                                        Icon(
-                                            imageVector = if (expanded) {
-                                                Icons.Rounded.ExpandMore
-                                            } else {
-                                                Icons.Rounded.ChevronRight
-                                            },
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    },
-                                )
-                            }
-                            if (expanded) {
-                                group.models.forEach { model ->
-                                    val selected = model.providerId == state.selectedModel?.providerId &&
-                                        model.id == state.selectedModel?.id
-                                    item(key = "${group.providerId}/${model.id}") {
-                                        EtaSegmentedRow(
-                                            onClick = {
-                                                TouchHaptics.click(view)
-                                                onModelSelected(model.providerId, model.id)
-                                            },
-                                            content = {
-                                                Text(
-                                                    text = model.displayName,
-                                                    color = if (selected) {
-                                                        MaterialTheme.colorScheme.primary
-                                                    } else {
-                                                        Color.Unspecified
-                                                    },
-                                                )
-                                            },
-                                            trailingContent = {
-                                                if (selected) {
-                                                    Icon(
-                                                        imageVector = Icons.Rounded.Check,
-                                                        contentDescription = null,
-                                                        tint = MaterialTheme.colorScheme.primary,
-                                                    )
-                                                }
-                                            },
-                                        )
-                                    }
+                        EtaSegmentedColumn(
+                            modifier = Modifier.fillMaxWidth(),
+                            title = group.providerName,
+                        ) {
+                            group.models.forEach { model ->
+                                item(key = "${group.providerId}/${model.id}") {
+                                    ModelPickerRadioRow(
+                                        title = model.displayName,
+                                        selected = pendingProviderId == model.providerId &&
+                                            pendingModelId == model.id,
+                                        onClick = {
+                                            pendingProviderId = model.providerId
+                                            pendingModelId = model.id
+                                        },
+                                    )
                                 }
                             }
                         }
                     }
                 }
             } else {
-                state.providerGroups.forEachIndexed { index, group ->
-                    if (index > 0) {
-                        HorizontalDivider(modifier = Modifier.padding(horizontal = 4.dp))
-                    }
-                    val expanded = group.providerId in expandedProviderIds
-                    ListItem(
-                        onClick = {
-                            TouchHaptics.click(view)
-                            expandedProviderIds = if (expanded) {
-                                emptySet()
-                            } else {
-                                setOf(group.providerId)
-                            }
-                        },
-                        content = { Text(group.providerName) },
-                    )
-                    if (expanded) {
+                // MIUI X：提供商作分组标题 + 自绘单选行。
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .selectableGroup(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    state.providerGroups.forEach { group ->
+                        Text(
+                            text = group.providerName,
+                            style = MiuixTheme.textStyles.subtitle,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 4.dp, top = 12.dp, bottom = 4.dp),
+                        )
                         group.models.forEach { model ->
-                            ListItem(
-                                modifier = Modifier.padding(start = 16.dp),
+                            ModelPickerRadioRow(
+                                title = model.displayName,
+                                selected = pendingProviderId == model.providerId &&
+                                    pendingModelId == model.id,
                                 onClick = {
-                                    TouchHaptics.click(view)
-                                    onModelSelected(model.providerId, model.id)
-                                },
-                                content = { Text(model.displayName) },
-                                trailingContent = {
-                                    if (model.id == state.selectedModel?.id) {
-                                        Icon(imageVector = Icons.Rounded.Check, contentDescription = null)
-                                    }
+                                    pendingProviderId = model.providerId
+                                    pendingModelId = model.id
                                 },
                             )
                         }
                     }
                 }
             }
+            EtaDialogActions(
+                confirmText = stringResource(R.string.action_confirm),
+                cancelText = stringResource(R.string.action_cancel),
+                confirmEnabled = hasPending,
+                modifier = Modifier.padding(top = 16.dp),
+                onCancel = onDismiss,
+                onConfirm = {
+                    val providerId = pendingProviderId
+                    val modelId = pendingModelId
+                    if (providerId != null && modelId != null) onModelSelected(providerId, modelId)
+                },
+            )
         }
     }
 }

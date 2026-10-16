@@ -829,7 +829,6 @@ private fun ModelListItem(
         if (selectionMode) onToggleChecked() else onSetCurrent()
     }
     val onLongClick = {
-        TouchHaptics.longPress(view)
         if (selectionMode) onToggleChecked() else onEnterSelection()
     }
     // 尾部：多选时为官方 Checkbox，否则为「当前模型」勾 + 官方图标按钮。

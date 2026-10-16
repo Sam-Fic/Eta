@@ -185,8 +185,6 @@ internal fun SubAgentSettingsScreen(
                                         Text(
                                             text = stringResource(R.string.sas_profiles_count, preset.config.profiles.size) + " · " +
                                                 if (preset.config.enabled) stringResource(R.string.sas_auto_delegation_on) else stringResource(R.string.sas_auto_delegation_off),
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
                                     },
                                     trailingContent = {
@@ -206,7 +204,7 @@ internal fun SubAgentSettingsScreen(
                                         }
                                     },
                                 ) {
-                                    Text(text = preset.name, style = MaterialTheme.typography.bodyLarge)
+                                    Text(text = preset.name)
                                 }
                             }
                         }
@@ -472,7 +470,6 @@ private fun SubAgentProfileHeaderRow(
     ) {
         Text(
             text = profile.name,
-            style = MaterialTheme.typography.bodyLarge,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )

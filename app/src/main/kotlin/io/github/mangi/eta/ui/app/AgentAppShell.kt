@@ -51,12 +51,22 @@ import io.github.mangi.eta.ui.model.ConversationTokenUsageUi
 import io.github.mangi.eta.ui.model.MessageSearchHit
 import io.github.mangi.eta.ui.model.ConversationSummaryUi
 import io.github.mangi.eta.ui.navigation.AppRoute
+import io.github.mangi.eta.ui.adaptive.EtaTopBarBackButton
+import io.github.mangi.eta.ui.adaptive.etaLabelStyle
+import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * Agent App 统一壳层。
@@ -152,17 +162,33 @@ internal fun AgentAppShell(
 
     val scrollBehavior = MiuixScrollBehavior()
     val backdrop = rememberTopBarBackdrop()
-    val topBarColor = topBarContainerColor(backdrop)
+    // Material 3 顶栏不画底板，直接透出页面背景（与 Material3HomeTopBar 一致），
+    // 因此这里必须与 M3 页面背景同色取官方 surfaceContainer；
+    // MIUI X 仍走毛玻璃/不透明 surface，两套体系不能交叉取色。
+    val material3 = isMaterial3Theme()
+    val topBarColor = if (material3) {
+        MaterialTheme.colorScheme.surfaceContainer
+    } else {
+        topBarContainerColor(backdrop)
+    }
     val pageContent: @Composable () -> Unit = {
         Scaffold(
-            // Own render node: drawer offset and scrim redraws must not re-record the page.
+            // Own render node: the drawer push offset must not re-record the page.
             modifier = Modifier.fillMaxSize().graphicsLayer {},
+            // Material 3：页面背景取官方 surfaceContainer（与顶栏渐变板、二级页 TopAppBar
+            // 同色），不再沿用 miuix Scaffold 默认的 MiuixTheme.surface；MIUI X 保持默认。
+            containerColor = if (material3) MaterialTheme.colorScheme.surfaceContainer else MiuixTheme.colorScheme.surface,
             contentWindowInsets = WindowInsets.safeDrawing.only(
                 WindowInsetsSides.Top + WindowInsetsSides.Horizontal,
             ),
             topBar = {
                 if (currentRoute !is AppRoute.Settings) {
                     TopBarBackdrop(backdrop) {
+                        // 顶栏菜单「删除当前会话」的可用性：pane.conversations 为全量摘要（未经筛选），
+                        // 选中 id 在其中能查到才允许删除；删除走侧栏同一 onConversationDelete 确认弹窗链路。
+                        val currentDeletableConversation = conversationPaneState?.let { pane ->
+                            pane.selectedConversationId?.let { id -> pane.conversations.find { it.id == id } }
+                        }
                         AgentTopBar(
                             route = currentRoute,
                             scrollBehavior = scrollBehavior,
@@ -194,6 +220,10 @@ internal fun AgentAppShell(
                             onOpenHistoryHit = onOpenHistoryHit,
                             tokenUsage = tokenUsage,
                             subAgentStatuses = subAgentStatuses,
+                            canDeleteCurrentConversation = currentDeletableConversation != null,
+                            onDeleteCurrentConversation = {
+                                currentDeletableConversation?.let(onConversationDelete)
+                            },
                             selectedProviderId = selectedProviderId,
                         )
                     }
@@ -250,6 +280,7 @@ internal fun AgentAppShell(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AgentTopBar(
     route: AppRoute?,
@@ -280,10 +311,15 @@ private fun AgentTopBar(
     onOpenHistoryHit: (MessageSearchHit) -> Unit = {},
     tokenUsage: ConversationTokenUsageUi = ConversationTokenUsageUi(),
     subAgentStatuses: List<SubAgentContextStats> = emptyList(),
+    canDeleteCurrentConversation: Boolean = false,
+    onDeleteCurrentConversation: () -> Unit = {},
     selectedProviderId: String? = null,
 ) {
     val view = LocalView.current
     val isHome = route is AppRoute.Home
+    // Material 3 下顶栏的图标按钮改用官方 IconButton（默认取 colorScheme 角色色），
+    // 不用 miuix 的 IconButton / MiuixBackButton——后者读 MiuixTheme 调色盘。
+    val material3 = isMaterial3Theme()
     val navigationIcon: @Composable () -> Unit = {
         if (isHome) {
             IconButton(onClick = {
@@ -295,6 +331,11 @@ private fun AgentTopBar(
                     contentDescription = stringResource(R.string.action_conversation_history),
                 )
             }
+        } else if (material3) {
+            EtaTopBarBackButton(
+                onClick = onBack,
+                contentDescription = stringResource(R.string.action_back),
+            )
         } else {
             MiuixBackButton(onClick = onBack)
         }
@@ -340,11 +381,13 @@ private fun AgentTopBar(
                 onOpenHistoryHit = onOpenHistoryHit,
                 tokenUsage = tokenUsage,
                 subAgentStatuses = subAgentStatuses,
+                canDeleteCurrentConversation = canDeleteCurrentConversation,
+                onDeleteCurrentConversation = onDeleteCurrentConversation,
             )
         }
     }
 
-    if (isHome && io.github.mangi.eta.ui.adaptive.isMaterial3Theme()) {
+    if (isHome && isMaterial3Theme()) {
         // 首页 M3 顶栏不消费滚动偏移，但壳层内容仍挂在共享 MiuixScrollBehavior 的嵌套滚动连接上。
         // 二级页的可折叠顶栏（AdaptiveTopAppBar）会把 heightOffsetLimit 设成负的折叠区间；
         // 切换主题必须途经设置页，返回首页后该状态残留在共享 TopAppBarState 上，连接就把
@@ -376,13 +419,40 @@ private fun AgentTopBar(
             onOpenHistoryHit = onOpenHistoryHit,
             tokenUsage = tokenUsage,
             subAgentStatuses = subAgentStatuses,
+            canDeleteCurrentConversation = canDeleteCurrentConversation,
+            onDeleteCurrentConversation = onDeleteCurrentConversation,
         )
     } else if (isHome) {
         // 首页聊天舞台保持紧凑；二级内容页统一使用可折叠大标题。
-        SmallTopAppBar(
-            title = titleForRoute(route, currentConversationTitle),
-            color = color,
-            scrollBehavior = scrollBehavior,
+        // 顶栏会话名与侧栏「新建对话 / 管理聊天」按钮文案同号（Secondary + Medium）。
+        // SmallTopAppBar 不给标题样式入口：库内部只读 textStyles.title3.fontSize
+        // （整个 miuix 也只有顶栏标题读它），所以仅在这一个构件的范围内把 title3 换成
+        // 标签档，其余档位与调色盘都按当前值继承。
+        MiuixTheme(textStyles = MiuixTheme.textStyles.copy(title3 = etaLabelStyle())) {
+            SmallTopAppBar(
+                title = titleForRoute(route, currentConversationTitle),
+                color = color,
+                scrollBehavior = scrollBehavior,
+                navigationIcon = navigationIcon,
+                actions = actions,
+            )
+        }
+    } else if (material3) {
+        // 二级路由（Chat / Terminal）在 Material 3 下改用官方 TopAppBar：
+        // 容器色与页面背景同为 surfaceContainer，标题与图标全部走官方 colorScheme 角色，
+        // 不再读 MiuixTheme 调色盘。
+        TopAppBar(
+            title = {
+                Text(
+                    text = titleForRoute(route, currentConversationTitle),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+            ),
             navigationIcon = navigationIcon,
             actions = actions,
         )

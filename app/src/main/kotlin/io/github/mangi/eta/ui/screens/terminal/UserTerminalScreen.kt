@@ -243,7 +243,6 @@ private fun CommandBlock(
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
-    val view = LocalView.current
     val exitCode = block.exitCode
     val failed = exitCode != null && exitCode != 0
     // 官方组件都不提供「长按富文本内容块」的重载（Card 只有 onClick），因此这里：
@@ -257,7 +256,6 @@ private fun CommandBlock(
                 .combinedClickable(
                     onClick = {},
                     onLongClick = {
-                        TouchHaptics.longPress(view)
                         showMenu = true
                     },
                 )

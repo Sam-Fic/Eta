@@ -14,8 +14,6 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import io.github.mangi.eta.R
 import io.github.mangi.eta.config.Prefs
-import io.github.mangi.eta.ui.haptics.HapticIntensity
-import io.github.mangi.eta.ui.haptics.TouchHaptics
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -36,7 +34,6 @@ class SubAgentModelGestureTest {
     @get:Rule val compose = createComposeRule()
     private lateinit var view: RecordingView
     private var originalTouch = true
-    private var originalIntensity = HapticIntensity.DEFAULT
     private val builtInHaptics = mutableListOf<HapticFeedbackType>()
     private var clicks = 0
     private var holds = 0
@@ -45,9 +42,7 @@ class SubAgentModelGestureTest {
         val context = RuntimeEnvironment.getApplication()
         Prefs.initLocal(context)
         originalTouch = Prefs.isEnabled(Prefs.Keys.HAPTIC_TOUCH_FEEDBACK)
-        originalIntensity = TouchHaptics.currentIntensity()
         Prefs.putBoolean(Prefs.Keys.HAPTIC_TOUCH_FEEDBACK, true)
-        TouchHaptics.setIntensity(HapticIntensity.DEFAULT)
         view = RecordingView(context)
         compose.setContent {
             MiuixTheme(colors = lightColorScheme()) {
@@ -65,7 +60,6 @@ class SubAgentModelGestureTest {
     }
     @After fun restorePreferences() {
         Prefs.putBoolean(Prefs.Keys.HAPTIC_TOUCH_FEEDBACK, originalTouch)
-        TouchHaptics.setIntensity(originalIntensity)
     }
     @Test fun clickAndLongPressHaveSeparateCallbacksAndSingleHaptics() {
         compose.onNodeWithContentDescription("model").performTouchInput { click() }

@@ -180,7 +180,6 @@ internal fun ModelProviderListScreen(
                         onNavigate(AppRoute.ModelProviderDetail(id))
                     },
                     onEnterSelection = { id ->
-                        TouchHaptics.longPress(view)
                         selectionMode = true
                         selectedProviderIds = setOf(id)
                     },
@@ -228,7 +227,6 @@ internal fun ModelProviderListScreen(
                         onNavigate(AppRoute.ModelProviderDetail(id))
                     },
                     onEnterSelection = { id ->
-                        TouchHaptics.longPress(view)
                         selectionMode = true
                         selectedProviderIds = setOf(id)
                     },

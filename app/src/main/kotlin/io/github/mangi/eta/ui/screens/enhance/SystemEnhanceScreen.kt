@@ -30,7 +30,6 @@ import io.github.mangi.eta.ui.model.AgentSystemEnhanceAction
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text as M3Text
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.TextButton
@@ -175,14 +174,10 @@ private fun EnhanceRow(
             Icon(imageVector = icon, contentDescription = null)
         }
         val supporting: @Composable () -> Unit = {
-            M3Text(
-                text = summary,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            M3Text(text = summary)
         }
         val headline: @Composable () -> Unit = {
-            M3Text(text = title, style = MaterialTheme.typography.bodyLarge)
+            M3Text(text = title)
         }
         // KernelSU 式分段行：形状/容器色取自外层分段组，独立使用时退化为单条目形状。
         EtaSegmentedRow(

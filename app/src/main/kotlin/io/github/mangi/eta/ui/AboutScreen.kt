@@ -39,24 +39,23 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.AppUpdateOffer
 import io.github.mangi.eta.data.repository.AppUpdateRepository
+import io.github.mangi.eta.ui.adaptive.EtaClickableRow
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedItemContainer
+import io.github.mangi.eta.ui.adaptive.etaOnSurfaceVariant
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.components.AppUpdateDialog
-import io.github.mangi.eta.ui.components.ArrowPreference
-import io.github.mangi.eta.ui.components.HapticBasicComponent
 import io.github.mangi.eta.ui.components.PreferenceIcon
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import androidx.compose.foundation.layout.PaddingValues
 import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
 /**
@@ -85,7 +84,7 @@ internal fun AboutScreen(onBack: () -> Unit) {
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
             ) {
                 item {
-                    ArrowPreference(
+                    EtaClickableRow(
                         title = stringResource(R.string.update_check_title),
                         summary = if (checkingUpdate) {
                             stringResource(R.string.update_checking)
@@ -95,13 +94,13 @@ internal fun AboutScreen(onBack: () -> Unit) {
                                 currentVersion.ifBlank { stringResource(R.string.update_unknown_version) },
                             )
                         },
-                        startAction = {
+                        leading = {
                             PreferenceIcon(
                                 icon = Icons.Rounded.CloudDownload,
                             )
                         },
                         onClick = {
-                            if (checkingUpdate) return@ArrowPreference
+                            if (checkingUpdate) return@EtaClickableRow
                             checkingUpdate = true
                             coroutineScope.launch {
                                 val result = AppUpdateRepository.checkForUpdate(context, force = true)
@@ -133,9 +132,9 @@ internal fun AboutScreen(onBack: () -> Unit) {
                 }
 
                 item {
-                    ArrowPreference(
+                    EtaClickableRow(
                         title = stringResource(R.string.about_telegram_channel),
-                        startAction = {
+                        leading = {
                             PreferenceIcon(
                                 icon = Icons.Rounded.Campaign,
                             )
@@ -154,9 +153,9 @@ internal fun AboutScreen(onBack: () -> Unit) {
                 }
 
                 item {
-                    ArrowPreference(
+                    EtaClickableRow(
                         title = stringResource(R.string.about_qq_group),
-                        startAction = {
+                        leading = {
                             PreferenceIcon(
                                 icon = Icons.Rounded.Groups,
                             )
@@ -186,9 +185,9 @@ internal fun AboutScreen(onBack: () -> Unit) {
                 }
 
                 item {
-                    ArrowPreference(
+                    EtaClickableRow(
                         title = stringResource(R.string.ui_source_code_740296),
-                        startAction = {
+                        leading = {
                             PreferenceIcon(
                                 icon = Icons.Rounded.Code,
                             )
@@ -207,13 +206,18 @@ internal fun AboutScreen(onBack: () -> Unit) {
                 }
 
                 item {
-                    HapticBasicComponent(
+                    EtaClickableRow(
                         title = stringResource(R.string.about_relay_station),
-                        startAction = {
+                        leading = {
                             PreferenceIcon(
                                 icon = Icons.Rounded.Language,
                             )
                         },
+                        showChevron = false,
+                        onClick = {
+                            relayStationExpanded = !relayStationExpanded
+                        },
+                        holdDownState = relayStationExpanded,
                         endActions = {
                             Icon(
                                 imageVector = if (relayStationExpanded) {
@@ -222,61 +226,54 @@ internal fun AboutScreen(onBack: () -> Unit) {
                                     Icons.Rounded.ChevronRight
                                 },
                                 contentDescription = null,
-                                modifier = Modifier
-                                    .align(Alignment.CenterVertically)
-                                    .padding(end = 8.dp)
-                                    .size(16.dp),
-                                tint = if (isMaterial3Theme()) {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                } else {
-                                    MiuixTheme.colorScheme.onSurfaceVariantActions
-                                },
+                                modifier = Modifier.align(Alignment.CenterVertically),
+                                tint = etaOnSurfaceVariant(),
                             )
-                        },
-                        holdDownState = relayStationExpanded,
-                        onClick = { relayStationExpanded = !relayStationExpanded },
-                        bottomAction = if (relayStationExpanded) {
-                            {
-                                Column {
-                                    ArrowPreference(
-                                        title = stringResource(R.string.about_relay_station_st_api),
-                                        insideMargin = PaddingValues(0.dp),
-                                        onClick = {
-                                            openExternalUrl(
-                                                context,
-                                                "https://st.123336.xyz/join/ZKjSNbdYUh6RbF5_Kdxjrp-_AoAVcMH9",
-                                                context.getString(R.string.about_relay_station_open_failed),
-                                            )
-                                        },
-                                    )
-                                    ArrowPreference(
-                                        title = stringResource(R.string.about_relay_station_moyu),
-                                        insideMargin = PaddingValues(0.dp),
-                                        onClick = {
-                                            openExternalUrl(
-                                                context,
-                                                "https://www.u354483.nyat.app:35119/register?aff=5U8U292F5RG6",
-                                                context.getString(R.string.about_relay_station_open_failed),
-                                            )
-                                        },
-                                    )
-                                }
-                            }
-                        } else {
-                            null
                         },
                     )
                 }
 
+                // 展开的中转站链接作为同组的下一个分段（兄弟页面 AppearanceSettings / ProviderBodiesEditor /
+                // ContextCompressionSettings 同款写法）。挂在行内 bottomAction 上会脱离分组容器、自成一块
+                // 没有边距的浮层，因此这里用 item(visible = …) 交给分段列统一接管。
+                item(visible = relayStationExpanded) {
+                    EtaSegmentedItemContainer {
+                        Column {
+                            EtaClickableRow(
+                                title = stringResource(R.string.about_relay_station_st_api),
+                                onClick = {
+                                    openExternalUrl(
+                                        context,
+                                        "https://st.123336.xyz/join/ZKjSNbdYUh6RbF5_Kdxjrp-_AoAVcMH9",
+                                        context.getString(R.string.about_relay_station_open_failed),
+                                    )
+                                },
+                            )
+                            EtaClickableRow(
+                                title = stringResource(R.string.about_relay_station_moyu),
+                                onClick = {
+                                    openExternalUrl(
+                                        context,
+                                        "https://www.u354483.nyat.app:35119/register?aff=5U8U292F5RG6",
+                                        context.getString(R.string.about_relay_station_open_failed),
+                                    )
+                                },
+                            )
+                        }
+                    }
+                }
+
                 item {
-                    ArrowPreference(
+                    EtaClickableRow(
                         title = stringResource(R.string.about_donate),
-                        startAction = {
+                        leading = {
                             PreferenceIcon(
                                 icon = Icons.Rounded.Restaurant,
                             )
                         },
-                        onClick = { showDonateDialog = true },
+                        onClick = {
+                            showDonateDialog = true
+                        },
                     )
                 }
             }
@@ -321,15 +318,15 @@ private fun AboutHero(versionName: String) {
             )
         }
         if (isMaterial3Theme()) {
+            // 直接用官方字阶令牌（含字重/行高/字距），不再只拷 fontSize 或额外覆盖字重。
             Text(
                 modifier = Modifier.padding(top = 12.dp),
                 text = stringResource(R.string.app_name),
-                fontWeight = FontWeight.Medium,
-                fontSize = MaterialTheme.typography.headlineMedium.fontSize,
+                style = MaterialTheme.typography.headlineMedium,
             )
             Text(
                 text = versionName,
-                fontSize = MaterialTheme.typography.bodyMedium.fontSize,
+                style = MaterialTheme.typography.bodyMedium,
             )
         } else {
             MiuixText(

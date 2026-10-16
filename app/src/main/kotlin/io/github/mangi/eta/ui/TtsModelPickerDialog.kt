@@ -1,28 +1,10 @@
 package io.github.mangi.eta.ui
-import io.github.mangi.eta.ui.components.etaRippleConfiguration
 
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
-import io.github.mangi.eta.ui.components.WithoutPressRipple
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -30,12 +12,25 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedRadioRow
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
+/**
+ * 模型选择弹窗（辅助视觉模型 / 标题模型 / TTS / 子代理等处共用）。
+ *
+ * 列表按提供商分组平铺，组内为单选行（KernelSU「Select KMI」式）。选中只改变弹窗内的待确认
+ * 状态，需再点「确认」才通过 [onModelSelected]（或 [onClearSelection]）提交，「取消」则直接关闭。
+ *
+ * @param onClearSelection 非空时在列表顶部提供「无」选项；确认「无」时回调它。
+ * @param highlightSelection 仅为兼容既有调用方保留；新设计统一由单选行呈现选中态，此参数不再生效。
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun TtsModelPickerDialog(
@@ -48,153 +43,204 @@ internal fun TtsModelPickerDialog(
     highlightSelection: Boolean = false,
 ) {
     if (!show) return
-    val view = LocalView.current
-    var expanded by remember { mutableStateOf(state.selectedModel?.providerId ?: state.providerGroups.singleOrNull()?.providerId) }
+    // 弹窗内的「待确认」选择：与参考图一致——先选中，再点确认提交；取消直接丢弃。
+    var pendingProviderId by remember { mutableStateOf(state.selectedModel?.providerId) }
+    var pendingModelId by remember { mutableStateOf(state.selectedModel?.id) }
+    val hasPending = pendingModelId != null
+    val confirmEnabled = hasPending || onClearSelection != null
+    val confirm: () -> Unit = {
+        if (hasPending) {
+            onModelSelected(pendingProviderId.orEmpty(), pendingModelId.orEmpty())
+        } else {
+            onClearSelection?.invoke()
+        }
+    }
+    val selectNone: () -> Unit = {
+        pendingProviderId = null
+        pendingModelId = null
+    }
 
     if (isMaterial3Theme()) {
-        // M3 Expressive：官方 AlertDialog + 官方 ListItem（单选版 / 可点版）+ 官方 HorizontalDivider。
-        // 不再覆盖 tonalElevation / containerColor，也不再用 WithoutPressRipple 关掉涟漪。
-        // 选中态由 ListItem(selected=…) 的官方容器色承担，因此 M3 下 highlightSelection 不再需要额外高亮。
+        // M3：官方 AlertDialog + KernelSU 式分段单选列表——提供商作分组标题、模型为组内单选行，
+        // 底部「取消 / 确认」提交，整体对应参考图「Select KMI」的信息结构。
         AlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text(title) },
+            title = {
+                Text(
+                    text = title,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center,
+                )
+            },
             text = {
-                Column(Modifier.fillMaxWidth().heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 440.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(13.dp),
+                ) {
                     if (onClearSelection != null) {
-                        ListItem(
-                            selected = state.selectedModel == null,
-                            onClick = { TouchHaptics.click(view); onClearSelection() },
-                            // 不挂 contentDescription：官方 ListItem 内部已是
-                            // semantics(mergeDescendants = true)，content 槽位的 Text 会被合并成播报文本，
-                            // 再叠一份会重复朗读。
-                            modifier = Modifier.fillMaxWidth(),
-                            content = { Text(stringResource(R.string.tts_none)) },
-                        )
-                        HorizontalDivider()
+                        EtaSegmentedColumn(modifier = Modifier.fillMaxWidth()) {
+                            item(key = "none") {
+                                ModelPickerRadioRow(
+                                    title = stringResource(R.string.tts_none),
+                                    selected = !hasPending,
+                                    onClick = selectNone,
+                                )
+                            }
+                        }
                     }
-                    if (state.providerGroups.isEmpty()) Text(stringResource(R.string.provider_empty))
-                    state.providerGroups.forEachIndexed { index, group ->
-                        if (index > 0) HorizontalDivider()
-                        val isExpanded = expanded == group.providerId
-                        ListItem(
-                            onClick = { TouchHaptics.click(view); expanded = if (isExpanded) null else group.providerId },
-                            modifier = Modifier.fillMaxWidth(),
-                            trailingContent = {
-                                Icon(
-                                    imageVector = if (isExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                                    contentDescription = if (isExpanded) stringResource(R.string.tts_collapse) else stringResource(R.string.tts_expand),
-                                )
-                            },
-                            content = { Text(group.providerName, style = MaterialTheme.typography.bodyLarge) },
+                    if (state.providerGroups.isEmpty()) {
+                        Text(
+                            text = stringResource(R.string.provider_empty),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        if (isExpanded) Column(Modifier.selectableGroup()) {
+                    }
+                    state.providerGroups.forEach { group ->
+                        EtaSegmentedColumn(
+                            modifier = Modifier.fillMaxWidth(),
+                            title = group.providerName,
+                        ) {
                             group.models.forEach { model ->
-                                val selected = state.selectedModel?.providerId == model.providerId &&
-                                    state.selectedModel?.id == model.id
-                                ListItem(
-                                    selected = selected,
-                                    onClick = { TouchHaptics.click(view); onModelSelected(model.providerId, model.id) },
-                                    // 播报文本由官方合并 content 槽位的 Text 提供，不额外挂 contentDescription。
-                                    modifier = Modifier.fillMaxWidth(),
-                                    content = { Text(model.displayName) },
-                                )
+                                item(key = "${model.providerId}/${model.id}") {
+                                    ModelPickerRadioRow(
+                                        title = model.displayName,
+                                        selected = pendingProviderId == model.providerId &&
+                                            pendingModelId == model.id,
+                                        onClick = {
+                                            pendingProviderId = model.providerId
+                                            pendingModelId = model.id
+                                        },
+                                    )
+                                }
                             }
                         }
                     }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { TouchHaptics.click(view); onDismiss() }) { Text(stringResource(R.string.action_close)) }
+                TextButton(onClick = confirm, enabled = confirmEnabled) {
+                    Text(stringResource(R.string.action_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.action_cancel))
+                }
             },
         )
         return
     }
 
-    CompositionLocalProvider(LocalRippleConfiguration provides etaRippleConfiguration()) {
-    WithoutPressRipple {
+    // MIUI X：沿用应用既有的自绘单选行，提供商作分组标题，底部「取消 / 确认」提交。
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
+        title = {
+            Text(
+                text = title,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center,
+            )
+        },
         tonalElevation = 0.dp,
         containerColor = MaterialTheme.colorScheme.surface,
         text = {
-            Column(Modifier.fillMaxWidth().heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 440.dp)
+                    .verticalScroll(rememberScrollState())
+                    .selectableGroup(),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
                 if (onClearSelection != null) {
-                    Row(
-                        Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(RoundedCornerShape(12.dp))
-                            .modelSelectionBackground(highlightSelection && state.selectedModel == null, MaterialTheme.colorScheme.surfaceVariant)
-                            .selectable(selected = state.selectedModel == null, role = Role.RadioButton,
-                                interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = {
-                                TouchHaptics.click(view)
-                                onClearSelection()
-                            }).padding(horizontal = 4.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        if (!highlightSelection) RadioButton(selected = state.selectedModel == null, onClick = null)
-                        Text(stringResource(R.string.tts_none), modifier = Modifier.weight(1f).padding(start = 12.dp),
-                            color = if (highlightSelection && state.selectedModel == null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface)
-                    }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    ModelPickerRadioRow(
+                        title = stringResource(R.string.tts_none),
+                        selected = !hasPending,
+                        onClick = selectNone,
+                    )
                 }
-                if (state.providerGroups.isEmpty()) Text(stringResource(R.string.provider_empty))
-                state.providerGroups.forEachIndexed { index, group ->
-                    if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    val isExpanded = expanded == group.providerId
-                    Row(
-                        Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, role = Role.Button) {
-                                TouchHaptics.click(view)
-                                expanded = if (isExpanded) null else group.providerId
-                            }.padding(horizontal = 4.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(group.providerName, style = MiuixTheme.textStyles.subtitle, modifier = Modifier.weight(1f))
-                        Icon(if (isExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                            contentDescription = if (isExpanded) stringResource(R.string.tts_collapse) else stringResource(R.string.tts_expand))
-                    }
-                    if (isExpanded) Column(Modifier.selectableGroup()) {
-                        group.models.forEach { model ->
-                            val selected = state.selectedModel?.providerId == model.providerId && state.selectedModel?.id == model.id
-                            Row(
-                                Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(RoundedCornerShape(12.dp))
-                                    .modelSelectionBackground(highlightSelection && selected, MaterialTheme.colorScheme.surfaceVariant)
-                                    .selectable(selected = selected, role = Role.RadioButton,
-                                        interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = {
-                                        TouchHaptics.click(view)
-                                        onModelSelected(model.providerId, model.id)
-                                    }).padding(horizontal = 4.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                if (!highlightSelection) RadioButton(selected = selected, onClick = null)
-                                Text(model.displayName, style = MiuixTheme.textStyles.body2,
-                                    color = if (highlightSelection && selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.weight(1f).padding(start = 12.dp))
-                            }
-                        }
+                if (state.providerGroups.isEmpty()) {
+                    Text(stringResource(R.string.provider_empty), style = MiuixTheme.textStyles.body2)
+                }
+                state.providerGroups.forEach { group ->
+                    Text(
+                        text = group.providerName,
+                        style = MiuixTheme.textStyles.subtitle,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 4.dp, top = 12.dp, bottom = 4.dp),
+                    )
+                    group.models.forEach { model ->
+                        ModelPickerRadioRow(
+                            title = model.displayName,
+                            selected = pendingProviderId == model.providerId &&
+                                pendingModelId == model.id,
+                            onClick = {
+                                pendingProviderId = model.providerId
+                                pendingModelId = model.id
+                            },
+                        )
                     }
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = { TouchHaptics.click(view); onDismiss() }) { Text(stringResource(R.string.action_close)) }
+            TextButton(onClick = confirm, enabled = confirmEnabled) {
+                Text(stringResource(R.string.action_confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.action_cancel))
+            }
         },
     )
-    }
-    }
 }
 
-/** Only inset the painted selection; row size, text and the full click target stay unchanged. */
-private fun Modifier.modelSelectionBackground(selected: Boolean, color: Color): Modifier =
-    if (!selected) this else drawBehind {
-        val inset = 1.dp.toPx()
-        val radius = 10.dp.toPx()
-        drawRoundRect(
-            color = color,
-            topLeft = Offset(0f, inset),
-            size = Size(size.width, (size.height - 2 * inset).coerceAtLeast(0f)),
-            cornerRadius = CornerRadius(radius, radius),
+/**
+ * 模型选择弹窗中的单选项：Material 3 走 [EtaSegmentedRadioRow]（分段单选行，与参考图三一致），
+ * MIUI X 走自绘单选行。两种主题都常显单选按钮，选中态由整行承担。
+ *
+ * 由模型选择类弹窗（[TtsModelPickerDialog]、上下文压缩的模型选择）共用。
+ */
+@Composable
+internal fun ModelPickerRadioRow(
+    title: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val view = LocalView.current
+    val click = {
+        TouchHaptics.click(view)
+        onClick()
+    }
+    if (isMaterial3Theme()) {
+        EtaSegmentedRadioRow(title = title, selected = selected, onClick = click)
+        return
+    }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .selectable(
+                selected = selected,
+                role = Role.RadioButton,
+                onClick = click,
+            )
+            .padding(horizontal = 4.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected = selected, onClick = null)
+        Text(
+            text = title,
+            style = MiuixTheme.textStyles.body2,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f).padding(start = 12.dp),
         )
     }
+}
 
 internal data class SpeechVoiceSections(
     val female: List<io.github.mangi.eta.agent.voice.tts.SpeechVoice>,

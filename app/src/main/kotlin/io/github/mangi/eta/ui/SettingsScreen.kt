@@ -87,6 +87,7 @@ import io.github.mangi.eta.systemizer.SystemizerInstallResult
 import io.github.mangi.eta.ui.app.EnhancementSettingsHistory
 import io.github.mangi.eta.ui.app.rememberDeviceCapabilities
 import io.github.mangi.eta.ui.adaptive.EtaDialog
+import io.github.mangi.eta.ui.adaptive.EtaClickableRow
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
@@ -107,7 +108,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.Text
-import io.github.mangi.eta.ui.components.ArrowPreference
 import io.github.mangi.eta.ui.components.LanguagePreference
 import io.github.mangi.eta.ui.components.SwitchPreference
 import io.github.mangi.eta.ui.components.WindowSpinnerPreference
@@ -321,9 +321,9 @@ internal fun SettingsScreen(
                     title = stringResource(R.string.settings_model_features),
                 ) {
                     item {
-                        ArrowPreference(
+                        EtaClickableRow(
                             title = stringResource(R.string.route_context_compression),
-                            startAction = {
+                            leading = {
                                 PreferenceIcon(
                                     icon = Icons.Rounded.Compress,
                                 )
@@ -333,31 +333,31 @@ internal fun SettingsScreen(
                     }
 
                     item {
-                        ArrowPreference(
+                        EtaClickableRow(
                             title = stringResource(R.string.auxiliary_vision_title),
-                            startAction = { PreferenceIcon(icon = Icons.Rounded.RemoveRedEye) },
+                            leading = { PreferenceIcon(icon = Icons.Rounded.RemoveRedEye) },
                             onClick = { onNavigate(AppRoute.AuxiliaryVision) },
                         )
                     }
 
                     item {
-                        ArrowPreference(title = stringResource(R.string.settings_subagent_title),
-                            startAction = { PreferenceIcon(icon = SubAgents) },
+                        EtaClickableRow(title = stringResource(R.string.settings_subagent_title),
+                            leading = { PreferenceIcon(icon = SubAgents) },
                             onClick = { onNavigate(AppRoute.SubAgents) })
                     }
 
                     item {
-                        ArrowPreference(
+                        EtaClickableRow(
                             title = stringResource(R.string.title_model_title),
-                            startAction = { PreferenceIcon(icon = Icons.Rounded.AutoAwesome) },
+                            leading = { PreferenceIcon(icon = Icons.Rounded.AutoAwesome) },
                             onClick = { onNavigate(AppRoute.TitleModel) },
                         )
                     }
 
                     item {
-                        ArrowPreference(
+                        EtaClickableRow(
                             title = stringResource(R.string.error_reconnect_title),
-                            startAction = { PreferenceIcon(icon = Icons.Rounded.Refresh) },
+                            leading = { PreferenceIcon(icon = Icons.Rounded.Refresh) },
                             onClick = { onNavigate(AppRoute.ErrorReconnectSettings) },
                         )
                     }
@@ -371,17 +371,17 @@ internal fun SettingsScreen(
                     title = stringResource(R.string.settings_context_extensions),
                 ) {
                     item {
-                        ArrowPreference(
+                        EtaClickableRow(
                             title = stringResource(R.string.whale_maid_title),
-                            startAction = { PreferenceIcon(icon = Icons.Rounded.Pets) },
+                            leading = { PreferenceIcon(icon = Icons.Rounded.Pets) },
                             onClick = { onNavigate(AppRoute.WhaleMaid) },
                         )
                     }
 
                     item {
-                        ArrowPreference(
+                        EtaClickableRow(
                             title = stringResource(R.string.settings_assistants),
-                            startAction = {
+                            leading = {
                                 PreferenceIcon(
                                     icon = Icons.Rounded.SmartToy,
                                 )
@@ -391,9 +391,9 @@ internal fun SettingsScreen(
                     }
 
                     item {
-                        ArrowPreference(
+                        EtaClickableRow(
                             title = stringResource(R.string.route_skills),
-                            startAction = {
+                            leading = {
                                 PreferenceIcon(
                                     icon = Icons.Rounded.Extension,
                                 )
@@ -403,9 +403,9 @@ internal fun SettingsScreen(
                     }
 
                     item {
-                        ArrowPreference(
+                        EtaClickableRow(
                             title = stringResource(R.string.route_mcp_servers),
-                            startAction = {
+                            leading = {
                                 PreferenceIcon(
                                     icon = Icons.Rounded.AccountTree,
                                 )
@@ -423,17 +423,17 @@ internal fun SettingsScreen(
                     title = stringResource(R.string.settings_general),
                 ) {
                     item {
-                        ArrowPreference(
+                        EtaClickableRow(
                             title = stringResource(R.string.voice_title),
-                            startAction = { PreferenceIcon(icon = Icons.Rounded.RecordVoiceOver) },
+                            leading = { PreferenceIcon(icon = Icons.Rounded.RecordVoiceOver) },
                             onClick = { onNavigate(AppRoute.VoiceSettings) },
                         )
                     }
 
                     item {
-                        ArrowPreference(
+                        EtaClickableRow(
                             title = stringResource(R.string.appearance_title),
-                            startAction = {
+                            leading = {
                                 PreferenceIcon(
                                     icon = Icons.Rounded.Palette,
                                 )
@@ -447,9 +447,9 @@ internal fun SettingsScreen(
                     }
 
                     item {
-                        ArrowPreference(
+                        EtaClickableRow(
                             title = stringResource(R.string.stats_page_title),
-                            startAction = {
+                            leading = {
                                 PreferenceIcon(
                                     icon = Icons.Rounded.BarChart,
                                 )
@@ -459,9 +459,9 @@ internal fun SettingsScreen(
                     }
 
                     item {
-                        ArrowPreference(
+                        EtaClickableRow(
                             title = stringResource(R.string.data_backup_title),
-                            startAction = {
+                            leading = {
                                 PreferenceIcon(
                                     icon = Icons.Rounded.Description,
                                 )
@@ -479,17 +479,17 @@ internal fun SettingsScreen(
                     title = stringResource(R.string.ui_tool_a72ef1),
                 ) {
                     item {
-                        ArrowPreference(
+                        EtaClickableRow(
                             title = stringResource(R.string.settings_tools_list),
-                            startAction = { PreferenceIcon(Icons.Rounded.Dashboard) },
+                            leading = { PreferenceIcon(Icons.Rounded.Dashboard) },
                             onClick = { onNavigate(AppRoute.Tools) },
                         )
                     }
 
                     item(visible = taskBackendInstalled == true) {
-                        ArrowPreference(
+                        EtaClickableRow(
                             title = stringResource(R.string.agent_task_surface_title),
-                            startAction = { PreferenceIcon(Icons.Rounded.Layers) },
+                            leading = { PreferenceIcon(Icons.Rounded.Layers) },
                             onClick = { onNavigate(AppRoute.AgentTaskPreference) },
                         )
                     }
@@ -545,9 +545,9 @@ internal fun SettingsScreen(
                     }
 
                     item {
-                        ArrowPreference(
+                        EtaClickableRow(
                             title = stringResource(R.string.ui_linux_tool_environment_314d22),
-                            startAction = {
+                            leading = {
                                 PreferenceIcon(
                                     icon = Icons.Rounded.Inventory2,
                                 )
@@ -557,10 +557,10 @@ internal fun SettingsScreen(
                     }
 
                     item {
-                        ArrowPreference(
+                        EtaClickableRow(
                             title = stringResource(R.string.capability_workspace),
                             summary = stringResource(R.string.capability_workspace_summary),
-                            startAction = { PreferenceIcon(Icons.Rounded.Folder) },
+                            leading = { PreferenceIcon(Icons.Rounded.Folder) },
                             onClick = { onNavigate(AppRoute.Workspace) },
                         )
                     }
@@ -573,10 +573,10 @@ internal fun SettingsScreen(
                     title = stringResource(R.string.haptics_title),
                 ) {
                     item {
-                        ArrowPreference(
+                        EtaClickableRow(
                             title = stringResource(R.string.haptics_list),
                             summary = stringResource(R.string.haptics_entry_summary),
-                            startAction = { PreferenceIcon(Icons.Rounded.Vibration) },
+                            leading = { PreferenceIcon(Icons.Rounded.Vibration) },
                             onClick = { onNavigate(AppRoute.Haptics) },
                         )
                     }
@@ -590,7 +590,7 @@ internal fun SettingsScreen(
                     title = stringResource(R.string.ui_system_assistant_takes_over_f46043),
                 ) {
                     item {
-                        ArrowPreference(
+                        EtaClickableRow(
                             title = stringResource(R.string.ui_eta_system_assistant_003e9b),
                             summary = stringResource(
                                 if (etaAssistantActive) {
@@ -599,7 +599,7 @@ internal fun SettingsScreen(
                                     R.string.settings_select_default_assistant
                                 },
                             ),
-                            startAction = {
+                            leading = {
                                 PreferenceIcon(
                                     icon = Icons.Rounded.AutoAwesome,
                                 )
@@ -724,9 +724,9 @@ internal fun SettingsScreen(
                         }
 
                         item(visible = capabilities.root.isGranted || hasUsedSystemizer) {
-                            ArrowPreference(
+                            EtaClickableRow(
                                 title = stringResource(R.string.ui_convert_google_apps_to_system_apps_0f6d89),
-                                startAction = {
+                                leading = {
                                     PreferenceIcon(
                                         icon = Icons.Rounded.Inventory,
                                     )
@@ -799,7 +799,7 @@ internal fun SettingsScreen(
                     }
 
                     item {
-                        ArrowPreference(
+                        EtaClickableRow(
                             title = stringResource(R.string.settings_export_logs),
                             summary = stringResource(
                                 if (exportingLogs) {
@@ -809,18 +809,18 @@ internal fun SettingsScreen(
                                 },
                             ),
                             enabled = !exportingLogs && !clearingLogs,
-                            startAction = {
+                            leading = {
                                 PreferenceIcon(icon = Icons.Rounded.Share)
                             },
                             onClick = {
-                                if (exportingLogs || clearingLogs) return@ArrowPreference
+                                if (exportingLogs || clearingLogs) return@EtaClickableRow
                                 if (!AppFileLogger.hasLogs()) {
                                     Toast.makeText(
                                         context.applicationContext,
                                         context.getString(R.string.settings_export_logs_empty),
                                         Toast.LENGTH_SHORT,
                                     ).show()
-                                    return@ArrowPreference
+                                    return@EtaClickableRow
                                 }
                                 exportLogsLauncher.launch(defaultDiagnosticLogFileName(context))
                             },
@@ -828,15 +828,15 @@ internal fun SettingsScreen(
                     }
 
                     item {
-                        ArrowPreference(
+                        EtaClickableRow(
                             title = stringResource(R.string.settings_clear_logs),
                             summary = stringResource(R.string.settings_clear_logs_summary),
                             enabled = !exportingLogs && !clearingLogs,
-                            startAction = {
+                            leading = {
                                 PreferenceIcon(icon = Icons.Rounded.DeleteSweep)
                             },
                             onClick = {
-                                if (exportingLogs || clearingLogs) return@ArrowPreference
+                                if (exportingLogs || clearingLogs) return@EtaClickableRow
                                 showClearLogsDialog = true
                             },
                         )
@@ -851,10 +851,10 @@ internal fun SettingsScreen(
                     title = stringResource(R.string.ui_permissions_560165),
                 ) {
                     item {
-                        ArrowPreference(
+                        EtaClickableRow(
                             title = stringResource(R.string.ui_permission_health_3048bb),
                             summary = stringResource(R.string.ui_permissions_and_status_35f368),
-                            startAction = {
+                            leading = {
                                 PreferenceIcon(icon = Icons.Rounded.HealthAndSafety)
                             },
                             onClick = { onNavigate(AppRoute.Permissions) },
@@ -862,10 +862,10 @@ internal fun SettingsScreen(
                     }
 
                     item {
-                        ArrowPreference(
+                        EtaClickableRow(
                             title = stringResource(R.string.capability_enhancements),
                             summary = stringResource(R.string.capability_enhancements_summary),
-                            startAction = {
+                            leading = {
                                 PreferenceIcon(icon = Icons.Rounded.Security)
                             },
                             onClick = { onNavigate(AppRoute.SystemEnhance) },
@@ -873,9 +873,9 @@ internal fun SettingsScreen(
                     }
 
                     item {
-                        ArrowPreference(
+                        EtaClickableRow(
                             title = stringResource(R.string.ui_floating_window_permissions_076b77),
-                            startAction = {
+                            leading = {
                                 PreferenceIcon(
                                     icon = Icons.Rounded.Layers,
                                 )
@@ -904,9 +904,9 @@ internal fun SettingsScreen(
                     }
 
                     item {
-                        ArrowPreference(
+                        EtaClickableRow(
                             title = stringResource(R.string.ui_accessibility_enhancement_tools_8fd257),
-                            startAction = {
+                            leading = {
                                 PreferenceIcon(
                                     icon = Icons.Rounded.AccessibilityNew,
                                 )
@@ -981,9 +981,9 @@ internal fun SettingsScreen(
                     title = stringResource(R.string.ui_about_bed172),
                 ) {
                     item {
-                        ArrowPreference(
+                        EtaClickableRow(
                             title = stringResource(R.string.ui_about_bed172),
-                            startAction = {
+                            leading = {
                                 PreferenceIcon(
                                     icon = Icons.Rounded.Info,
                                 )
@@ -1290,10 +1290,10 @@ private fun SettingsProviderEntry(
         "${provider.name} / ${selectedModel?.displayName ?: stringResource(R.string.settings_model_not_selected)}"
     } ?: stringResource(R.string.settings_not_configured)
 
-    ArrowPreference(
+    EtaClickableRow(
         title = stringResource(R.string.ui_model_provider_e8c7f5),
         summary = providerSummary,
-        startAction = {
+        leading = {
             PreferenceIcon(
                 icon = Icons.Rounded.Memory,
             )

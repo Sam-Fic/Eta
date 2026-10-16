@@ -541,7 +541,6 @@ private fun UsageFilterGroup(
                 // M3：官方可点击分段行承担展开/收起，替掉「Row + clickable(无涟漪)」。
                 EtaSegmentedRow(
                     onClick = {
-                        TouchHaptics.click(view)
                         expanded = !expanded
                     },
                     content = { M3Text(text = titleText, style = MaterialTheme.typography.bodyLarge) },
@@ -648,7 +647,6 @@ private fun UsageFilterGroup(
                 // 破坏性操作用 error 色强调，与其他界面的删除行一致。
                 EtaSegmentedRow(
                     onClick = {
-                        TouchHaptics.click(view)
                         selectedPreset = null
                         onClear()
                     },
@@ -705,7 +703,7 @@ private fun UsageBoundRow(
     val view = LocalView.current
     if (isMaterial3Theme()) {
         EtaSegmentedRow(
-            onClick = { TouchHaptics.click(view); onClick() },
+            onClick = { onClick() },
             content = { M3Text(text = label, style = MaterialTheme.typography.bodyLarge) },
             supportingContent = {
                 M3Text(
@@ -915,7 +913,6 @@ private fun ProviderUsageGroup(
                 if (isMaterial3Theme()) {
                     EtaSegmentedRow(
                         onClick = {
-                            TouchHaptics.click(view)
                             onToggle(key)
                         },
                         content = {

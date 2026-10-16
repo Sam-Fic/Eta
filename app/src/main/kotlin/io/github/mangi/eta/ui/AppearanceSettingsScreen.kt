@@ -325,7 +325,6 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
                             summary = stringResource(R.string.appearance_icon_summary),
                             showChevron = false,
                             onClick = {
-                                TouchHaptics.click(view)
                                 iconExpanded = !iconExpanded
                             },
                             holdDownState = iconExpanded,

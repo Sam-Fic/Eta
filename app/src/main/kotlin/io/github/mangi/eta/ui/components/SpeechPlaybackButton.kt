@@ -28,7 +28,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 朗读开关按钮。`index`/`count` 传入时（M3 主题）渲染进连体按钮组：官方 ToggleButton
- * 承担容器（tertiaryContainer 配色与连体形状，见 [M3ConnectedIconAction]）；
+ * 承担容器（secondaryContainer 配色与连体形状，见 [M3ConnectedIconAction]）；
  * 单独使用时保持原有官方 IconButton 默认档。miuix 分支不受影响。
  */
 @Composable

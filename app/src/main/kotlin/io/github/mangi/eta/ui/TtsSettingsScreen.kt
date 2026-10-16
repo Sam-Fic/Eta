@@ -2,8 +2,6 @@ package io.github.mangi.eta.ui
 
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalView
-import io.github.mangi.eta.ui.haptics.TouchHaptics
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import io.github.mangi.eta.R
@@ -25,7 +23,6 @@ internal fun TtsSettingsScreen(onBack: () -> Unit, conversation: Boolean = false
     val profile = if (conversation) SpeechPlaybackProfile.CONVERSATION else SpeechPlaybackProfile.READ_ALOUD
     val previewOwner = if (conversation) "voice-conversation-preview" else "tts-preview"
     val context = LocalContext.current
-    val view = LocalView.current
     var cloud by remember(profile) { mutableStateOf(Prefs.getString(profile.modeKey) == "cloud") }
     var providerId by remember(profile) { mutableStateOf(Prefs.getString(profile.providerKey)) }
     var modelId by remember(profile) { mutableStateOf(Prefs.getString(profile.modelKey)) }
@@ -86,7 +83,6 @@ internal fun TtsSettingsScreen(onBack: () -> Unit, conversation: Boolean = false
                     summary = stringResource(R.string.tts_mode_hint),
                     checked = cloud,
                     onCheckedChange = {
-                        TouchHaptics.click(view)
                         SpeechPlayback.stopOwned("settings") { it == previewOwner }
                         cloud = it
                         Prefs.putString(profile.modeKey, if (it) "cloud" else "system")
@@ -98,7 +94,7 @@ internal fun TtsSettingsScreen(onBack: () -> Unit, conversation: Boolean = false
                     title = stringResource(R.string.tts_model),
                     summary = models.selectedModel?.let { "${it.providerName} · ${it.displayName}" }
                     ?: stringResource(R.string.tts_select_model),
-                    onClick = { TouchHaptics.click(view); picker = true },
+                    onClick = { picker = true },
                 )
             }
             item(visible = cloud) {
@@ -107,7 +103,7 @@ internal fun TtsSettingsScreen(onBack: () -> Unit, conversation: Boolean = false
                     summary = catalog.firstOrNull { it.id == voice }?.name
                     ?: voice.ifBlank { stringResource(R.string.tts_select_voice) },
                     enabled = models.selectedModel != null && catalog.isNotEmpty(),
-                    onClick = { TouchHaptics.click(view); voicePicker = true },
+                    onClick = { voicePicker = true },
                 )
             }
             item {
@@ -116,7 +112,7 @@ internal fun TtsSettingsScreen(onBack: () -> Unit, conversation: Boolean = false
                     summary = playback.error ?: playback.source.takeIf { playback.owner == previewOwner && it.isNotBlank() }
                     ?: if (playback.owner == previewOwner && playback.preparing) stringResource(R.string.tts_preparing) else null,
                     enabled = !playback.recording && (!cloud || (models.selectedModel != null && voice.isNotBlank())),
-                    onClick = { TouchHaptics.click(view); SpeechPlayback.toggle(context, previewOwner, sample, settings = profile.snapshot()) },
+                    onClick = { SpeechPlayback.toggle(context, previewOwner, sample, settings = profile.snapshot()) },
                 )
             }
         }

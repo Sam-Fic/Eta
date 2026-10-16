@@ -77,7 +77,6 @@ internal fun ToolListRow(
     EtaSegmentedRow(
         modifier = modifier.fillMaxWidth(),
         onClick = {
-            TouchHaptics.click(view)
             if (action != null) onAction(action) else showDescription = true
         },
         leadingContent = {

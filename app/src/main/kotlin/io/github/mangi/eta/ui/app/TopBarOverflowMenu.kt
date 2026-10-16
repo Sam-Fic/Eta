@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountTree
 import androidx.compose.material.icons.rounded.Compress
 import androidx.compose.material.icons.rounded.DataUsage
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.MoreVert
@@ -21,6 +22,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -79,6 +81,8 @@ internal fun TopBarOverflowMenu(
     onOpenHistoryHit: (MessageSearchHit) -> Unit = {},
     tokenUsage: ConversationTokenUsageUi = ConversationTokenUsageUi(),
     subAgentStatuses: List<SubAgentContextStats> = emptyList(),
+    canDeleteCurrentConversation: Boolean = false,
+    onDeleteCurrentConversation: () -> Unit = {},
 ) {
     val menuState = rememberEtaMenuState()
     val view = LocalView.current
@@ -120,6 +124,8 @@ internal fun TopBarOverflowMenu(
                 onOpenHistoryHit = onOpenHistoryHit,
                 tokenUsage = tokenUsage,
                 subAgentStatuses = subAgentStatuses,
+                canDeleteCurrentConversation = canDeleteCurrentConversation,
+                onDeleteCurrentConversation = onDeleteCurrentConversation,
             )
         }
     }
@@ -152,6 +158,8 @@ internal fun TopBarMenuItems(
     onOpenHistoryHit: (MessageSearchHit) -> Unit = {},
     tokenUsage: ConversationTokenUsageUi = ConversationTokenUsageUi(),
     subAgentStatuses: List<SubAgentContextStats> = emptyList(),
+    canDeleteCurrentConversation: Boolean = false,
+    onDeleteCurrentConversation: () -> Unit = {},
 ) {
     val interactiveModePreference = remember { InteractiveModePreference() }
     val interactiveModeEnabled by rememberInteractiveModeEnabled(interactiveModePreference)
@@ -321,6 +329,27 @@ internal fun TopBarMenuItems(
             TouchHaptics.click(view)
             onToggleAutoCompress(!autoCompressEnabled)
         },
+    )
+    MenuSectionDivider()
+    DropdownMenuItem(
+        modifier = CompactMenuItemModifier,
+        contentPadding = CompactMenuItemPadding,
+        enabled = canDeleteCurrentConversation,
+        text = {
+            Text(
+                stringResource(R.string.action_delete_current_conversation),
+                color = MaterialTheme.colorScheme.error,
+            )
+        },
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Rounded.Delete,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(TopBarMenuIconSize),
+            )
+        },
+        onClick = { TouchHaptics.click(view); dismiss(); onDeleteCurrentConversation() },
     )
     if (canStopKimiWeb) {
         MenuSectionDivider()

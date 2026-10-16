@@ -247,7 +247,7 @@ internal fun SubAgentProfileConfigDialog(
                         ?: if (draft.modelId.isBlank()) stringResource(R.string.sap_select_model) else stringResource(R.string.sap_model_unavailable), Icons.Rounded.ViewInAr,
                         stringResource(R.string.sap_draft_model), usable, badge = boundConfig?.providerName,
                         onClick = { interact { modelPicker = true } },
-                        onLongClick = { if (usable && canThink) { TouchHaptics.longPress(view); thinkingPicker = true } })
+                        onLongClick = { if (usable && canThink) { thinkingPicker = true } })
                     if (canEditSpeed) SubAgentSettingRow(stringResource(R.string.sap_gpt_speed), gptSpeedDisplayName(draft.gptSpeedForModel()),
                         Icons.Rounded.Speed, stringResource(R.string.sap_draft_gpt_speed), usable, onClick = { interact {
                             session.edit { profile ->

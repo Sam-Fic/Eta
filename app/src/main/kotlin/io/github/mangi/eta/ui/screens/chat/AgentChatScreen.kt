@@ -3,6 +3,7 @@ package io.github.mangi.eta.ui.screens.chat
 import io.github.mangi.eta.ui.model.ConversationMentionInputUi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import io.github.mangi.eta.ui.app.AgentConversationRevisionReducer
 import io.github.mangi.eta.ui.components.rememberChatVoiceController
@@ -43,7 +44,10 @@ internal fun AgentChatScreen(
             collaborationConversationId = conversationKey,
             voiceController = voiceController,
             messages = state.messages,
-            history = AgentConversationRevisionReducer.outboundHistory(state),
+            // See AgentHomeScreen: memoise the edit-mode boundary walk.
+            history = remember(state.history, state.messageEdit) {
+                AgentConversationRevisionReducer.outboundHistory(state)
+            },
             modelPickerState = modelPickerState,
             autoCompressEnabled = autoCompressEnabled,
             requestOverheadTokens = requestOverheadTokens,

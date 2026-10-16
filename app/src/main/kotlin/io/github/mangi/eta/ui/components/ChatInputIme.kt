@@ -16,6 +16,7 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.ToggleButtonDefaults
@@ -205,13 +206,18 @@ internal fun ChatInputNonFocusableIconButton(
                 content = buttonContent,
             )
             // Any other container color still comes from the color scheme; only the
-            // container slot is overridden, everything else stays official.
+            // container / content slots are overridden, everything else stays official.
+            // contentColor 透传，使调用方能随容器色一起驱动图标内容色（如输入框「+」按钮的
+            // 透明 ↔ primary 渐变），未传时仍回落到官方 LocalContentColor 隐式值。
             else -> IconButton(
                 onClick = click,
                 modifier = buttonModifier,
                 enabled = enabled,
                 shape = containerShape ?: IconButtonDefaults.standardShape,
-                colors = IconButtonDefaults.iconButtonColors(containerColor = containerColor),
+                colors = IconButtonDefaults.iconButtonColors(
+                    containerColor = containerColor,
+                    contentColor = contentColor ?: LocalContentColor.current,
+                ),
                 content = buttonContent,
             )
         }

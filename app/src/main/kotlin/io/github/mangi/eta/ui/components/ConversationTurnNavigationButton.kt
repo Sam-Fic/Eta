@@ -66,7 +66,7 @@ internal fun ConversationTurnNavigationButton(
     ) {
         if (material3) {
             // M3 Expressive：官方 FilledTonalIconButton 承担容器、官方 filledShape（整圆）、
-            // secondaryContainer / onSecondaryContainer 配色、官方涟漪与最小可点区域；
+            // 涟漪与最小可点区域；配色走 tertiaryContainer/onTertiaryContainer 强调档（用户指定）；
             // 容器尺寸取官方 IconButtonDefaults.smallContainerSize()，图标取官方 smallIconSize。
             // 长按跳到首/尾：官方图标按钮没有 onLongClick 槽位（material3 1.5.0-alpha29 中只有
             // ListItem 提供，而 ListItem 无法表达圆形浮动按钮），因此长按检测放在官方按钮内容里，
@@ -78,6 +78,10 @@ internal fun ConversationTurnNavigationButton(
             FilledTonalIconButton(
                 onClick = { TouchHaptics.click(view); onStep() },
                 modifier = Modifier.size(IconButtonDefaults.smallContainerSize()),
+                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                ),
             ) {
                 ChatInputLongPressSlot(
                     enabled = true,

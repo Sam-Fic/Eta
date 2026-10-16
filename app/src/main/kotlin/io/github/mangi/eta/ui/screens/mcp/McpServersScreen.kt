@@ -529,13 +529,9 @@ private fun McpClickableRow(
             onClick = onClick,
             modifier = Modifier.fillMaxWidth(),
             leadingContent = leading,
-            content = { M3Text(text = title, style = MaterialTheme.typography.bodyLarge) },
+            content = { M3Text(text = title) },
             supportingContent = {
-                M3Text(
-                    text = summary,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                M3Text(text = summary)
             },
         )
     } else {

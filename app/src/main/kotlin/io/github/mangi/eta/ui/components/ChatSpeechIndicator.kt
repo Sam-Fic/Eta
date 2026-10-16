@@ -21,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -62,6 +63,18 @@ internal fun ChatSpeechIndicator(
     onIdleClick: (() -> Unit)? = null,
     idleDescription: String? = null,
     onStartRequested: () -> Unit = {},
+    /**
+     * 采集是否进行中。听写由本组件独占采集协程与麦克风，调用方无法自行判断；
+     * 输入区需要据此在转写期间保留本入口（否则写入第一个转写分片后，输入框一有内容，
+     * 尾部槽就换成发送按钮，本组件被移出组合 → `onDispose` 收停采集）。
+     */
+    onCaptureActiveChange: (Boolean) -> Unit = {},
+    /**
+     * [ContainedMorphLoadingIndicator] 的配色覆盖。空表示沿用主题默认；输入区把本入口放进
+     * 浮动工具栏时需要显式指定（工具栏容器与默认的 primaryContainer 同色，圆底会看不见）。
+     */
+    indicatorContainerColor: Color? = null,
+    indicatorTint: Color? = null,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -77,6 +90,10 @@ internal fun ChatSpeechIndicator(
     var pendingPermission by remember { mutableStateOf(false) }
     var draft by remember { mutableStateOf<SpeechDraft?>(null) }
     val allowed by rememberUpdatedState(speechEnabled && (if (cloudConfig.cloudAsr) cloudConfig.asrKey.isNotBlank() else pack.ready) && !interactionBlocked && !suspendCapture)
+    // 采集进行中只在转写期间为真：请求权限、待机都不算，避免输入区误以为听写已开始。
+    val latestActiveChange by rememberUpdatedState(onCaptureActiveChange)
+    LaunchedEffect(active) { latestActiveChange(active) }
+    DisposableEffect(Unit) { onDispose { latestActiveChange(false) } }
 
     fun stop() {
         pendingPermission = false
@@ -189,7 +206,12 @@ internal fun ChatSpeechIndicator(
             { TouchHaptics.longPress(view); callback() }
         }
         val indicator: @Composable () -> Unit = {
-            ContainedMorphLoadingIndicator(indicatorSize = diameter, animate = showGeneration || active)
+            ContainedMorphLoadingIndicator(
+                indicatorSize = diameter,
+                animate = showGeneration || active,
+                containerColor = indicatorContainerColor,
+                indicatorColor = indicatorTint,
+            )
         }
         // 触摸区仍是固定 48dp（等于 Compose 官方最小可点区域），避免生长时挤动输入栏其它按钮。
         val accessibility = Modifier.semantics {
@@ -209,7 +231,10 @@ internal fun ChatSpeechIndicator(
             // 语义整份遮掉。
             IconButton(
                 onClick = clickAction,
-                modifier = accessibility,
+                // modifier 必须包住整个按钮（含官方 minimumInteractiveComponentSize 的 48dp
+                // 命中区）：输入区把本入口放进只留 40dp 的尾部槽，不在此收口，命中区会把
+                // 槽位撑宽，让胶囊与发送按钮位置错开。
+                modifier = modifier.then(accessibility),
                 enabled = (speechEnabled || forceVisible) &&
                     (!interactionBlocked &&
                         (allowed || active || onLongClick != null ||

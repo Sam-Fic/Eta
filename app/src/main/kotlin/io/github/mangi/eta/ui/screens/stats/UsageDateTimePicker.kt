@@ -103,7 +103,17 @@ internal fun UsageDateTimePickerDialog(
                 }
             },
         ) {
-            DatePicker(state = pickerState, title = { Text(text = title) })
+            DatePicker(
+                state = pickerState,
+                // 自定义 title 会覆盖 DatePicker 默认标题，需手动补回默认标题的
+                // 内边距（start 24 / end 12 / top 16），否则文字贴住弹窗左上圆角被裁切。
+                title = {
+                    Text(
+                        text = title,
+                        modifier = Modifier.padding(start = 24.dp, end = 12.dp, top = 16.dp),
+                    )
+                },
+            )
         }
         return
     }

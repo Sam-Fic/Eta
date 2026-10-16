@@ -180,7 +180,8 @@ internal fun SharedFoldersScreen(
                 text = stringResource(R.string.shared_folders_footer),
                 style = EtaTextStyle.Footnote,
                 secondary = true,
-                modifier = Modifier.padding(horizontal = 24.dp),
+                // M3 与分组容器对齐 16dp；MIUI X 保持原有 24dp 观感。
+                modifier = Modifier.padding(horizontal = if (isMaterial3Theme()) 16.dp else 24.dp),
             )
         }
         notice?.let { message ->

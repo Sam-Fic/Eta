@@ -17,7 +17,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
@@ -30,7 +29,6 @@ import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
 import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
 import io.github.mangi.eta.ui.components.PreferenceIcon
 import io.github.mangi.eta.ui.components.rememberAutoCompressEnabled
-import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.model.AgentModelOptionUi
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
 import kotlinx.coroutines.Dispatchers
@@ -60,7 +58,6 @@ internal fun ContextCompressionSettingsScreen(context: Context, onBack: () -> Un
     var showMissingWindowDialog by remember { mutableStateOf(false) }
     var modelPickerState by remember { mutableStateOf(AgentModelPickerUiState()) }
     var isLoadingModels by remember { mutableStateOf(prefs != null) }
-    val view = LocalView.current
 
     LaunchedEffect(prefs) {
         prefs?.let { currentPrefs ->
@@ -111,7 +108,6 @@ internal fun ContextCompressionSettingsScreen(context: Context, onBack: () -> Un
                         enabled = autoCompressPreference.isWritable,
                         leading = { PreferenceIcon(icon = Icons.Rounded.Compress) },
                         onCheckedChange = { value ->
-                            TouchHaptics.click(view)
                             autoCompressPreference.setEnabled(value)
                         },
                     )
@@ -131,7 +127,6 @@ internal fun ContextCompressionSettingsScreen(context: Context, onBack: () -> Un
                         checked = customModelEnabled,
                         leading = { PreferenceIcon(icon = Icons.Rounded.SmartToy) },
                         onCheckedChange = { value ->
-                            TouchHaptics.click(view)
                             prefs?.edit()?.putBoolean(
                                 Prefs.Keys.AGENT_COMPRESS_CUSTOM_MODEL_ENABLED,
                                 value,
@@ -154,7 +149,6 @@ internal fun ContextCompressionSettingsScreen(context: Context, onBack: () -> Un
                             ?: stringResource(R.string.model_not_selected),
                         leading = { PreferenceIcon(icon = Icons.Rounded.Memory) },
                         onClick = {
-                            TouchHaptics.click(view)
                             showModelDialog = true
                         },
                     )

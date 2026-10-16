@@ -50,24 +50,29 @@ internal fun ContainedMorphLoadingIndicator(
     modifier: Modifier = Modifier,
     indicatorSize: Dp = 28.dp,
     animate: Boolean = true,
-    containerColor: Color = if (isMaterial3Theme()) {
+    containerColor: Color? = null,
+    indicatorColor: Color? = null,
+) {
+    // 为空表示沿用主题默认（M3 → primaryContainer/onPrimaryContainer，miuix → 对应角色）。
+    // 调用方可以显式覆盖：输入区把本指示器当作“填充主色圆钮”的内容时，默认的
+    // primaryContainer 会和同样取 primaryContainer 的外层浮动工具栏同色，圆底不可见。
+    val resolvedContainerColor = containerColor ?: if (isMaterial3Theme()) {
         MaterialTheme.colorScheme.primaryContainer
     } else {
         MiuixTheme.colorScheme.primaryContainer
-    },
-    indicatorColor: Color = if (isMaterial3Theme()) {
+    }
+    val resolvedIndicatorColor = indicatorColor ?: if (isMaterial3Theme()) {
         MaterialTheme.colorScheme.onPrimaryContainer
     } else {
         MiuixTheme.colorScheme.onPrimaryContainer
-    },
-) {
+    }
     // Material 3 Expressive 主题下使用官方 ContainedLoadingIndicator（表达性形变动画）。
     // 停止态（animate=false）表示「待机」，官方组件没有静态形态，继续用本地实现画出静止圆。
     if (animate && isMaterial3Theme()) {
         ContainedLoadingIndicator(
             modifier = modifier.size(indicatorSize),
-            containerColor = containerColor,
-            indicatorColor = indicatorColor,
+            containerColor = resolvedContainerColor,
+            indicatorColor = resolvedIndicatorColor,
             containerShape = CircleShape,
         )
         return
@@ -125,18 +130,22 @@ internal fun ContainedMorphLoadingIndicator(
         modifier = modifier
             .size(indicatorSize)
             .clip(CircleShape)
-            .background(containerColor),
+            .background(resolvedContainerColor),
     ) {
-        val progress = morphProgress.value
         val from = IndicatorShapes[currentShape]
         val to = IndicatorShapes[(currentShape + 1) % IndicatorShapes.size]
         Canvas(modifier = Modifier.fillMaxSize()) {
+            // Read the animated values in the draw phase. Hoisting morphProgress.value into
+            // the composable body recomposed this indicator on every animation frame, and
+            // it is composed while a response streams — exactly when frames are scarce.
+            val progress = morphProgress.value
+            val activity = activityBlend.value
             val radii = FloatArray(from.size) { index ->
-                idleBlendedRadius(from[index], to[index], progress, activityBlend.value)
+                idleBlendedRadius(from[index], to[index], progress, activity)
             }
             val canvasSize = this.size
             val rotation = progress * 90f + morphRotationTarget + globalRotation.value
-            val bounce = 1f + 0.08f * sin(progress * PI).toFloat() * activityBlend.value
+            val bounce = 1f + 0.08f * sin(progress * PI).toFloat() * activity
             rotate(rotation) {
                 drawPath(
                     path = smoothPolarPath(
@@ -144,7 +153,7 @@ internal fun ContainedMorphLoadingIndicator(
                         center = Offset(canvasSize.width / 2f, canvasSize.height / 2f),
                         radius = minOf(canvasSize.width, canvasSize.height) * 0.40f * bounce,
                     ),
-                    color = indicatorColor,
+                    color = resolvedIndicatorColor,
                 )
             }
         }

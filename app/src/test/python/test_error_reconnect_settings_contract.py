@@ -14,7 +14,7 @@ class ErrorReconnectSettingsContractTest(unittest.TestCase):
         title_entry = settings.index("onNavigate(AppRoute.TitleModel)")
         reconnect_entry = settings.index("onNavigate(AppRoute.ErrorReconnectSettings)")
         between = settings[title_entry:reconnect_entry]
-        self.assertEqual(1, between.count("ArrowPreference("))
+        self.assertEqual(1, between.count("EtaClickableRow("))
         self.assertIn("R.string.error_reconnect_title", between)
         self.assertNotIn("summary =", between)
         root = (UI / "app/AgentAppRoot.kt").read_text()
