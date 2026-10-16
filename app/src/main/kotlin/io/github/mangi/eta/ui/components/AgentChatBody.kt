@@ -18,6 +18,7 @@ import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
@@ -30,6 +31,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -39,11 +41,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.layout.LazyLayoutCacheWindow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.DocumentScanner
-import androidx.compose.material.icons.rounded.Language
-import androidx.compose.material.icons.rounded.RocketLaunch
-import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -88,6 +85,8 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -111,9 +110,13 @@ import io.github.mangi.eta.agent.voice.VoiceEntryMode
 import io.github.mangi.eta.agent.voice.VoiceModeController
 import io.github.mangi.eta.agent.voice.VoiceModeState
 import io.github.mangi.eta.agent.voice.VOICE_MODE_SPEECH_OWNER_PREFIX
+import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.data.model.ReasoningEffort
+import io.github.mangi.eta.data.repository.AgentMemoryRepository
 import io.github.mangi.eta.ui.app.AgentConversationRevisionReducer
+import io.github.mangi.eta.ui.app.DeviceCapabilitiesUi
 import io.github.mangi.eta.ui.app.LocalAppearanceSettings
+import io.github.mangi.eta.ui.app.rememberDeviceCapabilities
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
 import io.github.mangi.eta.ui.model.latestBilledContextTokens
 import io.github.mangi.eta.ui.model.canContinueDisconnectedRun
@@ -132,7 +135,10 @@ import io.github.mangi.eta.ui.model.ToolSummaryMessageUi
 import io.github.mangi.eta.ui.model.UserMessageUi
 import io.github.mangi.eta.ui.model.isResumeAfterCompress
 import io.github.mangi.eta.ui.model.isSteerSupplement
+import io.github.mangi.eta.ui.adaptive.EtaType
+import io.github.mangi.eta.ui.adaptive.etaTextStyle
 import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
+import kotlin.random.Random
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -147,9 +153,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collectLatest
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.toShape
+import androidx.graphics.shapes.RoundedPolygon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Text
@@ -174,11 +184,11 @@ val LocalShellTopBarInset = compositionLocalOf { 0.dp }
  */
 @Composable
 internal fun chatEmptyStateHeadlineStyle(): androidx.compose.ui.text.TextStyle =
-    if (isMaterial3Theme()) MaterialTheme.typography.headlineMedium else MiuixTheme.textStyles.headline1
+    etaTextStyle(EtaType.Hero)
 
 @Composable
 internal fun chatSecondaryLabelStyle(): androidx.compose.ui.text.TextStyle =
-    if (isMaterial3Theme()) MaterialTheme.typography.bodyMedium else MiuixTheme.textStyles.body2
+    etaTextStyle(EtaType.Secondary)
 
 @Composable
 private fun chatMutedLabelColor(): androidx.compose.ui.graphics.Color =
@@ -587,14 +597,22 @@ internal fun AgentChatScaffold(
     modifier: Modifier = Modifier,
 ) {
     val appearance = LocalAppearanceSettings.current
-    val showMorphLoading = shouldShowMorphLoadingIndicator(
-        messages = visibleMessages,
-        isStreaming = isStreaming,
-        isPaused = isPaused,
-        isCompressingContext = isCompressingContext,
-        enabled = appearance.morphLoadingIndicator,
-        beforeResponseOnly = appearance.morphLoadingBeforeResponseOnly,
-    )
+    // Pure function of the visible list, but it scans to the last user turn and then
+    // forward for model output. Memoised so a recomposition that does not change the
+    // list (or the run flags) does not rescan a multi-thousand-message transcript.
+    val showMorphLoading = remember(
+        visibleMessages, isStreaming, isPaused, isCompressingContext,
+        appearance.morphLoadingIndicator, appearance.morphLoadingBeforeResponseOnly,
+    ) {
+        shouldShowMorphLoadingIndicator(
+            messages = visibleMessages,
+            isStreaming = isStreaming,
+            isPaused = isPaused,
+            isCompressingContext = isCompressingContext,
+            enabled = appearance.morphLoadingIndicator,
+            beforeResponseOnly = appearance.morphLoadingBeforeResponseOnly,
+        )
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -626,7 +644,9 @@ internal fun AgentChatScaffold(
                 showContextUsage = hasMessages,
                 isStreaming = isStreaming,
                 isPaused = isPaused,
-                canContinueDisconnected = canContinueDisconnectedRun(visibleMessages),
+                canContinueDisconnected = remember(visibleMessages) {
+                    canContinueDisconnectedRun(visibleMessages)
+                },
                 isCompressingContext = isCompressingContext,
                 showMorphLoading = showMorphLoading,
                 reasoningEffort = reasoningEffort,
@@ -808,7 +828,12 @@ internal fun AgentConversationMessages(
             }
         }
     }
-    val retainedWorkSteps = workAnimations.mapValues { it.value.retainedStepKeys }
+    // Reading the snapshot map directly here re-ran mapValues on every recomposition and
+    // handed the row-projection `remember` a brand-new Map to compare. Deriving it keeps
+    // the projection key identity stable until a work group actually changes.
+    val retainedWorkSteps by remember {
+        derivedStateOf { workAnimations.mapValues { it.value.retainedStepKeys } }
+    }
     val timelineRowsProjection = remember { AgentTimelineRowsCache() }
     // Run state still drives footers/reveal below. Row projection only reads it
     // for the trailing work default; ordinary message rows do not depend on it.
@@ -816,6 +841,16 @@ internal fun AgentConversationMessages(
     val timelineRows = remember(projectedTimelineEntries, workExpansionOverrides, rowStreamingDefault, retainedWorkSteps) {
         StreamPerformanceDiagnostics.measure("timeline.project", projectedTimelineEntries.size.toLong()) {
             timelineRowsProjection.project(projectedTimelineEntries, workExpansionOverrides, rowStreamingDefault, retainedWorkSteps)
+        }
+    }
+    // 连续用户气泡的组内位置（Single / GroupFirst / GroupMid / GroupLast），按实际行相邻判定。
+    val userBubblePositions = remember(timelineRows) {
+        buildMap {
+            timelineRows.forEachIndexed { index, row ->
+                val user = (row as? AgentTimelineRow.Message)?.message as? UserMessageUi
+                    ?: return@forEachIndexed
+                put(user.id, timelineRows.userBubblePosition(index))
+            }
         }
     }
     LaunchedEffect(scrollToMessageId, timelineRows) {
@@ -872,14 +907,30 @@ internal fun AgentConversationMessages(
             if (isStreaming || isPaused) visibleMessages.forEach { add(it.id) }
         }
     }
+    // Last list that populated settledMessageIds. Deliberately NOT snapshot state: it is
+    // written from SideEffect purely as a change detector, and observable writes there
+    // would schedule the extra recomposition this guard exists to avoid.
+    val settledMessageSource = remember { arrayOfNulls<Any>(1) }
+    // Rebuild only when the settled source list actually changes. This ran on every
+    // composition and re-added every historical message id, which is O(n) on the commit
+    // frame of an otherwise unrelated recomposition (keyboard, drawer, theme, settings).
     SideEffect {
-        if (!isStreaming && !isPaused) {
+        if (!isStreaming && !isPaused && settledMessageSource[0] !== visibleMessages) {
+            settledMessageSource[0] = visibleMessages
             settledMessageIds.clear()
             visibleMessages.forEach { settledMessageIds.add(it.id) }
         }
     }
-    LaunchedEffect(visibleMessages, streamingMarkdownStates) {
-        val activeIds = visibleMessages.mapTo(mutableSetOf()) { it.id }
+    // Pruning only matters when the set of visible messages changes membership: an
+    // in-place delta keeps every existing key valid, so re-scanning all visible ids per
+    // token is pure overhead. Size plus the edge ids is O(1) and still detects appends,
+    // deletions and conversation switches (which change the first id).
+    val visibleMessageEdges = remember(visibleMessages) {
+        Triple(visibleMessages.size, visibleMessages.firstOrNull()?.id, visibleMessages.lastOrNull()?.id)
+    }
+    LaunchedEffect(visibleMessageEdges, streamingMarkdownStates) {
+        if (streamingMarkdownStates.isEmpty()) return@LaunchedEffect
+        val activeIds = visibleMessages.mapTo(HashSet()) { it.id }
         streamingMarkdownStates.keys.retainAll(activeIds)
     }
     val telemetry = LocalAgentContextTelemetry.current
@@ -891,7 +942,9 @@ internal fun AgentConversationMessages(
     val directionTracker = remember(scrollState, directionThreshold) {
         ConversationNavigationDirectionTracker(directionThreshold)
     }
-    var navigationDirection by remember(scrollState) { mutableStateOf(ConversationNavigationDirection.Down) }
+    // The tracker keeps the gesture direction internally; nothing observes a Compose copy.
+    // This used to be a `mutableStateOf` written from onPreScroll on every scroll event and
+    // never read, so each gesture event scheduled snapshot work for no consumer.
     var messageNavigationJob by remember(scrollState) { mutableStateOf<Job?>(null) }
     DisposableEffect(scrollState) {
         onDispose { messageNavigationJob?.cancel() }
@@ -927,7 +980,10 @@ internal fun AgentConversationMessages(
                     messageNavigationJob?.cancel()
                     workAnimations.values.forEach { it.entrance.seal() }
                     isUserScrolling = true
-                    navigationDirection = directionTracker.onScroll(available.y, userInput = true)
+                    // Result intentionally discarded: the tracker keeps direction for the
+                    // next navigation request. Assigning it to Compose state made every
+                    // scroll event invalidate the chat body.
+                    directionTracker.onScroll(available.y, userInput = true)
                 }
                 return Offset.Zero
             }
@@ -1665,12 +1721,14 @@ internal fun AgentConversationMessages(
                                 message.toolName == "browser_use" &&
                                 message.id == currentBrowserMessageId,
                             enableLivePreview = message is ToolActivityMessageUi && !isStreaming,
-                            // UserMessageBubble ignores these switches; its toolbar is unchanged.
+                            // UserMessageBubble 忽略这些开关；其操作行改为点气泡展开（见 UserMessageBubble）。
                             showCopyAction = false,
                             showMessageActions = false,
                             messageActionsEnabled = message is UserMessageUi && messageActionsEnabled && !isStreaming && !isPaused,
                             branchEnabled = message is UserMessageUi && branchEnabled,
                             isEditing = message is UserMessageUi && message.id == editTargetMessageId,
+                            userBubblePosition = userBubblePositions[message.id]
+                                ?: UserBubblePosition.Single,
                             isPaused = isPaused,
                             onThinkingToggle = if (message is ThinkingMessageUi) {
                                 { _, willExpand -> onThinkingRowToggle(entry.key, willExpand) }
@@ -1944,8 +2002,16 @@ internal fun AgentConversationMessages(
             onStep = { navigateUserMessage(toEdge = false) },
             onEdge = { navigateUserMessage(toEdge = true) },
             modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 12.dp + bottomInset),
+                .align(Alignment.BottomEnd)
+                // 底栏渐变板向上溢出 ChatInputScrimOverhang（32dp）且整体压在内容层之上
+                // （miuix Scaffold 先 place body 再 place bottomBar），按钮必须抬到渐变
+                // 板之上，否则右下角会被渐变板的半透明段盖住。
+                // 水平对齐：让圆心与输入栏右下的通话圆钮（FilledIconButton Call）同心。
+                // 通话钮圆心距屏幕右缘 = 屏幕留白 16dp + FloatingToolbar 官方尾部内边距 8dp
+                // （FloatingToolbarDefaults.ContentPadding / ContainerTrailingSpace 令牌）
+                // + 同心端距 ComposerConcentricGap（8dp）+ 按钮半径 20dp = 52dp；
+                // 本按钮同为 40dp（smallContainerSize），故 end = 52dp - 20dp = 32dp。
+                .padding(bottom = 12.dp + ChatInputScrimOverhang + bottomInset, end = 32.dp),
         )
     }
 }
@@ -2143,13 +2209,19 @@ private fun AgentChatBottomBar(
     onCycleGptSpeedMode: () -> Unit = {},
 ) {
     val drawerBlocksIme = LocalConversationDrawerBlocksIme.current
-    val scrimColor = MiuixTheme.colorScheme.surface
+    // 底部渐变板取页面背景同色：Material 3 走官方 surfaceContainer（壳层 Scaffold 同色），
+    // MIUI X 走 MiuixTheme.surface（miuix Scaffold 默认底色）。
+    val scrimColor = if (isMaterial3Theme()) {
+        MaterialTheme.colorScheme.surfaceContainer
+    } else {
+        MiuixTheme.colorScheme.surface
+    }
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .then(if (drawerBlocksIme) Modifier else Modifier.imePadding())
             .drawBehind {
-                // 底部渐变背景板：颜色与页面背景（壳层 Scaffold 的 surface）一致。
+                // 底部渐变背景板：颜色与页面背景一致。
                 // 渐变向上溢出栏顶一段，完全透明的位置落在底栏之上，消息更早开始淡出；
                 // 下半段保持完全不透明，输入栏附近不会露出消息残影。
                 val top = -ChatInputScrimOverhang.toPx()
@@ -2576,28 +2648,39 @@ private fun EmptyChatState(
     onSuggestionClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val suggestions = listOf(
-        SuggestionItem(
-            title = stringResource(R.string.ui_analyze_current_screen_ebf08f),
-            icon = Icons.Rounded.DocumentScanner,
-            prompt = stringResource(R.string.suggestion_analyze_screen_prompt),
-        ),
-        SuggestionItem(
-            title = stringResource(R.string.ui_open_wechat_6b2c28),
-            icon = Icons.Rounded.RocketLaunch,
-            prompt = stringResource(R.string.suggestion_open_wechat_prompt),
-        ),
-        SuggestionItem(
-            title = stringResource(R.string.ui_browse_the_web_da7afb),
-            icon = Icons.Rounded.Language,
-            prompt = stringResource(R.string.suggestion_browse_web_prompt),
-        ),
-        SuggestionItem(
-            title = stringResource(R.string.ui_check_memory_pressure_2d9600),
-            icon = Icons.Rounded.Terminal,
-            prompt = stringResource(R.string.suggestion_memory_pressure_prompt),
-        ),
-    )
+    // 谁能用：按当前设备能力过滤建议池，没授权的条目直接不出现。
+    val device = rememberDeviceCapabilities()
+    val terminalToolsEnabled = remember { Prefs.isEnabled(Prefs.Keys.AGENT_TERMINAL_TOOLS) }
+    // 记忆开关的初值取默认值：绝大多数设备是开的，抽签结果不会因此重抽一次。
+    val memoryEnabled by remember { AgentMemoryRepository.enabledFlow() }
+        .collectAsState(initial = true)
+    // 每次进空态换一批：seed 在这里取一次，重组不重抽。
+    val suggestionSeed = remember { Random.nextInt() }
+    val picked = remember(
+        suggestionSeed,
+        device.tools,
+        device.root.isGranted,
+        terminalToolsEnabled,
+        memoryEnabled,
+    ) {
+        selectChatSuggestions(
+            limit = 4,
+            random = Random(suggestionSeed),
+            isAvailable = { spec ->
+                spec.requirement.isSatisfied(device, terminalToolsEnabled, memoryEnabled)
+            },
+        )
+    }
+    val suggestions = picked
+        .map { spec ->
+            SuggestionItem(
+                title = stringResource(spec.titleRes),
+                icon = spec.icon,
+                prompt = stringResource(spec.promptRes),
+            )
+        }
+        // 标题最长的那条交给最大的那块形状，文字不会被挤掉。
+        .sortedByDescending { it.title.length }
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(
@@ -2649,18 +2732,26 @@ private fun EmptyChatState(
                     targetOffsetY = { it / 4 },
                 ),
             ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 24.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    suggestions.chunked(2).forEach { rowItems ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            rowItems.forEach { item ->
-                                SuggestionCard(
-                                    item = item,
-                                    onClick = { onSuggestionClick(item.prompt) },
-                                    modifier = Modifier.weight(1f),
-                                )
+                if (isMaterial3Theme()) {
+                    ExpressiveSuggestionBlobs(
+                        suggestions = suggestions,
+                        onSuggestionClick = onSuggestionClick,
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                    )
+                } else {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        suggestions.chunked(2).forEach { rowItems ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                rowItems.forEach { item ->
+                                    SuggestionCard(
+                                        item = item,
+                                        onClick = { onSuggestionClick(item.prompt) },
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                }
                             }
                         }
                     }
@@ -2729,6 +2820,135 @@ private data class SuggestionItem(
     val icon: ImageVector,
     val prompt: String,
 )
+
+/** 空状态「球」：形状 + 落位，尺寸与位置都是容器宽度的比例（正方形外框 = 形状正比例）。 */
+private class ExpressiveBlobSpec(
+    val shape: RoundedPolygon,
+    val size: Float,
+    val left: Float,
+    val top: Float,
+)
+
+/** 建议池的能力闸门：把设备状态收敛成「这条现在能不能跑」。 */
+private fun ChatSuggestionRequirement.isSatisfied(
+    device: DeviceCapabilitiesUi,
+    terminalToolsEnabled: Boolean,
+    memoryEnabled: Boolean,
+): Boolean = when (this) {
+    ChatSuggestionRequirement.NONE -> true
+    ChatSuggestionRequirement.ACCESSIBILITY -> device.accessibilityAvailable
+    ChatSuggestionRequirement.NOTIFICATIONS -> device.tools.notificationsAllowed
+    ChatSuggestionRequirement.USAGE -> device.tools.usageAllowed
+    ChatSuggestionRequirement.LOCATION -> device.tools.locationAllowed
+    ChatSuggestionRequirement.ROOT -> device.root.isGranted
+    ChatSuggestionRequirement.TERMINAL -> terminalToolsEnabled
+    ChatSuggestionRequirement.MEMORY -> memoryEnabled
+}
+
+/**
+ * M3 Expressive 空状态建议：四块抽象形状的色块被丢进窄容器，错落堆叠成一片。
+ *
+ * 形状取官方 [MaterialShapes]（Cookie9Sided / Flower / Clover4Leaf / Circle），统一用
+ * tertiaryContainer 实心色块、不描边；每块都落在正方形外框里，所以形状保持正比例，
+ * 不会被拉伸或压扁。四块尺寸与落位各不相同并互相压边，读作一簇堆叠在一起的色块。
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun ExpressiveSuggestionBlobs(
+    suggestions: List<SuggestionItem>,
+    onSuggestionClick: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val specs = listOf(
+        // 形状 / 边长 / 左边距 / 上边距，均为容器宽度的比例；按边长从大到小排，
+        // 调用方把标题最长的建议放在最前面，于是最长的那条落在最大的形状里。
+        ExpressiveBlobSpec(MaterialShapes.Clover4Leaf, size = 0.62f, left = 0.00f, top = 0.34f),
+        ExpressiveBlobSpec(MaterialShapes.Flower, size = 0.52f, left = 0.48f, top = 0.10f),
+        ExpressiveBlobSpec(MaterialShapes.Cookie9Sided, size = 0.48f, left = 0.02f, top = 0.00f),
+        ExpressiveBlobSpec(MaterialShapes.Circle, size = 0.46f, left = 0.54f, top = 0.50f),
+    )
+    if (suggestions.size != specs.size) {
+        // 建议词数量变化时退回常规网格，避免形状与文案错位。
+        Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            suggestions.chunked(2).forEach { rowItems ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    rowItems.forEach { item ->
+                        SuggestionCard(
+                            item = item,
+                            onClick = { onSuggestionClick(item.prompt) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
+        }
+        return
+    }
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val unit = maxWidth
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(unit * 0.96f),
+        ) {
+            specs.forEachIndexed { index, spec ->
+                val item = suggestions[index]
+                ExpressiveSuggestionBlob(
+                    item = item,
+                    shape = spec.shape,
+                    onClick = { onSuggestionClick(item.prompt) },
+                    modifier = Modifier
+                        .offset(x = unit * spec.left, y = unit * spec.top)
+                        .size(unit * spec.size),
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun ExpressiveSuggestionBlob(
+    item: SuggestionItem,
+    shape: RoundedPolygon,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier,
+        shape = shape.toShape(),
+        color = MaterialTheme.colorScheme.tertiaryContainer,
+        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(
+                // 收进形状的内接正方形（约 58%），轮廓因此裁不到文字。
+                modifier = Modifier.fillMaxWidth(0.58f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Icon(
+                    imageVector = item.icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = item.title,
+                    style = chatSecondaryLabelStyle(),
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+    }
+}
 
 internal fun shouldStopOrphanSpeechPlayback(
     owner: String?,
