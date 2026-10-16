@@ -2821,12 +2821,16 @@ private data class SuggestionItem(
     val prompt: String,
 )
 
-/** 空状态「球」：形状 + 落位，尺寸与位置都是容器宽度的比例（正方形外框 = 形状正比例）。 */
+/**
+ * 空状态「球」：形状 + 落位，尺寸与位置都是容器宽度的比例（正方形外框 = 形状正比例）。
+ * [rotation] 为绕自身中心的旋转角（度），只做轻微倾斜。
+ */
 private class ExpressiveBlobSpec(
     val shape: RoundedPolygon,
     val size: Float,
     val left: Float,
     val top: Float,
+    val rotation: Float = 0f,
 )
 
 /** 建议池的能力闸门：把设备状态收敛成「这条现在能不能跑」。 */
@@ -2846,11 +2850,12 @@ private fun ChatSuggestionRequirement.isSatisfied(
 }
 
 /**
- * M3 Expressive 空状态建议：四块抽象形状的色块被丢进窄容器，错落堆叠成一片。
+ * M3 Expressive 空状态建议：四块抽象形状的色块像被丢进同一个容器里自然散落。
  *
- * 形状取官方 [MaterialShapes]（Cookie9Sided / Flower / Clover4Leaf / Circle），统一用
+ * 形状取官方 [MaterialShapes]（Clover4Leaf / Ghostish / Bun / Pill），统一用
  * tertiaryContainer 实心色块、不描边；每块都落在正方形外框里，所以形状保持正比例，
- * 不会被拉伸或压扁。四块尺寸与落位各不相同并互相压边，读作一簇堆叠在一起的色块。
+ * 不会被拉伸或压扁。四块尺寸各不相同、落位刻意错开（不是对齐的网格），相邻外框留出
+ * 间隙保证彼此没有重叠面积；几块再各自绕中心轻微旋转，读作一堆松散堆落的色块。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -2860,12 +2865,15 @@ private fun ExpressiveSuggestionBlobs(
     modifier: Modifier = Modifier,
 ) {
     val specs = listOf(
-        // 形状 / 边长 / 左边距 / 上边距，均为容器宽度的比例；按边长从大到小排，
-        // 调用方把标题最长的建议放在最前面，于是最长的那条落在最大的形状里。
-        ExpressiveBlobSpec(MaterialShapes.Clover4Leaf, size = 0.62f, left = 0.00f, top = 0.34f),
-        ExpressiveBlobSpec(MaterialShapes.Flower, size = 0.52f, left = 0.48f, top = 0.10f),
-        ExpressiveBlobSpec(MaterialShapes.Cookie9Sided, size = 0.48f, left = 0.02f, top = 0.00f),
-        ExpressiveBlobSpec(MaterialShapes.Circle, size = 0.46f, left = 0.54f, top = 0.50f),
+        // 形状 / 边长 / 左边距 / 上边距 / 旋转角（度），尺寸与位置均为容器宽度的比例；
+        // 按边长从大到小排，调用方把标题最长的建议放在最前面，于是最长的那条落在最大的形状里。
+        // 落位故意错开、不排成整齐的网格：左上 Clover、右下 Bun、右上 Pill、左下 Ghostish，
+        // 相邻外框之间只留 0.02~0.08 的窄间隙（比原来更挤），旋转角也收小到 ≤6°，
+        // 保证收窄后四块正比例形状仍不会互相压到。
+        ExpressiveBlobSpec(MaterialShapes.Clover4Leaf, size = 0.48f, left = 0.00f, top = 0.00f, rotation = -5f),
+        ExpressiveBlobSpec(MaterialShapes.Bun, size = 0.46f, left = 0.52f, top = 0.50f, rotation = 4f),
+        ExpressiveBlobSpec(MaterialShapes.Ghostish, size = 0.44f, left = 0.02f, top = 0.50f, rotation = -4f),
+        ExpressiveBlobSpec(MaterialShapes.Pill, size = 0.38f, left = 0.51f, top = 0.04f, rotation = 6f),
     )
     if (suggestions.size != specs.size) {
         // 建议词数量变化时退回常规网格，避免形状与文案错位。
@@ -2899,7 +2907,8 @@ private fun ExpressiveSuggestionBlobs(
                     onClick = { onSuggestionClick(item.prompt) },
                     modifier = Modifier
                         .offset(x = unit * spec.left, y = unit * spec.top)
-                        .size(unit * spec.size),
+                        .size(unit * spec.size)
+                        .graphicsLayer { rotationZ = spec.rotation },
                 )
             }
         }
