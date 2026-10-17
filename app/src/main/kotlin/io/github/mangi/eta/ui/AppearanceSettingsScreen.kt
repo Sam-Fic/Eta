@@ -410,13 +410,17 @@ private fun androidx.compose.foundation.lazy.LazyListScope.appearanceMaterial3Co
                     },
                 )
             }
-            item {
-                EtaSwitchRow(
-                    title = stringResource(R.string.appearance_pure_black),
-                    summary = stringResource(R.string.appearance_pure_black_summary),
-                    checked = appearance.pureBlackEnabled,
-                    onCheckedChange = onSetPureBlack,
-                )
+            // 纯黑背景只作用于暗色渲染：强制浅色下设置永久无效，整行隐藏。
+            // 跟随系统时保留——解析结果随系统切换，开关仍有意义。
+            if (appearance.themeMode != AppearanceThemeMode.LIGHT) {
+                item {
+                    EtaSwitchRow(
+                        title = stringResource(R.string.appearance_pure_black),
+                        summary = stringResource(R.string.appearance_pure_black_summary),
+                        checked = appearance.pureBlackEnabled,
+                        onCheckedChange = onSetPureBlack,
+                    )
+                }
             }
         }
     }
