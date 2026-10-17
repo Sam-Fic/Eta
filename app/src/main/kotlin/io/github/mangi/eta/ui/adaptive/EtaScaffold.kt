@@ -39,6 +39,8 @@ import io.github.mangi.eta.R
 
 /**
  * 二级列表页骨架：标准 [Scaffold] + [LargeFlexibleTopAppBar] + [LazyColumn]。
+ *
+ * [titleContent] 非空时顶栏标题槽改放该内容（如页内搜索框），替代 [title] 文本。
  */
 @Composable
 fun EtaScaffoldPage(
@@ -50,6 +52,7 @@ fun EtaScaffoldPage(
     topBarModifier: Modifier = Modifier,
     listModifier: Modifier = Modifier,
     floatingActionButton: (@Composable () -> Unit)? = null,
+    titleContent: (@Composable () -> Unit)? = null,
     content: LazyListScope.() -> Unit,
 ) {
     EtaMaterialScaffoldPage(
@@ -61,6 +64,7 @@ fun EtaScaffoldPage(
         topBarModifier = topBarModifier,
         listModifier = listModifier,
         floatingActionButton = floatingActionButton,
+        titleContent = titleContent,
         content = content,
     )
 }
@@ -123,6 +127,7 @@ private fun EtaMaterialScaffoldPage(
     topBarModifier: Modifier = Modifier,
     listModifier: Modifier = Modifier,
     floatingActionButton: (@Composable () -> Unit)? = null,
+    titleContent: (@Composable () -> Unit)? = null,
     content: LazyListScope.() -> Unit,
 ) {
     // 大标题随滚动折叠成单行顶栏（M3 LargeTopAppBar）。
@@ -134,11 +139,15 @@ private fun EtaMaterialScaffoldPage(
         topBar = {
             LargeFlexibleTopAppBar(
                 title = {
-                    Text(
-                        text = title,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    if (titleContent != null) {
+                        titleContent()
+                    } else {
+                        Text(
+                            text = title,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 },
                 modifier = topBarModifier,
                 navigationIcon = {
