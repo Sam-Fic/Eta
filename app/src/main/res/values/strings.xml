@@ -96,6 +96,9 @@
   <string name="terminal_empty_hint">Persistent shell session. Working directory and environment carry over between commands.</string>
   <string name="terminal_copy_command">Copy command</string>
   <string name="terminal_copy_output">Copy output</string>
+  <string name="terminal_copied_command">Command copied</string>
+  <string name="terminal_copied_output">Output copied</string>
+  <string name="terminal_stopped">Stopped</string>
   <string name="terminal_reinput">Reuse command</string>
   <string name="terminal_session_restarted">Session ended; reconnected</string>
   <string name="terminal_session_closed">Session exited</string>

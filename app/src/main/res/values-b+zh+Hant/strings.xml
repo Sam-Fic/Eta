@@ -132,6 +132,9 @@
   <string name="terminal_empty_hint">常駐 Shell 工作階段：指令之間保留工作目錄與環境，離開頁面不會中斷執行。</string>
   <string name="terminal_copy_command">複製指令</string>
   <string name="terminal_copy_output">複製輸出</string>
+  <string name="terminal_copied_command">已複製指令</string>
+  <string name="terminal_copied_output">已複製輸出</string>
+  <string name="terminal_stopped">已停止</string>
   <string name="terminal_reinput">重新填入</string>
   <string name="terminal_session_restarted">工作階段已中斷，重新連線</string>
   <string name="terminal_session_closed">工作階段已退出</string>

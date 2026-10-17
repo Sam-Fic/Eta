@@ -126,6 +126,9 @@
   <string name="terminal_empty_hint">常驻 Shell 会话：命令之间保留工作目录与环境，切出页面不中断运行。</string>
   <string name="terminal_copy_command">复制命令</string>
   <string name="terminal_copy_output">复制输出</string>
+  <string name="terminal_copied_command">已复制命令</string>
+  <string name="terminal_copied_output">已复制输出</string>
+  <string name="terminal_stopped">已停止</string>
   <string name="terminal_reinput">重新填入</string>
   <string name="terminal_session_restarted">会话已断开，重新连接</string>
   <string name="terminal_session_closed">会话已退出</string>

@@ -69,10 +69,12 @@ import io.github.mangi.eta.ui.components.toSpanStyle
 import androidx.compose.material3.Button as M3Button
 import androidx.compose.material3.ButtonDefaults as M3ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text as M3Text
 import androidx.compose.material3.TextButton as M3TextButton
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -131,10 +133,11 @@ internal fun TerminalMonoText(
     )
 }
 
-/** 终端进行中指示：官方 CircularProgressIndicator。 */
+/** 终端进行中指示：官方 M3E LoadingIndicator（morph 变形，尺寸收敛进传入槽位）。 */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun TerminalBusyIndicator(size: androidx.compose.ui.unit.Dp) {
-    androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(size))
+    androidx.compose.material3.LoadingIndicator(modifier = Modifier.size(size))
 }
 
 /** 终端日志/正文视图：官方 Text + bodyLarge。 */
@@ -373,6 +376,12 @@ internal fun ConsoleScreen(
     }
 }
 
+/**
+ * 控制台状态栏。
+ *
+ * M3E：与块式终端的底部操作区同款——官方 [Surface]（tonalElevation）收拢环境切换与操作，
+ * 与 PTY 网格拉开官方层级；单行排布以保证网格拿到尽可能高的高度。
+ */
 @Composable
 private fun ConsoleStatusBar(
     environment: TerminalEnvironment,
@@ -382,40 +391,43 @@ private fun ConsoleStatusBar(
     onOpenSessions: () -> Unit,
     onExitConsole: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        TerminalEnvironmentTabs(
-            labels = listOf("Android", linuxEnvironment.label()),
-            selectedIndex = if (environment == TerminalEnvironment.ANDROID) 0 else 1,
-            onSelect = { index ->
-                onSwitchEnvironment(
-                    if (index == 0) TerminalEnvironment.ANDROID else linuxEnvironment,
-                )
-            },
-        )
+    Surface(tonalElevation = 3.dp) {
         Row(
-            modifier = Modifier.weight(1f),
-            horizontalArrangement = Arrangement.End,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp)
+                .padding(vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TerminalIconButton(
-                icon = Icons.Rounded.Layers,
-                contentDescription = stringResource(R.string.terminal_sessions),
-                onClick = onOpenSessions,
+            TerminalEnvironmentTabs(
+                labels = listOf("Android", linuxEnvironment.label()),
+                selectedIndex = if (environment == TerminalEnvironment.ANDROID) 0 else 1,
+                onSelect = { index ->
+                    onSwitchEnvironment(
+                        if (index == 0) TerminalEnvironment.ANDROID else linuxEnvironment,
+                    )
+                },
             )
-            TerminalIconButton(
-                icon = Icons.Rounded.Insights,
-                contentDescription = stringResource(R.string.terminal_daemon_tasks),
-                onClick = onOpenTasks,
-            )
-            TerminalTextButton(
-                text = stringResource(R.string.terminal_block_mode),
-                onClick = onExitConsole,
-            )
+            Row(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TerminalIconButton(
+                    icon = Icons.Rounded.Layers,
+                    contentDescription = stringResource(R.string.terminal_sessions),
+                    onClick = onOpenSessions,
+                )
+                TerminalIconButton(
+                    icon = Icons.Rounded.Insights,
+                    contentDescription = stringResource(R.string.terminal_daemon_tasks),
+                    onClick = onOpenTasks,
+                )
+                TerminalTextButton(
+                    text = stringResource(R.string.terminal_block_mode),
+                    onClick = onExitConsole,
+                )
+            }
         }
     }
 }
@@ -620,18 +632,26 @@ private fun lineToAnnotated(
     }
 }
 
+/**
+ * 控制台按键条。
+ *
+ * M3E：官方 [HorizontalFloatingToolbar] 承载按键（药丸形状 + 官方海拔与收展动效），
+ * 取代贴在网格边缘的一排裸按钮；`expanded = true` 常驻展开。
+ */
 @Composable
 private fun ConsoleKeyBar(
     ctrlActive: Boolean,
     onCtrl: () -> Unit,
     onKey: (String) -> Unit,
 ) {
-    Row(
+    HorizontalFloatingToolbar(
+        expanded = true,
+        // 官方 ContentPadding 是按 48dp 图标按钮设计的，文字按键传更紧的官方 PaddingValues。
+        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp)
             .padding(bottom = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         KeyChip(label = "Esc", modifier = Modifier.weight(1f)) { onKey("\u001B") }
         KeyChip(
@@ -657,13 +677,14 @@ private fun KeyChip(
 ) {
     val view = LocalView.current
     // 官方按钮：激活键用 FilledButton，其余用 FilledTonalButton；
-    // 胶囊形状、容器色、字阶与按压动效全部取官方默认值，不覆盖。
+    // 胶囊形状、容器色与按压动效全部取官方默认值，仅收紧 contentPadding 让 7 个键排进一行。
     if (active) {
         M3Button(
             onClick = {
                 TouchHaptics.keyboardTap(view)
                 onClick()
             },
+            contentPadding = ButtonDefaults.ContentPadding.copy(horizontal = 6.dp),
             modifier = modifier,
         ) {
             M3Text(text = label, style = MaterialTheme.typography.labelLarge)
@@ -674,6 +695,7 @@ private fun KeyChip(
                 TouchHaptics.keyboardTap(view)
                 onClick()
             },
+            contentPadding = ButtonDefaults.ContentPadding.copy(horizontal = 6.dp),
             modifier = modifier,
         ) {
             M3Text(text = label, style = MaterialTheme.typography.labelLarge)
