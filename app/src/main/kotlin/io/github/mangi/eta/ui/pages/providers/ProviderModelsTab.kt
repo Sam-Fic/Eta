@@ -531,7 +531,7 @@ internal fun ProviderModelsTab(
         val confirmLabel = if (isMutatingModel) {
             context.getString(R.string.page_deleting_6f941d)
         } else {
-            context.getString(R.string.page_delete_3755f5)
+            context.getString(R.string.ui_delete_3755f5)
         }
         val onConfirmDelete: () -> Unit = {
             scope.launch {
@@ -613,7 +613,7 @@ internal fun ProviderModelsTab(
         val confirmLabel = if (isMutatingModel) {
             context.getString(R.string.page_deleting_6f941d)
         } else {
-            context.getString(R.string.page_delete_3755f5)
+            context.getString(R.string.ui_delete_3755f5)
         }
         val dialogTitle = stringResource(R.string.ui_delete_model_cf24da)
         val dialogSummary = pluralStringResource(
@@ -1098,7 +1098,7 @@ private fun capabilityTags(model: Model): List<String> {
             )
         } ?: context.getString(R.string.page_context_unknown_b6ae7b)
     )
-    if (showsReasoningTag(model)) add(context.getString(R.string.page_support_thinking_5b9e4c))
+    if (showsReasoningTag(model)) add(context.getString(R.string.ui_support_thinking_5b9e4c))
     }
 }
 

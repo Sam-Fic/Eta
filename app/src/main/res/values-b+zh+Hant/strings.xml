@@ -56,8 +56,8 @@
   <string name="compress_conversation_failed">壓縮會話失敗</string>
   <string name="compress_conversation_streaming">模型回覆時無法壓縮</string>
   <string name="compress_conversation_done">對話內容已壓縮</string>
-  <string name="compress_conversation_waiting">正在等待壓縮…</string>
-  <string name="compress_conversation_in_progress">正在壓縮會話…</string>
+  <string name="compress_conversation_waiting">正在等待壓縮……</string>
+  <string name="compress_conversation_in_progress">正在壓縮會話……</string>
 
   <string name="context_budget_title">上下文已滿</string>
   <string name="context_budget_body">目前任務已暫停。較早步驟仍受保護，不會被自動丟掉。</string>
@@ -79,7 +79,7 @@
   <string name="ui_compress_model_title">壓縮模型</string>
   <string name="compress_model_missing_window_summary">這個壓縮模型還沒有上下文視窗，壓縮時無法估算輸入預算。請先到該模型編輯頁填寫後再用。</string>
   <plurals name="context_compacted_messages">
-    <item quantity="other">已壓縮 %d 則訊息</item>
+  <item quantity="other">已壓縮 %d 則訊息</item>
   </plurals>
   <string name="context_compacted_summary_title">壓縮摘要</string>
   <string name="context_compacted_summary_action">查看摘要</string>
@@ -141,7 +141,7 @@
   <string name="terminal_interrupted">已停止</string>
   <string name="terminal_env_switched">已切換到 %1$s 環境</string>
   <string name="terminal_exit_code">結束代碼 %1$d</string>
-  <string name="terminal_running">執行中…</string>
+  <string name="terminal_running">執行中……</string>
   <string name="terminal_output_truncated">輸出過長，已截斷</string>
   <string name="terminal_linux_not_ready">Linux 工具環境尚未安裝</string>
   <string name="terminal_open_environment">前往安裝</string>
@@ -214,7 +214,7 @@
   <string name="settings_file_logging_summary">開啟後記錄執行日誌和去識別化工具呼叫診斷到本機。工具診斷僅記錄結構與指紋，不記錄命令、參數值或金鑰。關閉後停止寫入，既有日誌保留。</string>
   <string name="settings_export_logs">匯出日誌</string>
   <string name="settings_export_logs_summary">匯出軟體日誌（含去識別化語音診斷）為 ZIP 檔案</string>
-  <string name="settings_export_logs_working">處理中…</string>
+  <string name="settings_export_logs_working">處理中……</string>
   <string name="settings_export_logs_success">已匯出 %1$d 個日誌檔案</string>
   <string name="settings_export_logs_empty">沒有可匯出的日誌，請先開啟記錄</string>
   <string name="settings_export_logs_failed">匯出日誌失敗</string>
@@ -288,10 +288,10 @@
   <string name="model_picker_title">選擇模型</string>
   <string name="model_search_hint">搜尋模型</string>
   <string name="model_search_empty">沒有符合的模型</string>
-  <string name="drawer_greeting_morning">早上好👋</string>
-  <string name="drawer_greeting_afternoon">下午好👋</string>
-  <string name="drawer_greeting_evening">晚上好👋</string>
-  <string name="drawer_greeting_night">夜深了，注意休息👋</string>
+  <string name="drawer_greeting_morning">早上好 👋</string>
+  <string name="drawer_greeting_afternoon">下午好 👋</string>
+  <string name="drawer_greeting_evening">晚上好 👋</string>
+  <string name="drawer_greeting_night">夜深了，注意休息 👋</string>
   <string name="drawer_chats_chip">聊天</string>
   <string name="drawer_new_chat">新建</string>
   <string name="drawer_new_conversation">新建對話</string>
@@ -319,18 +319,18 @@
   <string name="conversation_delete_message_title">要刪除訊息嗎？</string>
   <string name="conversation_delete_message_body">此訊息將被刪除。</string>
   <plurals name="conversation_delete_later_turns">
-    <item quantity="other">這段訊息及下方 %d 段訊息將被刪除。</item>
+  <item quantity="other">這段訊息及下方 %d 段訊息將被刪除。</item>
   </plurals>
   <string name="conversation_regenerate_title">要重新產生回覆嗎？</string>
   <plurals name="conversation_regenerate_later_turns">
-    <item quantity="other">將刪除後續 %d 輪對話，並從此訊息重新產生。</item>
+  <item quantity="other">將刪除後續 %d 輪對話，並從此訊息重新產生。</item>
   </plurals>
   <string name="time_yesterday">昨日</string>
   <string name="time_recent">最近</string>
   <string name="overlay_received">已收到指令，準備呼叫模型</string>
-  <string name="overlay_preparing">準備中…</string>
+  <string name="overlay_preparing">準備中……</string>
   <plurals name="overlay_preparing_tools">
-    <item quantity="other">正在準備 %d 個工具</item>
+  <item quantity="other">正在準備 %d 個工具</item>
   </plurals>
   <string name="overlay_reasoning_round">第 %1$d 輪推理</string>
   <string name="overlay_requesting_model">正在請求模型</string>
@@ -346,7 +346,7 @@
   <string name="overlay_hosted_tool_completed">%1$s 已完成</string>
   <string name="overlay_hosted_tool_failed">%1$s 失敗</string>
   <plurals name="overlay_images_read">
-    <item quantity="other">已讀取 %d 張圖片</item>
+  <item quantity="other">已讀取 %d 張圖片</item>
   </plurals>
   <string name="overlay_result_ready">結果已就緒</string>
   <string name="overlay_run_failed">請求失敗</string>
@@ -395,8 +395,8 @@
   <string name="conversation_persistence_failed">無法儲存對話，請重試</string>
   <string name="system_notice_interrupted">任務已中斷。已保留部分輸出，未自動重試尚未完成的操作。</string>
   <string name="tool_status_unknown">結果未知</string>
-  <string name="voice_listening">正在聆聽…</string>
-  <string name="voice_processing">處理中…</string>
+  <string name="voice_listening">正在聆聽……</string>
+  <string name="voice_processing">處理中……</string>
   <string name="voice_tap_to_speak">點按以說話</string>
   <string name="voice_speech_unavailable">無法使用語音辨識</string>
   <string name="voice_request_failed">請求失敗，請重試。</string>
@@ -468,7 +468,7 @@
   <string name="ui_install_087db6">安裝</string>
   <string name="ui_convert_google_apps_to_system_apps_0f6d89">將 Google App 轉為系統應用程式</string>
   <string name="ui_this_will_close_the_current_page_and_clear_eta_brows_1cd331">將關閉目前頁面並清除 Eta 瀏覽器的 Cookie 與網站資料。外部瀏覽器不會受到影響。</string>
-  <string name="ui_xiaobu_xiaoai_compatible_entrance_ae918a">小布／小愛相容入口</string>
+  <string name="ui_xiaobu_xiaoai_compatible_entrance_ae918a">小布／超級小愛相容入口</string>
   <string name="ui_display_name_ed16be">展示名稱</string>
   <string name="ui_tool_a72ef1">工具</string>
   <string name="ui_tool_ability_9f0f80">工具能力</string>
@@ -477,7 +477,6 @@
   <string name="ui_edited_c36776">已編輯</string>
   <string name="ui_enforce_accessibility_55e838">強制維持無障礙</string>
   <string name="ui_current_25e74d">目前</string>
-  <string name="ui_current_model_a0af8f">目前模型</string>
   <string name="ui_restore_automatic_8d4e1e">恢復自動</string>
   <string name="ui_maintain_hey_google_detection_after_screen_rest_9d6877">息屏後維持 Hey Google 檢測</string>
   <string name="ui_floating_window_permissions_076b77">懸浮窗權限</string>
@@ -520,7 +519,7 @@
   <string name="ui_clear_all_memory_a43bd3">清空全部記憶？</string>
   <string name="ui_source_code_740296">原始碼</string>
   <string name="update_check_title">檢查更新</string>
-  <string name="update_checking">正在檢查…</string>
+  <string name="update_checking">正在檢查……</string>
   <string name="update_current_version">目前版本 %1$s</string>
   <string name="update_unknown_version">未知</string>
   <string name="update_available_title">發現新版本</string>
@@ -529,7 +528,7 @@
   <string name="update_later">稍後</string>
   <string name="update_latest">已是最新版本</string>
   <string name="update_check_failed">檢查更新失敗</string>
-  <string name="update_downloading">正在下載…</string>
+  <string name="update_downloading">正在下載……</string>
   <string name="update_download_failed">下載更新失敗</string>
   <string name="update_install_permission">請允許安裝未知應用後再更新</string>
   <string name="ui_click_to_reinstall_dc60de">點選重新安裝</string>
@@ -561,7 +560,6 @@
   <string name="ui_reload_5982c4">重新載入</string>
   <string name="ui_regenerate_2e1905">重新產生</string>
   <string name="ui_regenerate_reply_84a7d9">重新產生回覆</string>
-  <string name="ui_reset_built_in_configuration_35b6ec">重設內建設定</string>
   <string name="ui_reset_browser_session_791b36">重設瀏覽器工作階段</string>
   <string name="ui_lock_screen_evokes_automatic_voice_input_1cde18">鎖定畫面喚起自動語音輸入</string>
   <string name="ui_deep_thinking_enabled_by_default_c032d6">預設啟用推理</string>
@@ -591,11 +589,11 @@
   <string name="tool_browser_loading">載入中 · %1$d%%</string>
   <string name="tool_browser_preview">頁面預覽</string>
   <plurals name="work_processing_step">
-    <item quantity="other">處理中 · 第 %d 步</item>
+  <item quantity="other">處理中 · 第 %d 步</item>
   </plurals>
   <string name="work_analyzing">正在分析任務</string>
   <plurals name="work_completed_steps">
-    <item quantity="other">已完成 %d 個步驟</item>
+  <item quantity="other">已完成 %d 個步驟</item>
   </plurals>
   <string name="work_completed">分析完成</string>
   <string name="work_collapse">收合工作過程</string>
@@ -607,10 +605,10 @@
   <string name="copy_code">複製程式碼</string>
   <string name="copy_command">複製指令</string>
   <string name="shell_command">Shell 指令</string>
-  <string name="reasoning_in_progress">正在推理…</string>
+  <string name="reasoning_in_progress">正在推理……</string>
   <string name="reasoning_completed">推理完成</string>
   <plurals name="reasoning_completed_seconds">
-    <item quantity="other">推理完成 · 用時 %d 秒</item>
+  <item quantity="other">推理完成 · 用時 %d 秒</item>
   </plurals>
   <string name="reasoning_collapse">收合推理過程</string>
   <string name="reasoning_expand">展開推理過程</string>
@@ -627,7 +625,6 @@
   <string name="state_screens_and_controls_3f095b">螢幕與控制</string>
   <string name="state_applications_and_systems_9624e6">應用與系統</string>
   <string name="state_application_list_reading_135f16">應用程式列表讀取</string>
-  <string name="state_floating_window_permissions_076b77">懸浮窗權限</string>
   <string name="state_the_skill_list_is_temporarily_unavailable_please_try_29b0be">Skills 清單暫時不可用，請稍後重試。</string>
   <string name="state_skill_pack_is_no_longer_available_please_select_the__7cdfb4">Skill 包已不可用，請重新選擇 ZIP 檔案。</string>
   <string name="state_skill_has_been_deleted_34c29b">Skill 已刪除</string>
@@ -652,7 +649,6 @@
   <string name="state_system_enhancement_capabilities_are_reserved_for_sub_0a8b21">系統增強能力保留為後續二級功能</string>
   <string name="state_terminal_and_files_ae7c54">終端與檔案</string>
   <string name="state_web_browsing_e56105">網頁瀏覽</string>
-  <string name="state_memory_b55ff5">記憶</string>
   <string name="state_memory_system_4903eb">記憶系統</string>
   <string name="state_direct_access_to_equipment_eda92c">裝置直達</string>
   <string name="state_please_select_the_zip_file_provided_by_the_system_fi_fea145">請選擇由系統檔案選擇器提供的 ZIP 檔案。</string>
@@ -664,7 +660,6 @@
   <string name="page_workspace_is_available_704a92">/workspace 可用</string>
   <string name="page_apk_analysis_tools_are_ready_d45e3e">APK 分析工具已經就緒</string>
   <string name="page_agent_can_work_in_workspace_through_terminal_environ_9b7e2d">Agent 透過 terminal 的 environment=linux 使用目前選取的發行版在 /workspace 工作</string>
-  <string name="page_agent_browser_a66bd5">Agent 瀏覽器</string>
   <string name="page_jadx_apktool_smali_and_baksmali_are_installed_d7201c">JADX、Apktool、smali 與 baksmali 安裝完成</string>
   <string name="page_jadx_apktool_smali_and_baksmali_are_ready_apktool_do_14eaf8">JADX、Apktool、smali 與 baksmali 已就緒；Apktool 暫時不支援回編譯</string>
   <string name="page_linux_tool_environment_is_ready_9b845b">Linux 工具環境已經就緒</string>
@@ -679,16 +674,14 @@
   <string name="page_automatically_pull_from_remote_f883d0">從遠端自動拉取</string>
   <string name="page_you_are_taking_over_the_current_session_and_the_agen_2347ef">你正在接管目前的工作階段，Agent 的網頁操作已暫停；返回後可讓 Agent 繼續。</string>
   <string name="page_save_fadf24">儲存</string>
-  <string name="page_saving_a032e8">儲存中</string>
-  <string name="page_saving_d70d42">儲存中...</string>
+  <string name="page_saving_d70d42">儲存中……</string>
   <string name="page_save_failed_40525a">儲存失敗</string>
   <string name="page_repair_590253">修復</string>
   <string name="page_stop_loading_c62fbc">停止載入</string>
   <string name="page_allow_thinking_to_be_turned_off_during_conversations_5a32a9">允許在對話中關閉推理</string>
   <string name="page_select_none_ba20eb">全不選</string>
   <string name="page_select_all_3e44b2">全選</string>
-  <string name="page_delete_3755f5">刪除</string>
-  <string name="page_deleting_6f941d">刪除中...</string>
+  <string name="page_deleting_6f941d">刪除中……</string>
   <string name="page_refresh_38108e">重新整理</string>
   <string name="page_go_ahead_320ffe">前進</string>
   <string name="page_upgrade_tools_be5a84">升級工具</string>
@@ -696,13 +689,11 @@
   <string name="page_the_basic_environment_is_available_and_the_new_versi_594d27">基礎環境可用，升級後補齊新版 Agent 與 Python 工具集</string>
   <string name="page_the_basic_environment_is_ready_5d1426">基礎環境已就緒</string>
   <string name="page_fail_3e3c80">失敗</string>
-  <string name="page_install_087db6">安裝</string>
   <string name="page_install_openjdk_17_jadx_apktool_smali_and_baksmali_d_595960">安裝正式版 OpenJDK 25，以及最新正式版 JADX、Apktool、smali 與 baksmali；需預留 768 MB</string>
   <string name="page_installing_411642">安裝中</string>
   <string name="page_not_installed_yet_e9c3e3">尚未安裝</string>
   <string name="page_not_checked_yet_039989">尚未檢查</string>
   <string name="page_workspace_mount_exception_fc0ef2">工作區掛載異常</string>
-  <string name="page_tool_a72ef1">工具</string>
   <string name="page_enabled_25d284">已啟用</string>
   <string name="page_installed_eb88ff">已安裝</string>
   <string name="page_ready_f2afde">已就緒</string>
@@ -712,8 +703,7 @@
   <string name="page_the_current_root_environment_cannot_create_an_isolat_4ca00a">目前 Root 環境無法建立隔離 mount namespace 或 chroot</string>
   <string name="page_current_model_a0af8f">目前模型</string>
   <string name="page_busy_0212cc">忙碌</string>
-  <string name="page_retrieving_a880c9">拉取中...</string>
-  <string name="page_support_thinking_5b9e4c">支援推理</string>
+  <string name="page_retrieving_a880c9">拉取中……</string>
   <string name="page_no_description_2070d9">無描述</string>
   <string name="page_there_is_no_model_yet_please_pull_it_from_the_remote_ced865">暫無模型，請從遠端拉取或手動新增</string>
   <string name="page_replace_855241">替換</string>
@@ -729,7 +719,6 @@
   <string name="page_verifying_and_installing_please_wait_6d7c8c">正在驗證並安裝，請稍候</string>
   <string name="page_no_application_can_open_the_current_webpage_faef56">沒有應用程式可以開啟目前網頁</string>
   <string name="page_add_model_532a64">新增模型</string>
-  <string name="page_clear_84fcd7">清空</string>
   <string name="page_the_environment_is_normal_77b826">環境正常</string>
   <string name="page_environment_needs_to_be_checked_2a714a">環境需要檢查</string>
   <string name="page_open_with_external_application_ab3d4c">用外部應用程式打開</string>
@@ -761,7 +750,7 @@
   <string name="page_didn_t_get_root_permissions_23efb3">未取得 root 權限</string>
   <string name="page_document_49deaf">文件</string>
   <string name="page_enter_path_ec5f01">輸入路徑</string>
-  <string name="page_eta_is_executing_032532">Eta 正在執行…</string>
+  <string name="page_eta_is_executing_032532">Eta 正在執行……</string>
   <string name="page_folder_46ecac">資料夾</string>
   <string name="page_google_app_is_already_a_system_priv_app_4f33b0">Google App 已是系統 priv-app</string>
   <string name="page_google_app_not_installed_2e3e55">未安裝 Google App</string>
@@ -780,12 +769,11 @@
   <string name="page_picture_be8da6">圖片</string>
   <string name="page_please_grant_eta_root_permissions_in_kernelsu_7b1bc8">請在 KernelSU 中授予 Eta root 權限</string>
   <string name="page_please_grant_eta_root_permissions_in_magisk_298c7d">請在 Magisk 中授予 Eta root 權限</string>
-  <string name="page_processing_dde1db">處理中...</string>
+  <string name="page_processing_dde1db">處理中……</string>
   <string name="page_read_proc_meminfo_and_proc_pressure_focus_on_analyzi_43156d">讀取 /proc/meminfo 和 /proc/pressure/，重點分析 PSI（Pressure Stall Information）指標，總結目前記憶體壓力和系統狀態</string>
-  <string name="page_remove_provider_9f848f">刪除供應商</string>
   <string name="page_reset_a0cc65">已重設</string>
   <string name="page_reset_built_in_configuration_35b6ec">重設內建設定</string>
-  <string name="page_resetting_616090">重設中…</string>
+  <string name="page_resetting_616090">重設中……</string>
   <string name="page_save_configuration_817af1">儲存設定</string>
   <string name="page_saved_and_set_as_current_lsposed_service_not_connect_08da2c">已儲存並設為目前使用；LSPosed 服務未連線</string>
   <string name="page_saved_current_and_synced_95dac1">已儲存、設為目前並同步</string>
@@ -795,11 +783,10 @@
   <string name="page_set_as_current_df334e">設為當前</string>
   <string name="page_set_as_default_digital_assistant_dd2078">已設為預設數位助理</string>
   <string name="page_show_71b677">顯示</string>
-  <string name="page_stop_a17f70">停止</string>
   <string name="page_sure_f526c8">確定</string>
   <string name="page_system_default_assistant_576746">系統預設助手</string>
   <string name="page_take_a_screenshot_and_describe_the_current_screen_555fbd">截圖並描述當前螢幕</string>
-  <string name="page_testing_f43705">測試中...</string>
+  <string name="page_testing_f43705">測試中……</string>
   <string name="page_the_accessibility_protection_backend_is_unavailable__e50b64">無障礙保護後端不可用，請確認 system 作用域已啟用並重新啟動</string>
   <string name="page_the_installation_is_complete_and_will_take_effect_af_82329a">安裝完成，重開機後生效</string>
   <string name="page_there_is_currently_no_model_provider_please_add_one_78ab6a">尚無模型供應商，請新增</string>
@@ -820,10 +807,10 @@
   <string name="voice_screen_title">目前畫面</string>
   <string name="voice_screen_context_summary">將加入為下一則訊息的內容脈絡</string>
   <string name="voice_screen_remove">移除目前畫面</string>
-  <string name="voice_input_hint">傳訊息給 Eta…</string>
+  <string name="voice_input_hint">傳訊息給 Eta……</string>
   <string name="voice_send">傳送</string>
-  <string name="injected_reasoning">Eta 正在推理…</string>
-  <string name="injected_executing">Eta 正在執行任務…</string>
+  <string name="injected_reasoning">Eta 正在推理……</string>
+  <string name="injected_executing">Eta 正在執行任務……</string>
   <string name="injected_completed">Eta 已完成本次任務</string>
   <string name="injected_failed">Eta 處理失敗，請稍後再試</string>
   <string name="injected_breeno_custom_model_disabled">請先在 Eta 設定中啟用「小布自訂模型」</string>
@@ -841,7 +828,7 @@
   <string name="tool_ui_coloros_recording_a4e425">ColorOS 錄音</string>
   <string name="tool_ui_coloros_system_memory_eff961">ColorOS 系統記憶</string>
   <string name="tool_ui_qq_chat_pictures_e21bf9">QQ 聊天圖片</string>
-  <string name="tool_ui_wi_fi_password_80e9a4">Wi‑Fi 密碼</string>
+  <string name="tool_ui_wi_fi_password_80e9a4">Wi-Fi 密碼</string>
   <string name="tool_ui_user_root_shell_conversational_execution_and_asy_13c2ab">user/root shell、互動式執行與非同步讀取</string>
   <string name="tool_ui_download_history_8494d7">下載記錄</string>
   <string name="tool_ui_personal_order_25e4c9">個人訂單</string>
@@ -929,7 +916,7 @@
   <string name="tool_ui_directly_create_system_timers_up_to_24_hours_87c476">直接建立最長 24 小時的系統計時器</string>
   <string name="tool_ui_create_a_system_alarm_directly_and_open_the_cloc_9aa214">直接建立系統鬧鐘，失敗時開啟時鐘確認</string>
   <string name="tool_ui_directly_execute_a_single_shell_command_c40cef">直接執行單一 shell 指令</string>
-  <string name="tool_ui_directly_control_wi_fi_or_bluetooth_4fa0b9">直接控制 Wi‑Fi 或藍牙</string>
+  <string name="tool_ui_directly_control_wi_fi_or_bluetooth_4fa0b9">直接控制 Wi-Fi 或藍牙</string>
   <string name="tool_ui_album_pictures_23bcc2">相簿圖片</string>
   <string name="tool_ui_short_message_17e1a4">簡訊</string>
   <string name="tool_ui_open_web_pages_off_screen_and_keep_a_takeover_br_72972e">在背景開啟網頁，並保留可接管的瀏覽工作階段</string>
@@ -964,7 +951,7 @@
   <string name="tool_ui_read_the_closest_location_the_system_already_has_255a6c">讀取系統已有的最近位置</string>
   <string name="tool_ui_read_system_time_and_recent_location_b9f4ae">讀取系統時間與最近位置</string>
   <string name="tool_ui_read_system_settings_d455ce">讀取系統設定</string>
-  <string name="tool_ui_read_networking_method_and_current_wi_fi_status_68016a">讀取聯網方式和目前 Wi‑Fi 狀態</string>
+  <string name="tool_ui_read_networking_method_and_current_wi_fi_status_68016a">讀取聯網方式和目前 Wi-Fi 狀態</string>
   <string name="tool_ui_read_memory_979135">讀取記憶</string>
   <string name="tool_ui_read_notification_7fdc09">讀取通知</string>
   <string name="tool_ui_read_lock_screen_do_not_disturb_audio_output_and_9260b8">讀取鎖定螢幕、勿擾、音訊輸出和外接螢幕狀態</string>
@@ -1027,7 +1014,7 @@
   <string name="state_ui_earlier_context_compressed_will_continue">較早的對話內容已壓縮，將從中斷處繼續</string>
   <string name="state_ui_the_selected_project_type_does_not_match_3a5c49">選擇的項目類型不符</string>
   <plurals name="file_references_added_with_failures">
-    <item quantity="other">已加入 %1$d 個項目，%2$d 個項目無法引用</item>
+  <item quantity="other">已加入 %1$d 個項目，%2$d 個項目無法引用</item>
   </plurals>
   <string name="skill_deleted_message">「%1$s」已從 Eta 刪除。</string>
   <string name="skill_enabled_message">「%1$s」已啟用，將從下一輪對話開始可用。</string>
@@ -1043,7 +1030,7 @@
   <string name="accessibility_protection_unavailable">無障礙保護後端無法使用，請確認已啟用 system 作用範圍並重新啟動</string>
   <string name="accessibility_protection_rejected">系統拒絕了無障礙保護要求</string>
   <string name="settings_write_failed">無法儲存設定</string>
-  <string name="status_processing">處理中…</string>
+  <string name="status_processing">處理中……</string>
   <string name="power_assistant_system_default">系統預設助理</string>
   <string name="systemizer_already_system">Google App 已是系統 priv-app</string>
   <string name="systemizer_google_missing">尚未安裝 Google App</string>
@@ -1059,7 +1046,7 @@
   <string name="provider_reset_failed">重設失敗</string>
   <string name="provider_delete_summary">「%1$s」將永久刪除。</string>
   <plurals name="provider_batch_delete_summary">
-    <item quantity="other">選取的 %d 個提供商將永久刪除。</item>
+  <item quantity="other">選取的 %d 個提供商將永久刪除。</item>
   </plurals>
   <string name="provider_reset_summary">將還原「%1$s」的預設設定與官方模型清單，並保留 API Key。</string>
   <string name="provider_remote_pick_title">選擇要加入的模型</string>
@@ -1068,10 +1055,10 @@
   <string name="provider_remote_add">加入</string>
   <string name="provider_remote_none_new">沒有可加入的新模型</string>
   <plurals name="provider_models_added">
-    <item quantity="other">已加入 %d 個模型</item>
+  <item quantity="other">已加入 %d 個模型</item>
   </plurals>
   <plurals name="provider_models_fetched">
-    <item quantity="other">已取得 %d 個模型</item>
+  <item quantity="other">已取得 %d 個模型</item>
   </plurals>
   <string name="provider_models_endpoint_summary">讀取 %1$s 的 /models 清單</string>
   <string name="provider_models_fetched_filtered">已取得 %1$d 個模型，略過 %2$d 個非對話模型</string>
@@ -1082,13 +1069,13 @@
   <string name="provider_model_delete_summary">「%1$s」將永久刪除。</string>
   <string name="provider_model_deleted">已刪除：%1$s</string>
   <plurals name="provider_selected_delete_summary">
-    <item quantity="other">選取的 %d 個模型將永久刪除。</item>
+  <item quantity="other">選取的 %d 個模型將永久刪除。</item>
   </plurals>
   <plurals name="provider_models_deleted">
-    <item quantity="other">已刪除 %d 個模型</item>
+  <item quantity="other">已刪除 %d 個模型</item>
   </plurals>
   <plurals name="provider_models_selected">
-    <item quantity="other">已選取 %d 個</item>
+  <item quantity="other">已選取 %d 個</item>
   </plurals>
   <string name="provider_auto_reasoning_supported">自動：支援推理</string>
   <string name="provider_auto_reasoning_unknown">自動：不支援或未知</string>
@@ -1130,7 +1117,7 @@
   <string name="linux_kimi_tools_ready">Kimi Code 已就緒，在終端機執行 kimi 即可開始</string>
   <string name="linux_profile_dependency_missing">請先安裝 %1$s</string>
   <string name="linux_kimi_web_launch">啟動 Web UI</string>
-  <string name="linux_kimi_web_starting">正在啟動…</string>
+  <string name="linux_kimi_web_starting">正在啟動……</string>
   <string name="linux_kimi_web_failed_start">Kimi Web 啟動失敗</string>
   <string name="linux_kimi_web_failed_url">未取得 Web UI 位址，請到背景任務查看日誌</string>
   <string name="linux_kimi_web_failed_browser">沒有可用的瀏覽器</string>
@@ -1160,7 +1147,7 @@
   <string name="linux_agent_ready_summary">已安裝 rg、fd、Git、SSH、curl、jq、SQLite 等基礎工具，Agent 使用目前選取的 Linux 環境在 /workspace 工作</string>
   <string name="linux_health_ok">環境正常</string>
   <plurals name="linux_missing_core_commands">
-    <item quantity="other">缺少 %d 個核心指令</item>
+  <item quantity="other">缺少 %d 個核心指令</item>
   </plurals>
   <string name="linux_workspace_error">工作區掛載異常</string>
   <string name="linux_health_needs_check">環境需要檢查</string>
@@ -1205,12 +1192,12 @@
   <string name="status_ready">已就緒</string>
   <string name="status_needs_attention">需留意</string>
   <plurals name="provider_configured_count">
-    <item quantity="other">已設定供應商（共 %d 個）</item>
+  <item quantity="other">已設定供應商（共 %d 個）</item>
   </plurals>
   <string name="provider_empty">尚無模型供應商，請新增</string>
   <string name="provider_no_matches">找不到相符的供應商</string>
   <plurals name="provider_models_count">
-    <item quantity="other">%d 個模型</item>
+  <item quantity="other">%d 個模型</item>
   </plurals>
   <string name="provider_selected">已選取</string>
   <string name="provider_set_current">設為目前使用</string>
@@ -1254,7 +1241,7 @@
   <string name="memory_clear">清除</string>
   <string name="permission_health_ok">正常</string>
   <plurals name="permission_health_issues">
-    <item quantity="other">%d 個項目需要留意</item>
+  <item quantity="other">%d 個項目需要留意</item>
   </plurals>
   <string name="permission_status_ok">正常</string>
   <string name="permission_status_missing">缺少</string>
@@ -1262,7 +1249,7 @@
   <string name="permission_status_disabled">未啟用</string>
   <string name="chat_edit_replace_later">傳送後將取代此訊息及其後的內容</string>
   <string name="chat_edit_replace_message">傳送後將取代此訊息</string>
-  <string name="chat_eta_working">Eta 正在執行…</string>
+  <string name="chat_eta_working">Eta 正在執行……</string>
   <string name="chat_input_hint">交給 Eta 完成</string>
   <string name="chat_stop">停止</string>
   <string name="chat_send">傳送</string>
@@ -1333,7 +1320,7 @@
   <string name="mcp_server_name">名稱</string>
   <string name="mcp_server_url">伺服器位址</string>
   <string name="mcp_bearer_optional">Bearer Token（選填）</string>
-  <string name="mcp_connecting">正在連線…</string>
+  <string name="mcp_connecting">正在連線……</string>
   <string name="mcp_name_required">請輸入伺服器名稱</string>
   <string name="mcp_server_added">伺服器已新增，發現 %1$d 個工具</string>
   <string name="mcp_connection_failed">無法連線 MCP 伺服器</string>
@@ -1369,7 +1356,7 @@
   <string name="data_backup_import_summary">從備份檔案取代對話、助手、供應商、技能、設定與附件</string>
   <string name="data_backup_import_confirm_title">匯入 Eta 資料？</string>
   <string name="data_backup_import_confirm_summary">完整備份會取代對話、助手、供應商、技能、設定與附件。單個對話備份會合併進目前列表。若備份含完整 Linux 環境，會覆蓋本機環境。檔案可能包含 API Key。</string>
-  <string name="data_backup_working">處理中…</string>
+  <string name="data_backup_working">處理中……</string>
   <string name="data_backup_single_conversation_note">若備份僅包含單個對話，會合併進目前列表，不會覆蓋其他資料。</string>
   <string name="data_backup_file_name">eta-backup-%s.zip</string>
   <string name="data_backup_exported">已匯出 %1$d 個對話、%2$d 個供應商、%3$d 個助手</string>
@@ -1404,86 +1391,86 @@
   <string name="ui_balance_access_token">存取權杖</string>
   <string name="ui_balance_access_token_summary">來自 NewAPI 個人安全設定。留空則使用供應商 API Key</string>
 
-    <string name="stats_page_title">用量統計</string>
-    <string name="stats_page_heatmap_title">對話熱力圖</string>
-    <string name="stats_page_heatmap_less">少</string>
-    <string name="stats_page_heatmap_more">多</string>
-    <string name="stats_page_dow_mon">一</string>
-    <string name="stats_page_dow_wed">三</string>
-    <string name="stats_page_dow_fri">五</string>
-    <string name="stats_page_total_conversations">總對話數</string>
-    <string name="stats_page_total_messages">總訊息數</string>
-    <string name="stats_page_input_tokens">輸入 Token</string>
-    <string name="stats_page_fresh_input_tokens">輸入 Token（不含快取）</string>
-    <string name="stats_page_output_tokens">輸出 Token</string>
-    <string name="stats_page_cached_tokens">快取 Token</string>
-    <string name="stats_page_cache_creation_tokens">快取建立</string>
-    <string name="stats_page_token_total">總計</string>
-    <string name="stats_page_launch_count">應用啟動次數</string>
-    <string name="stats_tab_overview">對話統計</string>
-    <string name="stats_tab_models">模型用量</string>
-    <string name="stats_model_total_title">總用量</string>
-    <string name="stats_model_total_input">總輸入（含快取）</string>
-    <string name="stats_model_empty">與模型對話後，用量會顯示在這裡</string>
-    <string name="stats_model_daily_avg">日均</string>
-    <string name="stats_model_conversation_avg">會話均值</string>
-    <string name="stats_model_conversations">參與過的會話</string>
-    <string name="stats_model_active_days">活躍天數</string>
-    <string name="stats_model_filter_title">時間範圍</string>
-    <string name="stats_model_filter_collapsed">篩選</string>
-    <string name="stats_model_filter_start">開始</string>
-    <string name="stats_model_filter_end">結束</string>
-    <string name="stats_model_filter_clear">清除篩選</string>
-    <string name="stats_model_filter_empty">這個時間範圍內沒有模型用量</string>
-    <string name="stats_model_filter_datetime_placeholder">日期</string>
-    <string name="stats_model_filter_datetime_title">設定日期</string>
-    <string name="stats_model_filter_set">設定</string>
-    <string name="stats_model_filter_preset_today">今天</string>
-    <string name="stats_model_filter_preset_7d">7天</string>
-    <string name="stats_model_filter_preset_week">本週</string>
-    <string name="stats_model_filter_preset_30d">30天</string>
-    <string name="stats_model_filter_preset_month">本月</string>
-    <string name="assistant_list_title">助手</string>
-    <string name="assistant_edit_title">人格</string>
-    <string name="assistant_search">搜尋助手</string>
-    <string name="assistant_add">新增助手</string>
-    <string name="assistant_current">目前使用</string>
-    <string name="assistant_empty">沒有符合的助手</string>
-    <string name="assistant_delete_title">刪除助手</string>
-    <string name="assistant_delete_body">確定刪除 %1$s？此操作無法復原。</string>
-    <string name="assistant_preview">預覽</string>
-    <string name="assistant_identity">身分</string>
-    <string name="assistant_name">名稱</string>
-    <string name="assistant_unnamed">未命名</string>
-    <string name="assistant_prompt_title">人格提示詞</string>
-    <string name="assistant_prompt_label">人格提示詞</string>
-    <string name="assistant_change_avatar">更換頭像</string>
-    <string name="assistant_crop_title">裁切頭像</string>
-    <string name="assistant_selector">助手</string>
-    <string name="assistant_memory_summary">只對目前助手生效。MEMORY.md 為所有助手共用。關閉後不注入、不允許讀寫，既有內容會保留。</string>
-    <string name="assistant_skills_summary">只對目前助手生效。三個內建 Skills 預設開啟，新安裝的需要在這裡手動打開。</string>
-    <string name="settings_assistants">助手</string>
+  <string name="stats_page_title">用量統計</string>
+  <string name="stats_page_heatmap_title">對話熱力圖</string>
+  <string name="stats_page_heatmap_less">少</string>
+  <string name="stats_page_heatmap_more">多</string>
+  <string name="stats_page_dow_mon">一</string>
+  <string name="stats_page_dow_wed">三</string>
+  <string name="stats_page_dow_fri">五</string>
+  <string name="stats_page_total_conversations">總對話數</string>
+  <string name="stats_page_total_messages">總訊息數</string>
+  <string name="stats_page_input_tokens">輸入 Token</string>
+  <string name="stats_page_fresh_input_tokens">輸入 Token（不含快取）</string>
+  <string name="stats_page_output_tokens">輸出 Token</string>
+  <string name="stats_page_cached_tokens">快取 Token</string>
+  <string name="stats_page_cache_creation_tokens">快取建立</string>
+  <string name="stats_page_token_total">總計</string>
+  <string name="stats_page_launch_count">應用啟動次數</string>
+  <string name="stats_tab_overview">對話統計</string>
+  <string name="stats_tab_models">模型用量</string>
+  <string name="stats_model_total_title">總用量</string>
+  <string name="stats_model_total_input">總輸入（含快取）</string>
+  <string name="stats_model_empty">與模型對話後，用量會顯示在這裡</string>
+  <string name="stats_model_daily_avg">日均</string>
+  <string name="stats_model_conversation_avg">會話均值</string>
+  <string name="stats_model_conversations">參與過的會話</string>
+  <string name="stats_model_active_days">活躍天數</string>
+  <string name="stats_model_filter_title">時間範圍</string>
+  <string name="stats_model_filter_collapsed">篩選</string>
+  <string name="stats_model_filter_start">開始</string>
+  <string name="stats_model_filter_end">結束</string>
+  <string name="stats_model_filter_clear">清除篩選</string>
+  <string name="stats_model_filter_empty">這個時間範圍內沒有模型用量</string>
+  <string name="stats_model_filter_datetime_placeholder">日期</string>
+  <string name="stats_model_filter_datetime_title">設定日期</string>
+  <string name="stats_model_filter_set">設定</string>
+  <string name="stats_model_filter_preset_today">今天</string>
+  <string name="stats_model_filter_preset_7d">7天</string>
+  <string name="stats_model_filter_preset_week">本週</string>
+  <string name="stats_model_filter_preset_30d">30天</string>
+  <string name="stats_model_filter_preset_month">本月</string>
+  <string name="assistant_list_title">助手</string>
+  <string name="assistant_edit_title">人格</string>
+  <string name="assistant_search">搜尋助手</string>
+  <string name="assistant_add">新增助手</string>
+  <string name="assistant_current">目前使用</string>
+  <string name="assistant_empty">沒有符合的助手</string>
+  <string name="assistant_delete_title">刪除助手</string>
+  <string name="assistant_delete_body">確定刪除 %1$s？此操作無法復原。</string>
+  <string name="assistant_preview">預覽</string>
+  <string name="assistant_identity">身分</string>
+  <string name="assistant_name">名稱</string>
+  <string name="assistant_unnamed">未命名</string>
+  <string name="assistant_prompt_title">人格提示詞</string>
+  <string name="assistant_prompt_label">人格提示詞</string>
+  <string name="assistant_change_avatar">更換頭像</string>
+  <string name="assistant_crop_title">裁切頭像</string>
+  <string name="assistant_selector">助手</string>
+  <string name="assistant_memory_summary">只對目前助手生效。MEMORY.md 為所有助手共用。關閉後不注入、不允許讀寫，既有內容會保留。</string>
+  <string name="assistant_skills_summary">只對目前助手生效。三個內建 Skills 預設開啟，新安裝的需要在這裡手動打開。</string>
+  <string name="settings_assistants">助手</string>
 
-    <string name="provider_auth_method_title">認證方式</string>
-    <string name="provider_auth_method_choose">選擇身分驗證方式</string>
-    <string name="provider_auth_api_key">API Key</string>
-    <string name="provider_auth_api_key_summary">OpenAI 官方介面和相容的第三方端點</string>
-    <string name="provider_auth_oauth">OAuth</string>
-    <string name="provider_auth_oauth_summary">使用 OpenAI Codex 登入</string>
-    <string name="provider_auth_method_note">OAuth 透過服務商網頁登入；API Key 使用帳戶面板中的金鑰。</string>
-    <string name="provider_oauth_sign_in">使用 OpenAI 登入</string>
-    <string name="provider_oauth_signed_in">已用 OpenAI Codex 登入</string>
-    <string name="provider_oauth_sign_in_note">在應用內開啟 ChatGPT 登入頁，選好帳戶後會自動回來。</string>
-    <string name="provider_oauth_login_title">登入 OpenAI</string>
-    <string name="provider_oauth_cancelled">已取消登入</string>
-    <string name="provider_oauth_signed_in_note">權杖保存在本機。請求失敗時再登入一次即可。</string>
-    <string name="provider_oauth_sign_in_ok">登入成功</string>
-    <string name="provider_oauth_sign_in_failed">登入失敗</string>
-    <string name="provider_oauth_need_sign_in">請先使用 OpenAI Codex 登入</string>
+  <string name="provider_auth_method_title">認證方式</string>
+  <string name="provider_auth_method_choose">選擇身分驗證方式</string>
+  <string name="provider_auth_api_key">API Key</string>
+  <string name="provider_auth_api_key_summary">OpenAI 官方介面和相容的第三方端點</string>
+  <string name="provider_auth_oauth">OAuth</string>
+  <string name="provider_auth_oauth_summary">使用 OpenAI Codex 登入</string>
+  <string name="provider_auth_method_note">OAuth 透過服務商網頁登入；API Key 使用帳戶面板中的金鑰。</string>
+  <string name="provider_oauth_sign_in">使用 OpenAI 登入</string>
+  <string name="provider_oauth_signed_in">已用 OpenAI Codex 登入</string>
+  <string name="provider_oauth_sign_in_note">在應用內開啟 ChatGPT 登入頁，選好帳戶後會自動回來。</string>
+  <string name="provider_oauth_login_title">登入 OpenAI</string>
+  <string name="provider_oauth_cancelled">已取消登入</string>
+  <string name="provider_oauth_signed_in_note">權杖保存在本機。請求失敗時再登入一次即可。</string>
+  <string name="provider_oauth_sign_in_ok">登入成功</string>
+  <string name="provider_oauth_sign_in_failed">登入失敗</string>
+  <string name="provider_oauth_need_sign_in">請先使用 OpenAI Codex 登入</string>
   <string name="ui_compress_request_api">請求介面</string>
   <string name="ui_compress_endpoint_hint">僅用於摘要，不影響正常對話。</string>
   <string name="ui_compress_endpoint_help">如何選擇介面</string>
-  <string name="ui_compress_models_loading">正在載入模型…</string>
+  <string name="ui_compress_models_loading">正在載入模型……</string>
   <string name="ui_auto_compress_context_summary">達到門檻時，自動摘要較早對話。</string>
   <string name="settings_model_features">模型功能</string>
   <string name="auxiliary_vision_title">輔助視覺模型</string>
@@ -1510,7 +1497,7 @@
   <string name="vd_recovery_busy">Agent 任務仍在執行，請先停止任務再復原</string>
   <string name="vd_recovery_scope">本頁管理Eta的工作階段副螢幕。127.0.0.1:3070 屬於獨立模組，不會顯示這類副螢幕。</string>
   <string name="vd_recovery_action">保留任務並關閉</string>
-  <string name="vd_recovery_working">正在檢查或復原…</string>
+  <string name="vd_recovery_working">正在檢查或復原……</string>
   <string name="vd_recovery_success">工作階段復原完成，副螢幕已釋放</string>
   <string name="vd_recovery_failed">復原未完成：%1$s</string>
   <string name="vd_recovery_refresh">重新整理狀態</string>
@@ -1542,7 +1529,6 @@
   <string name="reconnect_error_title">錯誤詳情</string>
   <string name="reconnect_elapsed_format">已用時 %1$s</string>
 
-  <!-- M3 Expressive 輸入區 -->
   <string name="composer_schedule_send">定時傳送</string>
   <string name="composer_save_draft">儲存草稿</string>
   <string name="composer_share">分享</string>
@@ -1596,11 +1582,11 @@
   <string name="acm_select_context_target">選擇上下文統計對象</string>
   <string name="acm_context_stats">上下文統計</string>
   <string name="acm_current_target">目前統計對象</string>
-  <string name="acb_compressing">%1$s • 正在壓縮上下文</string>
+  <string name="acb_compressing">%1$s · 正在壓縮上下文</string>
   <string name="sap_add_profile">新增子代理</string>
   <string name="ccd_title">本工作階段協作</string>
   <string name="ccd_config_failed">子代理設定讀取或儲存失敗：%1$s</string>
-  <string name="ccd_loading">正在讀取本工作階段的子代理設定…</string>
+  <string name="ccd_loading">正在讀取本工作階段的子代理設定……</string>
   <string name="ccd_select_conversation_first">請先選擇工作階段；未選擇工作階段時無法編輯。</string>
   <string name="ccd_agent_not_stopped">主代理尚未停止，暫時無法編輯本工作階段的設定。</string>
   <string name="ccd_choose_group">選擇子代理群組</string>
@@ -1618,7 +1604,7 @@
   <string name="spc_restore_failed">子代理群組恢復失敗；請重試</string>
   <string name="spc_dir_error">子代理群組讀取或儲存失敗：%1$s</string>
   <string name="spc_retry_read">重試讀取子代理群組</string>
-  <string name="spc_reading">正在讀取子代理群組…</string>
+  <string name="spc_reading">正在讀取子代理群組……</string>
   <string name="spc_empty">尚無子代理群組，可到設定中新增。</string>
   <string name="spc_profiles_summary">%1$d 個子代理 · %2$s</string>
   <string name="spc_auto_on">自動委派已開啟</string>
@@ -1759,7 +1745,7 @@
   <string name="sas_delete_group_title">刪除子代理群組？</string>
   <string name="sas_delete_group_note">刪除「%1$s」不會影響已套用此群組的工作階段。</string>
   <string name="sas_read_error">讀取或儲存子代理設定失敗：%1$s</string>
-  <string name="sas_loading">正在讀取子代理群組設定…</string>
+  <string name="sas_loading">正在讀取子代理群組設定……</string>
   <string name="sas_readonly">目前無法修改此子代理群組。</string>
   <string name="sas_config_note">設定屬於此預設群組；套用時會複製到工作階段，之後編輯不會影響它們。</string>
   <string name="sas_retry_restore">重試恢復設定</string>
@@ -1806,7 +1792,7 @@
   <string name="dv_selected_voice_hint">已選擇音色。點擊「匯入」繼續。</string>
   <string name="dv_selected_slot_hint">已選擇槽位。接下來選擇錄音；此時還不會上傳任何內容。</string>
   <string name="dv_postpaid_note">同一專案的後付費音色服務需單獨開通；只開通聲音複刻 2.0 不足以建立自訂 ID。首次正式合成可能產生音色費用；未正式使用的音色可能在 7 天後被刪除。</string>
-  <string name="dv_querying">正在查詢…</string>
+  <string name="dv_querying">正在查詢……</string>
   <string name="dv_import_success">已匯入。可在清單中預覽或查看狀態。</string>
   <string name="dv_import_failed">匯入失敗</string>
   <string name="dv_next_recording">下一步：選擇錄音</string>
@@ -1821,7 +1807,7 @@
   <string name="dv_postpaid_fee_note">後付費音色服務需單獨開通；預覽依帳號規則計費，首次正式合成可能產生音色費用。</string>
   <string name="dv_training_note">錄音會上傳到豆包，消耗該音色的訓練配額，並可能覆蓋原音色。預覽依帳號配額或計費規則結算。</string>
   <string name="dv_consent">我有權使用該錄音，並確認以上操作</string>
-  <string name="dv_submitting">正在提交…</string>
+  <string name="dv_submitting">正在提交……</string>
   <string name="dv_upload_create">確認上傳並建立</string>
   <string name="dv_submit_success">建立任務已提交。請重新整理下方狀態。正式使用前請先預覽。</string>
   <string name="dv_submit_failed">提交失敗</string>
@@ -1840,7 +1826,7 @@
   <string name="dv_sk_save_failed">安全儲存 SK 失敗。本次仍可讀取槽位；離開頁面後請重新輸入。</string>
   <string name="dv_current_project">目前專案：%1$s</string>
   <string name="dv_not_selected">未選擇</string>
-  <string name="dv_loading_projects">正在載入專案…</string>
+  <string name="dv_loading_projects">正在載入專案……</string>
   <string name="dv_refresh_projects">重新整理專案清單</string>
   <string name="dv_load_projects">載入專案清單</string>
   <string name="dv_no_projects">未傳回任何專案。請重試或手動輸入。</string>
@@ -1852,7 +1838,7 @@
   <string name="dv_manual_project">手動輸入專案（備用）</string>
   <string name="dv_project_name">專案名稱</string>
   <string name="dv_no_project_access">無權存取此專案</string>
-  <string name="dv_searching_slots">正在尋找槽位…</string>
+  <string name="dv_searching_slots">正在尋找槽位……</string>
   <string name="dv_read_my_slots">讀取我的槽位</string>
   <string name="dv_no_slots_found">此專案中找不到音色槽位。請檢查控制台左上角的專案。免費字元配額不保證有音色槽位。</string>
   <string name="dv_synced_count">已同步 %1$d 個槽位。空槽位僅在建立音色時顯示；已建立的音色會出現在「我的音色」中。</string>
@@ -1861,7 +1847,7 @@
   <string name="dv_clear_remembered">清除已記住的資訊</string>
   <string name="dv_cleared">已清除 AK、SK 和專案名稱</string>
   <string name="dv_clear_failed">清除已儲存的 SK 失敗，請重試。</string>
-  <string name="dv_preview_loading">正在載入預覽…</string>
+  <string name="dv_preview_loading">正在載入預覽……</string>
   <string name="dv_previewing">正在預覽</string>
   <string name="dv_status_rejected">請求被拒絕</string>
   <string name="dv_status_notfound">伺服器上找不到</string>
@@ -1897,12 +1883,12 @@
   <string name="pv_import_note">匯入僅儲存到本機。預覽或將此音色用於朗讀時，參考錄音和文字會傳送到所選 MiMo 供應商。Base64 編碼後大小不得超過 10 MB。</string>
   <string name="pv_saved_toast">參考錄音已儲存。點擊即可預覽。</string>
   <string name="pv_import_failed">匯入錄音失敗。請檢查檔案格式和大小。</string>
-  <string name="pv_saving">正在儲存…</string>
+  <string name="pv_saving">正在儲存……</string>
   <string name="pv_save_reference">儲存參考音色</string>
   <string name="pv_sample_hint">預覽文字</string>
   <string name="pv_provider_unavailable">供應商無法使用</string>
   <string name="pv_voice_meta">%1$s · %2$s 秒 · 參考錄音已儲存</string>
-  <string name="pv_generating_preview">正在生成預覽…</string>
+  <string name="pv_generating_preview">正在生成預覽……</string>
   <string name="pv_enable_model_first">請先啟用 MiMo 朗讀模型</string>
   <string name="pv_set_as_read_aloud">將「%1$s」設為朗讀音色</string>
   <string name="pv_use_for_read_aloud">用於朗讀</string>

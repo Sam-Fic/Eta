@@ -649,7 +649,7 @@ private fun ProviderConfigTab(
                 val dangerLabel = if (provider.isBuiltIn) {
                     context.getString(R.string.page_reset_built_in_configuration_35b6ec)
                 } else {
-                    context.getString(R.string.page_remove_provider_9f848f)
+                    context.getString(R.string.ui_remove_provider_9f848f)
                 }
                 // KernelSU 设置页「卸载」同款：分段行 + Delete 图标 + 官方 error 角色色，
                 // 不再用大块卡片抢占视觉重心。
@@ -692,7 +692,7 @@ private fun ProviderConfigTab(
         val confirmLabel = if (isWorking) {
             context.getString(R.string.page_deleting_6f941d)
         } else {
-            context.getString(R.string.page_delete_3755f5)
+            context.getString(R.string.ui_delete_3755f5)
         }
         val dialogTitle = stringResource(R.string.ui_remove_provider_9f848f)
         val dialogSummary = stringResource(R.string.provider_delete_summary, provider.name)

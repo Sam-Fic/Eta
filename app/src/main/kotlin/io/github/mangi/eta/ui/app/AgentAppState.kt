@@ -7373,7 +7373,7 @@ internal fun buildToolsState(context: Context): AgentToolsUiState =
             ),
             ToolGroupUi(
                 id = "memory",
-                title = context.getString(R.string.state_memory_b55ff5),
+                title = context.getString(R.string.ui_memory_b55ff5),
                 tools = listOf(
                     ToolItemUi("memory_get", context.getString(R.string.tool_ui_read_memory_979135), context.getString(R.string.tool_ui_paged_to_read_or_retrieve_long_term_memory_in_me_88afc4)),
                     ToolItemUi("memory_write", context.getString(R.string.tool_ui_organize_memory_2b08eb), context.getString(R.string.tool_ui_partially_update_append_or_clear_long_term_memor_c1bab6)),
@@ -7415,7 +7415,7 @@ private fun buildPermissionHealthState(context: Context): PermissionHealthUiStat
             ),
             PermissionHealthItemUi(
                 id = "overlay",
-                title = context.getString(R.string.state_floating_window_permissions_076b77),
+                title = context.getString(R.string.ui_floating_window_permissions_076b77),
                 summary = "",
                 status = if (overlayEnabled) PermissionStatusUi.Available else PermissionStatusUi.Missing,
                 primaryActionLabel = if (overlayEnabled) null else context.getString(R.string.state_ui_to_authorize_762ec4),
