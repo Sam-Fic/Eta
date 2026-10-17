@@ -7,46 +7,42 @@ import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Cancel
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Text
 import androidx.compose.material3.SheetValue
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import io.github.mangi.eta.R
-import io.github.mangi.eta.agent.browser.ported.ui.components.MinisTextButton
 import io.github.mangi.eta.agent.browser.ported.browser.BrowserTabPool
+import io.github.mangi.eta.ui.adaptive.EtaGroupHorizontalPadding
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedGroupSpacing
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 
 /**
  * [T-android-browser-download-ux] Downloads panel — Android port of iOS
@@ -57,6 +53,9 @@ import io.github.mangi.eta.agent.browser.ported.browser.BrowserTabPool
  * show the reason. "Clear" drops ALL finished records (completed AND failed,
  * v3 semantics); in-flight rows stay. Opening the panel marks terminal
  * entries seen, which zeroes the toolbar badge.
+ *
+ * M3 Expressive：官方 [ModalBottomSheet] + [BrowserSheetTopBar] 页头，
+ * 列表走项目分段列表套件（[EtaSegmentedColumn] / [EtaSegmentedRow]）。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -75,48 +74,98 @@ fun BrowserDownloadsSheet(
     // actually looked at the panel.
     LaunchedEffect(Unit) { tabPool.markDownloadsSeen() }
 
+    val hasFinished = downloads.any { it.state != BrowserTabPool.DownloadState.DOWNLOADING }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .padding(bottom = 24.dp),
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    stringResource(R.string.om_browser_downloads_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f),
-                )
-                if (downloads.any { it.state != BrowserTabPool.DownloadState.DOWNLOADING }) {
-                    MinisTextButton(onClick = { tabPool.clearFinishedDownloads() }) {
-                        Text(stringResource(R.string.om_browser_downloads_clear))
+        Column(modifier = Modifier.fillMaxWidth()) {
+            BrowserSheetTopBar(
+                title = stringResource(R.string.om_browser_downloads_title),
+                onDismiss = onDismiss,
+                actions = {
+                    if (hasFinished) {
+                        TextButton(onClick = { tabPool.clearFinishedDownloads() }) {
+                            Text(stringResource(R.string.om_browser_downloads_clear))
+                        }
                     }
-                }
-            }
+                },
+            )
+
             if (downloads.isEmpty()) {
-                Text(
-                    stringResource(R.string.om_browser_downloads_empty),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(vertical = 24.dp),
+                BrowserSheetEmptyState(
+                    title = stringResource(R.string.om_browser_downloads_empty),
                 )
             } else {
-                LazyColumn {
-                    items(downloads, key = { it.id }) { entry ->
-                        DownloadRow(
-                            entry = entry,
-                            onCancel = { tabPool.cancelDownload(entry.id) },
-                            onOpen = { openDownloadedFile(context, entry) },
-                        )
-                        HorizontalDivider()
+                EtaSegmentedColumn(
+                    modifier = Modifier.padding(
+                        start = EtaGroupHorizontalPadding,
+                        end = EtaGroupHorizontalPadding,
+                        bottom = EtaSegmentedGroupSpacing,
+                    ),
+                ) {
+                    downloads.forEach { entry ->
+                        item(key = entry.id) {
+                            EtaSegmentedRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            leadingContent = {
+                                val (icon, tint) = when (entry.state) {
+                                    BrowserTabPool.DownloadState.DOWNLOADING ->
+                                        Icons.Rounded.Download to MaterialTheme.colorScheme.primary
+                                    BrowserTabPool.DownloadState.COMPLETED ->
+                                        Icons.Rounded.CheckCircle to MaterialTheme.colorScheme.primary
+                                    BrowserTabPool.DownloadState.FAILED ->
+                                        Icons.Rounded.ErrorOutline to MaterialTheme.colorScheme.error
+                                }
+                                Icon(
+                                    imageVector = icon,
+                                    contentDescription = null,
+                                    tint = tint,
+                                    modifier = Modifier.size(24.dp),
+                                )
+                            },
+                            content = {
+                                Text(
+                                    // Middle truncation keeps the extension visible (iOS v3).
+                                    text = BrowserTabPool.middleTruncated(entry.filename, head = 24, tail = 12),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            },
+                            supportingContent = {
+                                DownloadStatusText(entry = entry)
+                            },
+                            trailingContent = {
+                                when (entry.state) {
+                                    BrowserTabPool.DownloadState.DOWNLOADING -> {
+                                        IconButton(onClick = { tabPool.cancelDownload(entry.id) }) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.Cancel,
+                                                contentDescription = stringResource(R.string.om_browser_downloads_cancel),
+                                            )
+                                        }
+                                    }
+                                    BrowserTabPool.DownloadState.COMPLETED -> {
+                                        IconButton(onClick = { openDownloadedFile(context, entry) }) {
+                                            Icon(
+                                                imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
+                                                contentDescription = stringResource(R.string.om_browser_downloads_open),
+                                                tint = MaterialTheme.colorScheme.primary,
+                                            )
+                                        }
+                                    }
+                                    BrowserTabPool.DownloadState.FAILED -> {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Delete,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.error,
+                                        )
+                                    }
+                                }
+                            },
+                            )
+                        }
                     }
                 }
             }
@@ -124,115 +173,63 @@ fun BrowserDownloadsSheet(
     }
 }
 
+/** 下载条目的状态行：进度 + 体积，或失败原因。 */
 @Composable
-private fun DownloadRow(
-    entry: BrowserTabPool.DownloadEntry,
-    onCancel: () -> Unit,
-    onOpen: () -> Unit,
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-    ) {
-        val (icon, tint) = when (entry.state) {
-            BrowserTabPool.DownloadState.DOWNLOADING ->
-                Icons.Rounded.Download to MaterialTheme.colorScheme.primary
-            BrowserTabPool.DownloadState.COMPLETED ->
-                Icons.Rounded.CheckCircle to androidx.compose.ui.graphics.Color(0xFF34C759)
-            BrowserTabPool.DownloadState.FAILED ->
-                Icons.Rounded.ErrorOutline to MaterialTheme.colorScheme.error
+private fun DownloadStatusText(entry: BrowserTabPool.DownloadEntry) {
+    val context = LocalContext.current
+    when (entry.state) {
+        BrowserTabPool.DownloadState.DOWNLOADING -> {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                val doneText = android.text.format.Formatter
+                    .formatShortFileSize(context, entry.bytesDone)
+                val statusText = if (entry.totalBytes > 0) {
+                    val totalText = android.text.format.Formatter
+                        .formatShortFileSize(context, entry.totalBytes)
+                    val pct = (entry.bytesDone * 100 / entry.totalBytes).toInt()
+                    "$pct% · $doneText / $totalText"
+                } else {
+                    doneText
+                }
+                Text(
+                    text = statusText,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (entry.totalBytes > 0) {
+                    LinearProgressIndicator(
+                        progress = {
+                            (entry.bytesDone.toFloat() / entry.totalBytes).coerceIn(0f, 1f)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                } else {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
+            }
         }
-        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
+        BrowserTabPool.DownloadState.COMPLETED -> {
             Text(
-                // Middle truncation keeps the extension visible (iOS v3).
-                BrowserTabPool.middleTruncated(entry.filename, head = 24, tail = 12),
-                style = MaterialTheme.typography.bodyMedium,
+                text = android.text.format.Formatter
+                    .formatShortFileSize(context, entry.bytesDone),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        BrowserTabPool.DownloadState.FAILED -> {
+            Text(
+                text = entry.failureReason
+                    ?: stringResource(R.string.om_browser_downloads_failed),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.error,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.height(2.dp))
-            when (entry.state) {
-                BrowserTabPool.DownloadState.DOWNLOADING -> {
-                    val context = LocalContext.current
-                    val doneText = android.text.format.Formatter
-                        .formatShortFileSize(context, entry.bytesDone)
-                    val statusText = if (entry.totalBytes > 0) {
-                        val totalText = android.text.format.Formatter
-                            .formatShortFileSize(context, entry.totalBytes)
-                        val pct = (entry.bytesDone * 100 / entry.totalBytes).toInt()
-                        "$pct% · $doneText / $totalText"
-                    } else {
-                        doneText
-                    }
-                    Text(
-                        statusText,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    if (entry.totalBytes > 0) {
-                        LinearProgressIndicator(
-                            progress = {
-                                (entry.bytesDone.toFloat() / entry.totalBytes).coerceIn(0f, 1f)
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    } else {
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                    }
-                }
-                BrowserTabPool.DownloadState.COMPLETED -> {
-                    val context = LocalContext.current
-                    Text(
-                        android.text.format.Formatter
-                            .formatShortFileSize(context, entry.bytesDone),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                BrowserTabPool.DownloadState.FAILED -> {
-                    Text(
-                        entry.failureReason
-                            ?: stringResource(R.string.om_browser_downloads_failed),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.error,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-        }
-        Spacer(Modifier.width(8.dp))
-        when (entry.state) {
-            BrowserTabPool.DownloadState.DOWNLOADING -> {
-                IconButton(onClick = onCancel) {
-                    Icon(
-                        Icons.Rounded.Cancel,
-                        contentDescription = stringResource(R.string.om_browser_downloads_cancel),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-            BrowserTabPool.DownloadState.COMPLETED -> {
-                IconButton(onClick = onOpen) {
-                    Icon(
-                        Icons.AutoMirrored.Rounded.OpenInNew,
-                        contentDescription = stringResource(R.string.om_browser_downloads_open),
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                }
-            }
-            BrowserTabPool.DownloadState.FAILED -> Unit
         }
     }
 }
 
 /** ACTION_VIEW via FileProvider — same pattern as FilePreviewScreen's
- *  openExternally; the `minis-sessions/` root is a declared provider path. */
+ * openExternally; the `minis-sessions/` root is a declared provider path. */
 private fun openDownloadedFile(context: Context, entry: BrowserTabPool.DownloadEntry) {
     val file = entry.destination ?: return
     if (!file.exists()) return

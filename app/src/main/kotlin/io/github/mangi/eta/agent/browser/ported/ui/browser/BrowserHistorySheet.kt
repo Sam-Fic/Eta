@@ -3,52 +3,51 @@
 // Local/private integration; see third_party/openminis-browser/NOTICE.md.
 package io.github.mangi.eta.agent.browser.ported.ui.browser
 
-import io.github.mangi.eta.R
-import androidx.compose.ui.res.stringResource
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Language
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
 import androidx.compose.material3.SheetValue
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.browser.ported.browser.BrowserHistoryStore
+import io.github.mangi.eta.ui.adaptive.EtaDialog
+import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.EtaGroupHorizontalPadding
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedGroupSpacing
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import io.github.mangi.eta.agent.browser.ported.ui.components.MinisTextButton
 
+/**
+ * 历史面板（M3 Expressive）：官方 [ModalBottomSheet] + [TopAppBar] 页头，
+ * 列表走项目分段列表套件（[EtaSegmentedColumn] / [EtaSegmentedRow]），
+ * 按天分组，组标题用官方 `titleSmallEmphasized` + primary。
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BrowserHistorySheet(
@@ -62,135 +61,116 @@ fun BrowserHistorySheet(
     )
     var searchQuery by remember { mutableStateOf("") }
     var showClearConfirm by remember { mutableStateOf(false) }
+    val resultsLabel = stringResource(R.string.om_browser_history_results)
 
     val entries = remember(searchQuery, historyStore.getEntries().size) {
         if (searchQuery.isBlank()) historyStore.groupedByDay()
-        else mapOf("Results" to historyStore.search(searchQuery))
+        else mapOf(resultsLabel to historyStore.search(searchQuery))
     }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.8f)
-                .navigationBarsPadding(),
-        ) {
-            // Header
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    stringResource(R.string.om_browser_history_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f),
-                )
-                MinisTextButton(
-                    onClick = { showClearConfirm = true },
-                    enabled = historyStore.getEntries().isNotEmpty(),
-                ) {
-                    Text(stringResource(R.string.om_browser_history_clear), color = MaterialTheme.colorScheme.error)
-                }
-                MinisTextButton(onClick = onDismiss) {
-                    Text(stringResource(R.string.om_browser_history_done))
-                }
-            }
+        Column(modifier = Modifier.fillMaxWidth()) {
+            BrowserSheetTopBar(
+                title = stringResource(R.string.om_browser_history_title),
+                onDismiss = onDismiss,
+                actions = {
+                    TextButton(
+                        onClick = { showClearConfirm = true },
+                        enabled = historyStore.getEntries().isNotEmpty(),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.om_browser_history_clear),
+                            color = if (historyStore.getEntries().isNotEmpty()) {
+                                MaterialTheme.colorScheme.error
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                    }
+                },
+            )
 
-            // Search bar
+            // 搜索框：官方 OutlinedTextField（前导搜索图标，去掉自绘圆角与字阶覆盖）。
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 placeholder = { Text(stringResource(R.string.om_browser_history_search)) },
+                leadingIcon = {
+                    Icon(imageVector = Icons.Rounded.Search, contentDescription = null)
+                },
+                singleLine = true,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                singleLine = true,
-                shape = RoundedCornerShape(16.dp),
-                textStyle = MaterialTheme.typography.bodySmall,
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
             )
 
-            Spacer(Modifier.height(8.dp))
-
             if (entries.values.flatten().isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            stringResource(R.string.om_browser_history_empty_title),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            stringResource(R.string.om_browser_history_empty_subtitle),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                        )
-                    }
-                }
+                BrowserSheetEmptyState(
+                    title = stringResource(R.string.om_browser_history_empty_title),
+                    summary = stringResource(R.string.om_browser_history_empty_subtitle),
+                )
             } else {
                 LazyColumn(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding(),
                 ) {
                     for ((dayLabel, dayEntries) in entries) {
                         if (dayEntries.isEmpty()) continue
-                        item(key = "header_$dayLabel") {
-                            Text(
-                                dayLabel,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp),
-                            )
-                        }
-                        items(dayEntries, key = { it.id }) { entry ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { onNavigate(entry.url) }
-                                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        item(key = "group_$dayLabel") {
+                            EtaSegmentedColumn(
+                                title = dayLabel,
+                                modifier = Modifier.padding(
+                                    start = EtaGroupHorizontalPadding,
+                                    end = EtaGroupHorizontalPadding,
+                                    bottom = EtaSegmentedGroupSpacing,
+                                ),
                             ) {
-                                Icon(
-                                    Icons.Rounded.Language,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                )
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        entry.title.ifEmpty { entry.domain },
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                    Text(
-                                        entry.url,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
+                                dayEntries.forEach { entry ->
+                                    item(key = entry.id) {
+                                        EtaSegmentedRow(
+                                            onClick = { onNavigate(entry.url) },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            leadingContent = {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.History,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                            },
+                                            content = {
+                                                Text(
+                                                    text = entry.title.ifEmpty { entry.domain },
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                )
+                                            },
+                                            supportingContent = {
+                                                Text(
+                                                    text = entry.url,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                )
+                                            },
+                                            trailingContent = {
+                                                Text(
+                                                    text = SimpleDateFormat("HH:mm", Locale.getDefault())
+                                                        .format(Date(entry.timestamp)),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                            },
+                                        )
+                                    }
                                 }
-                                Text(
-                                    SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(entry.timestamp)),
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                )
                             }
-                            HorizontalDivider(modifier = Modifier.padding(start = 46.dp))
                         }
+                    }
+                    item(key = "eta_bottom_spacer") {
+                        Spacer(modifier = Modifier.height(24.dp))
                     }
                 }
             }
@@ -198,23 +178,21 @@ fun BrowserHistorySheet(
     }
 
     if (showClearConfirm) {
-        AlertDialog(
+        EtaDialog(
+            show = true,
+            title = stringResource(R.string.om_browser_history_clear_dialog_title),
+            summary = stringResource(R.string.om_browser_history_clear_dialog_message),
             onDismissRequest = { showClearConfirm = false },
-            title = { Text(stringResource(R.string.om_browser_history_clear_dialog_title)) },
-            text = { Text(stringResource(R.string.om_browser_history_clear_dialog_message)) },
-            confirmButton = {
-                MinisTextButton(onClick = {
+        ) {
+            EtaDialogActions(
+                confirmText = stringResource(R.string.om_browser_history_clear),
+                destructive = true,
+                onCancel = { showClearConfirm = false },
+                onConfirm = {
                     historyStore.clear()
                     showClearConfirm = false
-                }) {
-                    Text(stringResource(R.string.om_browser_history_clear), color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                MinisTextButton(onClick = { showClearConfirm = false }) {
-                    Text(stringResource(R.string.om_cancel))
-                }
-            },
-        )
+                },
+            )
+        }
     }
 }

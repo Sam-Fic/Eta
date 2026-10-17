@@ -3,19 +3,12 @@
 // See third_party/openminis-browser/NOTICE.md.
 package io.github.mangi.eta.agent.browser.ported.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
-import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 
 // Accent: iOS blue, desaturated. [T-android-accent-blue-parity]
 //
@@ -74,7 +67,7 @@ private val TealDarkOutline = Color(0xFF899390)
 // Override Material3's tonal `surfaceContainer*` so cards don't pick up the
 // teal primary tint.
 // Light: page = #F2F2F7 gray, card = white
-// Dark:  page = #000, card = #1C1C1E
+// Dark: page = #000, card = #1C1C1E
 private val NeutralGroupedBg = Color(0xFFF2F2F7)
 private val NeutralGroupedCard = Color(0xFFFFFFFF)
 private val NeutralGroupedCardElevated = Color(0xFFF7F7FA)
@@ -137,12 +130,6 @@ internal val DarkColorScheme = darkColorScheme(
     outlineVariant = NeutralDarkOutline,
 )
 
-// App-wide FAB accent color (warm beige, matching iOS New Chat button).
-// Reads from ChatPalette so it follows the in-app theme override (theme_mode pref),
-// not android.isSystemInDarkTheme(), which only tracks the system setting.
-@Composable
-fun minisFabColor(): Color = LocalChatPalette.current.fabAccent
-
 // App-wide shape system — larger corners for a modern, friendly feel
 // DropdownMenu uses extraSmall, Dialog uses extraLarge, BottomSheet uses extraLarge
 internal val MinisShapes = Shapes(
@@ -150,48 +137,5 @@ internal val MinisShapes = Shapes(
     small = RoundedCornerShape(12.dp),        // Chip, TextField
     medium = RoundedCornerShape(16.dp),       // Card, Snackbar
     large = RoundedCornerShape(24.dp),        // NavigationDrawer
-    extraLarge = RoundedCornerShape(24.dp),   // Dialog, BottomSheet
+    extraLarge = RoundedCornerShape(28.dp),   // Dialog, BottomSheet（上游 28dp，见 BrowserThemeParityTest）
 )
-
-@Composable
-fun OpenMinisBrowserTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    fontScale: Float = 1f,
-    content: @Composable () -> Unit,
-) {
-    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
-    val typography = scaledTypography(fontScale)
-    val chatPalette = if (darkTheme) DarkChatPalette else LightChatPalette
-
-    MaterialTheme(
-        colorScheme = colorScheme,
-        shapes = MinisShapes,
-        typography = typography,
-    ) {
-        CompositionLocalProvider(LocalChatPalette provides chatPalette, content = content)
-    }
-}
-
-private fun TextStyle.scale(factor: Float): TextStyle =
-    if (factor == 1f) this else copy(fontSize = fontSize * factor)
-
-private fun scaledTypography(factor: Float): Typography {
-    val base = Typography()
-    return Typography(
-        displayLarge = base.displayLarge.scale(factor),
-        displayMedium = base.displayMedium.scale(factor),
-        displaySmall = base.displaySmall.scale(factor),
-        headlineLarge = base.headlineLarge.scale(factor),
-        headlineMedium = base.headlineMedium.scale(factor),
-        headlineSmall = base.headlineSmall.scale(factor),
-        titleLarge = base.titleLarge.scale(factor),
-        titleMedium = base.titleMedium.scale(factor),
-        titleSmall = base.titleSmall.scale(factor),
-        bodyLarge = base.bodyLarge.scale(factor),
-        bodyMedium = base.bodyMedium.scale(factor),
-        bodySmall = base.bodySmall.scale(factor),
-        labelLarge = base.labelLarge.scale(factor),
-        labelMedium = base.labelMedium.scale(factor),
-        labelSmall = base.labelSmall.scale(factor),
-    )
-}

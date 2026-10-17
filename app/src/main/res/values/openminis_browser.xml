@@ -16,6 +16,7 @@
     <string name="om_browser_history_empty_subtitle">History is kept for 7 days</string>
     <string name="om_browser_history_empty_title">No browsing history</string>
     <string name="om_browser_history_search">Search history</string>
+    <string name="om_browser_history_results">Results</string>
     <string name="om_browser_history_title">History</string>
     <string name="om_browser_minis_browsing">Minis is browsing</string>
 
@@ -48,6 +49,23 @@
     <string name="om_browser_settings_ua_not_set">Not set</string>
 
     <string name="om_browser_settings_user_agent">User Agent</string>
+    <string name="om_browser_settings_viewport">Web Viewport</string>
+    <string name="om_browser_settings_viewport_default">Default (auto by UA)</string>
+    <string name="om_browser_settings_viewport_custom">Custom</string>
+    <string name="om_browser_settings_viewport_custom_summary">Set your own width × height</string>
+    <string name="om_browser_settings_viewport_width">Width</string>
+    <string name="om_browser_settings_viewport_height">Height</string>
+    <string name="om_browser_settings_viewport_using_custom">Using custom viewport %1$d × %2$d. Tap Default to revert to the UA default.</string>
+    <string name="om_browser_settings_viewport_using_default">Using UA default %1$d × %2$d. Set a custom size to override.</string>
+    <string name="om_browser_settings_quick_set">Quick Set</string>
+    <string name="om_browser_settings_preset_phone">Phone</string>
+    <string name="om_browser_settings_preset_phone_pro">Phone Pro</string>
+    <string name="om_browser_settings_preset_tablet">Tablet</string>
+    <string name="om_browser_settings_preset_laptop">Laptop</string>
+    <string name="om_browser_settings_preset_desktop">Desktop</string>
+    <string name="om_browser_settings_preset_full_hd">Full HD</string>
+    <string name="om_browser_settings_ua_mismatch_mobile">Viewport ≥%1$dpx while UA is Mobile — sites may serve a desktop layout that renders awkwardly. Consider switching UA to Desktop.</string>
+    <string name="om_browser_settings_ua_mismatch_desktop">Viewport &lt;%1$dpx while UA is Desktop — sites may serve a mobile layout that renders awkwardly. Consider switching UA to Mobile.</string>
     <string name="om_browser_stop">Stop</string>
     <string name="om_browser_takeover">Takeover</string>
     <string name="om_browser_title">Browser</string>
