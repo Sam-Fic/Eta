@@ -80,8 +80,9 @@ import io.github.mangi.eta.ui.model.AgentModelPickerUiState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import androidx.compose.material3.CircularProgressIndicator as M3CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.TextButton as M3TextButton
 
 
@@ -221,7 +222,7 @@ private fun CompactCompressionEndpointPreference(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun CompressConversationDialog(
     show: Boolean,
@@ -375,8 +376,8 @@ internal fun CompressConversationDialog(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    // 官方不确定进度指示器：尺寸/线宽/配色全部使用官方默认值。
-                    M3CircularProgressIndicator(modifier = Modifier.size(18.dp))
+                    // M3E LoadingIndicator（morph 变形）：行内 18dp 槽，按 loading 选型表统一。
+                    LoadingIndicator(modifier = Modifier.size(18.dp))
                     Text(
                         text = stringResource(R.string.compress_conversation_in_progress),
                         style = MaterialTheme.typography.bodyMedium,
@@ -468,6 +469,7 @@ internal fun CompressModelMissingWindowDialog(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun CompressModelPickerDialog(
     state: AgentModelPickerUiState,
@@ -500,7 +502,7 @@ internal fun CompressModelPickerDialog(
                         .padding(horizontal = 4.dp, vertical = 16.dp),
                     horizontalArrangement = Arrangement.Center,
                 ) {
-                    M3CircularProgressIndicator(modifier = Modifier.size(22.dp))
+                    LoadingIndicator(modifier = Modifier.size(22.dp))
                 }
             } else if (state.providerGroups.isEmpty()) {
                 Text(

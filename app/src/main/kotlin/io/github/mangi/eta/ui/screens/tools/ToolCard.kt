@@ -35,9 +35,9 @@ import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.tool.AgentToolCapabilities
 import io.github.mangi.eta.agent.tool.RootRequirement
+import io.github.mangi.eta.agent.tool.ToolPresentation
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 import io.github.mangi.eta.ui.components.ItemDescriptionDialog
-import io.github.mangi.eta.ui.components.iconForTool
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.model.AgentToolsAction
 import io.github.mangi.eta.ui.model.ToolItemUi
@@ -76,7 +76,7 @@ internal fun ToolListRow(
             if (action != null) onAction(action) else showDescription = true
         },
         leadingContent = {
-            Icon(imageVector = iconForTool(tool.id), contentDescription = null)
+            Icon(imageVector = ToolPresentation.icon(tool.id), contentDescription = null)
         },
         supportingContent = {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -168,7 +168,7 @@ internal fun ToolCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                imageVector = iconForTool(tool.id),
+                imageVector = ToolPresentation.icon(tool.id),
                 contentDescription = null,
                 modifier = Modifier.size(24.dp),
                 tint = MaterialTheme.colorScheme.onSurface,

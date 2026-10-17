@@ -668,6 +668,12 @@ private fun ConsoleKeyBar(
     }
 }
 
+/** 键帽内边距：纵向取官方 ContentPadding，水平收紧到 6dp（7 个键排进一行）。 */
+private val KeyChipContentPadding = PaddingValues(
+    horizontal = 6.dp,
+    vertical = M3ButtonDefaults.ContentPadding.calculateTopPadding(),
+)
+
 @Composable
 private fun KeyChip(
     label: String,
@@ -684,7 +690,7 @@ private fun KeyChip(
                 TouchHaptics.keyboardTap(view)
                 onClick()
             },
-            contentPadding = ButtonDefaults.ContentPadding.copy(horizontal = 6.dp),
+            contentPadding = KeyChipContentPadding,
             modifier = modifier,
         ) {
             M3Text(text = label, style = MaterialTheme.typography.labelLarge)
@@ -695,7 +701,7 @@ private fun KeyChip(
                 TouchHaptics.keyboardTap(view)
                 onClick()
             },
-            contentPadding = ButtonDefaults.ContentPadding.copy(horizontal = 6.dp),
+            contentPadding = KeyChipContentPadding,
             modifier = modifier,
         ) {
             M3Text(text = label, style = MaterialTheme.typography.labelLarge)

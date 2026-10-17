@@ -5,6 +5,7 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,6 +29,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
+import androidx.compose.material3.ToggleButton
+import androidx.compose.material3.ToggleButtonDefaults
+import androidx.compose.material3.ToggleButtonShapes
+import androidx.compose.material3.ToggleButtonSize
 import androidx.compose.material3.ripple
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberSearchBarState
@@ -174,6 +179,69 @@ fun EtaConnectedGroupRow(
         horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
         content = content,
     )
+}
+
+/**
+ * 相连按钮组统一配色（用户指定）：官方默认 secondaryContainer 档，选中态同色，
+ * 与页面其他 FilledTonal 系组件同色阶。
+ */
+@Composable
+fun etaConnectedGroupColors() = ToggleButtonDefaults.colors(
+    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+    checkedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+    checkedContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+)
+
+/**
+ * 相连按钮组里的图标动作（KernelSU AppProfile 同款官方模式）：官方 `ToggleButton` +
+ * `ButtonGroupDefaults` 连体形状（首位/中间/末位）。纯图标按钮用官方
+ * `extraSmallContainerSize` 强制成等宽等高的方形容器（顶栏组用 Small/40dp，消息操作条
+ * 再小一号用 XS/32dp），`contentPadding(0.dp)` 置零官方文字按钮的水平内边距。
+ * 单按钮（`count <= 1`）时退回官方默认全圆角形状。
+ *
+ * 此前实现私藏在 `AgentTurnFooter.kt`（M3ConnectedIconAction / M3ConnectedGroupColors），
+ * 现收编进本套件作为唯一出处。
+ */
+@Composable
+fun EtaConnectedIconAction(
+    onClick: () -> Unit,
+    enabled: Boolean,
+    index: Int,
+    count: Int,
+    content: @Composable RowScope.() -> Unit,
+) {
+    val shapes: ToggleButtonShapes? = when {
+        count <= 1 -> null
+        index <= 0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+        index >= count - 1 -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+        else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+    }
+    val colors = etaConnectedGroupColors()
+    if (shapes == null) {
+        ToggleButton(
+            checked = false,
+            onCheckedChange = { onClick() },
+            enabled = enabled,
+            modifier = Modifier.size(IconButtonDefaults.extraSmallContainerSize()),
+            buttonSize = ToggleButtonSize.Small,
+            contentPadding = PaddingValues(0.dp),
+            colors = colors,
+            content = content,
+        )
+    } else {
+        ToggleButton(
+            checked = false,
+            onCheckedChange = { onClick() },
+            enabled = enabled,
+            modifier = Modifier.size(IconButtonDefaults.extraSmallContainerSize()),
+            buttonSize = ToggleButtonSize.Small,
+            shapes = shapes,
+            contentPadding = PaddingValues(0.dp),
+            colors = colors,
+            content = content,
+        )
+    }
 }
 
 // ---------------------------------------------------------------------------

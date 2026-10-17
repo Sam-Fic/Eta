@@ -26,9 +26,10 @@ import io.github.mangi.eta.ui.adaptive.etaTextStyle
 import io.github.mangi.eta.ui.model.ActiveRunSummaryUi
 import io.github.mangi.eta.ui.model.RunStatusUi
 import androidx.compose.material3.Card as M3Card
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text as M3Text
 import androidx.compose.material3.TextButton as M3TextButton
@@ -87,14 +88,16 @@ fun AgentStatusCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun StatusIndicator(status: RunStatusUi) {
-    // M3 Expressive：运行中用官方不确定态 CircularProgressIndicator（自带官方描边与形变动效），
-    // 其余状态用官方 Icon；尺寸取官方小号图标按钮的图标令牌，颜色只用官方 primary 角色。
+    // M3 Expressive：运行中用官方 LoadingIndicator（morph 变形，与工具行、朗读按钮
+    // 同一套 loading 语言），其余状态用官方 Icon；尺寸取官方小号图标按钮的图标令牌，
+    // 颜色只用官方 primary 角色。
     val indicatorSize = IconButtonDefaults.extraSmallIconSize
     val indicatorTint = etaPrimary()
     when (status) {
-        RunStatusUi.Running -> CircularProgressIndicator(
+        RunStatusUi.Running -> LoadingIndicator(
             modifier = Modifier.size(indicatorSize),
             color = indicatorTint,
         )

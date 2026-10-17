@@ -19,8 +19,9 @@ import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -60,7 +61,7 @@ import org.json.JSONObject
  * Inline controls on the Agent task preference page. Reading status never changes the display.
  * 网页授权独立于副屏是否存在；离开设置页不会撤销已配对浏览器。
  */
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun VirtualDisplayRecoveryControls(
     modifier: Modifier = Modifier,
@@ -165,10 +166,8 @@ internal fun VirtualDisplayRecoveryControls(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     if (working) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                        )
+                        // M3E LoadingIndicator：行内 16dp 槽，按 loading 选型表统一。
+                        LoadingIndicator(modifier = Modifier.size(16.dp))
                     }
                     Text(
                         text = stringResource(recoveryStatusRes(readable, busy, present, phase)),

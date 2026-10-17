@@ -8,7 +8,7 @@ import androidx.compose.material.icons.rounded.TravelExplore
 import io.github.mangi.eta.agent.model.AgentToolCatalog
 import io.github.mangi.eta.agent.tool.AgentToolCapabilities
 import io.github.mangi.eta.agent.tool.RootRequirement
-import io.github.mangi.eta.ui.components.iconForTool
+import io.github.mangi.eta.agent.tool.ToolPresentation
 import io.github.mangi.eta.ui.model.projectToolGroups
 import io.github.mangi.eta.ui.model.toolCardRequirement
 import org.junit.Assert.assertEquals
@@ -41,25 +41,25 @@ class ToolCatalogUiTest {
         val cardIds = buildToolsState(RuntimeEnvironment.getApplication()).groups
             .flatMap { it.tools }.map { it.id }
         (runtimeNames + cardIds).distinct().forEach { name ->
-            assertNotEquals(name, Icons.Rounded.Build, iconForTool(name))
+            assertNotEquals(name, Icons.Rounded.Build, ToolPresentation.icon(name))
         }
     }
 
     @Test
     fun hostedSearchNamesAndDynamicMcpNamesUseTheirToolIcons() {
-        assertEquals(Icons.Rounded.TravelExplore, iconForTool("网页搜索"))
-        assertEquals(iconForTool("网页搜索"), iconForTool("web_search"))
-        assertEquals(Icons.Rounded.Language, iconForTool("browser_use"))
-        assertEquals(Icons.Rounded.Extension, iconForTool("mcp_server_search_012345"))
-        assertEquals(Icons.Rounded.Build, iconForTool("unknown_tool"))
+        assertEquals(Icons.Rounded.TravelExplore, ToolPresentation.icon("网页搜索"))
+        assertEquals(ToolPresentation.icon("网页搜索"), ToolPresentation.icon("web_search"))
+        assertEquals(Icons.Rounded.Language, ToolPresentation.icon("browser_use"))
+        assertEquals(Icons.Rounded.Extension, ToolPresentation.icon("mcp_server_search_012345"))
+        assertEquals(Icons.Rounded.Build, ToolPresentation.icon("unknown_tool"))
     }
 
     @Test
     fun subAgentActionsHaveTheirOwnIconDistinctFromMemory() {
         val icon = io.github.mangi.eta.ui.icons.SubAgents
         listOf("delegate_task", "get_task_result", "cancel_task", "manage_agent_workspace").forEach {
-            assertEquals(icon, iconForTool(it))
-            assertNotEquals(iconForTool("memory_get"), iconForTool(it))
+            assertEquals(icon, ToolPresentation.icon(it))
+            assertNotEquals(ToolPresentation.icon("memory_get"), ToolPresentation.icon(it))
         }
         assertEquals("SubAgents", icon.name)
     }

@@ -1,0 +1,125 @@
+package io.github.mangi.eta.design
+
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.io.File
+
+/**
+ * 设计系统执法测试（零新依赖的文件扫描版；未来可升级为 Konsist 反射规则）。
+ *
+ * 对应 `docs/design-system.md` 的分层与规则。这里只放**当前为真**的约束——
+ * 每条规则都必须此刻全绿，禁止「先写失败规则等修复」；存量债务用白名单钉住，
+ * 白名单外新增即失败。
+ */
+class DesignSystemRulesTest {
+
+    private val repoRoot: File by lazy {
+        var dir: File? = File(System.getProperty("user.dir"))
+        while (dir != null && !File(dir, "settings.gradle.kts").isFile) {
+            dir = dir.parentFile
+        }
+        val root = checkNotNull(dir) { "找不到仓库根目录（缺 settings.gradle.kts）" }
+        root
+    }
+
+    /** 主源码（app/src/main/kotlin）下的全部 .kt 文件，相对路径 + 文本。 */
+    private val mainSources: List<Pair<String, String>> by lazy {
+        val dir = File(repoRoot, "app/src/main/kotlin")
+        check(dir.isDirectory) { "缺主源码目录：$dir" }
+        dir.walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
+            .map { it.relativeTo(repoRoot).invariantSeparatorsPath to it.readText() }
+            .toList()
+    }
+
+    private fun violations(pattern: Regex, allowed: (String) -> Boolean = { false }): List<String> =
+        mainSources.flatMap { (path, text) ->
+            if (allowed(path)) {
+                emptyList()
+            } else {
+                text.lineSequence()
+                    .withIndex()
+                    .filter { pattern.containsMatchIn(it.value) }
+                    .map { "$path:${it.index + 1}: ${it.value.trim()}" }
+            }
+        }
+
+    /**
+     * R1：颜色字面量只允许出现在「定义颜色的地方」——主题工厂的强调色种子、移植
+     * 主题（iOS 浏览器）的固定色板、浮窗覆盖层的固定色、Markdown 默认样式。
+     * UI 组件一律引用官方 colorScheme 角色（eta* 取色助手），不得写字面量。
+     */
+    @Test
+    fun `color literals stay inside color definition sites`() {
+        val colorDefinitionSites = listOf(
+            "app/src/main/kotlin/io/github/mangi/eta/agent/browser/ported/ui/theme/",
+            "app/src/main/kotlin/io/github/mangi/eta/agent/overlay/AgentOverlayContent.kt",
+            "app/src/main/kotlin/io/github/mangi/eta/ui/AppearanceSettingsScreen.kt",
+            "app/src/main/kotlin/io/github/mangi/eta/ui/app/EtaColorSchemeFactory.kt",
+            "app/src/main/kotlin/io/github/mangi/eta/ui/components/ThinkingSpeedAnimation.kt",
+            "app/src/main/kotlin/io/github/mangi/eta/ui/markdown/MarkdownInline.kt",
+        )
+        val hits = violations(
+            Regex("""Color\(0x"""),
+            allowed = { path -> colorDefinitionSites.any { path.removePrefix("/").startsWith(it) } },
+        )
+        assertTrue(
+            "发现组件层硬编码颜色，请改用 MaterialTheme.colorScheme 角色；" +
+                "确属「颜色的定义处」（主题工厂/固定色板）请把文件加入本测试白名单：\n" +
+                hits.joinToString("\n"),
+            hits.isEmpty(),
+        )
+    }
+
+    /**
+     * R2：工具元数据单一数据源。图标与显示名只允许在 ToolPresentation.kt 定义；
+     * 迁移前的 iconForTool / toolDisplayNameResource 两张旧表不得在任何地方复活。
+     */
+    @Test
+    fun `tool presentation metadata stays in ToolPresentation`() {
+        val hits = violations(Regex("""\bfun\s+(iconForTool|toolDisplayNameResource)\b"""))
+        assertTrue(
+            "工具图标/显示名映射只能在 agent/tool/ToolPresentation.kt 维护：\n" +
+                hits.joinToString("\n"),
+            hits.isEmpty(),
+        )
+    }
+
+    /**
+     * R3：私有设计令牌 helper 不再扩散。令牌形的 `private fun chat…Color/Style/Shape/Border`
+     * 只允许留在两个存量文件（白名单钉死）；新文件的排版走 ChatTypography.kt，
+     * 颜色走 ui/adaptive 的 eta* 取色，尺寸走 EtaDimens。
+     */
+    @Test
+    fun `private chat design helpers stay pinned to legacy files`() {
+        val legacy = listOf(
+            "app/src/main/kotlin/io/github/mangi/eta/ui/components/ChatMessageItem.kt",
+            "app/src/main/kotlin/io/github/mangi/eta/ui/components/AgentChatBody.kt",
+        )
+        val hits = violations(
+            Regex("""private\s+fun\s+chat[A-Za-z]*(Color|Style|Shape|Border)\b"""),
+            allowed = { path -> path.removePrefix("/") in legacy },
+        )
+        assertTrue(
+            "私有 chat* 设计助手只能在白名单文件中定义（新增请放 ChatTypography.kt / EtaDimens）：\n" +
+                hits.joinToString("\n"),
+            hits.isEmpty(),
+        )
+    }
+
+    /**
+     * R4：禁止裸默认尺寸的进度指示器。`CircularProgressIndicator()` 默认 40dp，
+     * 直接放进行内小槽会顶爆图标位（浏览器预览曾经的 bug 形状）——行内小槽用
+     * LoadingIndicator，确定进度环必须显式传尺寸。
+     */
+    @Test
+    fun `no bare default-size progress indicators`() {
+        val hits = violations(Regex("""\b(Circular|Linear)ProgressIndicator\(\s*\)"""))
+        assertTrue(
+            "禁止不带参数的裸进度指示器（默认 40dp）：行内小槽用 LoadingIndicator(size)，" +
+                "确定进度环显式传 modifier.size —— 详见 docs/design-system.md：\n" +
+                hits.joinToString("\n"),
+            hits.isEmpty(),
+        )
+    }
+}

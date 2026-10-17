@@ -18,13 +18,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.voice.tts.SpeechPlayback
+import io.github.mangi.eta.ui.adaptive.EtaConnectedIconAction
+import io.github.mangi.eta.ui.adaptive.EtaDimens
 
 /**
  * 朗读开关按钮。`index`/`count` 传入时渲染进连体按钮组：官方 ToggleButton
- * 承担容器（secondaryContainer 配色与连体形状，见 [M3ConnectedIconAction]）；
+ * 承担容器（secondaryContainer 配色与连体形状，见 [io.github.mangi.eta.ui.adaptive.EtaConnectedIconAction]）；
  * 单独使用时走官方 IconButton 默认档。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -40,7 +41,7 @@ internal fun SpeechPlaybackButton(
     val active = state.owner == messageId
     val description = stringResource(if (active) R.string.tts_stop else R.string.tts_read)
     if (count > 0) {
-        M3ConnectedIconAction(
+        EtaConnectedIconAction(
             onClick = { SpeechPlayback.toggle(context, messageId, text) },
             enabled = !state.recording,
             index = index,
@@ -74,7 +75,7 @@ internal fun SpeechPlaybackButton(
     ) {
         if (active && state.preparing) {
             LoadingIndicator(
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(EtaDimens.StatusIconSize),
                 color = MaterialTheme.colorScheme.primary,
             )
         } else {

@@ -556,6 +556,11 @@ private fun TerminalBottomBar(
     // 官方 Badge 数据源：运行中的后台任务数（原状态对这些完全静默）。
     val runningTaskCount = state.daemonTasks.count { it.running }
     val stoppedMessage = stringResource(R.string.terminal_stopped)
+    // stringResource 是 @Composable，进不了 onSelect 回调；两条切换文案在组合期备好。
+    val androidSwitchedMessage =
+        stringResource(R.string.terminal_env_switched, TerminalEnvironment.ANDROID.label())
+    val linuxSwitchedMessage =
+        stringResource(R.string.terminal_env_switched, state.linuxEnvironment.label())
     Surface(tonalElevation = 3.dp) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(
@@ -572,7 +577,7 @@ private fun TerminalBottomBar(
                         val target =
                             if (index == 0) TerminalEnvironment.ANDROID else state.linuxEnvironment
                         onSwitchEnvironment(target)
-                        onMessage(stringResource(R.string.terminal_env_switched, target.label()))
+                        onMessage(if (index == 0) androidSwitchedMessage else linuxSwitchedMessage)
                     },
                 )
                 Spacer(modifier = Modifier.weight(1f))

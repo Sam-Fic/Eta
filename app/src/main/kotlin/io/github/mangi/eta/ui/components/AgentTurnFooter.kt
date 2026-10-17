@@ -1,7 +1,5 @@
 package io.github.mangi.eta.ui.components
 
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -29,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.adaptive.EtaConnectedGroupRow
+import io.github.mangi.eta.ui.adaptive.EtaConnectedIconAction
 import io.github.mangi.eta.ui.adaptive.EtaType
 import io.github.mangi.eta.ui.adaptive.etaTextStyle
 import io.github.mangi.eta.ui.app.LocalAppearanceSettings
@@ -39,17 +38,12 @@ import io.github.mangi.eta.ui.model.AgentMessageUi
 import io.github.mangi.eta.ui.model.SystemNoticeCode
 import io.github.mangi.eta.ui.model.SystemNoticeMessageUi
 import kotlinx.coroutines.delay
-import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Text as M3Text
-import androidx.compose.material3.ToggleButton
-import androidx.compose.material3.ToggleButtonDefaults
-import androidx.compose.material3.ToggleButtonSize
-import androidx.compose.material3.ToggleButtonShapes
 import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.material3.TooltipBox as M3TooltipBox
 import androidx.compose.material3.TooltipDefaults
@@ -77,63 +71,10 @@ internal fun FooterTooltipBox(
 }
 
 /**
- * 连体按钮组统一配色（用户指定）：官方默认 secondaryContainer 档。
- * 选中态同色，与页面其他 FilledTonal 系组件同色阶。
+ * 连体按钮组统一配色与图标动作已收编进 `ui/adaptive/EtaExpressiveKit`
+ * （[io.github.mangi.eta.ui.adaptive.EtaConnectedIconAction] / `etaConnectedGroupColors`），
+ * 本文件只保留消息操作条的组装。
  */
-@Composable
-internal fun M3ConnectedGroupColors() = ToggleButtonDefaults.colors(
-    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-    checkedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-    checkedContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-)
-
-/**
- * 连体按钮组里的图标按钮（KernelSU AppProfile 同款官方模式）：官方 `ToggleButton` +
- * `ButtonGroupDefaults` 连体形状（首位/中间/末位）。纯图标按钮用官方
- * `extraSmallContainerSize` 强制成等宽等高的方形容器（顶栏组用 Small/40dp，这里再小
- * 一号用 XS/32dp），`contentPadding(0.dp)` 置零官方文字按钮的水平内边距。单按钮时退回
- * 官方默认全圆角形状。
- */
-@Composable
-internal fun M3ConnectedIconAction(
-    onClick: () -> Unit,
-    enabled: Boolean,
-    index: Int,
-    count: Int,
-    content: @Composable RowScope.() -> Unit,
-) {
-    val shapes: ToggleButtonShapes? = when {
-        count <= 1 -> null
-        index <= 0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-        index >= count - 1 -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-        else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-    }
-    if (shapes == null) {
-        ToggleButton(
-            checked = false,
-            onCheckedChange = { onClick() },
-            enabled = enabled,
-            modifier = Modifier.size(IconButtonDefaults.extraSmallContainerSize()),
-            buttonSize = ToggleButtonSize.Small,
-            contentPadding = PaddingValues(0.dp),
-            colors = M3ConnectedGroupColors(),
-            content = content,
-        )
-    } else {
-        ToggleButton(
-            checked = false,
-            onCheckedChange = { onClick() },
-            enabled = enabled,
-            modifier = Modifier.size(IconButtonDefaults.extraSmallContainerSize()),
-            buttonSize = ToggleButtonSize.Small,
-            shapes = shapes,
-            contentPadding = PaddingValues(0.dp),
-            colors = M3ConnectedGroupColors(),
-            content = content,
-        )
-    }
-}
 
 /** Renders the original projection owner; never manufactures a callback message. */
 @Composable
@@ -246,7 +187,7 @@ internal fun AgentMessageActionRow(
             if (showCopyAction) {
                 add { index, count ->
                     FooterTooltipBox(copyTooltip, true) {
-                        M3ConnectedIconAction(onClick = onCopyClick, enabled = true, index = index, count = count) {
+                        EtaConnectedIconAction(onClick = onCopyClick, enabled = true, index = index, count = count) {
                             Icon(
                                 imageVector = if (copied) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
                                 contentDescription = copyDescription,
@@ -264,7 +205,7 @@ internal fun AgentMessageActionRow(
             if (showMessageActions) {
                 add { index, count ->
                     FooterTooltipBox(branchLabel, branchEnabled) {
-                        M3ConnectedIconAction(onClick = onBranchClick, enabled = branchEnabled, index = index, count = count) {
+                        EtaConnectedIconAction(onClick = onBranchClick, enabled = branchEnabled, index = index, count = count) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Rounded.CallSplit,
                                 contentDescription = branchLabel,
@@ -275,7 +216,7 @@ internal fun AgentMessageActionRow(
                 }
                 add { index, count ->
                     FooterTooltipBox(regenerateTooltip, messageActionsEnabled) {
-                        M3ConnectedIconAction(onClick = onRegenerateClick, enabled = messageActionsEnabled, index = index, count = count) {
+                        EtaConnectedIconAction(onClick = onRegenerateClick, enabled = messageActionsEnabled, index = index, count = count) {
                             Icon(
                                 imageVector = Icons.Rounded.Refresh,
                                 contentDescription = regenerateDescription,
@@ -286,7 +227,7 @@ internal fun AgentMessageActionRow(
                 }
                 add { index, count ->
                     FooterTooltipBox(deleteTooltip, messageActionsEnabled) {
-                        M3ConnectedIconAction(onClick = onDeleteClick, enabled = messageActionsEnabled, index = index, count = count) {
+                        EtaConnectedIconAction(onClick = onDeleteClick, enabled = messageActionsEnabled, index = index, count = count) {
                             Icon(
                                 imageVector = Icons.Rounded.Delete,
                                 contentDescription = deleteDescription,

@@ -1,5 +1,6 @@
 package io.github.mangi.eta.ui.components
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,7 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -21,11 +21,13 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -119,10 +121,20 @@ private fun WorkProcessCardSliceM3(
 /** 统一展开指示箭头：形状、尺寸、色调一处定义。 */
 @Composable
 internal fun WorkCardChevron(expanded: Boolean, modifier: Modifier = Modifier) {
+    // 单图标 + 旋转过渡：收起指向右（0°），展开旋转 90° 指向下。
+    // 直接换图标没有过渡，与标题行的 AnimatedContent 状态切换不同档；旋转取官方
+    // motionScheme 的 spatial 规格，与 tailDetailsEnter/Exit 同源。
+    val rotation by animateFloatAsState(
+        targetValue = if (expanded) 90f else 0f,
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Float>(),
+        label = "work_card_chevron",
+    )
     Icon(
-        imageVector = if (expanded) Icons.Rounded.ExpandMore else Icons.Rounded.ChevronRight,
+        imageVector = Icons.Rounded.ChevronRight,
         contentDescription = null,
-        modifier = modifier.size(20.dp),
+        modifier = modifier
+            .size(20.dp)
+            .graphicsLayer { rotationZ = rotation },
         tint = etaOnSurfaceVariant().copy(alpha = 0.7f),
     )
 }

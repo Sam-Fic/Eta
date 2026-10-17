@@ -5,6 +5,7 @@ import io.github.mangi.eta.ui.markdown.PreparedMarkdownBlock
 import io.github.mangi.eta.ui.markdown.PreparedMarkdownSpec
 import io.github.mangi.eta.ui.markdown.ChatSelectableText
 import android.graphics.BitmapFactory
+import android.icu.text.ListFormatter
 import android.util.Base64
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -13,6 +14,7 @@ import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -64,9 +66,10 @@ import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
@@ -162,16 +165,18 @@ import com.mikepenz.markdown.utils.getUnescapedTextInNode
 import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.adaptive.EtaConnectedGroupRow
-import io.github.mangi.eta.ui.adaptive.EtaType
+import io.github.mangi.eta.ui.adaptive.EtaConnectedIconAction
+import io.github.mangi.eta.ui.adaptive.EtaStatus
 import io.github.mangi.eta.ui.adaptive.etaOnSurface
 import io.github.mangi.eta.ui.adaptive.etaOnSurfaceVariant
 import io.github.mangi.eta.ui.adaptive.etaPrimary
 import io.github.mangi.eta.ui.adaptive.etaSurfaceContainerHigh
-import io.github.mangi.eta.ui.adaptive.etaTextStyle
+import io.github.mangi.eta.ui.adaptive.foregroundColor
 import io.github.mangi.eta.agent.browser.AgentBrowserSession
 import io.github.mangi.eta.agent.browser.BrowserSessionSnapshot
 import io.github.mangi.eta.agent.model.AgentFileReferencePromptCodec
 import io.github.mangi.eta.agent.overlay.toolDisplayName
+import io.github.mangi.eta.agent.tool.ToolPresentation
 import io.github.mangi.eta.ui.markdown.NumericCitationMarkup
 import io.github.mangi.eta.ui.markdown.markdownRenderCacheKey
 import io.github.mangi.eta.ui.markdown.StreamingGfmParserSession
@@ -213,18 +218,18 @@ import org.intellij.markdown.flavours.gfm.GFMElementTypes.TABLE
 import org.intellij.markdown.flavours.gfm.GFMTokenTypes.CELL
 import org.intellij.markdown.flavours.gfm.GFMTokenTypes.CHECK_BOX
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.Text as M3Text
-import androidx.compose.material3.TextButton as M3TextButton
+import androidx.compose.material3.TextButton
 
 // ── M3 Expressive 外观适配 ────────────────────────────────────────────────
 //
@@ -256,21 +261,8 @@ private fun chatCardBorder(alpha: Float = 1f): BorderStroke =
 @Composable
 private fun chatMediaShape(): Shape = MaterialTheme.shapes.medium
 
-/** 正文档位：统一走 [EtaType.Body]（官方 bodyLarge）。 */
-@Composable
-private fun chatBodyStyle(): TextStyle = etaTextStyle(EtaType.Body)
-
-/** 次级正文档位：统一走 [EtaType.Secondary]（官方 bodyMedium）。 */
-@Composable
-internal fun chatSecondaryStyle(): TextStyle = etaTextStyle(EtaType.Secondary)
-
-/** 说明档位：统一走 [EtaType.Caption]（官方 bodySmall）。 */
-@Composable
-internal fun chatTertiaryStyle(): TextStyle = etaTextStyle(EtaType.Caption)
-
-/** 极小注档位：统一走 [EtaType.Micro]（官方 labelSmall）。 */
-@Composable
-private fun chatQuaternaryStyle(): TextStyle = etaTextStyle(EtaType.Micro)
+// 排版访问器（chatBodyStyle / chatSecondaryStyle / chatTertiaryStyle / chatQuaternaryStyle）
+// 已收敛到同包的 ChatTypography.kt，本文件不再私藏。
 
 /**
  * 发丝分隔线。
@@ -594,12 +586,30 @@ internal fun AgentWorkProcessHeader(
         }
         val headerTitleColor = if (running && !isPaused) etaOnSurface() else etaOnSurfaceVariant()
         val headerLeadingTint = if (running && !isPaused) etaPrimary() else etaOnSurfaceVariant()
+        // 收起态用一行列出本组实际跑过的工具名（去重、本地化列表连接）：
+        // 折叠时也能看清「干了什么」，不必先展开。展开态与运行中都不加这行——
+        // 前者步骤已可见，后者标题已经带着当前工具名，再加一行会互相重复。
+        val stepToolsLabel = if (running || expanded) {
+            null
+        } else {
+            val names = messages.mapNotNull { message ->
+                (message as? ToolActivityMessageUi)?.toolName
+            }
+                .distinct()
+                .map { toolDisplayName(view.context.resources, it) }
+            if (names.isEmpty()) {
+                null
+            } else {
+                ListFormatter.getInstance(view.context.resources.configuration.locales[0])
+                    .format(names)
+            }
+        }
 
         Column(modifier = Modifier.fillMaxWidth()) {
             // 与提问/思考/工具卡片共用同一标题栏构件，组头与各行的标题行逐值一致。
             WorkCardDisclosureHeader(
                 leadingIcon = when {
-                    runningTool != null -> iconForTool(runningTool.toolName)
+                    runningTool != null -> ToolPresentation.icon(runningTool.toolName)
                     running -> Icons.Rounded.AutoAwesome
                     else -> Icons.Rounded.Build
                 },
@@ -609,6 +619,7 @@ internal fun AgentWorkProcessHeader(
                 expanded = expanded,
                 onToggle = onToggle,
                 modifier = Modifier.fillMaxWidth(),
+                supporting = stepToolsLabel,
                 leadingModifier = Modifier.graphicsLayer {
                     alpha = if (running && !isPaused) pulseAlpha() else 1f
                 },
@@ -928,7 +939,7 @@ private fun UserMessageBubble(
                     val groupActions: List<@Composable (Int, Int) -> Unit> = buildList {
                         add { index, count ->
                             FooterTooltipBox(copyTooltip, true) {
-                                M3ConnectedIconAction(
+                                EtaConnectedIconAction(
                                     onClick = {
                                         TouchHaptics.click(view)
                                         @Suppress("DEPRECATION")
@@ -951,7 +962,7 @@ private fun UserMessageBubble(
                         }
                         add { index, count ->
                             FooterTooltipBox(editTooltip, actionsEnabled) {
-                                M3ConnectedIconAction(
+                                EtaConnectedIconAction(
                                     onClick = {
                                         TouchHaptics.click(view)
                                         onEdit()
@@ -970,7 +981,7 @@ private fun UserMessageBubble(
                         }
                         add { index, count ->
                             FooterTooltipBox(branchTooltip, branchEnabled) {
-                                M3ConnectedIconAction(
+                                EtaConnectedIconAction(
                                     onClick = {
                                         TouchHaptics.click(view)
                                         onBranch()
@@ -989,7 +1000,7 @@ private fun UserMessageBubble(
                         }
                         add { index, count ->
                             FooterTooltipBox(deleteTooltip, actionsEnabled) {
-                                M3ConnectedIconAction(
+                                EtaConnectedIconAction(
                                     onClick = {
                                         TouchHaptics.click(view)
                                         onDelete()
@@ -3046,9 +3057,21 @@ internal fun tailDetailsExit(toBottom: Boolean): androidx.compose.animation.Exit
     ) + fadeOut(MaterialTheme.motionScheme.defaultSpatialSpec<Float>())
 }
 
-/** 工具状态标记：成功是常态，只留低饱和度对勾；运行中与失败才占用视觉注意力。 */
+/**
+ * 工具状态标记：四种状态统一为 16dp 图标语法，不再混用「圆点 + 文字」。
+ *
+ * - 运行中：M3E `LoadingIndicator`（形状变形）——与输入区、朗读按钮同一套 loading
+ *   语言，比闪烁圆点更明确；文案由组头「正在执行 N 个步骤 · 当前工具」承担，
+ *   行内不再重复「执行中」三个字；
+ * - 成功：低饱和度对勾。成功是常态，不抢注意力；
+ * - 失败：error 色图标 + 「失败」小字。失败是唯一保留文字的状态——托管工具失败时
+ *   没有原因文案，只靠图标读不出含义；
+ * - 未知（重载后残留的执行中行）：中性 dash 图标，不播报术语。
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun ToolStatusIndicator(status: ToolActivityStatusUi, pulseAlpha: () -> Float) {
+private fun ToolStatusIndicator(status: ToolActivityStatusUi) {
+    val runningLabel = stringResource(R.string.tool_status_running)
     // 状态切换动效取官方 motionScheme 规格。
     val statusTransition: ContentTransform =
         (fadeIn(MaterialTheme.motionScheme.defaultSpatialSpec<Float>()) +
@@ -3065,33 +3088,46 @@ private fun ToolStatusIndicator(status: ToolActivityStatusUi, pulseAlpha: () -> 
         transitionSpec = { statusTransition },
         label = "tool_status",
     ) { current ->
-        if (current == ToolActivityStatusUi.Success) {
-            Icon(
+        when (current) {
+            // 图标槽只有 16dp，官方默认 48dp 容器被外层 size 收敛；
+            // contentDescription 补上被去掉的「执行中」文案，TalkBack 不退回裸进度条。
+            ToolActivityStatusUi.Running -> LoadingIndicator(
+                modifier = Modifier
+                    .size(16.dp)
+                    .semantics(mergeDescendants = true) {
+                        contentDescription = runningLabel
+                    },
+                color = current.etaStatus().foregroundColor(),
+            )
+            ToolActivityStatusUi.Success -> Icon(
                 imageVector = Icons.Rounded.Check,
                 contentDescription = stringResource(R.string.tool_status_success),
                 modifier = Modifier.size(16.dp),
                 tint = etaOnSurfaceVariant().copy(alpha = 0.7f),
             )
-        } else {
-            Row(
+            ToolActivityStatusUi.Failed -> Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
-                modifier = Modifier.graphicsLayer {
-                    alpha = if (current == ToolActivityStatusUi.Running) pulseAlpha() else 1f
-                },
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(7.dp)
-                        .clip(CircleShape)
-                        .background(current.statusColor())
+                // 文字已承载标签，图标不再重复播报。
+                Icon(
+                    imageVector = Icons.Rounded.ErrorOutline,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = current.etaStatus().foregroundColor(),
                 )
                 Text(
-                    text = current.statusLabel(),
+                    text = stringResource(R.string.tool_status_failed),
                     style = chatTertiaryStyle(),
-                    color = etaOnSurfaceVariant().copy(alpha = 0.8f),
+                    color = current.etaStatus().foregroundColor(),
                 )
             }
+            ToolActivityStatusUi.Unknown -> Icon(
+                imageVector = Icons.Rounded.Remove,
+                contentDescription = stringResource(R.string.tool_status_unknown),
+                modifier = Modifier.size(16.dp),
+                tint = current.etaStatus().foregroundColor(),
+            )
         }
     }
 }
@@ -3120,21 +3156,12 @@ private fun ToolActivityInline(
         null
     }
 
-    val pulseAlpha = rememberActivePulse(
-        active = message.status == ToolActivityStatusUi.Running,
-        label = "tool_pulse",
-    )
-
     val title = message.argumentsSummary.ifBlank { toolDisplayName(message.toolName) }
-    val showCompletedPlaceholder = message.argumentsSummary.isBlank() &&
-        message.command.isNullOrBlank() &&
-        message.resultSummary.isNullOrBlank() &&
-        !showBrowserShortcut &&
-        message.status == ToolActivityStatusUi.Success
+    // 没有命令、没有结果、也不是浏览器行时，展开后只剩一句「已完成」——
+    // 这种行直接不可展开（箭头一并隐藏），不做「点开只有一句话」的空交互。
     val hasDetails = !message.command.isNullOrBlank() ||
         !message.resultSummary.isNullOrBlank() ||
-        showBrowserShortcut ||
-        showCompletedPlaceholder
+        showBrowserShortcut
     val browserSubtitle = browserSnapshot?.let { snapshot ->
         when {
             snapshot.isLoading ->
@@ -3144,6 +3171,11 @@ private fun ToolActivityInline(
             snapshot.host.isNotBlank() -> snapshot.host
             else -> null
         }
+    }
+    // 工具读回/生成的图片张数：截图、读图、图像生成都会带回 imageCount，
+    // 折叠行里点明「这步其实处理了 N 张图」，避免用户以为工具什么都没看到。
+    val imageCountLabel = message.imageCount.takeIf { it > 0 }?.let { count ->
+        pluralStringResource(R.plurals.overlay_images_read, count, count)
     }
     // 失败原因直接显示在折叠行，不必展开卡片；剥离去重「失败」前缀与日志用的 code= 尾巴
     val failureSubtitle = if (message.status == ToolActivityStatusUi.Failed) {
@@ -3178,12 +3210,11 @@ private fun ToolActivityInline(
             // 与提问卡片共用同一标题栏构件。失败原因/浏览器状态走官方 ListItem 的
             // supportingContent；状态标记与展开箭头放在 trailingContent。
             WorkCardDisclosureHeader(
-                leadingIcon = iconForTool(message.toolName),
+                leadingIcon = ToolPresentation.icon(message.toolName),
                 leadingTint = when (message.status) {
-                    ToolActivityStatusUi.Running -> etaPrimary()
-                    ToolActivityStatusUi.Failed -> toolStatusTextColor(failed = true)
-                    ToolActivityStatusUi.Unknown -> etaOnSurfaceVariant()
+                    // 成功是常态，前导图标刻意降档弱化；其余状态走 L1 语义色映射。
                     ToolActivityStatusUi.Success -> etaOnSurfaceVariant().copy(alpha = 0.8f)
+                    else -> message.status.etaStatus().foregroundColor()
                 },
                 title = title,
                 titleColor = if (message.status == ToolActivityStatusUi.Running) {
@@ -3193,14 +3224,15 @@ private fun ToolActivityInline(
                 },
                 expanded = isExpanded,
                 onToggle = if (hasDetails) toggle else null,
-                supporting = failureSubtitle ?: browserSubtitle,
-                supportingColor = if (failureSubtitle != null) toolStatusTextColor(failed = true) else null,
+                // 副标题优先级：失败原因 > 浏览器实时状态 > 图片张数。
+                supporting = failureSubtitle ?: browserSubtitle ?: imageCountLabel,
+                supportingColor = failureSubtitle?.let { EtaStatus.Failed.foregroundColor() },
                 trailingContent = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        ToolStatusIndicator(message.status, pulseAlpha)
+                        ToolStatusIndicator(message.status)
                         if (hasDetails) WorkCardChevron(isExpanded)
                     }
                 },
@@ -3241,13 +3273,16 @@ private fun ToolActivityInline(
                                     overflow = TextOverflow.Ellipsis,
                                 )
                             }
+                            // 图片张数：结果摘要往往只描述「看到了什么」，
+                            // 不说明带回了多少张图，这里补一行计数。
+                            if (imageCountLabel != null) {
+                                Text(
+                                    text = imageCountLabel,
+                                    style = chatQuaternaryStyle(),
+                                    color = etaOnSurfaceVariant(),
+                                )
+                            }
                         }
-                    } else if (showCompletedPlaceholder) {
-                        Text(
-                            text = stringResource(R.string.tool_status_success),
-                            style = chatTertiaryStyle(),
-                            color = etaOnSurfaceVariant(),
-                        )
                     }
                     if (showBrowserShortcut) {
                         browserSnapshot?.takeIf { it.available }?.let { snapshot ->
@@ -3260,8 +3295,8 @@ private fun ToolActivityInline(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.End,
                         ) {
-                            M3TextButton(onClick = onOpenBrowser) {
-                                M3Text(
+                            TextButton(onClick = onOpenBrowser) {
+                                Text(
                                     text = stringResource(R.string.ui_open_current_browser_58358e),
                                     style = MaterialTheme.typography.labelLarge,
                                 )
@@ -3288,6 +3323,7 @@ private fun ToolActivityInline(
  * 截图只在页面加载中或内容稳定后的低频节拍刷新；组合销毁即停止，
  * 不做后台轮询。截图不可用时退化为图标占位。
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun BrowserPagePreview(
     snapshot: BrowserSessionSnapshot,
@@ -3311,10 +3347,15 @@ private fun BrowserPagePreview(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // 加载中用官方 CircularProgressIndicator 表达进度，
-            // 稳定后仍是一个静态状态点（直径取官方 CircularStrokeWidth 轨道厚度）。
+            // 加载中用 M3E LoadingIndicator（morph 变形，与朗读按钮、工具行同一套
+            // loading 语言）；稳定后仍是一个静态状态点（直径取官方 CircularStrokeWidth
+            // 轨道厚度）。原先这里裸放默认 40dp 的 CircularProgressIndicator，跟在
+            // Caption 级域名后面明显失重，收敛进 16dp 图标槽。
             if (snapshot.isLoading) {
-                CircularProgressIndicator()
+                LoadingIndicator(
+                    modifier = Modifier.size(16.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                )
             } else {
                 Box(
                     modifier = Modifier
@@ -3530,7 +3571,7 @@ private fun ToolSummaryInline(
         message.tools.forEach { tool ->
             val chipBody: @Composable () -> Unit = {
                 Icon(
-                    imageVector = iconForTool(tool),
+                    imageVector = ToolPresentation.icon(tool),
                     contentDescription = null,
                     // 与卡片内其他前导图标统一为 20dp。
                     modifier = Modifier.size(20.dp),
@@ -3661,7 +3702,7 @@ private fun SuggestionChipsRow(
                         modifier = Modifier.size(SuggestionChipDefaults.IconSize),
                     )
                 },
-                label = { M3Text(prompt) },
+                label = { Text(prompt) },
             )
         }
     }
@@ -3669,33 +3710,10 @@ private fun SuggestionChipsRow(
 
 // ── 辅助 ──────────────────────────────────────────────────────────────
 
-/**
- * 工具状态色。
- *
- * Material 3 Expressive 的 colorScheme 没有 success / running 语义角色，一律映射到官方
- * `primary` / `error` / `onSurfaceVariant`。
- */
-@Composable
-private fun ToolActivityStatusUi.statusColor() = when (this) {
-    ToolActivityStatusUi.Running -> MaterialTheme.colorScheme.primary
-    ToolActivityStatusUi.Success -> MaterialTheme.colorScheme.primary
-    ToolActivityStatusUi.Failed -> MaterialTheme.colorScheme.error
-    ToolActivityStatusUi.Unknown -> etaOnSurfaceVariant()
-}
-
-/** 工具状态文字色：用官方 error / onSurfaceVariant 角色。 */
-@Composable
-private fun toolStatusTextColor(failed: Boolean): Color =
-    if (failed) {
-        MaterialTheme.colorScheme.error
-    } else {
-        etaOnSurfaceVariant()
-    }
-
-@Composable
-private fun ToolActivityStatusUi.statusLabel(): String = when (this) {
-    ToolActivityStatusUi.Running -> stringResource(R.string.tool_status_running)
-    ToolActivityStatusUi.Success -> stringResource(R.string.tool_status_success)
-    ToolActivityStatusUi.Failed -> stringResource(R.string.tool_status_failed)
-    ToolActivityStatusUi.Unknown -> stringResource(R.string.tool_status_unknown)
+/** 工具状态 → L1 语义档位。到官方角色的映射见 [EtaStatus.foregroundColor]。 */
+private fun ToolActivityStatusUi.etaStatus(): EtaStatus = when (this) {
+    ToolActivityStatusUi.Running -> EtaStatus.Running
+    ToolActivityStatusUi.Success -> EtaStatus.Success
+    ToolActivityStatusUi.Failed -> EtaStatus.Failed
+    ToolActivityStatusUi.Unknown -> EtaStatus.Unknown
 }

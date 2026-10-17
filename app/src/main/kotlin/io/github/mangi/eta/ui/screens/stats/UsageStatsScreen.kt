@@ -71,7 +71,7 @@ import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import androidx.compose.material3.CircularProgressIndicator
+import io.github.mangi.eta.ui.components.ContainedMorphLoadingIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -116,7 +116,8 @@ internal fun UsageStatsScreen(onBack: () -> Unit) {
                         .padding(vertical = 48.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    CircularProgressIndicator()
+                    // C 类块级加载：M3E morph 动画，与文件/工作区页空态一致。
+                    ContainedMorphLoadingIndicator()
                 }
             }
         } else if (selectedTab == UsageStatsTab.Models) {

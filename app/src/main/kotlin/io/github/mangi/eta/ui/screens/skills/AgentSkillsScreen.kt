@@ -4,6 +4,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FolderZip
 import androidx.compose.runtime.Composable
@@ -29,8 +30,9 @@ import io.github.mangi.eta.ui.model.SkillItemUi
 import io.github.mangi.eta.ui.model.canDeleteUserSkill
 import androidx.compose.material3.Button as M3Button
 import androidx.compose.material3.ButtonDefaults as M3ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text as M3Text
 
@@ -238,9 +240,10 @@ fun AgentSkillsScreen(
 /**
  * 可点击的技能行。
  *
- * 走官方分段行 [EtaSegmentedRow]（自带涟漪与语义），加载态用官方
- * [CircularProgressIndicator]。
+ * 走官方分段行 [EtaSegmentedRow]（自带涟漪与语义），加载态用官方 M3E
+ * [LoadingIndicator]（morph 变形，尺寸收敛进图标槽）。
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun SkillActionRow(
     title: String,
@@ -256,7 +259,7 @@ private fun SkillActionRow(
         enabled = enabled,
         leadingContent = {
             if (iconLoading) {
-                CircularProgressIndicator()
+                LoadingIndicator(modifier = Modifier.size(24.dp))
             } else {
                 Icon(imageVector = icon, contentDescription = null)
             }

@@ -9,6 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Download
@@ -40,8 +41,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text as M3Text
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
@@ -266,9 +268,10 @@ private fun BackupNoticeRow(
 /**
  * 备份/导入入口行。
  *
- * 走官方分段行 [EtaSegmentedRow]（自带涟漪与语义），加载态用官方
- * [CircularProgressIndicator]。
+ * 走官方分段行 [EtaSegmentedRow]（自带涟漪与语义），加载态用官方 M3E
+ * [LoadingIndicator]（morph 变形，尺寸收敛进图标槽）。
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun BackupActionRow(
     title: String,
@@ -284,7 +287,7 @@ private fun BackupActionRow(
         enabled = enabled,
         leadingContent = {
             if (loading) {
-                CircularProgressIndicator()
+                LoadingIndicator(modifier = Modifier.size(24.dp))
             } else {
                 Icon(imageVector = icon, contentDescription = null)
             }

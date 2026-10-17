@@ -148,6 +148,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -2272,6 +2273,7 @@ private const val CHAT_CACHE_BEHIND_VIEWPORTS = 1f
 private const val ChatBottomSentinelKey = "agent-chat-bottom-sentinel"
 private const val ChatContextCompressingKey = "agent-chat-context-compressing"
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ContextCompressingIndicator(waiting: Boolean = false, modelName: String = "", modifier: Modifier = Modifier) {
     Row(
@@ -2281,9 +2283,11 @@ private fun ContextCompressingIndicator(waiting: Boolean = false, modelName: Str
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // 线宽取官方 ProgressIndicatorDefaults.CircularStrokeWidth，不再写死。
-        androidx.compose.material3.CircularProgressIndicator(
+        // M3E LoadingIndicator（morph 变形）：行内 18dp 槽，按 loading 选型表
+        // 与朗读按钮、工具行、浏览器预览同一套语言。
+        LoadingIndicator(
             modifier = Modifier.size(18.dp),
+            color = MaterialTheme.colorScheme.primary,
         )
         Text(
             text = if (waiting) stringResource(R.string.compress_conversation_waiting) else
