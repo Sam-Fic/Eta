@@ -39,7 +39,8 @@ private const val CONTRAST_LEVEL = 0.0
  * - 种子 + [AppearancePaletteStyle] → 对应的 `Scheme*` 变体（与旧 `ThemePaletteStyle` 一一对应）。
  *
  * tone→role 全部使用官方 M3 角色（页面背景 = `surfaceContainer`、分段条目 = `surfaceBright`），
- * 因此「外观与主题」的三层色阶布局保持不变；纯黑开关只在暗色下把 background/surface 置黑。
+ * 因此「外观与主题」的三层色阶布局保持不变；纯黑开关在暗色下把页面背景角色
+ * （background / surface / surfaceContainer / surfaceDim）压黑，嵌套角色保留色阶。
  */
 @Composable
 internal fun rememberEtaColorScheme(
@@ -141,7 +142,17 @@ private fun DynamicScheme.toMaterial3ColorScheme(
         surfaceContainerLowest = surfaceContainerLowest.toColor(),
     )
     return if (isDark && pureBlackEnabled) {
-        scheme.copy(background = Color.Black, surface = Color.Black)
+        // 纯黑（AMOLED）：把充当页面背景的角色全部压黑。Spec2025 布局下页面背景
+        // 是 surfaceContainer（主 Scaffold / 顶栏都用它），background / surface 只是
+        // 兜底；surfaceDim 是背景的暗色变体。卡片 / 输入 / 分隔等嵌套角色
+        // （ContainerLow/Lowest/High/Highest、Bright、Variant、OutlineVariant）保留
+        // 原 tone——纯黑底上色阶层级依然可辨，纯黑指「页面底」而非「所有面」。
+        scheme.copy(
+            background = Color.Black,
+            surface = Color.Black,
+            surfaceContainer = Color.Black,
+            surfaceDim = Color.Black,
+        )
     } else {
         scheme
     }
