@@ -623,7 +623,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.appearanceMaterial3Co
                     onValueChange = onScaleDraftChange,
                     modifier = Modifier.fillMaxWidth(),
                     valueRange = (MIN_INTERFACE_SCALE * 100f)..(MAX_INTERFACE_SCALE * 100f),
-                    keyPoints = listOf(80f, 90f, 100f, 110f),
+                    keyPoints = listOf(100f),
                     onValueChangeFinished = { onCommitScale(scaleDraft) },
                 )
             }

@@ -1,7 +1,9 @@
 package io.github.mangi.eta.ui.adaptive
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -17,7 +19,9 @@ import androidx.compose.material3.rememberSliderState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
@@ -130,7 +134,7 @@ fun EtaSwitch(
     )
 }
 
-/** 自适应滑块。[keyPoints] 保留参数以兼容既有调用方。 */
+/** 自适应滑块。[keyPoints] 在滑轨上绘制刻度标记。 */
 @Composable
 fun EtaSlider(
     value: Float,
@@ -151,14 +155,48 @@ fun EtaSlider(
         val coerced = value.coerceIn(valueRange.start, valueRange.endInclusive)
         if (state.value != coerced) state.value = coerced
     }
-    M3Slider(
-        state = state,
-        onValueChange = onValueChange,
-        modifier = modifier,
-        enabled = enabled,
-        onValueChangeFinished = onValueChangeFinished,
-    )
+    BoxWithConstraints(modifier = modifier) {
+        M3Slider(
+            state = state,
+            onValueChange = onValueChange,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = enabled,
+            onValueChangeFinished = onValueChangeFinished,
+        )
+        keyPoints?.let { points ->
+            if (points.isEmpty()) return@let
+            val density = LocalDensity.current
+            val widthPx = with(density) { maxWidth.toPx() }
+            val heightPx = with(density) { maxHeight.toPx() }
+            val thumbRadiusPx = with(density) { ThumbRadius.toPx() }
+            val trackWidthPx = (widthPx - 2 * thumbRadiusPx).coerceAtLeast(0f)
+            val rangeSpan = valueRange.endInclusive - valueRange.start
+            val centerY = heightPx / 2f
+            val tickHalfHeight = with(density) { TickHeight.toPx() } / 2f
+            val tickStroke = with(density) { TickWidth.toPx() }
+            val tickColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = TickAlpha)
+
+            Canvas(modifier = Modifier.matchParentSize()) {
+                points.forEach { point ->
+                    if (point < valueRange.start || point > valueRange.endInclusive) return@forEach
+                    val fraction = (point - valueRange.start) / rangeSpan
+                    val x = thumbRadiusPx + fraction * trackWidthPx
+                    drawLine(
+                        color = tickColor,
+                        start = Offset(x, centerY - tickHalfHeight),
+                        end = Offset(x, centerY + tickHalfHeight),
+                        strokeWidth = tickStroke,
+                    )
+                }
+            }
+        }
+    }
 }
+
+private val ThumbRadius = 10.dp
+private val TickHeight = 4.dp
+private val TickWidth = 1.5.dp
+private const val TickAlpha = 0.5f
 
 /** 自适应主操作按钮。 */
 @Composable
