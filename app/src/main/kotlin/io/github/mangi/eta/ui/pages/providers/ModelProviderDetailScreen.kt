@@ -2,14 +2,11 @@
 
 package io.github.mangi.eta.ui.pages.providers
 
-import androidx.compose.foundation.indication
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -17,8 +14,6 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Save
@@ -36,13 +31,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -81,11 +74,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text as M3Text
-import androidx.compose.material3.ripple
 
 @Composable
 internal fun ModelProviderDetailScreen(
@@ -295,8 +288,10 @@ internal fun ModelProviderDetailScreen(
                         currentTab = it
                     },
                     modifier = Modifier.padding(
-                        horizontal = sidePadding + 12.dp,
-                        vertical = 8.dp,
+                        start = sidePadding + 16.dp,
+                        end = sidePadding + 16.dp,
+                        top = 8.dp,
+                        bottom = 13.dp,
                     ),
                 )
             }
@@ -333,10 +328,10 @@ internal fun ModelProviderDetailScreen(
 }
 
 /**
- * 配置 / 模型分段切换。
+ * 配置 / 模型视图切换。
  *
- * Material 3 走 KernelSU `ExpressiveTabRow` 同款实现：官方 [PrimaryTabRow] +
- * 每个 tab 为可选中的胶囊（`CircleShape` 裁剪 + 官方 ripple）。
+ * 与「Usage stats」页同款：官方单选分段按钮 [SingleChoiceSegmentedButtonRow] +
+ * [SegmentedButton]（形状取官方 [SegmentedButtonDefaults]，配色/行高/字阶均使用官方默认值）。
  */
 @Composable
 private fun ProviderTabs(
@@ -345,47 +340,15 @@ private fun ProviderTabs(
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // 与 KernelSU 参考实现逐值一致的 Expressive 标签栏。
     val safeIndex = selectedIndex.coerceIn(0, (tabs.size - 1).coerceAtLeast(0))
-    PrimaryTabRow(
-        selectedTabIndex = safeIndex,
-        modifier = modifier.fillMaxWidth(),
-        // 与页面背景同色：标签栏浮在 surfaceContainer 上，胶囊涟漪从其上浮出。
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-    ) {
+    SingleChoiceSegmentedButtonRow(modifier = modifier.fillMaxWidth()) {
         tabs.forEachIndexed { index, label ->
-            val selected = safeIndex == index
-            val interactionSource = remember { MutableInteractionSource() }
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .selectable(
-                        selected = selected,
-                        interactionSource = interactionSource,
-                        indication = null,
-                        role = Role.Tab,
-                        onClick = { onSelect(index) },
-                    ),
-                contentAlignment = Alignment.Center,
+            SegmentedButton(
+                selected = safeIndex == index,
+                onClick = { onSelect(index) },
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = tabs.size),
             ) {
-                Box(
-                    modifier = Modifier
-                        .padding(vertical = 8.dp)
-                        .clip(CircleShape)
-                        .indication(interactionSource, ripple()),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    M3Text(
-                        text = label,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                        color = if (selected) {
-                            LocalContentColor.current
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                        style = MaterialTheme.typography.titleSmall,
-                    )
-                }
+                M3Text(text = label)
             }
         }
     }
