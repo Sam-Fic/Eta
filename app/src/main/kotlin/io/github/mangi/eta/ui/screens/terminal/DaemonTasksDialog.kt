@@ -121,8 +121,7 @@ private fun DaemonTaskRow(
 }
 
 /**
- * 日志面板。M3 走官方 `Card`（容器 `surfaceContainerHighest`、形状 `shapes.medium` 均取默认值），
- * MIUI X 保持原有 surfaceVariant 底色。
+ * 日志面板。走官方 `Card`（容器 `surfaceContainerHighest`、形状 `shapes.medium` 均取默认值）。
  */
 @Composable
 private fun DaemonLogsPanel(logsExpanded: Boolean, logs: String?) {

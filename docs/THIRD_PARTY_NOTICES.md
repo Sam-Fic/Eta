@@ -6,9 +6,9 @@ Eta 的免 Root Linux 后端以独立进程运行 [PRoot](https://github.com/ter
 
 APK 的 `assets/native-sources` 附带校验过的原始源码，以及从实际构建入口自动生成的脚本、PTY 源码和补丁包；`assets/licenses` 附带许可证全文。构建脚本与说明位于 [终端原生组件](TERMINAL_NATIVE.md)。这些独立第三方程序保持其开源许可权利，不受 Eta 主项目非商业许可证的附加限制。
 
-## Miuix
+## Material 3 组件
 
-Eta 的应用界面使用 [Miuix](https://github.com/compose-miuix-ui/miuix)，其采用 [Apache License 2.0](https://github.com/compose-miuix-ui/miuix/blob/main/LICENSE)。
+Eta 的应用界面使用官方 Jetpack Compose Material 3 Expressive 组件，依赖版本由 `gradle/libs.versions.toml` 声明，采用 [Apache License 2.0](https://github.com/androidx/androidx/blob/androidx-main/LICENSE.txt)。
 
 ## Material Icons
 

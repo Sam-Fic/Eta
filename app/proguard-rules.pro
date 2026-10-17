@@ -28,10 +28,6 @@
     public <init>();
 }
 
-# R8 默认规则已覆盖 Compose 运行时；Miuix 图标是普通 Kotlin 代码，允许 R8 裁掉未使用图标。
-# -dontwarn 仅抑制 KMP 依赖在 Android 侧可能出现的可选平台 warning，不阻止裁剪。
--dontwarn top.yukonga.miuix.**
-
 # libxposed service 通过静态调用和 manifest provider 接入，交给 R8/Android 默认规则保留可达代码。
 -dontwarn io.github.libxposed.service.**
 

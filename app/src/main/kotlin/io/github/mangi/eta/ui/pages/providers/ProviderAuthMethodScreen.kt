@@ -31,7 +31,7 @@ internal fun ProviderAuthMethodScreen(
     ) {
         item(key = "methods") {
             // KernelSU 式分段列：每个认证方式独立分段（首末大圆角 + 2dp 缝隙），
-            // 行带尾部箭头（M3 = 官方 SegmentedListItem，MIUI X = ArrowPreference）。
+            // 行带尾部箭头（官方 SegmentedListItem）。
             EtaSegmentedColumn(
                 modifier = ProviderSectionGroupPadding,
                 title = stringResource(R.string.provider_auth_method_choose),

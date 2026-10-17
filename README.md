@@ -181,7 +181,6 @@ Eta 先从现有 Android 上的模型、上下文与工具做起。真正落地�
 - [Pi Coding Agent](https://github.com/earendil-works/pi)：Agent Runtime 的核心参考，包括 Agent Loop、Tool Calling、steering 与 transcript 状态管理。
 - [OmniBot](https://github.com/omnimind-ai/OmniBot)：Android AI Agent 方向的参考项目。
 - [libxposed API](https://github.com/libxposed/api)：现代 Xposed API。
-- [Miuix](https://github.com/compose-miuix-ui/miuix)：UI 组件库。
 
 ## 社区
 

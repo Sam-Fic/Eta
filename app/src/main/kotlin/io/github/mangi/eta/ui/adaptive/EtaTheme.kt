@@ -5,14 +5,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import io.github.mangi.eta.data.model.GptSpeedMode
 
-/**
- * 当前是否处于 Material 3 Expressive（标准组件）模式。
- *
- * 全量迁移到 M3 后恒为 true；旧主题分支已成为待清理的死代码（阶段 2 清理）。
- */
-@Composable
-internal fun isMaterial3Theme(): Boolean = true
-
 /** 次要前景色（摘要文本、尾部图标着色）。 */
 @Composable
 internal fun etaOnSurfaceVariant(): Color = MaterialTheme.colorScheme.onSurfaceVariant

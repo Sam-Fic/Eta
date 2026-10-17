@@ -66,9 +66,6 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
 import kotlin.math.roundToInt
 import kotlinx.coroutines.runBlocking
-import io.github.mangi.eta.ui.app.toMiuixCompatColors
-import top.yukonga.miuix.kmp.squircle.LocalSquircleEnabled
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 模块进程内的通用 Agent Runtime。
@@ -1242,18 +1239,11 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
                 val isDark = isNightMode()
                 val m3Colors = if (isDark) darkColorScheme() else lightColorScheme()
                 MaterialTheme(colorScheme = m3Colors) {
-                    // 过渡期兼容层：系统浮层不经过 AgentAppTheme，仍需为尚未迁移的 miuix 组件
-                    // 提供与 M3 同源的配色；阶段 5 随 miuix 依赖一起删除。
-                    MiuixTheme(colors = m3Colors.toMiuixCompatColors(isDark)) {
-                        // 部分 ROM 会给 TYPE_ACCESSIBILITY_OVERLAY 分配软件 Canvas；Miuix 的
-                        // RuntimeShader 只检查系统版本，因此系统浮层统一使用其普通圆角回退。
-                        CompositionLocalProvider(
-                            LocalSquircleEnabled provides false,
-                            // Material3 的 Icon/Text 默认取 LocalContentColor，需在此补上。
-                            LocalContentColor provides m3Colors.onSurface,
-                        ) {
-                            content()
-                        }
+                    CompositionLocalProvider(
+                        // Material3 的 Icon/Text 默认取 LocalContentColor，需在此补上。
+                        LocalContentColor provides m3Colors.onSurface,
+                    ) {
+                        content()
                     }
                 }
             }

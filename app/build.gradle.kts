@@ -144,12 +144,8 @@ dependencies {
     // UI 侧 RemotePreferences 写入桥：通过 XposedService 将配置提交到 LSPosed 数据库；
     // Hook 侧用 XposedInterface.getRemotePreferences 读取当前进程持有的配置缓存。
     implementation(libs.libxposed.service)
-    implementation(libs.miuix.ui)
-    implementation(libs.miuix.blur)
-    implementation(libs.miuix.nav)
-    implementation(libs.miuix.preference)
     implementation(libs.material.icons.extended)
-    // 官方类型安全导航（替代 miuix 的 NavDisplay/NavBackStack）
+    // 官方类型安全导航（NavHost / NavController）
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.navigationevent)
     implementation(libs.androidx.lifecycle.runtime.compose)
@@ -184,7 +180,7 @@ dependencies {
     testImplementation(libs.json)
     testImplementation(libs.room.testing)
     testImplementation(libs.robolectric)
-    // Match the Compose UI supplied by miuix 0.9.4-rc01; selection needs real gesture coverage.
+    // 与 App 使用的 Compose UI 版本保持一致；selection 相关用例需要真实手势覆盖。
     testImplementation("androidx.compose.ui:ui-test-junit4:1.12.0-rc01")
     debugImplementation("androidx.compose.ui:ui-test-manifest:1.12.0-rc01")
 }

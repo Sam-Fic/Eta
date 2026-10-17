@@ -137,7 +137,6 @@ These implementation notes are currently in Chinese:
 - [Pi Coding Agent](https://github.com/earendil-works/pi): the main reference for the agent runtime, including the agent loop, tool calling, steering, and transcript state management.
 - [OmniBot](https://github.com/omnimind-ai/OmniBot): a reference project for AI agents on Android.
 - [libxposed API](https://github.com/libxposed/api): the modern Xposed API.
-- [Miuix](https://github.com/compose-miuix-ui/miuix): the UI component library.
 
 ## Community
 

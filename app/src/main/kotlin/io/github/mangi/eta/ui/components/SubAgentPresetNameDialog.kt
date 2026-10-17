@@ -12,7 +12,7 @@ import io.github.mangi.eta.ui.adaptive.EtaDialogActions
 /**
  * 子智能体预设命名弹窗。
  *
- * 走自适应 [EtaDialog]：Material 3 使用官方 `AlertDialog`，MIUI X 仍使用窗口级表单宿主。
+ * 走自适应 [EtaDialog]：使用官方 `AlertDialog`。
  * 编辑框保持共用 [EtaFormTextField]，动作行统一由 [EtaDialogActions] 渲染，
  * 不再自行拼装按钮行。
  */

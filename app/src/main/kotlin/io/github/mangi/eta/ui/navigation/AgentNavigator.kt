@@ -27,7 +27,7 @@ internal fun NavBackStackEntry.toAppRoute(): AppRoute? {
 }
 
 /**
- * 用 androidx [NavController] 实现的路由栈，公开接口与之前的 miuix 返回栈保持一致。
+ * 用 androidx [NavController] 实现的路由栈，公开接口与旧实现保持一致。
  */
 class AgentNavigator(
     private val navController: NavController,

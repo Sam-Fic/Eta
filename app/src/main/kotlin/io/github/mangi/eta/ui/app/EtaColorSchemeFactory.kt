@@ -26,18 +26,14 @@ import com.materialkolor.scheme.SchemeTonalSpot
 import com.materialkolor.scheme.SchemeVibrant
 import io.github.mangi.eta.data.model.AppearanceAccentColor
 import io.github.mangi.eta.data.model.AppearancePaletteStyle
-import top.yukonga.miuix.kmp.theme.Colors
-import top.yukonga.miuix.kmp.theme.darkColorScheme as miuixDarkColorScheme
-import top.yukonga.miuix.kmp.theme.lightColorScheme as miuixLightColorScheme
 
-/** 对比度（0.0 = 标准）。与 miuix 取色链保持一致的默认值。 */
+/** 对比度（0.0 = 标准）。 */
 private const val CONTRAST_LEVEL = 0.0
 
 /**
  * 取色工厂：把「外观与主题」里的强调色 / 配色风格 / 深浅色解析成 Material 3 [ColorScheme]。
  *
- * 取色链与旧实现同源（material-color-utilities 的 Spec2025 方案），只是不再经过 miuix 的
- * `ThemeController`：
+ * 取色链使用 material-color-utilities 的 Spec2025 方案：
  * - `SYSTEM` 强调色：Android 12+ 取系统动态色的 primary 作为种子，低版本回退到蓝色种子；
  * - 固定强调色：直接使用该强调色的预设种子；
  * - 种子 + [AppearancePaletteStyle] → 对应的 `Scheme*` 变体（与旧 `ThemePaletteStyle` 一一对应）。
@@ -163,42 +159,4 @@ private fun AppearanceAccentColor.seedColor(): Color = when (this) {
     AppearanceAccentColor.YELLOW -> Color(0xFF7D5700)
     AppearanceAccentColor.GREEN -> Color(0xFF006D3B)
     AppearanceAccentColor.TEAL -> Color(0xFF006A6A)
-}
-
-/**
- * 过渡期兼容层：把 Material 3 [ColorScheme] 映射回 miuix 的 [Colors]。
- *
- * 阶段 1~4 期间仍有未迁移的 miuix 组件，需要一个与 M3 同源的 miuix 配色，
- * 避免它们退回 miuix 默认色板。阶段 5 随 miuix 依赖一起删除。
- */
-internal fun ColorScheme.toMiuixCompatColors(isDark: Boolean): Colors {
-    val base = if (isDark) miuixDarkColorScheme() else miuixLightColorScheme()
-    return base.copy(
-        primary = primary,
-        onPrimary = onPrimary,
-        primaryContainer = primaryContainer,
-        onPrimaryContainer = onPrimaryContainer,
-        secondary = secondary,
-        onSecondary = onSecondary,
-        secondaryContainer = secondaryContainer,
-        onSecondaryContainer = onSecondaryContainer,
-        tertiaryContainer = tertiaryContainer,
-        onTertiaryContainer = onTertiaryContainer,
-        background = background,
-        onBackground = onBackground,
-        surface = surface,
-        onSurface = onSurface,
-        surfaceVariant = surfaceVariant,
-        onSurfaceSecondary = onSurfaceVariant,
-        onSurfaceVariantSummary = onSurfaceVariant,
-        onSurfaceVariantActions = onSurfaceVariant,
-        surfaceContainer = surfaceContainer,
-        surfaceContainerHigh = surfaceContainerHigh,
-        surfaceContainerHighest = surfaceContainerHighest,
-        outline = outline,
-        error = error,
-        onError = onError,
-        errorContainer = errorContainer,
-        onErrorContainer = onErrorContainer,
-    )
 }
