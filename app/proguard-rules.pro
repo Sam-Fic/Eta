@@ -73,3 +73,9 @@
 
 # Root app_process entrypoints packaged in the app APK.
 -keep class vd.runtime.** { *; }
+
+# ── Navigation Compose 类型安全路由 ───────────────────────────────────────────
+# 路由类与路由参数类型（如枚举 NewProviderType）由 Navigation 在运行时按
+# 全限定名反射解析；R8 混淆改名后会抛
+# "Cannot find class with name <fqcn>"（启动即闪退）。保留整个路由包的类名。
+-keep class io.github.mangi.eta.ui.navigation.** { *; }

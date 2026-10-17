@@ -2,27 +2,93 @@ package io.github.mangi.eta.ui.navigation
 
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
-import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.toRoute
 import kotlin.reflect.KClass
 
 /**
  * AppRoute 的具体类型集合。NavHost 是按具体类型（而不是 sealed 基类）注册目标的，
  * 所以把返回栈条目还原成路由时必须用具体类型的序列化器。
- * 这里读 JVM 的 PermittedSubclasses 而不是 Kotlin 的 sealedSubclasses：
- * 后者依赖 kotlin-reflect，本工程没有引入。新增路由时不需要同步维护这张表。
+ *
+ * 这里**不能**用 `AppRoute::class.java.permittedSubclasses` 或
+ * [androidx.navigation.NavDestination.hasRoute] 这类运行时反射/序列化器哈希：
+ * R8 混淆下二者会静默失效（映射结果为空），应用内返回按钮因此把任何页面
+ * 误判成根页面。改为编译期显式登记 + destination.route 字符串匹配，
+ * 新增路由时需同步维护本表（有单元测试对照 permittedSubclasses 防漏登）。
  */
-private val appRouteTypes: List<KClass<out AppRoute>> =
-    AppRoute::class.java.permittedSubclasses.orEmpty().map { it.kotlin as KClass<out AppRoute> }
+private val appRouteTypes: List<KClass<out AppRoute>> = listOf(
+    AppRoute.Home::class,
+    AppRoute.Chat::class,
+    AppRoute.Browser::class,
+    AppRoute.Terminal::class,
+    AppRoute.Tools::class,
+    AppRoute.AgentTaskPreference::class,
+    AppRoute.VirtualDisplayRecovery::class,
+    AppRoute.Haptics::class,
+    AppRoute.Skills::class,
+    AppRoute.Permissions::class,
+    AppRoute.SystemEnhance::class,
+    AppRoute.Settings::class,
+    AppRoute.SettingsSearch::class,
+    AppRoute.About::class,
+    AppRoute.SpeechSettings::class,
+    AppRoute.TtsSettings::class,
+    AppRoute.VoiceSettings::class,
+    AppRoute.AuxiliaryVision::class,
+    AppRoute.TitleModel::class,
+    AppRoute.ErrorReconnectSettings::class,
+    AppRoute.SubAgents::class,
+    AppRoute.VoiceModeSettings::class,
+    AppRoute.AppearanceSettings::class,
+    AppRoute.DataBackup::class,
+    AppRoute.Memory::class,
+    AppRoute.LinuxEnvironment::class,
+    AppRoute.SharedFolders::class,
+    AppRoute.Workspace::class,
+    AppRoute.LinuxFiles::class,
+    AppRoute.ModelProviders::class,
+    AppRoute.ModelProviderSearch::class,
+    AppRoute.McpServers::class,
+    AppRoute.McpServerDetail::class,
+    AppRoute.ModelProviderDetail::class,
+    AppRoute.ModelProviderAuthMethod::class,
+    AppRoute.ModelProviderNew::class,
+    AppRoute.ContextCompression::class,
+    AppRoute.Assistants::class,
+    AppRoute.AssistantSearch::class,
+    AppRoute.AssistantEdit::class,
+    AppRoute.UsageStats::class,
+    AppRoute.ManageChats::class,
+)
 
 /** 模式串（destination.route）→ 路由类型；导航目标是复用的，所以只需解析一次。 */
 private val routeTypesByPattern = mutableMapOf<String, KClass<out AppRoute>?>()
 
-/** 把返回栈条目还原成 [AppRoute]；不是 App 路由（例如导航图本身）时返回 null。 */
+/** 按模式串匹配 [AppRoute] 具体类型：全等（无参路由）或 `序列名/` 前缀（带参路由）。 */
+private fun matchRouteType(routePattern: String): KClass<out AppRoute>? =
+    appRouteTypes.firstOrNull { kClass ->
+        val qualifiedName = kClass.qualifiedName ?: return@firstOrNull false
+        routePattern == qualifiedName || routePattern.startsWith("$qualifiedName/")
+    }
+
+/** 供单元测试对照显式路由表与 sealed 子类元数据。 */
+internal val appRouteTypesForTest: List<KClass<out AppRoute>> get() = appRouteTypes
+
+/** 供单元测试复用模式串匹配逻辑（不做返回栈反序列化）。 */
+internal fun routePatternOf(route: AppRoute, pattern: () -> String): KClass<out AppRoute>? =
+    matchRouteType(pattern())
+
+/**
+ * 把返回栈条目的 destination.route 模式串匹配到 [AppRoute] 具体类型。
+ *
+ * 模式串是 `序列名`（无参路由）或 `序列名/{参数}`（带参路由）；类名受 proguard
+ * keep 规则保护，所以拿 [KClass.qualifiedName] 做前缀匹配即可，
+ * 不依赖 hasRoute 的序列化器哈希契约。不是 App 路由（例如导航图本身）时返回 null。
+ */
 internal fun NavBackStackEntry.toAppRoute(): AppRoute? {
-    val type = routeTypesByPattern.getOrPut(destination.route.orEmpty()) {
-        appRouteTypes.firstOrNull { destination.hasRoute(it) }
-    } ?: return null
+    val routePattern = destination.route.orEmpty()
+    if (routePattern.isEmpty()) return null
+    val type = routeTypesByPattern.getOrPut(routePattern) { matchRouteType(routePattern) }
+        ?: return null
     return toRoute(type)
 }
 
@@ -60,8 +126,15 @@ class AgentNavigator(
     }
 
     fun pop(): Boolean {
-        if (routes().size <= 1) return false
-        return navController.popBackStack()
+        val stack = routes()
+        val popped = stack.size > 1 && navController.popBackStack()
+        // 导航层级诊断：记录返回栈映射结果与出栈结果，用于排查应用内返回按钮的层级误判。
+        io.github.mangi.eta.core.AndroidAgentLogger.info(
+            "nav.pop size=${stack.size}" +
+                " [${stack.joinToString(separator = ",") { it::class.simpleName.orEmpty() }}]" +
+                " -> popped=$popped",
+        )
+        return popped
     }
 
     fun popToHome() {
