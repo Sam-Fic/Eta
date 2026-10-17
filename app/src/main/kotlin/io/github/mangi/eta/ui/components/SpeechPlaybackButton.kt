@@ -4,9 +4,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -26,6 +27,7 @@ import io.github.mangi.eta.agent.voice.tts.SpeechPlayback
  * 承担容器（secondaryContainer 配色与连体形状，见 [M3ConnectedIconAction]）；
  * 单独使用时走官方 IconButton 默认档。
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun SpeechPlaybackButton(
     messageId: String,
@@ -45,7 +47,12 @@ internal fun SpeechPlaybackButton(
             count = count,
         ) {
             if (active && state.preparing) {
-                CircularProgressIndicator(
+                // M3E Loading Indicator：官方 `LoadingIndicator` 的 indeterminate 重载——
+                // 一块在官方默认形状序列（圆/软星/三角/胶囊…）之间变形并旋转的图形，
+                // 与输入区 morph 指示器同属 M3E 组件族。无容器圆底（containerColor
+                // 走 Unspecified，不绘制背景），直接取按钮内容色，缩进 20dp 图标槽；
+                // 官方默认 48dp 容器被外层 size 收敛，与实际渲染尺寸无关。
+                LoadingIndicator(
                     modifier = Modifier.size(IconButtonDefaults.extraSmallIconSize),
                     color = LocalContentColor.current,
                 )
@@ -66,7 +73,10 @@ internal fun SpeechPlaybackButton(
         enabled = !state.recording,
     ) {
         if (active && state.preparing) {
-            CircularProgressIndicator(Modifier.size(16.dp))
+            LoadingIndicator(
+                modifier = Modifier.size(16.dp),
+                color = MaterialTheme.colorScheme.primary,
+            )
         } else {
             Icon(
                 imageVector = if (active) Icons.Rounded.Stop else Icons.AutoMirrored.Rounded.VolumeUp,
