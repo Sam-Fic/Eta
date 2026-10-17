@@ -181,11 +181,17 @@ fun EtaSearchPage(
                 // 未输入：有历史先列「搜索记录」（点一条回填搜索框，可一键清除）；
                 // 无历史再退回官方 Empty state（空状态）占位。都不铺宿主页内容。
                 if (history.isNotEmpty()) {
+                    // 历史列表的间距/图标规格与设置主页的分组列表完全一致：
+                    // 组标题下 8dp、行间 2dp 露出背景缝、组末 13dp、左右页边距 16dp。
                     item(key = "search_history_header") {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = EtaGroupHorizontalPadding),
+                                .padding(
+                                    start = EtaGroupHorizontalPadding,
+                                    end = EtaGroupHorizontalPadding,
+                                    bottom = EtaSegmentedTitleSpacing,
+                                ),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
@@ -208,15 +214,26 @@ fun EtaSearchPage(
                                 EtaClickableRow(
                                     title = record,
                                     leading = {
+                                        // 与设置主页行首图标同一规格（onSurfaceVariant 24dp）。
                                         Icon(
                                             imageVector = Icons.Rounded.History,
                                             contentDescription = null,
+                                            modifier = Modifier
+                                                .padding(end = 8.dp)
+                                                .size(24.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
                                     },
                                     showChevron = false,
                                     onClick = { query = record },
                                     modifier = Modifier.padding(
-                                        horizontal = EtaGroupHorizontalPadding,
+                                        start = EtaGroupHorizontalPadding,
+                                        end = EtaGroupHorizontalPadding,
+                                        bottom = if (index == history.lastIndex) {
+                                            EtaSegmentedGroupSpacing
+                                        } else {
+                                            EtaSegmentedGap
+                                        },
                                     ),
                                 )
                             }
