@@ -8,7 +8,7 @@ import org.junit.Test
 
 class AppRouteSerializationTest {
     @Test
-    fun allRoutesRoundTripWithMiuixNavJsonConfiguration() {
+    fun allRoutesRoundTripWithNavJsonConfiguration() {
         val routes = listOf<AppRoute>(
             AppRoute.Home,
             AppRoute.Chat,

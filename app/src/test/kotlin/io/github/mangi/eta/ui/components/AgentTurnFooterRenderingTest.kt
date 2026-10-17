@@ -4,6 +4,8 @@ import android.app.Application
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateMapOf
@@ -33,8 +35,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.theme.lightColorScheme
 
 /** Exercises the real lazy-list call site, not a second footer projection. CI only. */
 @RunWith(RobolectricTestRunner::class)
@@ -239,7 +239,7 @@ class AgentTurnFooterRenderingTest {
         supplyTimelineEntries: MutableState<Boolean> = mutableStateOf(false),
     ) {
         compose.setContent {
-            MiuixTheme(colors = lightColorScheme()) {
+            MaterialTheme(colorScheme = lightColorScheme()) {
                 CompositionLocalProvider(LocalStreamingMarkdownStates provides states) {
                     Box(Modifier.fillMaxSize()) {
                         AgentConversationMessages(

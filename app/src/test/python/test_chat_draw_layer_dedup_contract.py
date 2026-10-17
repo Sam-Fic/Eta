@@ -47,22 +47,21 @@ class ChatDrawLayerDedupContractTest(unittest.TestCase):
         self.assertNotIn('.then(', self.layer)
         self.assertNotIn('graphicsLayer {', self.layer)  # keep the stable parameter-form element
 
-    def test_tool_details_keep_squircle_but_not_an_outer_retention_layer(self):
+    def test_tool_details_reuse_card_body_with_a_single_whole_card_layer(self):
         details = self.tool.split('visible = isExpanded && hasDetails,', 1)[1]
         self.assertNotIn('retainDrawLayerWhenIdle(', details)
-        self.assertNotIn('completedContentDrawLayer(', details)
+        # 展开体复用提问卡的 WorkCardExpandedBody（官方 shapes.large 外壳），不再自绘
+        # miuix 时代的 squircleSurface 面板，因此 MiuixTheme 也随之一并消失。
         self.assertIn(
-            'modifier = Modifier\n'
-            '                    .toggleProbe(toggleProbeRef, "content")\n'
-            '                    .fillMaxWidth()\n'
-            '                    .padding(start = 27.dp, top = 2.dp, bottom = 6.dp)\n'
-            '                    .squircleSurface(\n'
-            '                        color = MiuixTheme.colorScheme.surfaceContainer,\n'
-            '                        cornerRadius = 10.dp,\n'
-            '                    )\n'
-            '                    .padding(horizontal = 12.dp, vertical = 10.dp),',
+            'WorkCardExpandedBody(modifier = Modifier.toggleProbe(toggleProbeRef, "content"))',
             details,
         )
+        self.assertNotIn('squircleSurface(', details)
+        self.assertNotIn('MiuixTheme', self.chat)
+        # 留帧层只有一层，且包在整卡外壳（WorkProcessCardSlice）上。
+        self.assertEqual(1, details.count('completedContentDrawLayer('))
+        card = details.split('// 独立行复用提问卡片的整卡外壳', 1)[1]
+        self.assertIn('.let { completedContentDrawLayer(it, toolRowSettled) }', card)
         self.assertIn('HapticSelectionContainer {', details)
         self.assertIn('enter = tailDetailsEnter(anchorBottom)', self.tool)
         self.assertIn('exit = tailDetailsExit(anchorBottom)', self.tool)

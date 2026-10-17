@@ -14,33 +14,43 @@ def read(path):
 class VoiceFormStyleHapticsContractTest(unittest.TestCase):
     def test_shared_form_has_rounded_filled_outline_and_floating_label(self):
         field = read('ui/components/EtaFormTextField.kt')
+        # M3-only：圆角/填充色/浮动标签委托官方 OutlinedTextField 默认令牌，
+        # 不再自绘 RoundedCornerShape、lerp 容器色与描边色。
         self.assertIn('OutlinedTextField(', field)
-        self.assertIn('internal val EtaInputCornerRadius = 14.dp', field)
-        self.assertIn('shape = RoundedCornerShape(EtaInputCornerRadius)', field)
-        self.assertIn('lerp(colors.surface, colors.surfaceContainerHigh, 0.35f)', field)
-        for name in ('focusedContainerColor', 'unfocusedContainerColor', 'disabledContainerColor'):
-            self.assertIn(f'{name} = container', field)
-        self.assertIn('unfocusedBorderColor = colors.outline.copy(alpha = 0.30f)', field)
-        self.assertIn('label = { Text(hint) }', field)
+        self.assertIn('import androidx.compose.material3.OutlinedTextField', field)
+        self.assertIn('internal val EtaInputCornerRadius = 12.dp', field)
+        self.assertIn('internal fun etaInputContainerColor(): Color = MaterialTheme.colorScheme.surfaceContainerHigh', field)
+        self.assertIn('label = { Text(text = hint) }', field)
         self.assertIn('import androidx.compose.material3.Text', field)  # inherit animated label size/color
         self.assertNotIn('useLabelAsPlaceholder', field)
+        self.assertIn('.fillMaxWidth()', field)
         self.assertIn('contentDescription = hint', field)
+        for gone in ('RoundedCornerShape', 'lerp(', 'unfocusedBorderColor', 'focusedContainerColor'):
+            self.assertNotIn(gone, field)
         self.assertNotRegex(field, r'Color\(0x')
 
     def test_chat_shell_matches_form_style_without_replacing_stateful_editor(self):
         chat = read('ui/components/AgentChatInputBar.kt')
-        self.assertIn('private val InputContainerShape = RoundedCornerShape(EtaInputCornerRadius)', chat)
-        shell = chat.split('inputContainerTopPx[0] = coordinates', 1)[1].split('ChatComposerActionRow(', 1)[0]
-        self.assertIn('.clip(InputContainerShape)', shell)
-        self.assertIn('.background(etaInputContainerColor())', shell)
-        self.assertIn('width = 0.5.dp', shell)
-        self.assertIn('outline.copy(alpha = 0.30f)', shell)
-        self.assertNotIn('.dropShadow(', shell)
-        self.assertIn('BasicTextField(', shell)
+        composer = read('ui/components/AgentChatComposerM3.kt')
+        # M3 输入区：官方 TextField(state = textFieldState) 是唯一 stateful 编辑器，
+        # 容器形态全部取官方 Shape/颜色槽，不再有 miuix 时代的自绘胶囊（clip/描边/0.5dp 线）。
+        shell = composer.split('private fun M3ComposerTextField(', 1)[1].split('private fun M3VoiceBar(', 1)[0]
+        self.assertIn('TextField(', shell)
         self.assertIn('state = textFieldState', shell)
+        self.assertIn('TextFieldLineLimits.MultiLine(', shell)
         self.assertIn('maxHeightInLines = 6', shell)
-        self.assertIn('.focusProperties { canFocus = !drawerBlocksIme }', shell)
-        self.assertIn('VoiceModeStatusPanel(', shell)
+        self.assertIn('shape = MaterialTheme.shapes.extraLarge', shell)
+        self.assertIn('focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer', shell)
+        self.assertIn('.focusProperties { canFocus = !interactionBlocked }', shell)
+        self.assertNotIn('BasicTextField(', shell)
+        self.assertNotIn('.dropShadow(', shell)
+        for gone in ('InputContainerShape', 'etaInputContainerColor', 'width = 0.5.dp', 'outline.copy(alpha = 0.30f)'):
+            self.assertNotIn(gone, composer)
+        voice = composer.split('private fun M3VoiceBar(', 1)[1]
+        self.assertIn('.clip(MaterialTheme.shapes.extraLarge)', voice)
+        self.assertIn('.background(MaterialTheme.colorScheme.surfaceContainerHigh)', voice)
+        self.assertIn('M3VoiceBar(state = voiceState)', composer)
+        self.assertIn('Material3ComposerBody(', chat)
 
     def test_shared_field_keeps_line_limits_password_and_disabled_state(self):
         field = read('ui/components/EtaFormTextField.kt')
@@ -50,8 +60,9 @@ class VoiceFormStyleHapticsContractTest(unittest.TestCase):
         self.assertIn('maxLines = if (singleLine) 1 else maxLines', field)
         self.assertIn('maxLines: Int = Int.MAX_VALUE', field)
         self.assertIn('visualTransformation: VisualTransformation = VisualTransformation.None', field)
-        self.assertIn('LocalRippleConfiguration provides null', field)
-        self.assertIn('WithoutPressRipple {', field)
+        # 涟漪/focus 指示交给官方 OutlinedTextField 默认值，不再包一层压制按压反馈的 M3 包装。
+        self.assertNotIn('LocalRippleConfiguration', field)
+        self.assertNotIn('WithoutPressRipple', field)
         self.assertNotIn('mutableStateOf', field)  # draft ownership stays at callers
 
     def test_screens_and_question_use_same_shared_field(self):
@@ -112,7 +123,7 @@ class VoiceFormStyleHapticsContractTest(unittest.TestCase):
         self.assertIn('if (!refreshing) scope.launch', realtime)
         picker = read('ui/TtsModelPickerDialog.kt')
         self.assertIn('TouchHaptics.click', picker)
-        actions = read('ui/components/MiuixDialogActions.kt')
+        actions = read('ui/adaptive/EtaDialog.kt')
         self.assertEqual(2, actions.count('TouchHaptics.click(view)'))
         for name in ('onSelected', 'onDismiss'):
             # New screen wiring does not add feedback in already-haptic dialog callbacks.

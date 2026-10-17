@@ -90,31 +90,36 @@ class TopBarInteractiveModeContractTest(unittest.TestCase):
         cls.interactive = interactive[0]
 
     def test_exact_menu_order_restores_only_the_two_missing_group_lines(self):
+        # M3 壳层把「新建对话」独立成顶栏按钮（AgentAppShell 里的 AddComment IconButton），
+        # 不再占溢出菜单一行；菜单末尾新增「删除当前会话」分组行。
         self.assertEqual([
-            "action_new_conversation", "action_search_history",
+            "action_search_history",
             "divider", "action_interactive_mode", "divider",
             "action_open_terminal", "action_open_browser", "action_browse_workspace_files",
             "action_sub_agent_status", "kimiWebLabel", "divider", "action_token_usage",
             "action_compress_conversation", "action_auto_compress_context",
+            "divider", "action_delete_current_conversation",
             "divider", "capability_kimi_stop",
         ], self.sequence)
         stop_at = self.content.index("if (canStopKimiWeb)")
         stop = balanced(self.content, self.content.index("{", stop_at))
         self.assertEqual(1, stop.count("MenuSectionDivider()"))
         self.assertIn("R.string.capability_kimi_stop", stop)
-        self.assertEqual(3, self.content[:stop_at].count("MenuSectionDivider()"))
-        self.assertEqual(4, self.content.count("MenuSectionDivider()"))
+        self.assertEqual(4, self.content[:stop_at].count("MenuSectionDivider()"))
+        self.assertEqual(5, self.content.count("MenuSectionDivider()"))
 
     def test_divider_uses_the_existing_helper_and_exact_original_style(self):
         helper_at = self.menu.index("private fun MenuSectionDivider()")
         helper = balanced(self.menu, self.menu.index("{", helper_at))
+        # 注释里说明了「保持官方默认」，比对结构时先剔除注释再压缩空白。
         self.assertEqual(compact("""{
             HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp),
-                thickness = 1.dp,
-                color = MiuixTheme.colorScheme.outline.copy(alpha = 0.35f),
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
             )
-        }"""), compact(helper))
+        }"""), compact(re.sub(r"//[^\n]*", "", helper)))
+        self.assertNotIn("MiuixTheme", helper)
+        self.assertNotIn("thickness", helper)  # 官方默认厚度
+        self.assertNotIn("color =", helper)  # 官方默认 outlineVariant，不再自绘透明度
         self.assertEqual(1, self.menu.count("HorizontalDivider("))
 
     def test_menu_observes_the_real_preference_without_initialization_writes(self):
@@ -128,7 +133,7 @@ class TopBarInteractiveModeContractTest(unittest.TestCase):
     def test_row_and_switch_are_both_clickable_without_dismissing_the_popup(self):
         self.assertIn('modifier = CompactMenuItemModifier.testTag("top-bar-interactive-mode-row")', self.interactive)
         self.assertIn("contentPadding = CompactMenuItemPadding", self.interactive)
-        self.assertIn("imageVector = Icons.Filled.TouchApp", self.interactive)
+        self.assertIn("imageVector = Icons.Rounded.TouchApp", self.interactive)
         self.assertIn("modifier = Modifier.size(TopBarMenuIconSize)", self.interactive)
         switch = arguments(self.interactive, "Switch")
         self.assertIn("checked = interactiveModeEnabled", switch)
@@ -210,11 +215,12 @@ class TopBarInteractiveModeContractTest(unittest.TestCase):
     def test_menu_call_parameters_keep_existing_actions_and_avoid_lifted_toggle_state(self):
         declaration = arguments(self.menu, "TopBarOverflowMenu")
         caller = arguments(read("ui/app/AgentAppShell.kt"), "TopBarOverflowMenu")
-        for name in ("onNewConversation", "onOpenTerminal", "onLaunchKimiWeb", "kimiWebLabel",
+        for name in ("onOpenTerminal", "onLaunchKimiWeb", "kimiWebLabel",
                      "canStopKimiWeb", "onStopKimiWeb", "onRefreshKimiWeb", "onOpenBrowser",
                      "onOpenWorkspace", "autoCompressEnabled", "isCompressingContext",
                      "onToggleAutoCompress", "onCompressConversation", "onSearchHistory",
-                     "onOpenHistoryHit", "tokenUsage", "subAgentStatuses"):
+                     "onOpenHistoryHit", "tokenUsage", "subAgentStatuses",
+                     "canDeleteCurrentConversation", "onDeleteCurrentConversation"):
             with self.subTest(parameter=name):
                 self.assertRegex(declaration, r"\b" + name + r"\s*:")
                 self.assertIn(f"{name} = {name}", caller)

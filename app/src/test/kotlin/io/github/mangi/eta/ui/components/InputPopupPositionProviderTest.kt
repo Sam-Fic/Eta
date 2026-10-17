@@ -8,7 +8,7 @@ import org.junit.Test
 
 /**
  * M3 的 PopupPositionProvider 只提供 anchorBounds/windowSize/popupContentSize，
- * 没有 miuix 的 alignment 与 popupMargin，所以这里的断言按当前实现直接推导。
+ * 没有额外的 alignment 与 popupMargin 参数，所以这里的断言按当前实现直接推导。
  */
 class InputPopupPositionProviderTest {
     @Test

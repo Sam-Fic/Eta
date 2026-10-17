@@ -5,6 +5,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,9 +32,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.theme.darkColorScheme
-import top.yukonga.miuix.kmp.theme.lightColorScheme
 
 /** Executes ChatMessageItem -> target -> Default parser -> prepared block -> actual text host.
  * CI correctness/layout coverage, not device performance or a frame-rate claim.
@@ -54,7 +54,7 @@ class PreparedMarkdownProductionTest {
         val width = mutableStateOf(340.dp)
         val scale = mutableStateOf(1f)
         compose.setContent {
-            MiuixTheme(colors = if (dark.value) darkColorScheme() else lightColorScheme()) {
+            MaterialTheme(colorScheme = if (dark.value) darkColorScheme() else lightColorScheme()) {
                 val density = LocalDensity.current.density
                 CompositionLocalProvider(LocalDensity provides Density(density, scale.value)) {
                     // A stable, non-zero viewport allows Robolectric to perform

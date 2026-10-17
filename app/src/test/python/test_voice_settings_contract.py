@@ -20,7 +20,7 @@ class VoiceSettingsContractTest(unittest.TestCase):
             self.assertNotIn(f'onNavigate(AppRoute.{old})', settings)
             self.assertIn(f'data object {old} : AppRoute', read('ui/navigation/AppRoute.kt'))
         root = read('ui/app/AgentAppRoot.kt')
-        block = root[root.index('entry<AppRoute.VoiceSettings>'):root.index('entry<AppRoute.AppearanceSettings>')]
+        block = root[root.index('composable<AppRoute.VoiceSettings>'):root.index('composable<AppRoute.AppearanceSettings>')]
         self.assertEqual(4, block.count('VoiceSettingsScreen('))
         self.assertNotIn('pushRoute(', block)
         self.assertIn('is AppRoute.VoiceSettings ->', read('ui/app/AgentAppShell.kt'))
@@ -44,7 +44,8 @@ class VoiceSettingsContractTest(unittest.TestCase):
         for file in ('SpeechSettingsScreen', 'TtsSettingsScreen', 'VoiceModeSettingsScreen', 'PersonalVoicesScreen'):
             source = read(f'ui/{file}.kt')
             self.assertIn('VoiceSettingsSectionPage(', source)
-            self.assertNotIn('MiuixScaffoldPage(', source)
+            # 分段根不再嵌套整页脚手架（当前 M3 脚手架为 EtaScaffoldPage）。
+            self.assertNotIn('EtaScaffoldPage(', source)
         tts = read('ui/TtsSettingsScreen.kt')
         self.assertNotIn('PersonalVoicesScreen(', tts)
         self.assertIn('if (conversation) item(key = "conversation_recognition")', tts)

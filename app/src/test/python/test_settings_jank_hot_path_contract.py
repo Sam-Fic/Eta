@@ -24,7 +24,7 @@ class SettingsJankHotPathContract(unittest.TestCase):
 
     def test_measurement_slots_are_opt_in_without_changing_effect_chain(self):
         settings = (ROOT / 'SettingsScreen.kt').read_text()
-        scaffold = (ROOT / 'components/MiuixScaffoldPage.kt').read_text().split('fun MiuixScaffold(', 1)[0]
+        scaffold = (ROOT / 'adaptive/EtaScaffold.kt').read_text()
         labels = (ROOT / 'components/BoundedStreamDiagnostics.kt').read_text()
         for name, stage in [('topBarModifier', 'settings.topbar.measure'), ('listModifier', 'settings.lazy.measure')]:
             self.assertIn(f'{name}: Modifier = Modifier', scaffold)
@@ -39,13 +39,19 @@ class SettingsJankHotPathContract(unittest.TestCase):
             for suffix in ('measure','place','draw'): self.assertIn(f'"{prefix}.{suffix}"',labels)
         self.assertIn('modifier = topBarModifier', scaffold)
         self.assertIn('modifier = listModifier', scaffold)
-        chain = ['.fillMaxSize()', '.horizontalCutoutPadding()', '.captureForTopBar(backdrop)', '.scrollEndHaptic()', '.overScrollVertical()', '.nestedScroll(scrollBehavior.nestedScrollConnection)']
+        # M3 Scaffold 的列表效果链只剩两级：铺满 + 顶栏折叠手势的 nestedScroll。
+        # miuix 时代的 horizontalCutoutPadding / captureForTopBar / scrollEndHaptic / overScrollVertical 已不再挂在这里。
+        chain = ['.fillMaxSize()', '.nestedScroll(scrollBehavior.nestedScrollConnection)']
         lazy = scaffold.split('LazyColumn(', 1)[1]
         self.assertEqual(sorted(lazy.index(item) for item in chain), [lazy.index(item) for item in chain])
+        for gone in ('.horizontalCutoutPadding()', '.captureForTopBar(backdrop)', '.scrollEndHaptic()', '.overScrollVertical()'):
+            self.assertNotIn(gone, lazy)
+        # captureForTopBar 在 M3 下退化为恒等修饰符（M3 顶栏不做毛玻璃抓取），实际调用点仍在壳层。
         backdrop = (ROOT / 'components/TopBarBackdrop.kt').read_text()
-        capture = backdrop.split('internal fun Modifier.captureForTopBar(', 1)[1].split('@Composable', 1)[0]
-        self.assertNotIn('isScrollInProgress', capture)
-        self.assertIn('layerBackdrop(backdrop)', capture)
+        self.assertIn('internal fun Modifier.captureForTopBar(backdrop: Nothing?): Modifier = this', backdrop)
+        self.assertNotIn('isScrollInProgress', backdrop)
+        self.assertNotIn('layerBackdrop', backdrop)
+        self.assertIn('.captureForTopBar(backdrop)', (ROOT / 'app/AgentAppShell.kt').read_text())
 
 
     def test_settings_collects_remembered_store_flows(self):
@@ -64,7 +70,7 @@ class SettingsJankHotPathContract(unittest.TestCase):
         root = (ROOT / 'app/AgentAppRoot.kt').read_text()
         # 半遮住时聊天还在组合里，继续用实时消息；完全盖住后导航移出组合。
         self.assertIn('LocalChatUiActive provides true', root)
-        self.assertIn('LocalChatRouteCovered provides (backStack.lastOrNull() != route)', root)
+        self.assertIn('LocalChatRouteCovered provides (currentRoute != route)', root)
         self.assertNotIn('if (isCurrentRoute) {\n                    AgentHomeScreen', root)
         body = (ROOT / 'components/AgentChatBody.kt').read_text()
         start = body.index('internal fun AgentChatBody(')
@@ -88,16 +94,19 @@ class SettingsJankHotPathContract(unittest.TestCase):
         self.assertNotIn('LocalChatNavigationInProgress', helper)
         self.assertFalse((ROOT / 'app/ChatNavigationTransition.kt').exists())
         self.assertIn('LocalChatTransitionActive provides navigationActive.value', root)
-        self.assertIn('transition = navigationTransition.transition', root)
-        self.assertIn('chatNavigationActivityTransition', root)
-        draw = activity.split('navGraphicsTransition(opaqueDepth = 1f)', 1)[1].split('applyDefaultCoveredChatTransform', 1)[0]
-        self.assertIn('tracker.observeFrame(scope.gesture != null || scope.settle != null)', draw)
+        self.assertIn('chatNavigationActivityTransition(publishNavigationActivity)', root)
+        self.assertIn('enterTransition = navigationTransition.enterTransition', root)
+        # 活跃状态只在帧回调里由原子量收敛成布尔；帧回调区域既不读 graphicsLayer 的 .value，
+        # 也不直接写宿主状态（只经 onChanged 发布），转场期间逐帧 observeFrame(true)。
+        draw = activity.split('val callback: Choreographer.FrameCallback = Choreographer.FrameCallback {', 1)[1].split('fun observeFrame(active: Boolean) {', 1)[0]
+        self.assertIn('onChanged(active)', draw)
         self.assertNotIn('.value', draw)
         self.assertNotIn('onActivityChanged', draw)
+        self.assertIn('tracker.observeFrame(true)', activity)
         self.assertIn('postFrameCallback', activity)
         self.assertIn('navigationActivityIsCurrent', activity)
-        self.assertIn('alpha = 1f - 0.1f * depth.coerceIn(0f, 1f)', activity)
-        self.assertIn('width * 0.25f', activity)
+        self.assertIn('targetAlpha = 0.9f', activity)
+        self.assertIn('fullWidth / 4', activity)
 
     def test_covered_route_does_not_disable_reveal_during_swipe(self):
         item = (ROOT / 'components/ChatMessageItem.kt').read_text()

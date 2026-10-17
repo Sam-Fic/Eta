@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.selection.SelectionState
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
@@ -34,7 +35,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @OptIn(ExperimentalFoundationApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -67,7 +67,7 @@ class MarkdownViewportSelectionRegressionTest {
         val paragraphs = (0..15).map { "Paragraph $it keeps all selectable words." }
         val document = DocumentGfmParserSession().parse(paragraphs.joinToString("\n\n"), true).document
         compose.setContent {
-            MiuixTheme {
+            MaterialTheme {
                 SideEffect { viewport.updateEnabled(true) }
                 CompositionLocalProvider(LocalMarkdownDrawViewport provides viewport, LocalTextToolbar provides toolbar) {
                     Box(Modifier.size(300.dp, 100.dp).onGloballyPositioned(viewport::updateCoordinates).clipToBounds()) {

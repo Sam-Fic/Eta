@@ -18,8 +18,7 @@ class ErrorReconnectSettingsContractTest(unittest.TestCase):
         self.assertIn("R.string.error_reconnect_title", between)
         self.assertNotIn("summary =", between)
         root = (UI / "app/AgentAppRoot.kt").read_text()
-        reconnect = root.split("entry<AppRoute.ErrorReconnectSettings>", 1)[1].split("\n            entry<", 1)[0]
-        self.assertIn("swipeDismiss = swipeDismiss", reconnect)
+        reconnect = root.split("composable<AppRoute.ErrorReconnectSettings>", 1)[1].split("\n            composable<", 1)[0]
         self.assertIn("ErrorReconnectSettingsScreen(onBack = ::popRoute)", reconnect)
         self.assertNotIn("ModelFeatureSettingsScreen", reconnect)
 
@@ -33,14 +32,19 @@ class ErrorReconnectSettingsContractTest(unittest.TestCase):
             "collectAsState(initial = null)",
             "enabled = loadedPolicy != null && !saving",
             "ErrorReconnectPolicy.entries.forEach",
-            "selectableGroup()",
-            ".selectable(",
-            "role = Role.RadioButton",
-            "onClick = null",
             "EtaSegmentedRadioRow(",
             "R.string.error_reconnect_duration",
         ):
             self.assertIn(required, page)
+        # 单选语义、选中态与按压反馈由共享的 EtaSegmentedRadioRow 委托官方 M3
+        # SegmentedListItem(selected/onClick) + RadioButton(onClick = null) 提供。
+        segmented = (UI / "adaptive/EtaSegmentedList.kt").read_text()
+        radio_row = segmented.split("fun EtaSegmentedRadioRow(", 1)[1].split("\nfun ", 1)[0]
+        self.assertIn("SegmentedListItem(", radio_row)
+        self.assertIn("selected = selected,", radio_row)
+        self.assertIn("onClick = {", radio_row)
+        self.assertIn("RadioButton(", radio_row)
+        self.assertIn("onClick = null,", radio_row)
         for forbidden in ("ModelFeature", "ProviderRepository", "ModelPicker", "selectedModelId", "selectedProviderId"):
             self.assertNotIn(forbidden, page)
         for name in ("none", "window_30s", "window_1m", "window_5m", "continuous"):
@@ -55,18 +59,17 @@ class ErrorReconnectSettingsContractTest(unittest.TestCase):
 
     def test_reconnect_marker_has_equal_lines_and_an_unweighted_center(self):
         divider = (UI / "components/ErrorReconnectDivider.kt").read_text()
-        m3_row = divider.split("    if (isMaterial3Theme())", 1)[1].split("    } else {", 1)[0]
+        # 该组件已是纯 M3：不再按 isMaterial3Theme() 分流，也没有 miuix 分支。
+        self.assertNotIn("isMaterial3Theme", divider)
+        self.assertNotIn("MiuixTheme", divider)
+        m3_row = divider.split("    Row(", 1)[1].split("    if (showDetails)", 1)[0]
         self.assertIn("modifier.fillMaxWidth()", m3_row)
         self.assertIn("padding(horizontal = 16.dp, vertical = 8.dp)", m3_row)
         self.assertEqual(2, m3_row.count("HorizontalDivider(modifier = Modifier.weight(1f))"))
-        center = m3_row.split("            Surface(", 1)[1].split("            HorizontalDivider(", 1)[0]
+        center = m3_row.split("        Surface(", 1)[1].split("        HorizontalDivider(", 1)[0]
         self.assertNotIn(".weight(", center)
         self.assertIn("textAlign = TextAlign.Center", center)
         self.assertIn("onClick = {", center)
-        miuix_row = divider.split("    } else {", 1)[1].split("    if (showDetails)", 1)[0]
-        self.assertEqual(2, miuix_row.count("Box(Modifier.weight(1f).height(0.5.dp).background(lineColor))"))
-        self.assertIn("textAlign = TextAlign.Center", miuix_row)
-        self.assertIn(".clickable", miuix_row)
         self.assertIn("ContextCompactedSummarySheet(", divider)
 
     def test_english_simplified_and_traditional_resources_match(self):

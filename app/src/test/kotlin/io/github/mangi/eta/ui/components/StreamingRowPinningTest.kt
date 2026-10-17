@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableStateOf
@@ -36,7 +37,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** Runs the real ChatMessageItem parser/reveal inside a real virtualized LazyColumn. */
 @RunWith(RobolectricTestRunner::class)
@@ -54,7 +54,7 @@ class StreamingRowPinningTest {
         lateinit var list: androidx.compose.foundation.lazy.LazyListState
         lateinit var scope: CoroutineScope
         compose.setContent {
-            MiuixTheme {
+            MaterialTheme {
                 list = rememberLazyListState()
                 scope = rememberCoroutineScope()
                 LazyColumn(state = list, modifier = Modifier.height(240.dp).testTag("row-host")) {
@@ -115,7 +115,7 @@ class StreamingRowPinningTest {
         val shown = mutableStateOf(true)
         val heights = java.util.concurrent.CopyOnWriteArrayList<Int>()
         compose.setContent {
-            MiuixTheme {
+            MaterialTheme {
                 // The viewport stays bounded; its scroll content receives unbounded height,
                 // as a real LazyColumn item does. A plain non-scrolling Column caps
                 // measurement at root maxHeight and cannot prove a multi-screen document.

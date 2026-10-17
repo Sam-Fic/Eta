@@ -1,6 +1,8 @@
 package io.github.mangi.eta.ui.components
 
 import android.content.Context
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -23,8 +25,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.theme.lightColorScheme
 
 /**
  * 思考图标手势：GPT 速度模型长按切速度、单击仍开旧思考弹窗；非 GPT 无长按语义且不切速度。
@@ -46,7 +46,7 @@ class AgentChatSpeedChipGestureTest {
     private fun render() {
         context = RuntimeEnvironment.getApplication()
         compose.setContent {
-            MiuixTheme(colors = lightColorScheme()) {
+            MaterialTheme(colorScheme = lightColorScheme()) {
                 ThinkingEffortChip(
                     effort = ReasoningEffort.HIGH,
                     options = options.value,

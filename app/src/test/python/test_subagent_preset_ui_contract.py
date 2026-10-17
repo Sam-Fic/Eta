@@ -17,13 +17,13 @@ class SubAgentPresetUiContractTest(unittest.TestCase):
                        'SubAgentConfigKey.Preset(group.id)', 'selectedId == owner.value',
                        'repository.presetExists(owner.value)', 'LocalConversationSubAgentEditor provides editor',
                        'BackHandler(enabled = isCurrentRoute, onBack = detailBack)', 'editor.dispose(); selectedId = null',
-                       'DisposableEffect(editor)', 'onDispose { editor.dispose() }', '添加子代理组'):
+                       'DisposableEffect(editor)', 'onDispose { editor.dispose() }', 'R.string.sas_add_group'):
             self.assertIn(needle, shell)
-        for needle in ('添加子代理', 'SubAgentProfileRow(', 'settings = true',
+        for needle in ('R.string.sap_add_profile', 'SubAgentProfileRow(', 'settings = true',
                        'updateProfile(profile.id)', 'editor.remove(profile.id)'):
             self.assertIn(needle, detail)
         # Preset profile editing still writes through the real editor, but neither switch belongs here.
-        for forbidden in ('Text("自动委派"', 'setEnabled(', 'setDiagnosticsEnabled', 'diagnosticsEnabled', '子代理诊断日志'):
+        for forbidden in ('R.string.ccd_auto_delegation', 'setEnabled(', 'setDiagnosticsEnabled', 'diagnosticsEnabled', '子代理诊断日志'):
             self.assertNotIn(forbidden, detail)
         editor = self.source('ui/components/ConversationSubAgentEditor.kt')
         self.assertNotIn('setDiagnosticsEnabled', editor)
@@ -45,26 +45,34 @@ class SubAgentPresetUiContractTest(unittest.TestCase):
                        'if (error != null) return@LaunchedEffect', 'TouchHaptics.click(view); directory.retry()'):
             self.assertIn(needle, cards)
 
-    def test_shared_card_is_light_rounded_haptic_and_ripple_free(self):
+    def test_shared_card_is_an_official_container_with_shared_ripple_suppression(self):
         cards = self.source('ui/components/SubAgentPresetCard.kt')
-        for needle in ('RoundedCornerShape(24.dp)', 'primaryContainer.copy(alpha = 0.38f)',
-                       'indication = null', 'TouchHaptics.click(view)', 'Role.Button'):
+        # 官方填充 Card 承担形状/容器色，行交给官方可交互 ListItem（命中区、涟漪、Role 语义）。
+        for needle in ('Card(', 'CardDefaults.cardColors(',
+                       'containerColor = MaterialTheme.colorScheme.primaryContainer',
+                       'ListItem(', 'onClick = { TouchHaptics.click(view); onClick() }'):
             self.assertIn(needle, cards)
+        # 不再手写圆角/叠透明度，也不再逐处把指示器置空（比对前先剔除注释）。
+        code = '\n'.join(line.split('//')[0] for line in cards.splitlines())
+        for gone in ('RoundedCornerShape', 'primaryContainer.copy(alpha', 'indication = null'):
+            self.assertNotIn(gone, code)
         for path in ('ui/SubAgentSettingsScreen.kt', 'ui/components/ConversationCollaborationDialog.kt'):
             self.assertIn('WithoutPressRipple', self.source(path))
-            self.assertIn('LocalRippleConfiguration provides null', self.source(path))
+            self.assertIn('LocalRippleConfiguration provides etaRippleConfiguration()', self.source(path))
+            self.assertNotIn('LocalRippleConfiguration provides null', self.source(path))
 
     def test_legacy_dialog_is_non_writing_and_saved_only_enters_original_panel(self):
         text = self.source('ui/components/ConversationCollaborationDialog.kt')
-        for needle in ('current?.appliedPresetId == null', '使用当前配置', '切换子代理组',
+        for needle in ('current?.appliedPresetId == null', 'R.string.ccd_use_current_config',
+                       'R.string.ccd_switch_group',
                        'val editor = LocalConversationSubAgentEditor.current', 'editor.applyPreset(preset.id)',
                        'result is ConversationSubAgentPreferences.WriteResult.Saved',
-                       '子代理组未应用，当前会话配置已保留', 'popup.isCurrent(ticket, popup)',
+                       'R.string.ccd_apply_failed', 'popup.isCurrent(ticket, popup)',
                        'DisposableEffect(popup)', 'popup.dismiss()'):
             self.assertIn(needle, text)
         self.assertNotIn('SubAgentConfigKey.Preset', text)
         self.assertNotIn('LaunchedEffect', text)  # Opening never auto-applies or replaces the old owner config.
-        use_current = text.split('Text("使用当前配置")', 1)[0].rsplit('TextButton(enabled = canChange', 1)[1]
+        use_current = text.split('Text(stringResource(R.string.ccd_use_current_config))', 1)[0].rsplit('TextButton(enabled = canChange', 1)[1]
         self.assertNotIn('applyPreset', use_current)
         self.assertNotIn('setEnabled', use_current)
 
@@ -95,7 +103,7 @@ class SubAgentPresetUiContractTest(unittest.TestCase):
         panel = dialog.split('val panelState = panelEditor?.observe()', 1)[1]
         for needle in ('val panelConfig = (panelState as? SubAgentEditorState.Loaded)?.config',
                        'val panelEnabled = canChange && panelEditor?.enabled == true && panelConfig != null',
-                       'when (panelState)', '本会话配置保存或读取失败', '重试本会话配置',
+                       'when (panelState)', 'R.string.ccd_panel_config_failed', 'R.string.ccd_retry_panel_config',
                        'editor.retry()', 'panelEditor.retry()',
                        '(panelConfig ?: current).profiles.forEach',
                        'SubAgentProfileRow(profile, providers, enabled = panelEnabled,',
@@ -115,47 +123,58 @@ class SubAgentPresetUiContractTest(unittest.TestCase):
         self.assertNotIn('SubAgentDropdownMenu(', shell)
         self.assertNotIn('DropdownMenuItem(', shell)
         sheet = self.source('ui/components/SubAgentPresetActionsSheet.kt')
-        for needle in ('ModalBottomSheet(', 'rememberModalBottomSheetState(skipPartiallyExpanded = true)',
-                       'RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)', 'BottomSheetDefaults.DragHandle()',
-                       'Icons.Rounded.AccountTree', 'Text(preset.name', 'HorizontalDivider(',
-                       'SubAgentPresetActionRow("重命名组", Icons.Rounded.Edit, MaterialTheme.colorScheme.onSurface, onRename)',
-                       'SubAgentPresetActionRow("删除组", Icons.Rounded.DeleteOutline, MaterialTheme.colorScheme.error, onDelete)',
-                       'verticalScroll(rememberScrollState())', 'heightIn(min = 64.dp)',
-                       'TouchHaptics.click(view)', 'indication = null'):
+        for needle in ('ModalBottomSheet(', 'rememberBottomSheetState(',
+                       'enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)',
+                       'Icons.Rounded.AccountTree', 'Text(preset.name, style = MaterialTheme.typography.titleLarge)',
+                       'HorizontalDivider(',
+                       'SubAgentPresetActionRow(stringResource(R.string.spa_rename_group), Icons.Rounded.Edit, MaterialTheme.colorScheme.onSurface, onRename)',
+                       'SubAgentPresetActionRow(stringResource(R.string.spa_delete_group), Icons.Rounded.DeleteOutline, MaterialTheme.colorScheme.error, onDelete)',
+                       'verticalScroll(rememberScrollState())',
+                       'TouchHaptics.click(view)'):
             self.assertIn(needle, sheet)
+        # 形状、圆角、拖拽把手、行高与命中区交给官方 ModalBottomSheet / 可交互 ListItem 默认值。
+        for gone in ('RoundedCornerShape(', 'indication = null', 'heightIn('):
+            self.assertNotIn(gone, sheet)
         for forbidden in ('OverlayDialog(', '复制', 'repository.', 'height(', 'requiredHeight('):
             self.assertNotIn(forbidden, sheet)
         self.assertIn('SubAgentProfileConfigDialog(session, editor, providers', detail)
         row = self.source('ui/components/SubAgentProfileRow.kt')
-        for needle in ('Icon(Icons.Rounded.MoreVert, "配置${profile.name}"',
+        for needle in ('Icon(Icons.Rounded.MoreVert, stringResource(R.string.spr_config_for, profile.name)',
                        'SubAgentProfileDraftSession.open(editor, profile)',
                        'SubAgentProfileConfigDialog(session, editor, providers',
-                       'onClickLabel = "选择${profile.name}模型"', 'onLongClickLabel = "调整${profile.name}思考深度"',
-                       'TouchHaptics.longPress(view); thinkingPicker = true'):
+                       'onLongClickLabel = stringResource(R.string.spr_adjust_thinking_for, profile.name)',
+                       'onLongClick = { if (currentUsable && canThink) { thinkingPicker = true } }'):
             self.assertIn(needle, row)
+        # 可访问名走资源，点击/长按由官方 ListItem 槽位承载：不再手写 onClickLabel，也不再补长按触感。
+        self.assertNotIn('onClickLabel =', row)
+        self.assertNotIn('TouchHaptics.longPress', row)
         self.assertNotIn('SubAgentPresetActionsSheet(', row)
 
     def test_dialog_has_adaptive_body_and_one_state_dependent_left_action_in_fixed_footer(self):
         dialog = self.source('ui/components/ConversationCollaborationDialog.kt')
         body, footer = dialog.split('// Fixed footer:', 1)
-        for label in ('使用当前配置', '切换子代理组'):
-            self.assertNotIn('Text("' + label + '")', body)
-            self.assertEqual(footer.count('Text("' + label + '")'), 1)
+        for resource in ('R.string.ccd_use_current_config', 'R.string.ccd_switch_group'):
+            with self.subTest(resource=resource):
+                self.assertNotIn(f'stringResource({resource})', body)
+                self.assertEqual(footer.count(f'stringResource({resource})'), 1)
         for needle in ('Row(Modifier.fillMaxWidth()', 'heightIn(min = 48.dp)',
-                       'verticalAlignment = Alignment.CenterVertically', 'Spacer(Modifier.weight(1f))',
+                       'verticalAlignment = Alignment.CenterVertically',
+                       'horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)',
                        'if (choosing && current != null', 'else if (!choosing && panelEditor != null)',
                        'popup.isCurrent(ticket, popup)', 'latestCanChange && latestChoosing && editor.enabled',
                        'panelEnabled && panelEditor.enabled', '!latestChoosing',
-                       'Text("完成")', 'TouchHaptics.click(view)'):
+                       'Text(stringResource(R.string.action_done))', 'TouchHaptics.click(view)'):
             self.assertIn(needle, footer)
         self.assertNotIn('verticalScroll(', footer)
         self.assertNotIn('applyPreset(', footer)
         self.assertNotIn('setEnabled(', footer)
-        for needle in ('widthIn(max = 480.dp)', 'heightIn(max = maximumHeight)',
-                       '.weight(1f, fill = false)', '.verticalScroll(',
-                       'LocalConfiguration.current.screenHeightDp - 48', 'appliedPresetName?.let',
-                       'Text("自动委派"', 'panelEditor.setEnabled(it)'):
+        for needle in ('.weight(1f, fill = false)', '.verticalScroll(',
+                       'appliedPresetName?.let', 'panelEditor.setEnabled(it)',
+                       'Text(stringResource(R.string.ccd_auto_delegation))', 'Switch(checked = panelConfig?.enabled'):
             self.assertIn(needle, body)
+        # 自适应宽高交给官方 ModalBottomSheet（形状/拖拽把手/安全区默认值），不再手写上限或屏幕高度算术。
+        for gone in ('widthIn(max = 480.dp)', 'heightIn(max =', 'LocalConfiguration.current.screenHeightDp'):
+            self.assertNotIn(gone, dialog)
         for forbidden in ('OverlayDialog(', 'requiredHeight(', 'fillMaxHeight('):
             self.assertNotIn(forbidden, dialog)
 
@@ -183,14 +202,21 @@ class SubAgentPresetUiContractTest(unittest.TestCase):
         self.assertIn('isCurrentRoute: Boolean = true', settings)
         self.assertIn('BackHandler(enabled = isCurrentRoute, onBack = detailBack)', settings)
         root = self.source('ui/app/AgentAppRoot.kt')
-        self.assertIn('isCurrentRoute = backStack.lastOrNull() == AppRoute.SubAgents', root)
+        # 导航已迁移到 androidx.navigation-compose：当前路由由 NavController 的 currentRoute 提供。
+        self.assertIn('isCurrentRoute = currentRoute == AppRoute.SubAgents', root)
         state = self.source('ui/app/AgentAppState.kt')
         self.assertIn('is SubAgentConfigKey.Preset -> error("预设不能作为会话运行配置")', state)
 
     def test_parallel_limit_wording_fits_preset_and_conversation_without_layout_change(self):
         text = self.source('ui/components/SubAgentParallelLimitRow.kt')
-        self.assertIn('本配置内相同提供商/API 模型共用此上限', text)
+        # 文案已外置到资源；范围说明按「本配置」表述，不再出现会话级措辞。
+        self.assertIn('R.string.sap_parallel_shared_note', text)
+        self.assertIn('R.string.sap_parallel_set_for', text)
         self.assertNotIn('同一会话下', text)
+        strings = (ROOT.parents[4] / 'res/values/strings.xml').read_text()
+        note = next(line for line in strings.splitlines() if 'name="sap_parallel_shared_note"' in line)
+        self.assertIn('within this config', note)
+        self.assertNotIn('conversation', note)
 
 
 if __name__ == '__main__':

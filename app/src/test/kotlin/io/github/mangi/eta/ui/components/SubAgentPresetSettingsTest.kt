@@ -2,6 +2,7 @@ package io.github.mangi.eta.ui.components
 
 import androidx.activity.ComponentActivity
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.test.*
@@ -18,8 +19,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.theme.lightColorScheme
 
 @RunWith(RobolectricTestRunner::class)
 @Config(application = io.github.mangi.eta.EtaApp::class, sdk = [36], qualifiers = "zh-rCN-w411dp-h891dp")
@@ -33,7 +32,7 @@ class SubAgentPresetSettingsTest {
         val before = fixture.snapshot()
         var exits = 0
         compose.setSubAgentContent(fixture) {
-            MiuixTheme(colors = lightColorScheme()) { MaterialTheme { SubAgentSettingsScreen({ exits++ }, { fixture.repository }) } }
+            MaterialTheme(colorScheme = lightColorScheme()) { SubAgentSettingsScreen({ exits++ }, { fixture.repository }) }
         }
         compose.onNodeWithText("添加子代理组").assertIsDisplayed()
         compose.onNodeWithText("添加子代理", substring = false).assertDoesNotExist()
@@ -193,7 +192,7 @@ class SubAgentPresetSettingsTest {
         val fixture = SubAgentUiFixture()
         val before = fixture.snapshot()
         compose.setSubAgentContent(fixture) {
-            MiuixTheme(colors = lightColorScheme()) { MaterialTheme { SubAgentSettingsScreen({}, { fixture.repository }) } }
+            MaterialTheme(colorScheme = lightColorScheme()) { SubAgentSettingsScreen({}, { fixture.repository }) }
         }
         assertTrue("The real form must settle with the standard Compose clock", compose.mainClock.autoAdvance)
         val nameField = compose.onNodeWithContentDescription("组名称")

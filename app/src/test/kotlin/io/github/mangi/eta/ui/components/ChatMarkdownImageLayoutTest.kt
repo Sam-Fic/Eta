@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
@@ -27,8 +29,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.theme.lightColorScheme
 import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
@@ -51,7 +51,7 @@ class ChatMarkdownImageLayoutTest {
     }
     private fun show(content: androidx.compose.runtime.State<AgentMessageUi>, open: (String)->Unit = {}) {
         compose.setContent {
-            MiuixTheme(colors=lightColorScheme()) {
+            MaterialTheme(colorScheme = lightColorScheme()) {
                 CompositionLocalProvider(LocalOpenChatImagePreview provides open) {
                     Column(Modifier.width(360.dp).background(androidx.compose.ui.graphics.Color.White).testTag("message")
                         .verticalScroll(rememberScrollState())) {

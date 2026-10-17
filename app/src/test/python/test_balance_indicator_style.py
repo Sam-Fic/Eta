@@ -8,7 +8,7 @@ class BalanceIndicatorStyleTest(unittest.TestCase):
         app = Path(__file__).resolve().parents[3]
         source = (app / "src/main/kotlin/io/github/mangi/eta/ui/pages/providers/ProviderBalanceComponents.kt").read_text()
         indicator = source.split("internal fun ProviderBalanceIndicator(", 1)[1]
-        self.assertIn("val amountColor = MiuixTheme.colorScheme.onSurfaceVariantSummary", indicator)
+        self.assertIn("val amountColor: Color = MaterialTheme.colorScheme.onSurfaceVariant", indicator)
         self.assertIn("tint = amountColor", indicator)
         self.assertIn("color = amountColor", indicator)
         for forbidden in ("StatusWarning", "state.error", "updatedAtMillis", "produceState", "delay("):

@@ -13,23 +13,34 @@ class ChildGptSpeedContractTest(unittest.TestCase):
         self.assertEqual(row.count('SubAgentGptSpeedButton('), 2)
         self.assertIn('trailing = { SubAgentGptSpeedButton', row)
         card = row[row.rindex('SubAgentGptSpeedButton('):]
-        self.assertIn('Icon(Icons.Rounded.MoreVert, "配置${profile.name}"', card)
+        # 「配置」入口改用官方 IconButton + stringResource 文案（尺寸交给 IconButtonDefaults）。
+        self.assertIn('IconButton(enabled = usable, onClick = {', card)
+        self.assertIn('Icon(Icons.Rounded.MoreVert, stringResource(R.string.spr_config_for, profile.name)', card)
         self.assertIn('SubAgentProfileDraftSession.open(editor, profile)', card)
         self.assertNotIn('SubAgentTaskTierButton(', row)
-        compact = row.split('Row(Modifier.fillMaxWidth().heightIn(min = 88.dp)', 1)[1].split('profileDraft?.let', 1)[0]
-        self.assertNotIn('"任务分工"', compact)
+        # 紧凑行改由官方 ListItem 承载，任务分工只出现在设置态（这里仍不可见）。
+        compact = row.split('Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically)', 1)[1].split('profileDraft?.let', 1)[0]
+        self.assertNotIn('R.string.sap_task_tier', compact)
         settings = source('ui/components/SubAgentSettingRow.kt')
         self.assertLess(settings.index('trailing?.invoke()'), settings.index('Icon(if (dropdown)'))
 
-    def test_speed_content_stays_centered_touch_safe_and_ripple_free(self):
+    def test_speed_content_is_the_official_assist_chip(self):
         button = source('ui/components/SubAgentGptSpeedButton.kt')
-        for check in ('SubAgentGptSpeedMinTouchSize = 48.dp',
-                      '.defaultMinSize(minWidth = SubAgentGptSpeedMinTouchSize, minHeight = SubAgentGptSpeedMinTouchSize)',
-                      'verticalAlignment = Alignment.CenterVertically',
-                      'horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally)',
-                      'indication = null', 'hapticFeedbackEnabled = false'):
+        # 官方 AssistChip 承担容器高度、形状、描边、涟漪、标签排版与禁用态；触摸下限交给
+        # 官方 minimumInteractiveComponentSize()（默认 48.dp），不再手写尺寸或压制按压反馈。
+        for check in ('AssistChip(',
+                      'onClick = cycleSpeed',
+                      'modifier = semanticsModifier.minimumInteractiveComponentSize()',
+                      'enabled = usable',
+                      'colors = AssistChipDefaults.assistChipColors(labelColor = displayedColor)',
+                      'size(AssistChipDefaults.IconSize)'):
             self.assertIn(check, button)
+        self.assertNotIn('SubAgentGptSpeedMinTouchSize', button)
+        self.assertNotIn('.defaultMinSize(', button)
+        self.assertNotIn('indication = null', button)
+        self.assertNotIn('hapticFeedbackEnabled = false', button)
         self.assertNotIn('.offset(', button)
+        self.assertNotIn('.size(48.dp)', button)
 
     def test_button_filters_actual_binding(self):
         button = source('ui/components/SubAgentGptSpeedButton.kt')
@@ -39,12 +50,16 @@ class ChildGptSpeedContractTest(unittest.TestCase):
 
     def test_animation_reuses_chat_policy_and_does_not_queue(self):
         button = source('ui/components/SubAgentGptSpeedButton.kt')
-        for shared in ('GptSpeedAnimationDurationMillis', 'gptSpeedRotationDegrees(progress.value)',
-                       'gptSpeedScale(progress.value)', 'gptSpeedChipColor(mode, normalColor)',
-                       'GptSpeedAnimationGate()', 'gate.request()', 'gate.finish(token)'):
+        for shared in ('gptSpeedRotationDegrees(progress.value)',
+                       'gptSpeedScale(progress.value)',
+                       'etaGptSpeedColor(mode, normalColor)',
+                       'GptSpeedAnimationGate()', 'gate.request()', 'gate.finish(token)',
+                       # 时长不再由本地常量直接使用，改读官方 motionScheme 的空间规格。
+                       'MaterialTheme.motionScheme.defaultSpatialSpec()'):
             self.assertIn(shared, button)
-        self.assertIn('onLongClick = null', button)
-        self.assertIn('onClick =', button)
+        # 入口是官方 AssistChip 的单击；刻意不引入长按语义。
+        self.assertIn('onClick = cycleSpeed', button)
+        self.assertNotIn('onLongClick', button)
         self.assertIn('if (token != 0)', button)
         self.assertNotIn('delay(', button)
 

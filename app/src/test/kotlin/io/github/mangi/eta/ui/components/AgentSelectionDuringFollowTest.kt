@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.SemanticsActions
@@ -25,7 +26,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, sdk = [36], qualifiers = "w480dp-h900dp-mdpi",
@@ -47,7 +47,7 @@ class AgentSelectionDuringFollowTest {
         val messages = mutableStateOf<List<AgentChatMessageUi>>(history + listOf(answer, tail))
         lateinit var list: LazyListState
         compose.setContent {
-            MiuixTheme {
+            MaterialTheme {
                 list = rememberLazyListState()
                 Box(Modifier.size(360.dp, 400.dp)) {
                     AgentConversationMessages(visibleMessages = messages.value, scrollState = list,

@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
@@ -37,10 +40,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import top.yukonga.miuix.kmp.squircle.LocalSquircleEnabled
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.theme.darkColorScheme
-import top.yukonga.miuix.kmp.theme.lightColorScheme
 import kotlin.math.abs
 
 @RunWith(RobolectricTestRunner::class)
@@ -53,11 +52,9 @@ class AgentWorkProcessCardDrawTest {
         val split = mutableStateOf(false)
         val dark = mutableStateOf(false)
         val density = mutableStateOf(1f)
-        val squircle = mutableStateOf(true)
         compose.setContent {
-            CompositionLocalProvider(LocalDensity provides Density(density.value),
-                LocalSquircleEnabled provides squircle.value) {
-                MiuixTheme(colors = if (dark.value) darkColorScheme() else lightColorScheme()) {
+            CompositionLocalProvider(LocalDensity provides Density(density.value)) {
+                MaterialTheme(colorScheme = if (dark.value) darkColorScheme() else lightColorScheme()) {
                     Column(Modifier.width(240.dp).background(Color.Magenta).testTag("card-frame")) {
                         if (split.value) {
                             for (part in listOf(WorkProcessCardPart.First, WorkProcessCardPart.Middle, WorkProcessCardPart.Last)) {
@@ -74,22 +71,20 @@ class AgentWorkProcessCardDrawTest {
         }
         for (darkMode in listOf(false, true)) {
             for (scale in listOf(1f, 1.3f)) {
-                for (smooth in listOf(false, true)) {
-                    compose.runOnIdle { dark.value = darkMode; density.value = scale; squircle.value = smooth; split.value = false }
-                    compose.waitForIdle()
-                    val whole = compose.onNodeWithTag("card-frame").captureToImage().asAndroidBitmap()
-                    compose.runOnIdle { split.value = true }
-                    compose.waitForIdle()
-                    val joined = compose.onNodeWithTag("card-frame").captureToImage().asAndroidBitmap()
-                    assertEquals(whole.width, joined.width)
-                    assertEquals(whole.height, joined.height)
-                    for (y in 0 until whole.height) for (x in 0 until whole.width) {
-                        val a = whole.getPixel(x, y)
-                        val b = joined.getPixel(x, y)
-                        for (shift in listOf(0, 8, 16, 24)) {
-                            val difference = abs(((a ushr shift) and 255) - ((b ushr shift) and 255))
-                            assertTrue("seam x=$x y=$y dark=$darkMode density=$scale squircle=$smooth delta=$difference", difference <= 3)
-                        }
+                compose.runOnIdle { dark.value = darkMode; density.value = scale; split.value = false }
+                compose.waitForIdle()
+                val whole = compose.onNodeWithTag("card-frame").captureToImage().asAndroidBitmap()
+                compose.runOnIdle { split.value = true }
+                compose.waitForIdle()
+                val joined = compose.onNodeWithTag("card-frame").captureToImage().asAndroidBitmap()
+                assertEquals(whole.width, joined.width)
+                assertEquals(whole.height, joined.height)
+                for (y in 0 until whole.height) for (x in 0 until whole.width) {
+                    val a = whole.getPixel(x, y)
+                    val b = joined.getPixel(x, y)
+                    for (shift in listOf(0, 8, 16, 24)) {
+                        val difference = abs(((a ushr shift) and 255) - ((b ushr shift) and 255))
+                        assertTrue("seam x=$x y=$y dark=$darkMode density=$scale delta=$difference", difference <= 3)
                     }
                 }
             }
@@ -100,7 +95,7 @@ class AgentWorkProcessCardDrawTest {
         val stepCount = mutableStateOf(0)
         val identities = mutableMapOf<Int, Any>()
         compose.setContent {
-            MiuixTheme(colors = lightColorScheme()) {
+            MaterialTheme(colorScheme = lightColorScheme()) {
                 Column(Modifier.width(240.dp)) {
                     Column(Modifier.background(Color.Magenta).testTag("reference")) {
                         WorkProcessCardSlice(WorkProcessCardPart.Whole) {
@@ -162,7 +157,7 @@ class AgentWorkProcessCardDrawTest {
         val steps = rows.filterIsInstance<AgentTimelineRow.WorkStep>()
         var scrollToEnd: (() -> Unit)? = null
         compose.setContent {
-            MiuixTheme(colors = lightColorScheme()) {
+            MaterialTheme(colorScheme = lightColorScheme()) {
                 val state = rememberLazyListState()
                 val scope = rememberCoroutineScope()
                 scrollToEnd = { scope.launch { state.scrollToItem(steps.lastIndex) }; Unit }

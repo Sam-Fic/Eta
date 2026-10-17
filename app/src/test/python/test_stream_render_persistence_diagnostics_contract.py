@@ -165,7 +165,7 @@ class StreamRenderPersistenceDiagnosticsContract(unittest.TestCase):
         self.assertIn("StreamPerformanceDiagnostics.enabled", side)
         self.assertIn('record("settings.composition")', side)
         self.assertNotIn("mutableState", side)
-        scaffold = between(settings, "MiuixScaffoldPage(", ") {")
+        scaffold = between(settings, "EtaScaffoldPage(", ") {")
         self.assertIn('streamDiagnosticMeasure("settings.root.measure")', scaffold)
         self.assertIn('streamDiagnosticDraw("settings.root.draw")', scaffold)
         self.assertNotIn("graphicsLayer", scaffold)

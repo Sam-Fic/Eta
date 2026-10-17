@@ -26,10 +26,10 @@ class SubAgentProfileDialogContractTest(unittest.TestCase):
         for required in ('providers.singleOrNull { it.id == draft.providerId && it.isEnabled }',
                          'speedProvider?.models?.singleOrNull { it.id == draft.modelId && it.isEnabled }',
                          'val canEditSpeed = boundConfig != null && supportsGptSpeedBinding(speedProvider, speedModel)',
-                         'if (canEditSpeed) SubAgentSettingRow("GPT 速度"',
+                         'if (canEditSpeed) SubAgentSettingRow(stringResource(R.string.sap_gpt_speed)',
                          'gptSpeedDisplayName(draft.gptSpeedForModel())'):
             self.assertIn(required, text)
-        edit = text.split('if (canEditSpeed) SubAgentSettingRow(', 1)[1].split('SubAgentSettingRow("职责"', 1)[0]
+        edit = text.split('if (canEditSpeed) SubAgentSettingRow(', 1)[1].split('SubAgentSettingRow(stringResource(R.string.sap_role)', 1)[0]
         for required in ('interact {', 'session.edit { profile ->',
                          'profile.providerId != draft.providerId', 'profile.modelId != draft.modelId',
                          'profile.role != draft.role',
@@ -72,14 +72,18 @@ class SubAgentProfileDialogContractTest(unittest.TestCase):
         for required in ('val capturedDraft', 'val capturedTicket', 'val capturedExpected',
                          'val capturedApplication', 'val capturedParallel', 'session.submitting = true',
                          'scope.launch', 'commitProfileDraft(', 'WriteResult.Saved',
-                         '草稿已保留', 'finally { session.submitting = false }'):
+                         'R.string.sap_not_saved', 'finally { session.submitting = false }'):
             self.assertIn(required, submission)
         self.assertLess(submission.index('val capturedDraft'), submission.index('scope.launch'))
         self.assertLess(submission.index('WriteResult.Saved'), submission.index('TouchHaptics.click(view)'))
         actions = text.split('private fun SubAgentDraftDialogActions(', 1)[1]
         self.assertIn('Arrangement.spacedBy(8.dp)', actions)
         self.assertEqual(actions.count('Modifier.weight(1f)'), 2)
-        self.assertIn('textButtonColorsPrimary()', actions)
+        # 官方 TextButton（左）+ Button（右）的默认配色，不再自定义 textButtonColorsPrimary()。
+        self.assertIn('TextButton(', actions)
+        self.assertIn('Button(', actions)
+        self.assertNotIn('textButtonColorsPrimary', actions)
+        self.assertNotIn('colors =', actions)
         self.assertIn('onClick = onConfirm', actions)  # no eager confirmation haptic
 
     def test_parallel_uses_owner_actual_or_pending_confirmed_memory_and_api_pool(self):
@@ -97,35 +101,43 @@ class SubAgentProfileDialogContractTest(unittest.TestCase):
     def test_entry_points_keep_compact_card_and_never_preadd(self):
         row = self.source('ui/components/SubAgentProfileRow.kt')
         self.assertNotIn('SubAgentTaskTierButton', row)
-        compact = row.split('Row(Modifier.fillMaxWidth().heightIn(min = 88.dp)', 1)[1].split('profileDraft?.let', 1)[0]
-        self.assertNotIn('"任务分工"', compact)
-        self.assertIn('Icon(Icons.Rounded.MoreVert, "配置${profile.name}"', row)
+        # 紧凑行改由官方 Row + ListItem 承载（原 88dp 高度容器交给 ListItem 的高度策略）。
+        compact = row.split('Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically)', 1)[1].split('profileDraft?.let', 1)[0]
+        self.assertNotIn('R.string.sap_task_tier', compact)
+        self.assertIn('Icon(Icons.Rounded.MoreVert, stringResource(R.string.spr_config_for, profile.name)', row)
         self.assertIn('SubAgentProfileDraftSession.open(editor, profile)', row)
-        self.assertIn('onLongClickLabel = "调整${profile.name}思考深度"', row)
+        self.assertIn('onLongClickLabel = stringResource(R.string.spr_adjust_thinking_for, profile.name)', row)
         conversation = self.source('ui/components/ConversationCollaborationDialog.kt')
-        hint = conversation.split('Text("点按模型切换 · 长按调整思考"', 1)[1]
-        self.assertIn('Icon(Icons.Rounded.Add, "添加子代理")', hint)
+        hint = conversation.split('Text(stringResource(R.string.ccd_tap_hint)', 1)[1]
+        self.assertIn('Icon(Icons.Rounded.Add, stringResource(R.string.sap_add_profile))', hint)
         self.assertIn('SubAgentProfileDraftSession.open(panelEditor)', hint)
-        self.assertIn('Row(Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 4.dp),\n                                            verticalAlignment = Alignment.CenterVertically)', conversation)
+        hint_row = conversation.split('Row(Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 4.dp),', 1)[1].split('{', 1)[0]
+        self.assertIn('verticalAlignment = Alignment.CenterVertically', hint_row)
         settings = self.source('ui/SubAgentSettingsScreen.kt')
         self.assertNotIn('editor.add()', settings)
         self.assertIn('SubAgentProfileDraftSession.open(editor)', settings)
-        self.assertIn('Text("重命名")', settings)
+        self.assertIn('R.string.action_rename', settings)
         self.assertIn('editor.remove(profile.id)', settings)
 
     def test_window_dialog_works_without_scaffold_and_scrolls_body_not_actions(self):
         text = self.source('ui/components/SubAgentProfileConfigDialog.kt')
-        self.assertIn('import top.yukonga.miuix.kmp.window.WindowDialog', text)
-        self.assertEqual(text.count('WindowDialog(show = true'), 2)  # form + nested choices
+        # M3-only：宿主弹窗走自适应 EtaDialog（官方 AlertDialog），表单与嵌套选择各一份。
+        self.assertIn('import io.github.mangi.eta.ui.adaptive.EtaDialog', text)
+        self.assertEqual(text.count('EtaDialog(show = true'), 2)  # form + nested choices
+        self.assertNotIn('WindowDialog(', text)
         self.assertNotIn('OverlayDialog(', text)
         self.assertNotIn('renderInRootScaffold', text)
         for required in ('profileDialogScrollableBody().verticalScroll(',
-                         'SubAgentDraftDialogActions(ready', 'LocalRippleConfiguration provides null', 'WithoutPressRipple'):
+                         'SubAgentDraftDialogActions(ready',
+                         'CompositionLocalProvider(LocalRippleConfiguration provides etaRippleConfiguration())',
+                         'WithoutPressRipple'):
             self.assertIn(required, text)
 
     def test_session_shortcuts_reserve_real_48dp_layout_targets(self):
         row = self.source('ui/components/SubAgentProfileRow.kt')
-        self.assertIn('IconButton(modifier = Modifier.size(48.dp), enabled = usable', row)
+        # 官方 IconButton 内部已 minimumInteractiveComponentSize()，48dp 触摸目标不再手写。
+        self.assertIn('IconButton(enabled = usable, onClick =', row)
+        self.assertNotIn('Modifier.size(48.dp)', row)
         dialog = self.source('ui/components/ConversationCollaborationDialog.kt')
         self.assertIn('IconButton(modifier = Modifier.size(48.dp), enabled = panelEnabled', dialog)
 

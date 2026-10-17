@@ -5,6 +5,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -26,9 +29,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.theme.lightColorScheme
-import top.yukonga.miuix.kmp.theme.darkColorScheme
 
 /** Real Scaffold -> BottomBar -> InputBar boundary. Not an imitation of the input widget. */
 @RunWith(RobolectricTestRunner::class)
@@ -155,7 +155,7 @@ class AgentChatComposerProductionRegressionTest {
     private fun text(id: Int) = RuntimeEnvironment.getApplication().getString(id)
 
     private fun show() = compose.setContent {
-        MiuixTheme(colors = if (dark.value) darkColorScheme() else lightColorScheme()) {
+        MaterialTheme(colorScheme = if (dark.value) darkColorScheme() else lightColorScheme()) {
             CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, fontScale.value)) {
                 val currentHistory = history.value
                 SideEffect { appliedHistory = currentHistory.lastOrNull()?.content.orEmpty() }

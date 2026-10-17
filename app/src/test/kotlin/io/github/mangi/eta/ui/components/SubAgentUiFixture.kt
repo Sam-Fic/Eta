@@ -59,7 +59,7 @@ internal fun ComposeContentTestRule.setSubAgentContent(
     content: @Composable () -> Unit,
 ) {
     setContent {
-        // Use the production Miuix + Material theme bridge (at the default 1x scale).
+        // 使用生产环境的官方 Material 3 主题（外观与主题驱动的配色），缩放取默认 1x。
         // Intentionally no Scaffold: window dialogs must work standalone and when opened
         // from the collaboration Dialog, not silently depend on an Activity's overlay host.
         AgentAppTheme(

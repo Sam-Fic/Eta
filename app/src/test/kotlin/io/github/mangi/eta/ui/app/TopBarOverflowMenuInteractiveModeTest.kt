@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -34,8 +35,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.theme.lightColorScheme
 
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, sdk = [36], qualifiers = "w411dp-h891dp")
@@ -182,23 +181,21 @@ class TopBarOverflowMenuInteractiveModeTest {
 
     private fun render() {
         compose.setContent {
-            MiuixTheme(colors = lightColorScheme()) {
-                MaterialTheme {
-                    Box(Modifier.fillMaxSize()) {
-                        Box(Modifier.align(Alignment.TopEnd)) {
-                            TopBarOverflowMenu(
-                                onOpenTerminal = { terminalOpens++ },
-                                onLaunchKimiWeb = {},
-                                kimiWebLabel = "Kimi Web",
-                                canStopKimiWeb = false,
-                                onStopKimiWeb = {},
-                                onRefreshKimiWeb = {},
-                                onOpenBrowser = {},
-                                onOpenWorkspace = {},
-                                autoCompressEnabled = false,
-                                onToggleAutoCompress = { autoCompressChanges++ },
-                            )
-                        }
+            MaterialTheme(colorScheme = lightColorScheme()) {
+                Box(Modifier.fillMaxSize()) {
+                    Box(Modifier.align(Alignment.TopEnd)) {
+                        TopBarOverflowMenu(
+                            onOpenTerminal = { terminalOpens++ },
+                            onLaunchKimiWeb = {},
+                            kimiWebLabel = "Kimi Web",
+                            canStopKimiWeb = false,
+                            onStopKimiWeb = {},
+                            onRefreshKimiWeb = {},
+                            onOpenBrowser = {},
+                            onOpenWorkspace = {},
+                            autoCompressEnabled = false,
+                            onToggleAutoCompress = { autoCompressChanges++ },
+                        )
                     }
                 }
             }

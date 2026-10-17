@@ -10,13 +10,20 @@ TEST = SRC / 'test/kotlin/io/github/mangi/eta'
 class SubAgentPresetNameDialogContractTest(unittest.TestCase):
     def test_real_name_form_uses_existing_window_host_and_preserves_input_and_actions(self):
         form = (MAIN / 'ui/components/SubAgentPresetNameDialog.kt').read_text()
-        self.assertIn('import top.yukonga.miuix.kmp.window.WindowDialog', form)
-        for needle in ('WindowDialog(', 'show = true', 'Column(Modifier.fillMaxWidth())',
-                       'EtaFormTextField(', 'value = name', 'onNameChange(it.take(80))',
-                       'fieldHint: String = "组名称"', 'hint = fieldHint', 'singleLine = true', 'onDismissRequest = onDismiss',
-                       'TextButton(onClick = onDismiss) { Text("取消") }',
-                       'TextButton(enabled = saveEnabled, onClick = onSave) { Text("保存") }'):
+        # M3-only：弹窗宿主走自适应 EtaDialog（官方 AlertDialog 包装），动作行走共享 EtaDialogActions。
+        self.assertIn('import io.github.mangi.eta.ui.adaptive.EtaDialog', form)
+        self.assertIn('import io.github.mangi.eta.ui.adaptive.EtaDialogActions', form)
+        for needle in ('EtaDialog(', 'show = true', 'Column(Modifier.fillMaxWidth())',
+                       'EtaFormTextField(', 'value = name', 'onValueChange = { onNameChange(it.take(80)) }',
+                       'fieldHint: String = stringResource(R.string.spn_group_name)', 'hint = fieldHint',
+                       'singleLine = true', 'onDismissRequest = onDismiss',
+                       'EtaDialogActions(',
+                       'confirmText = stringResource(R.string.action_save)',
+                       'cancelText = stringResource(R.string.action_cancel)',
+                       'confirmEnabled = saveEnabled', 'onCancel = onDismiss', 'onConfirm = onSave'):
             self.assertIn(needle, form)
+        self.assertNotIn('import top.yukonga.miuix.kmp.window.WindowDialog', form)
+        self.assertNotIn('WindowDialog(', form)
         self.assertNotIn('import androidx.compose.material3.AlertDialog', form)
         self.assertNotIn('OutlinedTextField(', form)  # Retain the shared production input styling.
         self.assertNotIn('BasicTextField(', form)

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.text.selection.SelectionState
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -20,7 +21,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, sdk = [36], qualifiers = "w480dp-h900dp-mdpi", shadows = [SelectionTestMagnifier::class])
@@ -38,7 +38,7 @@ class MarkdownSelectionContentUpdateTest {
         val identities = mutableListOf<Any>()
         compose.setContent {
             val currentDocument = document.value
-            MiuixTheme {
+            MaterialTheme {
                 Box(Modifier.size(300.dp, 140.dp)) {
                     HapticSelectionContainer(selectionState = selection) {
                         val identity = remember { Any() }

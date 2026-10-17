@@ -4,6 +4,8 @@ import android.app.Application
 import android.content.Context
 import android.view.HapticFeedbackConstants
 import android.view.View
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -23,8 +25,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.theme.lightColorScheme
 
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, sdk = [34])
@@ -44,7 +44,7 @@ class ConversationTurnNavigationButtonTest {
         Prefs.putBoolean(Prefs.Keys.HAPTIC_TOUCH_FEEDBACK, true)
         view = RecordingView(context)
         compose.setContent {
-            MiuixTheme(colors = lightColorScheme()) {
+            MaterialTheme(colorScheme = lightColorScheme()) {
                 CompositionLocalProvider(LocalView provides view, LocalHapticFeedback provides object : HapticFeedback {
                     override fun performHapticFeedback(hapticFeedbackType: HapticFeedbackType) {
                         builtInHaptics += hapticFeedbackType

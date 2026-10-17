@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -18,8 +19,6 @@ import io.github.mangi.eta.agent.question.AgentQuestionOption
 import io.github.mangi.eta.agent.question.AgentQuestionRequest
 import io.github.mangi.eta.agent.question.AgentQuestionStatus
 import io.github.mangi.eta.ui.model.AgentQuestionMessageUi
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.theme.lightColorScheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -44,11 +43,9 @@ class AgentQuestionMessageLayoutTest {
                 AgentQuestionOption("b", "Second", "Second description")),
             allowOther = false, allowDelegation = false, allowNote = false)))
         compose.setContent {
-            MiuixTheme(colors = lightColorScheme()) {
-                MaterialTheme {
-                    Column(Modifier.width(340.dp).testTag("message-host").verticalScroll(rememberScrollState())) {
-                        ChatMessageItem(message = message.value, actions = ChatMessageActions(), showBrowserShortcut = false)
-                    }
+            MaterialTheme(colorScheme = lightColorScheme()) {
+                Column(Modifier.width(340.dp).testTag("message-host").verticalScroll(rememberScrollState())) {
+                    ChatMessageItem(message = message.value, actions = ChatMessageActions(), showBrowserShortcut = false)
                 }
             }
         }

@@ -1,7 +1,9 @@
-"""Only the three expansion headers suppress visual click indication.
+"""展开标题栏统一走共享的 Material 3 披露标题行。
 
-Source contracts, not a runtime rendering or performance test. Keep clickable
-semantics and existing callbacks; do not replace them with pointer handlers.
+Source contracts, not a runtime rendering or performance test. 三个展开标题栏
+（工作过程、思考、工具）现在都复用 `WorkCardDisclosureHeader`；整行命中区、涟漪、
+最小行高与语义由官方 `ListItem(onClick = ...)` 提供，miuix 时代「手动 clickable
+且 indication = null」的契约不再成立。
 """
 from pathlib import Path
 import re
@@ -10,8 +12,9 @@ import unittest
 from test_agent_chat_viewport_contract import balanced_end, code_only
 
 
-SOURCE = (Path(__file__).resolve().parents[3] /
-          "src/main/kotlin/io/github/mangi/eta/ui/components/ChatMessageItem.kt")
+ROOT = Path(__file__).resolve().parents[3]
+CHAT = ROOT / "src/main/kotlin/io/github/mangi/eta/ui/components/ChatMessageItem.kt"
+HEADER = ROOT / "src/main/kotlin/io/github/mangi/eta/ui/components/AgentWorkProcessCard.kt"
 
 
 def function_body(source, name):
@@ -24,6 +27,15 @@ def function_body(source, name):
     return source[start + 1:balanced_end(source, start, "{", "}")]
 
 
+def call_args(source, name):
+    match = re.search(rf"\b{re.escape(name)}\s*\(", source)
+    if match is None:
+        raise AssertionError(f"Missing call {name}")
+    opening = source.index("(", match.start())
+    end = balanced_end(source, opening, "(", ")")
+    return match.start(), end + 1, source[opening + 1:end]
+
+
 def clickable_calls(source):
     for match in re.finditer(r"\.clickable\s*\(", source):
         opening = source.index("(", match.start())
@@ -34,73 +46,80 @@ def clickable_calls(source):
 class ChatExpandTitleIndicationContractTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.source = code_only(SOURCE.read_text(encoding="utf-8"))
+        cls.source = code_only(CHAT.read_text(encoding="utf-8"))
+        cls.header = code_only(HEADER.read_text(encoding="utf-8"))
 
-    def header(self, name):
+    def header_call(self, name):
         body = function_body(self.source, name)
-        calls = list(clickable_calls(body))
-        self.assertEqual(len(calls), 1, f"Expected exactly one title clickable in {name}")
-        start, end, args = calls[0]
-        self.assertRegex(args, r"\binteractionSource\s*=\s*null\b")
-        self.assertRegex(args, r"\bindication\s*=\s*null\b")
-        # Explicit false or additional gestures must not replace the normal click path.
-        self.assertNotRegex(args, r"\benabled\s*=\s*false\b")
+        calls = re.findall(r"\bWorkCardDisclosureHeader\s*\(", body)
+        self.assertEqual(len(calls), 1, f"Expected exactly one shared header call in {name}")
+        start, end, args = call_args(body, "WorkCardDisclosureHeader")
+        self.assertRegex(args, r"\bonToggle\s*=")
+        # 官方 ListItem 自带涟漪与语义，这里不应再自己挂一个压制反馈的点击区。
+        self.assertNotRegex(args, r"\bindication\s*=\s*null\b")
+        self.assertNotIn(".clickable", args)
         return body, start, end, args
 
-    def callback(self, body, end):
-        start = body.index("{", end)
-        self.assertEqual(body[end:start].strip(), "", "Expected the title's trailing callback")
+    def toggle_body(self, body):
+        match = re.search(r"val toggle:\s*\(\)\s*->\s*Unit\s*=\s*\{", body)
+        self.assertIsNotNone(match, "Missing toggle lambda")
+        start = body.index("{", match.end() - 1)
         return body[start + 1:balanced_end(body, start, "{", "}")]
 
-    def test_work_header_keeps_on_toggle_without_indication(self):
-        _, _, _, args = self.header("AgentWorkProcessHeader")
-        self.assertRegex(args, r"\bonClick\s*=\s*onToggle\b")
+    def test_work_header_keeps_on_toggle(self):
+        _, _, _, args = self.header_call("AgentWorkProcessHeader")
+        self.assertRegex(args, r"\bonToggle\s*=\s*onToggle\b")
 
-    def test_thinking_header_keeps_expansion_callback_without_indication(self):
-        body, _, end, _ = self.header("ThinkingRow")
-        callback = self.callback(body, end)
+    def test_thinking_header_keeps_expansion_callback(self):
+        body, _, _, args = self.header_call("ThinkingRow")
+        self.assertRegex(args, r"\bonToggle\s*=\s*toggle\b")
+        callback = self.toggle_body(body)
         self.assertIn("anchorBottom = expansionHoldsBottom()", callback)
         self.assertIn("manuallyExpanded = true", callback)
         self.assertIn("expandedByTap = !expanded", callback)
         self.assertIn("expanded = !expanded", callback)
         self.assertIn("StreamPerformanceDiagnostics.markToggle", callback)
 
-    def test_thinking_body_tap_collapses_like_tool(self):
-        # The whole thinking block (header and expanded body) is the click target, as for tools.
-        body, call_start, _, _ = self.header("ThinkingRow")
-        column = re.search(r"\bColumn\s*\(\s*modifier\s*=\s*containerModifier\s*\.clickable\s*\(", body)
-        self.assertIsNotNone(column, "The thinking container itself must own the clickable")
-        self.assertLess(column.start(), call_start)
+    def test_toggle_stays_confined_to_the_shared_title_row(self):
+        # 折叠/展开只由官方 ListItem 标题行触发，展开正文不再叠加第二个点击区；
+        # 与提问卡片、工具卡片保持一致。
+        body, call_start, _, _ = self.header_call("ThinkingRow")
+        self.assertNotIn(".clickable", body)
+        self.assertNotIn("pointerInput", body)
         visible = body.index("AnimatedVisibility(")
-        args_open = body.index("(", column.start())
-        args_end = balanced_end(body, args_open, "(", ")")
-        content_open = body.index("{", args_end)
-        self.assertEqual(body[args_end + 1:content_open].strip(), "")
-        container_end = balanced_end(body, content_open, "{", "}")
-        self.assertLess(visible, container_end, "The expanded body must sit inside the clickable container")
+        self.assertLess(call_start, visible, "The header row must sit above the expanded body")
 
-    def test_tool_header_keeps_expansion_callback_without_indication(self):
-        body, _, end, _ = self.header("ToolActivityInline")
-        callback = self.callback(body, end)
+    def test_tool_header_keeps_expansion_callback(self):
+        body, _, _, args = self.header_call("ToolActivityInline")
+        self.assertRegex(args, r"\bonToggle\s*=\s*if\s*\(\s*hasDetails\s*\)\s*toggle\s*else\s*null\b")
+        callback = self.toggle_body(body)
         self.assertIn("anchorBottom = expansionHoldsBottom()", callback)
         self.assertIn("expandedByTap = !isExpanded", callback)
         self.assertIn("isExpanded = !isExpanded", callback)
         self.assertIn("StreamPerformanceDiagnostics.markToggle", callback)
 
-    def test_tool_clickable_stays_inside_has_details_guard(self):
-        body, call_start, call_end, _ = self.header("ToolActivityInline")
-        guarded = False
-        for match in re.finditer(r"\bif\s*\(\s*hasDetails\s*\)\s*\{", body):
-            start = body.index("{", match.start())
-            end = balanced_end(body, start, "{", "}")
-            guarded |= start < call_start < call_end < end
-        self.assertTrue(guarded, "The clickable must stay inside the hasDetails branch")
+    def test_tool_row_is_only_toggleable_with_details(self):
+        body, _, _, args = self.header_call("ToolActivityInline")
+        # 没有详情时整行不可点击（onToggle = null），与展开体的 hasDetails 守卫同源。
+        self.assertRegex(args, r"\bonToggle\s*=\s*if\s*\(\s*hasDetails\s*\)\s*toggle\s*else\s*null\b")
+        self.assertIn("visible = isExpanded && hasDetails", body)
 
-    def test_no_ripple_change_is_limited_to_three_header_calls(self):
+    def test_shared_header_uses_official_list_item_onclick(self):
+        self.assertIn("ListItem(", self.header)
+        self.assertIn("onClick = onToggle,", self.header)
+        self.assertIn("onToggle: (() -> Unit)?", self.header)
+        declaration = self.header.split("internal fun WorkCardDisclosureHeader(", 1)[1]
+        declaration = declaration.split(") {", 1)[0]
+        self.assertNotIn("indication", declaration)
+        self.assertNotIn("disabled", declaration)
+
+    def test_no_click_indication_suppression_is_left_in_the_chat_item(self):
         suppressed = [args for _, _, args in clickable_calls(self.source)
                       if re.search(r"\bindication\s*=\s*null\b", args)]
-        self.assertEqual(len(suppressed), 3)
+        self.assertEqual([], suppressed)
         self.assertNotIn("LocalIndication", self.source)
+        self.assertNotIn("WithoutPressRipple", self.source)
+        self.assertNotIn("LocalRippleConfiguration", self.source)
 
 
 if __name__ == "__main__":
