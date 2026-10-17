@@ -85,6 +85,9 @@
   <string name="route_browser">Agent 浏览器</string>
   <string name="route_tools">工具能力</string>
   <string name="haptics_title">震动</string>
+  <string name="haptics_group_interface">界面震动</string>
+  <string name="haptics_group_generation">生成震动</string>
+  <string name="haptics_group_background">后台震动</string>
   <string name="haptics_list">震动列表</string>
   <string name="haptics_entry_summary">触控反馈与消息生成震动</string>
   <string name="haptics_touch_feedback">触控反馈</string>
@@ -1231,8 +1234,6 @@
   <string name="browser_opening_host">正在打开 %1$s</string>
   <string name="model_not_selected">未选择</string>
   <string name="model_switch_current">切换模型，当前为 %1$s</string>
-  <string name="model_collapse_provider">收起 %1$s</string>
-  <string name="model_expand_provider">展开 %1$s</string>
   <string name="context_no_previous_usage">暂无上下文用量</string>
   <string name="context_no_model_limit">当前模型未提供上下文上限</string>
   <string name="context_window_send_blocked">上下文已达 99%，请开启自动压缩或新开对话</string>

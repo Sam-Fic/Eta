@@ -20,6 +20,7 @@ import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedGroupSpacing
 import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
+import io.github.mangi.eta.ui.components.SectionHeader
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 
 /**
@@ -107,6 +108,9 @@ internal fun HapticsSettingsScreen(onBack: () -> Unit) {
         title = stringResource(R.string.haptics_title),
         onBack = onBack,
     ) {
+        item(key = "haptics_touch_header") {
+            SectionHeader(text = stringResource(R.string.haptics_group_interface))
+        }
         item(key = "haptics_touch_group") {
             // 与兄弟设置页一致：全部走自适应共享行组件（EtaSwitchRow）。总开关与它的细分项
             // 同组，总开关关掉时细分项置灰但仍然可见，用户能看全自己能配的东西。
@@ -147,6 +151,9 @@ internal fun HapticsSettingsScreen(onBack: () -> Unit) {
                     )
                 }
             }
+        }
+        item(key = "haptics_generation_header") {
+            SectionHeader(text = stringResource(R.string.haptics_group_generation))
         }
         item(key = "haptics_generation_group") {
             EtaSegmentedColumn(modifier = groupPadding) {
@@ -189,6 +196,9 @@ internal fun HapticsSettingsScreen(onBack: () -> Unit) {
                     )
                 }
             }
+        }
+        item(key = "haptics_background_header") {
+            SectionHeader(text = stringResource(R.string.haptics_group_background))
         }
         item(key = "haptics_background_group") {
             EtaSegmentedColumn(modifier = groupPadding) {
