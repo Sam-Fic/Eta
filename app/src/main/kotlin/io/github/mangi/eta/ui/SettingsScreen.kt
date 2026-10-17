@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccessibilityNew
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.AccountTree
 import androidx.compose.material.icons.rounded.SmartToy
 import androidx.compose.material.icons.rounded.RemoveRedEye
@@ -115,6 +116,8 @@ import io.github.mangi.eta.ui.adaptive.EtaSegmentedGroupSpacing
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedItem
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedTitleSpacing
 import androidx.compose.material3.Text as M3StatusText
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton as M3IconButton
 import androidx.compose.material3.MaterialTheme as M3MaterialTheme
 
 /**
@@ -290,6 +293,15 @@ internal fun SettingsScreen(
             .streamDiagnosticDraw("settings.root.draw"),
         topBarModifier = Modifier.streamDiagnosticMeasure("settings.topbar.measure"),
         listModifier = Modifier.streamDiagnosticMeasure("settings.lazy.measure").streamDiagnosticPlacement("settings.lazy.place").streamDiagnosticDraw("settings.lazy.draw"),
+        actions = {
+            // 搜索入口：大标题栏只保留这一个单搜索图标，点击进独立搜索页。
+            M3IconButton(onClick = { onNavigate(AppRoute.SettingsSearch) }) {
+                Icon(
+                    imageVector = Icons.Rounded.Search,
+                    contentDescription = stringResource(R.string.settings_search_hint),
+                )
+            }
+        },
     ) {
             // ── LLM 提供商 ──────────────────────────────────────────────
             settingsGroup(

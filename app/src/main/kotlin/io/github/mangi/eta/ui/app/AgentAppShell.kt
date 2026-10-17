@@ -89,6 +89,7 @@ internal fun AgentAppShell(
     onRefreshKimiWeb: () -> Unit,
     onOpenBrowser: () -> Unit,
     onOpenWorkspace: () -> Unit,
+    onOpenVoiceSettings: () -> Unit,
     autoCompressEnabled: Boolean = false,
     isCompressingContext: Boolean = false,
     onToggleAutoCompress: (Boolean) -> Unit = {},
@@ -200,6 +201,7 @@ internal fun AgentAppShell(
                             onRefreshKimiWeb = onRefreshKimiWeb,
                             onOpenBrowser = onOpenBrowser,
                             onOpenWorkspace = onOpenWorkspace,
+                            onOpenVoiceSettings = onOpenVoiceSettings,
                             currentConversationTitle = currentConversationTitle,
                             autoCompressEnabled = autoCompressEnabled,
                             isCompressingContext = isCompressingContext,
@@ -287,6 +289,7 @@ private fun AgentTopBar(
     onRefreshKimiWeb: () -> Unit,
     onOpenBrowser: () -> Unit,
     onOpenWorkspace: () -> Unit,
+    onOpenVoiceSettings: () -> Unit,
     autoCompressEnabled: Boolean = false,
     isCompressingContext: Boolean = false,
     onToggleAutoCompress: (Boolean) -> Unit = {},
@@ -356,6 +359,7 @@ private fun AgentTopBar(
                 onRefreshKimiWeb = onRefreshKimiWeb,
                 onOpenBrowser = onOpenBrowser,
                 onOpenWorkspace = onOpenWorkspace,
+                onOpenVoiceSettings = onOpenVoiceSettings,
                 autoCompressEnabled = autoCompressEnabled,
                 isCompressingContext = isCompressingContext,
                 onToggleAutoCompress = onToggleAutoCompress,
@@ -393,6 +397,7 @@ private fun AgentTopBar(
             onStopKimiWeb = onStopKimiWeb,
             onOpenBrowser = onOpenBrowser,
             onOpenWorkspace = onOpenWorkspace,
+            onOpenVoiceSettings = onOpenVoiceSettings,
             autoCompressEnabled = autoCompressEnabled,
             isCompressingContext = isCompressingContext,
             onToggleAutoCompress = onToggleAutoCompress,
@@ -439,6 +444,7 @@ private fun titleForRoute(route: AppRoute?, currentConversationTitle: String? = 
     is AppRoute.Permissions -> stringResource(R.string.route_permissions)
     is AppRoute.SystemEnhance -> stringResource(R.string.route_system_enhancements)
     is AppRoute.Settings -> stringResource(R.string.route_settings)
+    is AppRoute.SettingsSearch -> stringResource(R.string.settings_search_hint)
     is AppRoute.About -> stringResource(R.string.ui_about_bed172)
     is AppRoute.VoiceSettings -> stringResource(R.string.voice_title)
     is AppRoute.SpeechSettings -> stringResource(R.string.speech_title)

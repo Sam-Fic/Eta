@@ -211,6 +211,8 @@
   <string name="settings_file_logging_summary">开启后记录运行日志和脱敏工具调用诊断到本机。工具诊断仅记录结构与指纹，不记录命令、参数值或密钥。关闭后停止写入，已有日志保留。</string>
   <string name="settings_export_logs">导出日志</string>
   <string name="settings_export_logs_summary">导出软件日志（含脱敏语音诊断）为 ZIP 文件</string>
+  <string name="settings_search_hint">搜索设置项</string>
+  <string name="settings_search_no_matches">没有匹配的设置项</string>
   <string name="settings_export_logs_working">处理中……</string>
   <string name="settings_export_logs_success">已导出 %1$d 个日志文件</string>
   <string name="settings_export_logs_empty">没有可导出的日志，请先开启记录</string>

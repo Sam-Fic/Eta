@@ -42,6 +42,9 @@ sealed interface AppRoute {
     data object Settings : AppRoute
 
     @Serializable
+    data object SettingsSearch : AppRoute
+
+    @Serializable
     data object About : AppRoute
 
     @Serializable

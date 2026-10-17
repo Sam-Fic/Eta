@@ -217,6 +217,8 @@
   <string name="settings_file_logging_summary">開啟後記錄執行日誌和去識別化工具呼叫診斷到本機。工具診斷僅記錄結構與指紋，不記錄命令、參數值或金鑰。關閉後停止寫入，既有日誌保留。</string>
   <string name="settings_export_logs">匯出日誌</string>
   <string name="settings_export_logs_summary">匯出軟體日誌（含去識別化語音診斷）為 ZIP 檔案</string>
+  <string name="settings_search_hint">搜尋設定項</string>
+  <string name="settings_search_no_matches">沒有符合的設定項</string>
   <string name="settings_export_logs_working">處理中……</string>
   <string name="settings_export_logs_success">已匯出 %1$d 個日誌檔案</string>
   <string name="settings_export_logs_empty">沒有可匯出的日誌，請先開啟記錄</string>

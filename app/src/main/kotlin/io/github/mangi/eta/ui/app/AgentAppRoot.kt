@@ -463,6 +463,7 @@ fun AgentAppRoot(
             onRefreshKimiWeb = appViewModel::refreshKimiWeb,
             onOpenBrowser = { pushRoute(AppRoute.Browser) },
             onOpenWorkspace = { pushRoute(AppRoute.Workspace) },
+            onOpenVoiceSettings = { pushRoute(AppRoute.VoiceSettings) },
             autoCompressEnabled = agentState.autoCompressEnabled,
             isCompressingContext = if (shellHomeState.selectedContextTaskId == null)
                 shellHomeState.isCompressingContext || shellHomeState.isWaitingForCompression
@@ -936,6 +937,13 @@ fun AgentAppRoot(
                     onBack = ::popRoute,
                     currentProviderId = shellHomeState.providerId,
                     currentModelId = shellHomeState.modelId,
+                )
+            }
+            composable<AppRoute.SettingsSearch> {
+                io.github.mangi.eta.ui.SettingsSearchScreen(
+                    context = context,
+                    onNavigate = { route -> pushRoute(route) },
+                    onBack = ::popRoute,
                 )
             }
             composable<AppRoute.About> {

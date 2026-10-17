@@ -181,6 +181,8 @@
   <string name="settings_file_logging_summary">When enabled, runtime logs and redacted tool-call diagnostics are saved on-device. Tool diagnostics record structure and fingerprints, not commands, argument values or keys. Turning it off stops writing and keeps existing logs.</string>
   <string name="settings_export_logs">Export logs</string>
   <string name="settings_export_logs_summary">Export app logs, including redacted voice diagnostics, as a ZIP file</string>
+  <string name="settings_search_hint">Search settings</string>
+  <string name="settings_search_no_matches">No matching settings</string>
   <string name="settings_export_logs_working">Working…</string>
   <string name="settings_export_logs_success">Exported %1$d log files</string>
   <string name="settings_export_logs_empty">No logs to export. Turn on recording first.</string>

@@ -7,17 +7,22 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.AssistantProfile
 import io.github.mangi.eta.data.repository.AssistantRepository
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
+import io.github.mangi.eta.ui.adaptive.EtaSearchHistory
 import io.github.mangi.eta.ui.adaptive.EtaSearchPage
 import io.github.mangi.eta.ui.navigation.AppRoute
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+/** 查询历史分域键：助手搜索历史独立存储。 */
+private const val HISTORY_KEY = "assistants"
 
 /**
  * 独立搜索页：从助手主页右上角的单搜索图标跳入，整页即搜索。
@@ -34,6 +39,7 @@ internal fun AssistantSearchScreen(
     selectedAssistantId: String? = null,
     onSelectAssistant: ((String) -> Unit)? = null,
 ) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val profiles by AssistantRepository.profiles.collectAsState()
     val repositoryActiveId by AssistantRepository.activeId.collectAsState()
@@ -63,12 +69,16 @@ internal fun AssistantSearchScreen(
     EtaSearchPage(
         searchPlaceholder = stringResource(R.string.assistant_search),
         onBack = onBack,
+        historyKey = HISTORY_KEY,
     ) { query ->
         assistantItems(
             profiles = profiles,
             activeId = activeId,
             query = query,
-            onOpen = openProfile,
+            onOpen = { profile ->
+                EtaSearchHistory.add(context, HISTORY_KEY, query)
+                openProfile(profile)
+            },
             onCopy = { profile ->
                 scope.launch {
                     withContext(Dispatchers.IO) {

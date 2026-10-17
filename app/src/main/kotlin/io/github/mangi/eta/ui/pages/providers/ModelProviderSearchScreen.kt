@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.R
@@ -11,9 +12,13 @@ import io.github.mangi.eta.data.model.ProviderSetting
 import io.github.mangi.eta.data.model.typeLabel
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
+import io.github.mangi.eta.ui.adaptive.EtaSearchHistory
 import io.github.mangi.eta.ui.adaptive.EtaSearchPage
 import io.github.mangi.eta.ui.navigation.AppRoute
 import io.github.mangi.eta.ui.navigation.NewProviderType
+
+/** 查询历史分域键：供应商搜索历史独立存储。 */
+private const val HISTORY_KEY = "model_providers"
 
 /**
  * 独立搜索页：从供应商主页右上角的单搜索图标跳入，整页即搜索。
@@ -28,6 +33,7 @@ internal fun ModelProviderSearchScreen(
     onBack: () -> Unit,
     currentProviderId: String? = null,
 ) {
+    val context = LocalContext.current
     val providers by ProviderRepository.providersFlow().collectAsState(initial = emptyList())
     val storedProviderId by RuntimeConfigRepository.selectedProviderIdFlow().collectAsState(initial = null)
     val selectedProviderId = currentProviderId?.takeIf { it.isNotBlank() } ?: storedProviderId
@@ -39,6 +45,7 @@ internal fun ModelProviderSearchScreen(
     EtaSearchPage(
         searchPlaceholder = stringResource(R.string.ui_search_provider_74e049),
         onBack = onBack,
+        historyKey = HISTORY_KEY,
     ) { query ->
         // LazyListScope 不是 Composable 作用域，过滤直接内联计算（主页列表与搜索结果共用）。
         val needle = query.trim()
@@ -59,7 +66,10 @@ internal fun ModelProviderSearchScreen(
             selectedProviderId = selectedProviderId,
             onToggleChecked = {},
             onSelectAll = {},
-            onOpen = { id -> onNavigate(AppRoute.ModelProviderDetail(id)) },
+            onOpen = { id ->
+                EtaSearchHistory.add(context, HISTORY_KEY, query)
+                onNavigate(AppRoute.ModelProviderDetail(id))
+            },
             onEnterSelection = {},
             onAddProvider = { type ->
                 onNavigate(

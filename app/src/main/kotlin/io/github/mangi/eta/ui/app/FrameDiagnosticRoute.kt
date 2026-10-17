@@ -17,6 +17,7 @@ internal fun AppRoute.frameDiagnosticPage(): FrameDiagnosticPage = when (this) {
     AppRoute.Permissions -> FrameDiagnosticPage.Permissions
     AppRoute.SystemEnhance -> FrameDiagnosticPage.SystemEnhance
     AppRoute.Settings -> FrameDiagnosticPage.Settings
+    AppRoute.SettingsSearch -> FrameDiagnosticPage.Settings
     AppRoute.About -> FrameDiagnosticPage.Settings
     AppRoute.SpeechSettings -> FrameDiagnosticPage.VoiceSettings
     AppRoute.TtsSettings -> FrameDiagnosticPage.VoiceSettings
