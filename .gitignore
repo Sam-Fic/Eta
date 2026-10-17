@@ -35,6 +35,7 @@ google-services.json
 /local.properties
 /.analysis/
 /.tmp/
+/.tmp_navsrc/
 
 # 外部源码参考，仅供阅读，不参与当前仓库版本管理
 /reference/
