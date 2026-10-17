@@ -94,6 +94,7 @@ class TopBarInteractiveModeContractTest(unittest.TestCase):
         # 不再占溢出菜单一行；菜单末尾新增「删除当前会话」分组行。
         self.assertEqual([
             "action_search_history",
+            "action_voice_settings",
             "divider", "action_interactive_mode", "divider",
             "action_open_terminal", "action_open_browser", "action_browse_workspace_files",
             "action_sub_agent_status", "kimiWebLabel", "divider", "action_token_usage",
@@ -217,7 +218,8 @@ class TopBarInteractiveModeContractTest(unittest.TestCase):
         caller = arguments(read("ui/app/AgentAppShell.kt"), "TopBarOverflowMenu")
         for name in ("onOpenTerminal", "onLaunchKimiWeb", "kimiWebLabel",
                      "canStopKimiWeb", "onStopKimiWeb", "onRefreshKimiWeb", "onOpenBrowser",
-                     "onOpenWorkspace", "autoCompressEnabled", "isCompressingContext",
+                     "onOpenWorkspace", "onOpenVoiceSettings",
+                     "autoCompressEnabled", "isCompressingContext",
                      "onToggleAutoCompress", "onCompressConversation", "onSearchHistory",
                      "onOpenHistoryHit", "tokenUsage", "subAgentStatuses",
                      "canDeleteCurrentConversation", "onDeleteCurrentConversation"):

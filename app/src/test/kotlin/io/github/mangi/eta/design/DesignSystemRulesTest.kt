@@ -35,12 +35,13 @@ class DesignSystemRulesTest {
     private fun violations(pattern: Regex, allowed: (String) -> Boolean = { false }): List<String> =
         mainSources.flatMap { (path, text) ->
             if (allowed(path)) {
-                emptyList()
+                emptyList<String>()
             } else {
                 text.lineSequence()
                     .withIndex()
                     .filter { pattern.containsMatchIn(it.value) }
                     .map { "$path:${it.index + 1}: ${it.value.trim()}" }
+                    .toList()
             }
         }
 
