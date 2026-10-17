@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.selectable
@@ -42,7 +43,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -57,7 +57,6 @@ import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.data.model.AnthropicProviderSetting
 import io.github.mangi.eta.data.model.CustomProviderSetting
@@ -75,20 +74,11 @@ import io.github.mangi.eta.data.model.withId
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.data.repository.RemoteModelFetcher
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
-import io.github.mangi.eta.ui.components.MiuixPageBottomSpacer
-import io.github.mangi.eta.ui.components.StatusError
-import io.github.mangi.eta.ui.components.StatusSuccess
 import io.github.mangi.eta.ui.layout.horizontalCutoutPadding
 import io.github.mangi.eta.ui.navigation.NewProviderType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.ScrollBehavior
-import top.yukonga.miuix.kmp.basic.TabRow
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.overScrollVertical
-import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
@@ -175,14 +165,10 @@ internal fun ModelProviderDetailScreen(
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    if (isMaterial3Theme()) {
-                        M3Text(
-                            text = stringResource(R.string.ui_provider_does_not_exist_83cee6),
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
-                    } else {
-                        Text(text = stringResource(R.string.ui_provider_does_not_exist_83cee6))
-                    }
+                    M3Text(
+                        text = stringResource(R.string.ui_provider_does_not_exist_83cee6),
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
                     Spacer(modifier = Modifier.height(12.dp))
                     ProviderPrimaryAction(text = stringResource(R.string.ui_return_11d024), onClick = onBack)
                 }
@@ -277,19 +263,17 @@ internal fun ModelProviderDetailScreen(
         title = title,
         onBack = onBack,
         actions = {
-            if (isMaterial3Theme()) {
-                // M3：保存走顶栏图标按钮（KernelSU 模板编辑器同款），不再占用页面底部。
-                IconButton(
-                    onClick = onSaveProvider,
-                    enabled = !isSaving && !creationCommitted,
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Save,
-                        contentDescription = stringResource(
-                            if (isNew) R.string.page_create_fcbd09 else R.string.page_save_configuration_817af1,
-                        ),
-                    )
-                }
+            // M3：保存走顶栏图标按钮（KernelSU 模板编辑器同款），不再占用页面底部。
+            IconButton(
+                onClick = onSaveProvider,
+                enabled = !isSaving && !creationCommitted,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Save,
+                    contentDescription = stringResource(
+                        if (isNew) R.string.page_create_fcbd09 else R.string.page_save_configuration_817af1,
+                    ),
+                )
             }
         },
     ) { paddingValues, scrollBehavior, sidePadding ->
@@ -352,8 +336,7 @@ internal fun ModelProviderDetailScreen(
  * 配置 / 模型分段切换。
  *
  * Material 3 走 KernelSU `ExpressiveTabRow` 同款实现：官方 [PrimaryTabRow] +
- * 每个 tab 为可选中的胶囊（`CircleShape` 裁剪 + 官方 ripple）；
- * MIUI X 保持原有 [TabRow]。
+ * 每个 tab 为可选中的胶囊（`CircleShape` 裁剪 + 官方 ripple）。
  */
 @Composable
 private fun ProviderTabs(
@@ -362,58 +345,49 @@ private fun ProviderTabs(
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    if (isMaterial3Theme()) {
-        // 与 KernelSU 参考实现逐值一致的 Expressive 标签栏。
-        val safeIndex = selectedIndex.coerceIn(0, (tabs.size - 1).coerceAtLeast(0))
-        PrimaryTabRow(
-            selectedTabIndex = safeIndex,
-            modifier = modifier.fillMaxWidth(),
-            // 与页面背景同色：标签栏浮在 surfaceContainer 上，胶囊涟漪从其上浮出。
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        ) {
-            tabs.forEachIndexed { index, label ->
-                val selected = safeIndex == index
-                val interactionSource = remember { MutableInteractionSource() }
+    // 与 KernelSU 参考实现逐值一致的 Expressive 标签栏。
+    val safeIndex = selectedIndex.coerceIn(0, (tabs.size - 1).coerceAtLeast(0))
+    PrimaryTabRow(
+        selectedTabIndex = safeIndex,
+        modifier = modifier.fillMaxWidth(),
+        // 与页面背景同色：标签栏浮在 surfaceContainer 上，胶囊涟漪从其上浮出。
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+    ) {
+        tabs.forEachIndexed { index, label ->
+            val selected = safeIndex == index
+            val interactionSource = remember { MutableInteractionSource() }
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .selectable(
+                        selected = selected,
+                        interactionSource = interactionSource,
+                        indication = null,
+                        role = Role.Tab,
+                        onClick = { onSelect(index) },
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
                 Box(
                     modifier = Modifier
-                        .fillMaxHeight()
-                        .selectable(
-                            selected = selected,
-                            interactionSource = interactionSource,
-                            indication = null,
-                            role = Role.Tab,
-                            onClick = { onSelect(index) },
-                        ),
+                        .padding(vertical = 8.dp)
+                        .clip(CircleShape)
+                        .indication(interactionSource, ripple()),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .padding(vertical = 8.dp)
-                            .clip(CircleShape)
-                            .indication(interactionSource, ripple()),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        M3Text(
-                            text = label,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            color = if (selected) {
-                                LocalContentColor.current
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                            style = MaterialTheme.typography.titleSmall,
-                        )
-                    }
+                    M3Text(
+                        text = label,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        color = if (selected) {
+                            LocalContentColor.current
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        style = MaterialTheme.typography.titleSmall,
+                    )
                 }
             }
         }
-    } else {
-        TabRow(
-            tabs = tabs,
-            selectedTabIndex = selectedIndex,
-            onTabSelected = onSelect,
-            modifier = modifier,
-        )
     }
 }
 
@@ -453,8 +427,6 @@ private fun ProviderConfigTab(
             .fillMaxSize()
             // 低层 Scaffold 只负责把顶栏 Insets 传给调用方，输入法 Insets 由列表自行消费。
             .imePadding()
-            .scrollEndHaptic()
-            .overScrollVertical()
             .nestedScroll(scrollConnection),
         contentPadding = PaddingValues(
             start = contentSidePadding,
@@ -567,6 +539,7 @@ private fun ProviderConfigTab(
                         title = stringResource(R.string.ui_test_connection_10b7d8),
                         summary = testStatus,
                         enabled = !isWorking,
+                        showChevron = false,
                         onClick = {
                             TouchHaptics.click(view)
                             val validationError = validateProviderDraft(context, draft)
@@ -684,55 +657,23 @@ private fun ProviderConfigTab(
         }
 
         item(key = "actions") {
-            // M3：保存按钮已移到顶栏图标（KernelSU 模板编辑器同款），底部只留结果提示；
-            // MIUI X：保持原有底部主按钮，保存逻辑复用页面级 onSaveProvider。
+            // M3：保存按钮已移到顶栏图标（KernelSU 模板编辑器同款），底部只留结果提示。
             val combinedStatus = saveStatus ?: status
-            if (isMaterial3Theme()) {
-                combinedStatus?.let { message ->
-                    M3Text(
-                        text = message,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (message.startsWith(context.getString(R.string.page_fail_3e3c80))) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            MaterialTheme.colorScheme.primary
-                        },
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 24.dp)
-                            .padding(top = 4.dp, bottom = 12.dp),
-                    )
-                }
-            } else {
-                Column(
+            combinedStatus?.let { message ->
+                M3Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (message.startsWith(context.getString(R.string.page_fail_3e3c80))) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    },
+                    textAlign = TextAlign.Center,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp)
-                        .padding(top = 12.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    ProviderPrimaryAction(
-                        text = when {
-                            isWorking -> context.getString(R.string.page_saving_d70d42)
-                            saveCommitted -> context.getString(R.string.page_created_62cfc5)
-                            isNew -> context.getString(R.string.page_create_fcbd09)
-                            else -> context.getString(R.string.page_save_configuration_817af1)
-                        },
-                        onClick = onSave,
-                        enabled = !isWorking && !saveCommitted,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    combinedStatus?.let { message ->
-                        Text(
-                            text = message,
-                            style = MiuixTheme.textStyles.footnote2,
-                            color = if (message.startsWith(context.getString(R.string.page_fail_3e3c80))) StatusError else StatusSuccess,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(top = 8.dp),
-                        )
-                    }
-                }
+                        .padding(horizontal = 24.dp)
+                        .padding(top = 4.dp, bottom = 12.dp),
+                )
             }
         }
 
@@ -747,61 +688,40 @@ private fun ProviderConfigTab(
                 } else {
                     context.getString(R.string.page_remove_provider_9f848f)
                 }
-                if (isMaterial3Theme()) {
-                    // KernelSU 设置页「卸载」同款：分段行 + Delete 图标 + 官方 error 角色色，
-                    // 不再用大块卡片抢占视觉重心。
-                    EtaSegmentedColumn(
-                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
-                    ) {
-                        item {
-                            EtaSegmentedRow(
-                                onClick = if (isWorking) null else onDangerClick,
-                                modifier = Modifier.fillMaxWidth(),
-                                leadingContent = {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Delete,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.error,
-                                    )
-                                },
-                                content = {
-                                    M3Text(
-                                        text = dangerLabel,
-                                        color = MaterialTheme.colorScheme.error,
-                                    )
-                                },
-                            )
-                        }
-                    }
-                } else {
-                    top.yukonga.miuix.kmp.basic.Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp)
-                            .padding(top = 12.dp),
-                        showIndication = true,
-                        onClick = if (isWorking) null else onDangerClick,
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 12.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = dangerLabel,
-                                fontSize = MiuixTheme.textStyles.headline1.fontSize,
-                                fontWeight = FontWeight.Medium,
-                                color = MiuixTheme.colorScheme.error,
-                            )
-                        }
+                // KernelSU 设置页「卸载」同款：分段行 + Delete 图标 + 官方 error 角色色，
+                // 不再用大块卡片抢占视觉重心。
+                EtaSegmentedColumn(
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                ) {
+                    item {
+                        EtaSegmentedRow(
+                            onClick = if (isWorking) null else onDangerClick,
+                            modifier = Modifier.fillMaxWidth(),
+                            leadingContent = {
+                                Icon(
+                                    imageVector = Icons.Rounded.Delete,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                )
+                            },
+                            content = {
+                                M3Text(
+                                    text = dangerLabel,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            },
+                        )
                     }
                 }
             }
         }
 
         item(key = "bottom_spacer") {
-            MiuixPageBottomSpacer()
+            Spacer(
+                modifier = Modifier
+                    .height(24.dp)
+                    .navigationBarsPadding(),
+            )
         }
     }
 
@@ -836,7 +756,7 @@ private fun ProviderConfigTab(
                 }
             }
         }
-        // 自适应弹窗：M3 → 官方 AlertDialog + TextButton；MIUI X → WindowDialog + MiuixDialogActions。
+        // 自适应弹窗：M3 → 官方 AlertDialog + TextButton。
         EtaDialog(
             show = true,
             title = dialogTitle,
@@ -888,7 +808,7 @@ private fun ProviderConfigTab(
                 }
             }
         }
-        // 自适应弹窗：M3 → 官方 AlertDialog + TextButton；MIUI X → WindowDialog + MiuixDialogActions。
+        // 自适应弹窗：M3 → 官方 AlertDialog + TextButton。
         EtaDialog(
             show = true,
             title = dialogTitle,
@@ -992,18 +912,10 @@ private fun ProviderOAuthLoginRow(
     } else {
         context.getString(R.string.provider_oauth_sign_in_note)
     }
-    if (isMaterial3Theme()) {
-        M3Text(
-            text = note,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 8.dp),
-        )
-    } else {
-        Text(
-            text = note,
-            style = MiuixTheme.textStyles.footnote2,
-            modifier = Modifier.padding(top = 8.dp),
-        )
-    }
+    M3Text(
+        text = note,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 8.dp),
+    )
 }

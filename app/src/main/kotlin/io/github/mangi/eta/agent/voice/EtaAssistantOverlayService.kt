@@ -15,6 +15,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
+import android.widget.Toast
 import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
 import androidx.activity.compose.LocalActivityResultRegistryOwner
@@ -38,8 +39,11 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.accessibility.AgentAccessibilityService
+import io.github.mangi.eta.agent.media.AgentChatImageCache
 import io.github.mangi.eta.agent.media.AgentImageCodec
+import io.github.mangi.eta.agent.media.MAX_AGENT_VIDEO_BYTES
 import io.github.mangi.eta.agent.model.AgentFileReferencePromptCodec
 import io.github.mangi.eta.agent.model.AgentModelClient
 import io.github.mangi.eta.agent.question.AgentQuestionAnswer
@@ -60,6 +64,8 @@ import io.github.mangi.eta.data.repository.AppearanceSettingsRepository
 import io.github.mangi.eta.ui.app.AgentRunMessageProjector
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
 import io.github.mangi.eta.ui.model.AgentMessageUi
+import io.github.mangi.eta.ui.model.cacheDisplayName
+import io.github.mangi.eta.ui.model.encodeUserMessageImages
 import io.github.mangi.eta.ui.model.ThinkingMessageUi
 import io.github.mangi.eta.ui.model.SystemNoticeCode
 import io.github.mangi.eta.ui.model.SystemNoticeMessageUi
@@ -71,6 +77,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -79,7 +86,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import top.yukonga.miuix.kmp.squircle.LocalSquircleEnabled
 
 /**
  * Eta 数字助理的用户界面窗口。
@@ -95,6 +101,8 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         Thread(runnable, "EtaAssistantRuntimeCancel")
     }
     private val runtimeClient = AgentRuntimeClient(this, AndroidAgentLogger)
+    // 生成中追加指令（不附带图片时）无需落盘；带附件时按应用内同一套路径把附件暂存到会话缓存目录。
+    private val chatImageCache = AgentChatImageCache(this)
     private val runMessageProjector = AgentRunMessageProjector()
     private val conversationKey = "eta_assistant_${UUID.randomUUID()}"
     private var conversationHistory = emptyList<AgentModelClient.ConversationMessage>()
@@ -303,10 +311,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
                 appearance = appearance,
                 applyInterfaceScale = false,
             ) {
-                // ColorOS 在 Overlay 窗口切换期间可能短暂使用软件画布；RuntimeShader
-                // 无法在该画布绘制，因此浮窗统一使用 Miuix 的圆角回退路径。
                 CompositionLocalProvider(
-                    LocalSquircleEnabled provides false,
                     // 系统选择器 / 权限请求要拿到注册表 owner：官方组件会用
                     // `rememberLauncherForActivityResult`，没有 owner 会直接抛异常。
                     LocalActivityResultRegistryOwner provides overlayResultRegistry,
@@ -431,9 +436,109 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
     }
 
     private fun submitInput(prompt: String) {
+        // 生成中：与应用内输入区一致。输入框保持可编辑，尾部按钮回到「发送」，
+        // 此时提交的内容作为追加指令（steering）送进当前 run，而不是被丢弃。
+        val runId = activeRunId
+        if (runId != null) {
+            steerInput(runId, prompt.trim())
+            return
+        }
         val normalized = prompt.trim()
-        if (normalized.isBlank() || activeRunId != null) return
+        if (normalized.isBlank()) return
         submitPrompt(normalized)
+    }
+
+    /**
+     * 生成中追加指令：与应用内输入区同一条路径 —— 附件先落盘，正文与引用按同一套编码随
+     * `steerRun` 送给运行中的 run（未落盘的 base64 附件运行时无法识别，会整单退回）。
+     *
+     * 草稿只在真正送达后才清空：落盘失败 / 未送达时正文与附件原样保留，用户可直接重试。
+     */
+    private fun steerInput(runId: String, prompt: String) {
+        val images = composerState.pendingImages
+        val pendingReferences = composerState.pendingFileReferences
+        if (prompt.isBlank() && images.isEmpty() && pendingReferences.isEmpty()) return
+        val references = pendingReferences.map { it.reference }
+        val requestId = UUID.randomUUID().toString()
+        scope.launch {
+            try {
+                // 保持位置、整单退回：落盘失败时不能悄悄把某张图挪到别的位置。
+                val staged = images.mapIndexed { index, image ->
+                    if (image.isVideo) {
+                        val file = java.io.File(image.uri.removePrefix("file://"))
+                        if (!file.isFile) return@mapIndexed null
+                        chatImageCache.stageFromFile(
+                            conversationKey,
+                            file,
+                            image.cacheDisplayName(index),
+                            MAX_AGENT_VIDEO_BYTES,
+                        )
+                    } else {
+                        val bytes = AgentChatImageCache.readBytes(image.uri)
+                            ?: AgentChatImageCache.readBytes(image.dataUrl)
+                            ?: return@mapIndexed null
+                        chatImageCache.stage(conversationKey, bytes, image.cacheDisplayName(index))
+                    }
+                }
+                if (staged.size != images.size || staged.any { it == null }) {
+                    withContext(Dispatchers.Main) {
+                        toast(getString(R.string.appst_steer_attachment_save_failed))
+                    }
+                    return@launch
+                }
+                val stagedReferences = staged.filterNotNull()
+                val previews = images.mapIndexed { index, image ->
+                    if (image.isVideo) {
+                        // 视频另存一张预览图：运行时要的是可解码的缩略图，不是视频本体。
+                        val bytes = AgentChatImageCache.readBytes(image.dataUrl)
+                        val preview = bytes?.let {
+                            chatImageCache.stage(conversationKey, it, "preview-${image.id}.jpg")
+                        }
+                        preview?.absolutePath ?: image.dataUrl
+                    } else {
+                        stagedReferences[index].absolutePath
+                    }
+                }
+                val imagesJson = encodeUserMessageImages(
+                    previews,
+                    stagedReferences.map { it.absolutePath },
+                    images.map { it.isVideo },
+                    images.map { it.durationMs },
+                )
+                // 附件描述过大时不能塞进 Binder。
+                if (imagesJson.length > 64_000) {
+                    withContext(Dispatchers.Main) {
+                        toast(getString(R.string.appst_steer_preview_save_failed))
+                    }
+                    return@launch
+                }
+                val text = AgentFileReferencePromptCodec.format(prompt, references + stagedReferences)
+                    .ifBlank { getString(R.string.appst_steer_attachment_fallback) }
+                val sent = runtimeClient.steerRun(runId, text, requestId, imagesJson)
+                withContext(Dispatchers.Main) {
+                    if (!sent) {
+                        toast(getString(R.string.appst_steer_not_delivered))
+                        return@withContext
+                    }
+                    // 只有真正送达才清空草稿：正文若已被继续编辑则保留，附件按 id 精确移除
+                    // （中途新加的附件不会被误删）。
+                    if (composerTextFieldState.text.toString() == prompt) {
+                        composerTextFieldState.setTextAndPlaceCursorAtEnd("")
+                    }
+                    images.forEach { composerState.removePendingImage(it.id) }
+                    pendingReferences.forEach { composerState.removePendingFileReference(it.id) }
+                }
+            } catch (failure: Exception) {
+                if (failure is CancellationException) throw failure
+                withContext(Dispatchers.Main) {
+                    toast(getString(R.string.appst_steer_failed))
+                }
+            }
+        }
+    }
+
+    private fun toast(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
     }
 
     private fun submitPrompt(prompt: String) {

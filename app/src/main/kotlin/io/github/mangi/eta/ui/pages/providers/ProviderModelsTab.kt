@@ -7,10 +7,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -37,6 +33,7 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.MaterialTheme
@@ -44,7 +41,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text as MaterialText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -59,7 +55,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -91,35 +86,12 @@ import io.github.mangi.eta.ui.adaptive.EtaSegmentedCheckboxRow
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedGap
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedItem
 import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.components.ListEmptyState
-import io.github.mangi.eta.ui.components.PreferenceIcon
-import io.github.mangi.eta.ui.components.StatusError
-import io.github.mangi.eta.ui.components.StatusSuccess
 import io.github.mangi.eta.ui.model.formatCompactTokenCount
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.CardDefaults
-import top.yukonga.miuix.kmp.basic.Checkbox
-import androidx.compose.material3.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.InputField
-import top.yukonga.miuix.kmp.basic.ScrollBehavior
-import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.preference.SwitchPreference
-import top.yukonga.miuix.kmp.squircle.squircleSurface
-import top.yukonga.miuix.kmp.theme.LocalContentColor
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.overScrollVertical
-import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 private val modelSearchSeparators = Regex("""[^\p{L}\p{N}]+""")
 private val allReasoningEffortTiers = listOf(
@@ -241,8 +213,6 @@ internal fun ProviderModelsTab(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .scrollEndHaptic()
-                .overScrollVertical()
                 .nestedScroll(scrollConnection),
             contentPadding = PaddingValues(
                 start = contentSidePadding,
@@ -262,6 +232,7 @@ internal fun ProviderModelsTab(
                         title = if (isFetching) context.getString(R.string.page_retrieving_a880c9) else context.getString(R.string.page_automatically_pull_from_remote_f883d0),
                         summary = stringResource(R.string.provider_models_endpoint_summary, provider.baseUrl),
                         enabled = !isFetching && !isMutatingModel && !SpeechSynthesisModels.isSpeechOnlyProvider(provider),
+                        showChevron = false,
                         leading = {
                             Icon(imageVector = Icons.Rounded.CloudDownload, contentDescription = null)
                         },
@@ -339,6 +310,7 @@ internal fun ProviderModelsTab(
                             title = stringResource(R.string.ui_add_custom_model_a5ddc0),
                             summary = stringResource(R.string.ui_manually_fill_in_the_display_name_and_model_id_077a7b),
                             enabled = !isFetching && !isMutatingModel,
+                            showChevron = false,
                             leading = {
                                 Icon(imageVector = Icons.Rounded.Add, contentDescription = null)
                             },
@@ -359,26 +331,17 @@ internal fun ProviderModelsTab(
                     item(visible = message != null) {
                         ProviderSegmentBody {
                             message?.let {
-                                if (isMaterial3Theme()) {
-                                    // M3：官方字阶 + 官方 error / primary 角色色。
-                                    MaterialText(
-                                        text = it,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = if (it.startsWith(context.getString(R.string.page_fail_3e3c80))) {
-                                            MaterialTheme.colorScheme.error
-                                        } else {
-                                            MaterialTheme.colorScheme.primary
-                                        },
-                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                                    )
-                                } else {
-                                    Text(
-                                        text = it,
-                                        style = MiuixTheme.textStyles.footnote2,
-                                        color = if (it.startsWith(context.getString(R.string.page_fail_3e3c80))) StatusError else StatusSuccess,
-                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                                    )
-                                }
+                                // M3：官方字阶 + 官方 error / primary 角色色。
+                                MaterialText(
+                                    text = it,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (it.startsWith(context.getString(R.string.page_fail_3e3c80))) {
+                                        MaterialTheme.colorScheme.error
+                                    } else {
+                                        MaterialTheme.colorScheme.primary
+                                    },
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                )
                             }
                         }
                     }
@@ -441,26 +404,12 @@ internal fun ProviderModelsTab(
                                     filteredModels.mapTo(mutableSetOf()) { it.id }
                                 }
                             }
-                            // M3：官方 TextButton，替掉「Text + clickable」。
-                            if (isMaterial3Theme()) {
-                                TextButton(
-                                    onClick = onSelectAll,
-                                    enabled = !isFetching && !isMutatingModel,
-                                ) {
-                                    MaterialText(text = stringResource(R.string.page_select_all_3e44b2))
-                                }
-                            } else {
-                                Text(
-                                    text = stringResource(R.string.page_select_all_3e44b2),
-                                    style = MiuixTheme.textStyles.body2,
-                                    color = MiuixTheme.colorScheme.primary,
-                                    modifier = Modifier
-                                        .clickable(
-                                            enabled = !isFetching && !isMutatingModel,
-                                            onClick = onSelectAll,
-                                        )
-                                        .padding(end = 16.dp),
-                                )
+                            // M3：官方 TextButton。
+                            TextButton(
+                                onClick = onSelectAll,
+                                enabled = !isFetching && !isMutatingModel,
+                            ) {
+                                MaterialText(text = stringResource(R.string.page_select_all_3e44b2))
                             }
                         }
                     }
@@ -609,7 +558,7 @@ internal fun ProviderModelsTab(
         val dialogSummary = stringResource(R.string.provider_model_delete_summary, model.displayName)
         val onDismissDelete = { if (!isMutatingModel) modelPendingDelete = null }
         val onCancelDelete = { modelPendingDelete = null }
-        // 自适应弹窗：M3 → 官方 AlertDialog + TextButton；MIUI X → WindowDialog + MiuixDialogActions。
+        // 自适应弹窗：M3 → 官方 AlertDialog + TextButton。
         EtaDialog(
             show = true,
             title = dialogTitle,
@@ -702,7 +651,7 @@ internal fun ProviderModelsTab(
                 }
             }
         }
-        // 自适应弹窗：M3 → 官方 AlertDialog + TextButton；MIUI X → WindowDialog + MiuixDialogActions。
+        // 自适应弹窗：M3 → 官方 AlertDialog + TextButton。
         EtaDialog(
             show = true,
             title = dialogTitle,
@@ -727,43 +676,15 @@ private fun ModelListGroupItem(
     isLast: Boolean,
     content: @Composable () -> Unit,
 ) {
-    if (isMaterial3Theme()) {
-        // M3：容器底色与首尾圆角交给官方 ListItem（segmentedColors + segmentedShapes），
-        // 行间 2dp 露出背景缝隙（KernelSU 的 spacedBy(2.dp)），末项补足组间距 13dp，
-        // 水平 16dp 与供应商列表页一致。
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, bottom = if (isLast) 13.dp else 2.dp),
-        ) {
-            content()
-        }
-        return
-    }
-    val surfaceColor = MiuixTheme.colorScheme.surfaceContainer
-    val contentColor = MiuixTheme.colorScheme.onSurfaceContainer
-    val cornerRadius = CardDefaults.CornerRadius
-    val surfaceModifier = if (isFirst || isLast) {
-        Modifier.squircleSurface(
-            color = surfaceColor,
-            topStart = if (isFirst) cornerRadius else 0.dp,
-            topEnd = if (isFirst) cornerRadius else 0.dp,
-            bottomEnd = if (isLast) cornerRadius else 0.dp,
-            bottomStart = if (isLast) cornerRadius else 0.dp,
-        )
-    } else {
-        Modifier.background(surfaceColor)
-    }
-
-    CompositionLocalProvider(LocalContentColor provides contentColor) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp)
-                .then(surfaceModifier),
-        ) {
-            content()
-        }
+    // M3：容器底色与首尾圆角交给官方 ListItem（segmentedColors + segmentedShapes），
+    // 行间 2dp 露出背景缝隙（KernelSU 的 spacedBy(2.dp)），末项补足组间距 13dp，
+    // 水平 16dp 与供应商列表页一致。
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, bottom = if (isLast) 13.dp else 2.dp),
+    ) {
+        content()
     }
 }
 
@@ -805,7 +726,7 @@ private fun ModelSelectionBar(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ModelListItem(
     model: Model,
@@ -833,15 +754,7 @@ private fun ModelListItem(
     // 尾部：多选时为官方 Checkbox，否则为「当前模型」勾 + 官方图标按钮。
     val trailing: @Composable () -> Unit = {
         if (selectionMode) {
-            if (isMaterial3Theme()) {
-                Checkbox(checked = checked, onCheckedChange = { onClick() }, enabled = enabled)
-            } else {
-                Checkbox(
-                    state = if (checked) ToggleableState.On else ToggleableState.Off,
-                    onClick = onClick,
-                    enabled = enabled,
-                )
-            }
+            Checkbox(checked = checked, onCheckedChange = { onClick() }, enabled = enabled)
         } else {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -851,11 +764,7 @@ private fun ModelListItem(
                     Icon(
                         imageVector = Icons.Rounded.Check,
                         contentDescription = context.getString(R.string.page_current_model_a0af8f),
-                        tint = if (isMaterial3Theme()) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MiuixTheme.colorScheme.primary
-                        },
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier
                             .padding(end = 2.dp)
                             .size(20.dp),
@@ -873,104 +782,58 @@ private fun ModelListItem(
             }
         }
     }
-    if (isMaterial3Theme()) {
-        // M3：官方 SegmentedListItem（selected + onClick + onLongClick）一次覆盖点按、长按与多选；
-        // 分组圆角与分组底色改由官方 ListItemDefaults.segmentedShapes / segmentedColors 提供，
-        // 容器色与 KernelSU 参考实现一致取 surfaceBright（从页面 surfaceContainer 浮出一档）。
-        SegmentedListItem(
-            verticalAlignment = Alignment.CenterVertically,
-            selected = isSelected,
-            onClick = onClick,
-            onLongClick = onLongClick,
-            enabled = enabled,
-            modifier = modifier.fillMaxWidth(),
-            shapes = ListItemDefaults.segmentedShapes(index = itemIndex, count = itemCount),
-            colors = ListItemDefaults.segmentedColors(
-                containerColor = MaterialTheme.colorScheme.surfaceBright,
-                disabledContainerColor = MaterialTheme.colorScheme.surfaceBright,
-                supportingContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            ),
-            content = {
+    // M3：官方 SegmentedListItem（selected + onClick + onLongClick）一次覆盖点按、长按与多选；
+    // 分组圆角与分组底色改由官方 ListItemDefaults.segmentedShapes / segmentedColors 提供，
+    // 容器色与 KernelSU 参考实现一致取 surfaceBright（从页面 surfaceContainer 浮出一档）。
+    SegmentedListItem(
+        verticalAlignment = Alignment.CenterVertically,
+        selected = isSelected,
+        onClick = onClick,
+        onLongClick = onLongClick,
+        enabled = enabled,
+        modifier = modifier.fillMaxWidth(),
+        shapes = ListItemDefaults.segmentedShapes(index = itemIndex, count = itemCount),
+        colors = ListItemDefaults.segmentedColors(
+            containerColor = MaterialTheme.colorScheme.surfaceBright,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceBright,
+            supportingContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        ),
+        content = {
+            MaterialText(
+                text = model.displayName,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        },
+        supportingContent = {
+            // Column 不能省：supportingContent 内 modelId 与标签行若裸排会叠在同一位置。
+            Column {
                 MaterialText(
-                    text = model.displayName,
-                    style = MaterialTheme.typography.bodyLarge,
+                    text = model.modelId,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-            },
-            supportingContent = {
-                // Column 不能省：supportingContent 内 modelId 与标签行若裸排会叠在同一位置。
-                Column {
-                    MaterialText(
-                        text = model.modelId,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp),
-                    ) {
-                        capabilityTags(model).forEach { tag ->
-                            TagChip(text = tag)
-                        }
-                        if (isSelected) {
-                            TagChip(text = stringResource(R.string.ui_current_25e74d), tone = TagChipTone.Emphasized)
-                        }
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                ) {
+                    capabilityTags(model).forEach { tag ->
+                        TagChip(text = tag)
+                    }
+                    if (isSelected) {
+                        TagChip(text = stringResource(R.string.ui_current_25e74d), tone = TagChipTone.Emphasized)
                     }
                 }
-            },
-            trailingContent = trailing,
-        )
-        return
-    }
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .combinedClickable(
-                enabled = enabled,
-                onClick = onClick,
-                onLongClick = onLongClick,
-            )
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = model.displayName,
-                style = MiuixTheme.textStyles.headline1,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = model.modelId,
-                style = MiuixTheme.textStyles.body2,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 2.dp),
-            )
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-            ) {
-                capabilityTags(model).forEach { tag ->
-                    TagChip(text = tag)
-                }
-                if (isSelected) {
-                    TagChip(text = stringResource(R.string.ui_current_25e74d), tone = TagChipTone.Emphasized)
-                }
             }
-        }
-        trailing()
-    }
+        },
+        trailingContent = trailing,
+    )
 }
 
 @Composable
@@ -1059,7 +922,7 @@ private fun ModelEditDialog(
         },
     )
 
-    // 自适应弹窗：M3 → 官方 AlertDialog；MIUI X → WindowDialog。正文自带限高滚动容器。
+    // 自适应弹窗：M3 → 官方 AlertDialog。正文自带限高滚动容器。
     EtaDialog(
         show = true,
         title = if (isNew) context.getString(R.string.page_add_model_532a64) else context.getString(R.string.page_edit_model_29e31e),
@@ -1070,7 +933,6 @@ private fun ModelEditDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .modelDialogScrollableBody()
-                    .scrollEndHaptic()
                     .verticalScroll(rememberScrollState()),
             ) {
                 ProviderField(
@@ -1106,35 +968,18 @@ private fun ModelEditDialog(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 contextError?.let { validationError ->
-                    if (isMaterial3Theme()) {
-                        MaterialText(
-                            text = validationError,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                    } else {
-                        Text(
-                            text = validationError,
-                            style = MiuixTheme.textStyles.footnote2,
-                            color = StatusError,
-                        )
-                    }
-                }
-                if (isMaterial3Theme()) {
                     MaterialText(
-                        text = stringResource(R.string.ui_this_value_is_used_for_session_clipping_and_context__c3f9e7),
+                        text = validationError,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
-                    )
-                } else {
-                    Text(
-                        text = stringResource(R.string.ui_this_value_is_used_for_session_clipping_and_context__c3f9e7),
-                        style = MiuixTheme.textStyles.footnote2,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
+                        color = MaterialTheme.colorScheme.error,
                     )
                 }
+                MaterialText(
+                    text = stringResource(R.string.ui_this_value_is_used_for_session_clipping_and_context__c3f9e7),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
+                )
                 EtaSegmentedColumn(modifier = Modifier.fillMaxWidth()) {
                     item {
                     EtaSwitchRow(
@@ -1182,21 +1027,12 @@ private fun ModelEditDialog(
                     }
                 }
                 error?.let { message ->
-                    if (isMaterial3Theme()) {
-                        MaterialText(
-                            text = message,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(top = 8.dp),
-                        )
-                    } else {
-                        Text(
-                            text = message,
-                            style = MiuixTheme.textStyles.footnote2,
-                            color = StatusError,
-                            modifier = Modifier.padding(top = 8.dp),
-                        )
-                    }
+                    MaterialText(
+                        text = message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
                 }
                 if (reasoningOverrideActive) {
                     ProviderPrimaryAction(
@@ -1283,7 +1119,7 @@ private fun RemoteModelPickDialog(
         }
     }
     fun keyOf(model: Model) = model.modelId.trim().lowercase()
-    // 自适应弹窗：M3 → 官方 AlertDialog；MIUI X → WindowDialog。正文自带限高滚动容器。
+    // 自适应弹窗：M3 → 官方 AlertDialog。正文自带限高滚动容器。
     EtaDialog(
         show = true,
         title = stringResource(R.string.provider_remote_pick_title),
@@ -1293,8 +1129,7 @@ private fun RemoteModelPickDialog(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .modelDialogScrollableBody()
-                    .scrollEndHaptic(),
+                    .modelDialogScrollableBody(),
             ) {
                 // 搜索框与「全选 / 反选 / 计数」行随列表滚动，信息架构与供应商列表页保持一致。
                 item(key = "search") {
@@ -1320,31 +1155,12 @@ private fun RemoteModelPickDialog(
                         modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        // M3：官方 TextButton；MIUI X：主色文本 + clickable（与页内全选行一致）。
-                        if (isMaterial3Theme()) {
-                            TextButton(onClick = onSelectAll) {
-                                MaterialText(stringResource(R.string.provider_remote_select_all))
-                            }
-                            TextButton(onClick = onInvert) {
-                                MaterialText(stringResource(R.string.provider_remote_invert))
-                            }
-                        } else {
-                            Text(
-                                text = stringResource(R.string.provider_remote_select_all),
-                                style = MiuixTheme.textStyles.body2,
-                                color = MiuixTheme.colorScheme.primary,
-                                modifier = Modifier
-                                    .clickable(onClick = onSelectAll)
-                                    .padding(end = 16.dp),
-                            )
-                            Text(
-                                text = stringResource(R.string.provider_remote_invert),
-                                style = MiuixTheme.textStyles.body2,
-                                color = MiuixTheme.colorScheme.primary,
-                                modifier = Modifier
-                                    .clickable(onClick = onInvert)
-                                    .padding(end = 16.dp),
-                            )
+                        // M3：官方 TextButton。
+                        TextButton(onClick = onSelectAll) {
+                            MaterialText(stringResource(R.string.provider_remote_select_all))
+                        }
+                        TextButton(onClick = onInvert) {
+                            MaterialText(stringResource(R.string.provider_remote_invert))
                         }
                         Spacer(Modifier.weight(1f))
                         MaterialText(

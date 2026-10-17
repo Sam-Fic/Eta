@@ -11,6 +11,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Dns
@@ -52,7 +53,6 @@ import io.github.mangi.eta.ui.adaptive.EtaSegmentedGroupSpacing
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedItemContainer
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.adaptive.rememberFabExpandedState
 import io.github.mangi.eta.ui.components.ListEmptyState
 import io.github.mangi.eta.ui.haptics.TouchHaptics
@@ -60,17 +60,11 @@ import io.github.mangi.eta.ui.navigation.AppRoute
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import top.yukonga.miuix.kmp.basic.BasicComponent
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton as M3IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text as M3Text
-import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.Text as MiuixText
-import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 
 @Composable
@@ -175,19 +169,11 @@ internal fun McpServersScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             )
             error?.let {
-                if (isMaterial3Theme()) {
-                    M3Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                } else {
-                    MiuixText(
-                        text = it,
-                        style = MiuixTheme.textStyles.body2,
-                        color = MiuixTheme.colorScheme.error,
-                    )
-                }
+                M3Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
             }
             EtaDialogActions(
                 confirmText = if (working) {
@@ -292,17 +278,11 @@ internal fun McpServerDetailScreen(
     ) {
         if (server == null) {
             item(key = "missing") {
-                if (isMaterial3Theme()) {
-                    // 纯说明文字不带容器，直接排在页面背景上。
-                    EtaNoticeText(
-                        title = stringResource(R.string.mcp_server_missing),
-                        modifier = mcpGroupModifier(),
-                    )
-                } else {
-                    EtaSegmentedColumn(modifier = mcpGroupModifier()) {
-                        item { BasicComponent(title = stringResource(R.string.mcp_server_missing)) }
-                    }
-                }
+                // 纯说明文字不带容器，直接排在页面背景上。
+                EtaNoticeText(
+                    title = stringResource(R.string.mcp_server_missing),
+                    modifier = mcpGroupModifier(),
+                )
             }
             return@EtaScaffoldPage
         }
@@ -484,7 +464,7 @@ private fun mcpGroupModifier(): Modifier = Modifier.padding(
     bottom = EtaSegmentedGroupSpacing,
 )
 
-/** 分段行前导图标：统一 primary 色（MIUI X 下 MaterialTheme 与 Miuix 同源配色）。 */
+/** 分段行前导图标：统一 primary 色。 */
 @Composable
 private fun McpLeadingIcon(icon: ImageVector) {
     Icon(
@@ -494,7 +474,7 @@ private fun McpLeadingIcon(icon: ImageVector) {
     )
 }
 
-/** 顶栏动作：M3 用官方 [M3IconButton]，MIUI X 保持原有图标按钮。 */
+/** 顶栏动作：官方 [M3IconButton]。 */
 @Composable
 private fun McpActionIcon(
     icon: ImageVector,
@@ -502,18 +482,12 @@ private fun McpActionIcon(
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
-    if (isMaterial3Theme()) {
-        M3IconButton(onClick = onClick, enabled = enabled) {
-            Icon(imageVector = icon, contentDescription = contentDescription)
-        }
-    } else {
-        IconButton(onClick = onClick, enabled = enabled) {
-            Icon(imageVector = icon, contentDescription = contentDescription)
-        }
+    M3IconButton(onClick = onClick, enabled = enabled) {
+        Icon(imageVector = icon, contentDescription = contentDescription)
     }
 }
 
-/** 可点击设置行：M3 用官方分段行（onClick 重载自带涟漪与语义），MIUI X 保持原有 [ArrowPreference]。 */
+/** 可点击设置行：官方分段行（onClick 重载自带涟漪与语义）。 */
 @Composable
 private fun McpClickableRow(
     title: String,
@@ -521,69 +495,59 @@ private fun McpClickableRow(
     onClick: () -> Unit,
     leading: (@Composable () -> Unit)? = null,
 ) {
-    if (isMaterial3Theme()) {
-        EtaSegmentedRow(
-            onClick = onClick,
-            modifier = Modifier.fillMaxWidth(),
-            leadingContent = leading,
-            content = { M3Text(text = title) },
-            supportingContent = {
-                M3Text(text = summary)
-            },
-        )
-    } else {
-        ArrowPreference(
-            title = title,
-            summary = summary,
-            startAction = leading,
-            onClick = onClick,
-        )
-    }
+    EtaSegmentedRow(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        leadingContent = leading,
+        content = { M3Text(text = title) },
+        supportingContent = {
+            M3Text(text = summary)
+        },
+        trailingContent = {
+            Icon(
+                imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        },
+    )
 }
 
-/** 破坏性设置行（删除）：M3 用 error 色强调破坏性，MIUI X 保持原有 [ArrowPreference] 外观。 */
+/** 破坏性设置行（删除）：用 error 色强调破坏性。 */
 @Composable
 private fun McpDestructiveRow(
     title: String,
     summary: String,
     onClick: () -> Unit,
 ) {
-    if (isMaterial3Theme()) {
-        EtaSegmentedRow(
-            onClick = onClick,
-            modifier = Modifier.fillMaxWidth(),
-            leadingContent = {
-                Icon(
-                    imageVector = Icons.Rounded.DeleteOutline,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error,
-                )
-            },
-            content = {
-                M3Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            },
-            supportingContent = {
-                M3Text(
-                    text = summary,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            },
-        )
-    } else {
-        ArrowPreference(
-            title = title,
-            summary = summary,
-            onClick = onClick,
-        )
-    }
+    EtaSegmentedRow(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        leadingContent = {
+            Icon(
+                imageVector = Icons.Rounded.DeleteOutline,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+            )
+        },
+        content = {
+            M3Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.error,
+            )
+        },
+        supportingContent = {
+            M3Text(
+                text = summary,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        },
+    )
 }
 
-/** 输入框：M3 用官方 [OutlinedTextField]，MIUI X 保持原有 [TextField]。 */
+/** 输入框：官方 [OutlinedTextField]。 */
 @Composable
 private fun McpTextField(
     value: String,
@@ -594,27 +558,14 @@ private fun McpTextField(
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     visualTransformation: VisualTransformation = VisualTransformation.None,
 ) {
-    if (isMaterial3Theme()) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = enabled,
-            label = { M3Text(text = label) },
-            singleLine = singleLine,
-            keyboardOptions = keyboardOptions,
-            visualTransformation = visualTransformation,
-        )
-    } else {
-        TextField(
-            value = value,
-            onValueChange = onValueChange,
-            label = label,
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = singleLine,
-            enabled = enabled,
-            keyboardOptions = keyboardOptions,
-            visualTransformation = visualTransformation,
-        )
-    }
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = Modifier.fillMaxWidth(),
+        enabled = enabled,
+        label = { M3Text(text = label) },
+        singleLine = singleLine,
+        keyboardOptions = keyboardOptions,
+        visualTransformation = visualTransformation,
+    )
 }

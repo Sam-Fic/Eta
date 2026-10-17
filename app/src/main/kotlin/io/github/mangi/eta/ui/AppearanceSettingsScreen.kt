@@ -1,6 +1,8 @@
 package io.github.mangi.eta.ui
 
 import android.annotation.SuppressLint
+import android.content.Context
+import android.os.Build
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
@@ -14,7 +16,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -53,6 +54,8 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -74,6 +77,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -81,12 +85,23 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.materialkolor.dynamiccolor.ColorSpec
+import com.materialkolor.hct.Hct
+import com.materialkolor.scheme.DynamicScheme
+import com.materialkolor.scheme.SchemeContent
+import com.materialkolor.scheme.SchemeExpressive
+import com.materialkolor.scheme.SchemeFidelity
+import com.materialkolor.scheme.SchemeFruitSalad
+import com.materialkolor.scheme.SchemeMonochrome
+import com.materialkolor.scheme.SchemeNeutral
+import com.materialkolor.scheme.SchemeRainbow
+import com.materialkolor.scheme.SchemeTonalSpot
+import com.materialkolor.scheme.SchemeVibrant
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.AppearanceAccentColor
 import io.github.mangi.eta.data.model.AppearancePaletteStyle
 import io.github.mangi.eta.data.model.AppearanceSettings
 import io.github.mangi.eta.data.model.AppearanceThemeMode
-import io.github.mangi.eta.data.model.AppearanceTopBarBlurStyle
 import io.github.mangi.eta.data.model.MAX_INTERFACE_SCALE
 import io.github.mangi.eta.data.model.MIN_INTERFACE_SCALE
 import io.github.mangi.eta.data.model.normalizeInterfaceScale
@@ -109,16 +124,9 @@ import io.github.mangi.eta.ui.adaptive.EtaTextButton
 import io.github.mangi.eta.ui.adaptive.EtaTextField
 import io.github.mangi.eta.ui.adaptive.EtaTonalCard
 import io.github.mangi.eta.ui.adaptive.etaOnSurfaceVariant
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.app.LocalAppearanceSettings
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
-import top.yukonga.miuix.kmp.theme.ColorSchemeMode
-import top.yukonga.miuix.kmp.theme.ThemeColorSpec
-import top.yukonga.miuix.kmp.theme.ThemeController
-import top.yukonga.miuix.kmp.theme.ThemePaletteStyle
-import top.yukonga.miuix.kmp.theme.platformDynamicColors
 import kotlin.math.roundToInt
 
 @Composable
@@ -134,7 +142,6 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
     var iconExpanded by remember { mutableStateOf(false) }
     val view = LocalView.current
     val context = LocalContext.current
-    val blurSupported = isRuntimeShaderSupported()
 
     fun update(transform: (AppearanceSettings) -> AppearanceSettings) {
         coroutineScope.launch {
@@ -142,10 +149,10 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
         }
     }
 
-    fun confirmIcon(light: Int, dark: Int, cat: Int) {
+    fun confirmIcon(light: Int, dark: Int) {
         coroutineScope.launch {
             AppearanceSettingsRepository.update { current ->
-                current.copy(iconLightColor = light, iconDarkColor = dark, iconCatColor = cat)
+                current.copy(iconLightColor = light, iconDarkColor = dark)
             }
             val latest = AppearanceSettingsRepository.settings()
             LauncherIconSync.apply(context.applicationContext, latest)
@@ -176,327 +183,46 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
         stringResource(R.string.appearance_palette_fidelity),
         stringResource(R.string.appearance_palette_content),
     )
-    val accentColors = AppearanceAccentColor.entries
-    val accentLabels = listOf(
-        stringResource(R.string.appearance_accent_system),
-        stringResource(R.string.appearance_accent_blue),
-        stringResource(R.string.appearance_accent_purple),
-        stringResource(R.string.appearance_accent_pink),
-        stringResource(R.string.appearance_accent_red),
-        stringResource(R.string.appearance_accent_orange),
-        stringResource(R.string.appearance_accent_yellow),
-        stringResource(R.string.appearance_accent_green),
-        stringResource(R.string.appearance_accent_teal),
-    )
-    val blurStyles = AppearanceTopBarBlurStyle.entries
-    val blurStyleLabels = listOf(
-        stringResource(R.string.appearance_blur_style_gaussian),
-        stringResource(R.string.appearance_blur_style_progressive),
-    )
-    val blurStyleSummaries = listOf(
-        stringResource(R.string.appearance_blur_style_gaussian_summary),
-        stringResource(R.string.appearance_blur_style_progressive_summary),
-    )
-
-    // LazyListScope 的 content lambda 非组合上下文，主题判定需在外层解析后按值分支。
-    val material3 = isMaterial3Theme()
 
     EtaScaffoldPage(
         title = stringResource(R.string.appearance_title),
         onBack = onBack,
     ) {
-        if (material3) {
-            // Material 3：KernelSU ColorPalette 式布局 —— 预览卡、色板按钮行、
-            // 主题模式连接按钮组、分段下拉组、滑杆卡。
-            appearanceMaterial3Content(
-                appearance = appearance,
-                themeModes = themeModes,
-                themeModeLabels = themeModeLabels,
-                paletteStyles = paletteStyles,
-                paletteLabels = paletteLabels,
-                scaleDraft = scaleDraft,
-                onScaleDraftChange = { scaleDraft = it },
-                onCommitScale = { commitScale(it) },
-                onOpenScaleDialog = {
-                    scaleInput = scaleDraft.roundToInt().toString()
-                    showScaleDialog = true
-                },
-                morphLoadingExpanded = morphLoadingExpanded,
-                onMorphLoadingExpandedChange = { morphLoadingExpanded = it },
-                iconExpanded = iconExpanded,
-                onIconExpandedChange = { iconExpanded = it },
-                onConfirmIcon = ::confirmIcon,
-                onSetAccentColor = { accent -> update { current -> current.copy(accentColor = accent) } },
-                onSetThemeMode = { mode -> update { current -> current.copy(themeMode = mode) } },
-                onSetPaletteStyle = { style -> update { current -> current.copy(paletteStyle = style) } },
-                onSetPureBlack = { enabled -> update { current -> current.copy(pureBlackEnabled = enabled) } },
-                onSetTimestamps = { enabled -> update { current -> current.copy(messageTimestampsEnabled = enabled) } },
-                onSetMorphLoading = { enabled ->
-                    update { current -> current.copy(morphLoadingIndicator = enabled) }
-                    morphLoadingExpanded = enabled
-                },
-                onSetMorphBeforeResponse = { enabled ->
-                    update { current -> current.copy(morphLoadingBeforeResponseOnly = enabled) }
-                },
-                onSetSwipeDismiss = { enabled -> update { current -> current.copy(swipeDismissEnabled = enabled) } },
-                onSetPredictiveBack = { enabled -> update { current -> current.copy(predictiveBackEnabled = enabled) } },
-            )
-        } else {
-            // MIUI X：原分段下拉布局。
-            item(key = "appearance_color") {
-                EtaSegmentedColumn(
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
-                    title = stringResource(R.string.appearance_group_color),
-                ) {
-                    item {
-                        EtaSegmentedDropdownRow(
-                            title = stringResource(R.string.appearance_theme_mode),
-                            items = themeModeLabels,
-                            selectedIndex = appearance.themeMode.ordinal,
-                            onItemSelected = { index ->
-                                themeModes.getOrNull(index)?.let { mode ->
-                                    update { current -> current.copy(themeMode = mode) }
-                                }
-                            },
-                        )
-                    }
-
-                    item {
-                        EtaSegmentedDropdownRow(
-                            title = stringResource(R.string.appearance_palette_style),
-                            items = paletteLabels,
-                            selectedIndex = appearance.paletteStyle.ordinal,
-                            onItemSelected = { index ->
-                                paletteStyles.getOrNull(index)?.let { style ->
-                                    update { current -> current.copy(paletteStyle = style) }
-                                }
-                            },
-                        )
-                    }
-
-                    item {
-                        EtaSegmentedDropdownRow(
-                            title = stringResource(R.string.appearance_accent_color),
-                            items = accentLabels,
-                            selectedIndex = appearance.accentColor.ordinal,
-                            onItemSelected = { index ->
-                                accentColors.getOrNull(index)?.let { accent ->
-                                    update { current -> current.copy(accentColor = accent) }
-                                }
-                            },
-                        )
-                    }
-
-                    item {
-                        EtaSwitchRow(
-                            title = stringResource(R.string.appearance_pure_black),
-                            summary = stringResource(R.string.appearance_pure_black_summary),
-                            checked = appearance.pureBlackEnabled,
-                            onCheckedChange = { enabled ->
-                                update { current -> current.copy(pureBlackEnabled = enabled) }
-                            },
-                        )
-                    }
-
-                    item {
-                        EtaClickableRow(
-                            title = stringResource(R.string.appearance_icon),
-                            summary = stringResource(R.string.appearance_icon_summary),
-                            showChevron = false,
-                            onClick = {
-                                iconExpanded = !iconExpanded
-                            },
-                            holdDownState = iconExpanded,
-                            endActions = {
-                                Icon(
-                                    imageVector = if (iconExpanded) Icons.Rounded.ExpandMore else Icons.Rounded.ChevronRight,
-                                    contentDescription = null,
-                                    modifier = Modifier.align(Alignment.CenterVertically),
-                                    tint = etaOnSurfaceVariant(),
-                                )
-                            },
-                            bottomAction = if (iconExpanded) {
-                                {
-                                    IconAppearanceEditor(
-                                        light = appearance.iconLightColor,
-                                        dark = appearance.iconDarkColor,
-                                        cat = appearance.iconCatColor,
-                                        onConfirm = ::confirmIcon,
-                                    )
-                                }
-                            } else {
-                                null
-                            },
-                        )
-                    }
-                }
-            }
-
-            item(key = "appearance_interface") {
-                EtaSegmentedColumn(
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
-                    title = stringResource(R.string.appearance_group_interface),
-                ) {
-                    item {
-                        EtaSwitchRow(
-                            title = stringResource(R.string.appearance_message_timestamps),
-                            summary = stringResource(R.string.appearance_message_timestamps_summary),
-                            checked = appearance.messageTimestampsEnabled,
-                            onCheckedChange = { enabled ->
-                                update { current -> current.copy(messageTimestampsEnabled = enabled) }
-                            },
-                        )
-                    }
-
-                    item {
-                        EtaSwitchRow(
-                            title = stringResource(R.string.appearance_blur),
-                            summary = stringResource(R.string.appearance_blur_summary),
-                            checked = appearance.blurEnabled && blurSupported,
-                            onCheckedChange = { enabled ->
-                                update { current -> current.copy(blurEnabled = enabled) }
-                            },
-                            enabled = blurSupported,
-                        )
-                        AnimatedVisibility(
-                            visible = appearance.blurEnabled && blurSupported,
-                            enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
-                            exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut(),
-                        ) {
-                            EtaSegmentedDropdownRow(
-                                title = stringResource(R.string.appearance_blur_style),
-                                items = blurStyleLabels,
-                                selectedIndex = appearance.topBarBlurStyle.ordinal,
-                                onItemSelected = { index ->
-                                    blurStyles.getOrNull(index)?.let { style ->
-                                        update { current -> current.copy(topBarBlurStyle = style) }
-                                    }
-                                },
-                                summary = blurStyleSummaries[appearance.topBarBlurStyle.ordinal],
-                            )
-                        }
-                    }
-
-                    item {
-                        EtaClickableRow(
-                            title = stringResource(R.string.appearance_morph_loading),
-                            summary = when {
-                                !appearance.morphLoadingIndicator ->
-                                stringResource(R.string.appearance_morph_loading_summary)
-                                appearance.morphLoadingBeforeResponseOnly ->
-                                stringResource(R.string.appearance_morph_loading_before_response)
-                                else ->
-                                stringResource(R.string.appearance_morph_loading_during_generation)
-                            },
-                            showChevron = false,
-                            onClick = {
-                                if (appearance.morphLoadingIndicator) {
-                                    morphLoadingExpanded = !morphLoadingExpanded
-                                } else {
-                                    update { current -> current.copy(morphLoadingIndicator = true) }
-                                    morphLoadingExpanded = true
-                                }
-                            },
-                            holdDownState = appearance.morphLoadingIndicator && morphLoadingExpanded,
-                            endActions = {
-                                if (appearance.morphLoadingIndicator) {
-                                    Icon(
-                                        imageVector = if (morphLoadingExpanded) {
-                                            Icons.Rounded.ExpandMore
-                                        } else {
-                                            Icons.Rounded.ChevronRight
-                                        },
-                                        contentDescription = stringResource(
-                                            if (morphLoadingExpanded) {
-                                                R.string.appearance_morph_loading_collapse
-                                            } else {
-                                                R.string.appearance_morph_loading_expand
-                                            },
-                                        ),
-                                        modifier = Modifier.align(Alignment.CenterVertically),
-                                        tint = etaOnSurfaceVariant(),
-                                    )
-                                }
-                                EtaSwitch(
-                                    checked = appearance.morphLoadingIndicator,
-                                    onCheckedChange = { enabled ->
-                                        update { current -> current.copy(morphLoadingIndicator = enabled) }
-                                        morphLoadingExpanded = enabled
-                                    },
-                                )
-                            },
-                            bottomAction = if (appearance.morphLoadingIndicator && morphLoadingExpanded) {
-                                {
-                                    EtaSwitchRow(
-                                        title = stringResource(R.string.appearance_morph_loading_before_response),
-                                        summary = stringResource(R.string.appearance_morph_loading_before_response_summary),
-                                        checked = appearance.morphLoadingBeforeResponseOnly,
-                                        onCheckedChange = { enabled ->
-                                            update { current ->
-                                                current.copy(morphLoadingBeforeResponseOnly = enabled)
-                                            }
-                                        },
-                                        dense = true,
-                                    )
-                                }
-                            } else {
-                                null
-                            },
-                        )
-                    }
-
-                    item {
-                        EtaSwitchRow(
-                            title = stringResource(R.string.appearance_swipe_dismiss),
-                            summary = stringResource(R.string.appearance_swipe_dismiss_summary),
-                            checked = appearance.swipeDismissEnabled,
-                            onCheckedChange = { enabled ->
-                                update { current -> current.copy(swipeDismissEnabled = enabled) }
-                            },
-                        )
-                    }
-
-                    item {
-                        EtaSwitchRow(
-                            title = stringResource(R.string.appearance_predictive_back),
-                            summary = stringResource(R.string.appearance_predictive_back_summary),
-                            checked = appearance.predictiveBackEnabled,
-                            onCheckedChange = { enabled ->
-                                update { current -> current.copy(predictiveBackEnabled = enabled) }
-                            },
-                        )
-                    }
-
-                    item {
-                        EtaClickableRow(
-                            title = stringResource(R.string.appearance_interface_scale),
-                            summary = stringResource(R.string.appearance_interface_scale_summary),
-                            onClick = {
-                                scaleInput = scaleDraft.roundToInt().toString()
-                                showScaleDialog = true
-                            },
-                            holdDownState = showScaleDialog,
-                            endActions = {
-                                EtaText(text = "${scaleDraft.roundToInt()}%", secondary = true)
-                            },
-                            bottomAction = {
-                                EtaSlider(
-                                    value = scaleDraft.coerceIn(
-                                        MIN_INTERFACE_SCALE * 100f,
-                                        MAX_INTERFACE_SCALE * 100f,
-                                    ),
-                                    onValueChange = { scaleDraft = it },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    valueRange = (MIN_INTERFACE_SCALE * 100f)..(MAX_INTERFACE_SCALE * 100f),
-                                    keyPoints = listOf(80f, 90f, 100f, 110f),
-                                    onValueChangeFinished = { commitScale(scaleDraft) },
-                                )
-                            },
-                        )
-                    }
-                }
-            }
-        }
+        // Material 3：KernelSU ColorPalette 式布局 —— 预览卡、色板按钮行、
+        // 主题模式连接按钮组、分段下拉组、滑杆卡。
+        appearanceMaterial3Content(
+            appearance = appearance,
+            themeModes = themeModes,
+            themeModeLabels = themeModeLabels,
+            paletteStyles = paletteStyles,
+            paletteLabels = paletteLabels,
+            scaleDraft = scaleDraft,
+            onScaleDraftChange = { scaleDraft = it },
+            onCommitScale = { commitScale(it) },
+            onOpenScaleDialog = {
+                scaleInput = scaleDraft.roundToInt().toString()
+                showScaleDialog = true
+            },
+            morphLoadingExpanded = morphLoadingExpanded,
+            onMorphLoadingExpandedChange = { morphLoadingExpanded = it },
+            iconExpanded = iconExpanded,
+            onIconExpandedChange = { iconExpanded = it },
+            onConfirmIcon = ::confirmIcon,
+            onSetAccentColor = { accent -> update { current -> current.copy(accentColor = accent) } },
+            onSetThemeMode = { mode -> update { current -> current.copy(themeMode = mode) } },
+            onSetPaletteStyle = { style -> update { current -> current.copy(paletteStyle = style) } },
+            onSetPureBlack = { enabled -> update { current -> current.copy(pureBlackEnabled = enabled) } },
+            onSetTimestamps = { enabled -> update { current -> current.copy(messageTimestampsEnabled = enabled) } },
+            onSetMorphLoading = { enabled ->
+                update { current -> current.copy(morphLoadingIndicator = enabled) }
+                morphLoadingExpanded = enabled
+            },
+            onSetMorphBeforeResponse = { enabled ->
+                update { current -> current.copy(morphLoadingBeforeResponseOnly = enabled) }
+            },
+            onSetSwipeDismiss = { enabled -> update { current -> current.copy(swipeDismissEnabled = enabled) } },
+            onSetPredictiveBack = { enabled -> update { current -> current.copy(predictiveBackEnabled = enabled) } },
+        )
     }
 
     val parsedScale = scaleInput.toIntOrNull()
@@ -550,7 +276,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.appearanceMaterial3Co
     onMorphLoadingExpandedChange: (Boolean) -> Unit,
     iconExpanded: Boolean,
     onIconExpandedChange: (Boolean) -> Unit,
-    onConfirmIcon: (Int, Int, Int) -> Unit,
+    onConfirmIcon: (Int, Int) -> Unit,
     onSetAccentColor: (AppearanceAccentColor) -> Unit,
     onSetThemeMode: (AppearanceThemeMode) -> Unit,
     onSetPaletteStyle: (AppearancePaletteStyle) -> Unit,
@@ -730,7 +456,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.appearanceMaterial3Co
                     IconAppearanceEditor(
                         light = appearance.iconLightColor,
                         dark = appearance.iconDarkColor,
-                        cat = appearance.iconCatColor,
                         onConfirm = onConfirmIcon,
                     )
                 }
@@ -854,7 +579,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.appearanceMaterial3Co
                 end = EtaGroupHorizontalPadding,
                 bottom = EtaSegmentedGroupSpacing,
             ),
-            // 整卡可点 → 精确输入对话框，与 MIUI X 版「点击行 → 输入框」的交互一致。
+            // 整卡可点 → 精确输入对话框。
             onClick = onOpenScaleDialog,
         ) {
             Column(
@@ -1180,7 +905,8 @@ private fun AppearanceAccentColor.m3Swatch(): Color = when (this) {
 
 /**
  * 候选配色：与 [io.github.mangi.eta.ui.app.AgentAppTheme] 的 M3 分支同源 ——
- * miuix ThemeController（Spec2025）生成的动态取色，经同样的色板映射成 Material 3 色板。
+ * material-color-utilities（Spec2025，materialkolor）生成的动态取色，经同样的色板映射成
+ * Material 3 色板。
  *
  * @param seedOverride 传入固定种子色（色板按钮）；null 时按当前强调色设置解析。
  */
@@ -1188,6 +914,7 @@ private fun AppearanceAccentColor.m3Swatch(): Color = when (this) {
 private fun AppearanceSettings.previewM3ColorScheme(
     seedOverride: Color? = null,
 ): ColorScheme {
+    val context = LocalContext.current
     val systemDark = isSystemInDarkTheme()
     val isDark = when (themeMode) {
         AppearanceThemeMode.SYSTEM -> systemDark
@@ -1197,101 +924,81 @@ private fun AppearanceSettings.previewM3ColorScheme(
     val keyColor = when {
         seedOverride != null && seedOverride != Color.Unspecified -> seedOverride
         seedOverride == Color.Unspecified ->
-            platformDynamicColors(isDark).primary
+            platformDynamicPrimary(context, isDark)
         accentColor == AppearanceAccentColor.SYSTEM ->
-            platformDynamicColors(isDark).primary
+            platformDynamicPrimary(context, isDark)
         else -> accentColor.m3Swatch()
     }
-    val controller = remember(keyColor.value, paletteStyle, isDark) {
-        ThemeController(
-            colorSchemeMode = if (isDark) ColorSchemeMode.MonetDark else ColorSchemeMode.MonetLight,
-            keyColor = keyColor,
-            colorSpec = ThemeColorSpec.Spec2025,
-            paletteStyle = paletteStyle.toMiuixPaletteStyle(),
-            isDark = isDark,
-        )
+    val scheme = remember(keyColor.value, paletteStyle, isDark) {
+        previewDynamicScheme(paletteStyle, keyColor.toArgb(), isDark)
     }
-    val colors = controller.currentColors()
     // 与 AgentAppTheme 的色板映射逐项一致（KernelSU 式三层色阶）。
-    return if (isDark) {
-        darkColorScheme(
-            primary = colors.primary,
-            onPrimary = colors.onPrimary,
-            primaryContainer = colors.primaryContainer,
-            onPrimaryContainer = colors.onPrimaryContainer,
-            secondary = colors.secondary,
-            onSecondary = colors.onSecondary,
-            secondaryContainer = colors.secondaryContainer,
-            onSecondaryContainer = colors.onSecondaryContainer,
-            background = colors.background,
-            onBackground = colors.onBackground,
-            surface = colors.surface,
-            onSurface = colors.onSurface,
-            surfaceVariant = colors.surfaceVariant,
-            onSurfaceVariant = colors.onSurfaceSecondary,
-            error = colors.error,
-            onError = colors.onError,
-            errorContainer = colors.errorContainer,
-            onErrorContainer = colors.onErrorContainer,
-            outline = colors.outline,
-            outlineVariant = colors.outline,
-            surfaceTint = colors.primary,
-            surfaceContainer = colors.surfaceContainer,
-            surfaceContainerHigh = colors.surfaceContainerHigh,
-            surfaceContainerHighest = colors.surfaceContainerHigh,
-            surfaceContainerLow = colors.surface,
-            surfaceContainerLowest = colors.surface,
-            surfaceBright = colors.surfaceContainerHighest,
-            surfaceDim = colors.surface,
-            tertiaryContainer = colors.tertiaryContainer,
-            onTertiaryContainer = colors.onTertiaryContainer,
-        )
-    } else {
-        lightColorScheme(
-            primary = colors.primary,
-            onPrimary = colors.onPrimary,
-            primaryContainer = colors.primaryContainer,
-            onPrimaryContainer = colors.onPrimaryContainer,
-            secondary = colors.secondary,
-            onSecondary = colors.onSecondary,
-            secondaryContainer = colors.secondaryContainer,
-            onSecondaryContainer = colors.onSecondaryContainer,
-            background = colors.background,
-            onBackground = colors.onBackground,
-            surface = colors.surface,
-            onSurface = colors.onSurface,
-            surfaceVariant = colors.surfaceVariant,
-            onSurfaceVariant = colors.onSurfaceSecondary,
-            error = colors.error,
-            onError = colors.onError,
-            errorContainer = colors.errorContainer,
-            onErrorContainer = colors.onErrorContainer,
-            outline = colors.outline,
-            outlineVariant = colors.outline,
-            surfaceTint = colors.primary,
-            surfaceContainer = colors.surfaceContainer,
-            surfaceContainerHigh = colors.surfaceContainerHigh,
-            surfaceContainerHighest = colors.surfaceContainerHigh,
-            surfaceContainerLow = colors.surface,
-            surfaceContainerLowest = colors.surface,
-            surfaceBright = colors.surfaceContainerHighest,
-            surfaceDim = colors.surface,
-            tertiaryContainer = colors.tertiaryContainer,
-            onTertiaryContainer = colors.onTertiaryContainer,
-        )
-    }
+    val base = if (isDark) darkColorScheme() else lightColorScheme()
+    return base.copy(
+        primary = Color(scheme.primary),
+        onPrimary = Color(scheme.onPrimary),
+        primaryContainer = Color(scheme.primaryContainer),
+        onPrimaryContainer = Color(scheme.onPrimaryContainer),
+        secondary = Color(scheme.secondary),
+        onSecondary = Color(scheme.onSecondary),
+        secondaryContainer = Color(scheme.secondaryContainer),
+        onSecondaryContainer = Color(scheme.onSecondaryContainer),
+        background = Color(scheme.background),
+        onBackground = Color(scheme.onBackground),
+        surface = Color(scheme.surface),
+        onSurface = Color(scheme.onSurface),
+        surfaceVariant = Color(scheme.surfaceVariant),
+        onSurfaceVariant = Color(scheme.onSurfaceVariant),
+        error = Color(scheme.error),
+        onError = Color(scheme.onError),
+        errorContainer = Color(scheme.errorContainer),
+        onErrorContainer = Color(scheme.onErrorContainer),
+        outline = Color(scheme.outline),
+        outlineVariant = Color(scheme.outline),
+        surfaceTint = Color(scheme.primary),
+        surfaceContainer = Color(scheme.surfaceContainer),
+        surfaceContainerHigh = Color(scheme.surfaceContainerHigh),
+        surfaceContainerHighest = Color(scheme.surfaceContainerHigh),
+        surfaceContainerLow = Color(scheme.surface),
+        surfaceContainerLowest = Color(scheme.surface),
+        surfaceBright = Color(scheme.surfaceContainerHighest),
+        surfaceDim = Color(scheme.surface),
+        tertiaryContainer = Color(scheme.tertiaryContainer),
+        onTertiaryContainer = Color(scheme.onTertiaryContainer),
+    )
 }
 
-private fun AppearancePaletteStyle.toMiuixPaletteStyle(): ThemePaletteStyle = when (this) {
-    AppearancePaletteStyle.TONAL_SPOT -> ThemePaletteStyle.TonalSpot
-    AppearancePaletteStyle.NEUTRAL -> ThemePaletteStyle.Neutral
-    AppearancePaletteStyle.VIBRANT -> ThemePaletteStyle.Vibrant
-    AppearancePaletteStyle.EXPRESSIVE -> ThemePaletteStyle.Expressive
-    AppearancePaletteStyle.RAINBOW -> ThemePaletteStyle.Rainbow
-    AppearancePaletteStyle.FRUIT_SALAD -> ThemePaletteStyle.FruitSalad
-    AppearancePaletteStyle.MONOCHROME -> ThemePaletteStyle.Monochrome
-    AppearancePaletteStyle.FIDELITY -> ThemePaletteStyle.Fidelity
-    AppearancePaletteStyle.CONTENT -> ThemePaletteStyle.Content
+/** 预览取色链对比度（0.0 = 标准）。 */
+private const val PREVIEW_CONTRAST_LEVEL = 0.0
+
+/** 系统动态取色的 primary（Android 12+）；低版本回退到蓝色种子。 */
+private fun platformDynamicPrimary(context: Context, isDark: Boolean): Color =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        (if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)).primary
+    } else {
+        Color(0xFF3482FF)
+    }
+
+/** 由配色风格选择对应的 DynamicScheme 变体（Spec2025）。 */
+private fun previewDynamicScheme(
+    paletteStyle: AppearancePaletteStyle,
+    seedArgb: Int,
+    isDark: Boolean,
+): DynamicScheme {
+    val source = Hct.fromInt(seedArgb)
+    val spec = ColorSpec.SpecVersion.SPEC_2025
+    val platform = DynamicScheme.Platform.PHONE
+    return when (paletteStyle) {
+        AppearancePaletteStyle.TONAL_SPOT -> SchemeTonalSpot(source, isDark, PREVIEW_CONTRAST_LEVEL, spec, platform)
+        AppearancePaletteStyle.NEUTRAL -> SchemeNeutral(source, isDark, PREVIEW_CONTRAST_LEVEL, spec, platform)
+        AppearancePaletteStyle.VIBRANT -> SchemeVibrant(source, isDark, PREVIEW_CONTRAST_LEVEL, spec, platform)
+        AppearancePaletteStyle.EXPRESSIVE -> SchemeExpressive(source, isDark, PREVIEW_CONTRAST_LEVEL, spec, platform)
+        AppearancePaletteStyle.RAINBOW -> SchemeRainbow(source, isDark, PREVIEW_CONTRAST_LEVEL, spec, platform)
+        AppearancePaletteStyle.FRUIT_SALAD -> SchemeFruitSalad(source, isDark, PREVIEW_CONTRAST_LEVEL, spec, platform)
+        AppearancePaletteStyle.MONOCHROME -> SchemeMonochrome(source, isDark, PREVIEW_CONTRAST_LEVEL, spec, platform)
+        AppearancePaletteStyle.FIDELITY -> SchemeFidelity(source, isDark, PREVIEW_CONTRAST_LEVEL, spec, platform)
+        AppearancePaletteStyle.CONTENT -> SchemeContent(source, isDark, PREVIEW_CONTRAST_LEVEL, spec, platform)
+    }
 }
 
 private val iconSwatches = listOf(
@@ -1303,41 +1010,36 @@ private val iconSwatches = listOf(
 private fun IconAppearanceEditor(
     light: Int,
     dark: Int,
-    cat: Int,
-    onConfirm: (Int, Int, Int) -> Unit,
+    onConfirm: (Int, Int) -> Unit,
 ) {
     var draftLight by remember(light) { androidx.compose.runtime.mutableIntStateOf(light) }
     var draftDark by remember(dark) { androidx.compose.runtime.mutableIntStateOf(dark) }
-    var draftCat by remember(cat) { androidx.compose.runtime.mutableIntStateOf(cat) }
-    val dirty = draftLight != light || draftDark != dark || draftCat != cat
+    val dirty = draftLight != light || draftDark != dark
     val view = LocalView.current
-    // MIUI X 版保持原样：整块居中 + 通栏确认按钮；只有 Material 3 版改成左对齐 + 右下角确认。
-    val material3 = isMaterial3Theme()
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
-        horizontalAlignment = if (material3) Alignment.Start else Alignment.CenterHorizontally,
+        horizontalAlignment = Alignment.Start,
     ) {
         // 预览：两张 56dp 图标并排；下面的色板行统一左对齐，不再整块居中、
-        // 导致 Light / Dark / Cat 的标签与色板左边缘参差不齐。
+        // 导致 Light / Dark 的标签与色板左边缘参差不齐。
         Row(
-            modifier = if (material3) Modifier.fillMaxWidth() else Modifier,
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
         ) {
-            LauncherIconPreview(background = draftLight, cat = draftCat)
-            LauncherIconPreview(background = draftDark, cat = draftCat)
+            LauncherIconPreview(background = draftLight)
+            LauncherIconPreview(background = draftDark)
         }
         IconColorChoices(stringResource(R.string.appearance_icon_light), draftLight) { draftLight = it }
         IconColorChoices(stringResource(R.string.appearance_icon_dark), draftDark) { draftDark = it }
-        IconColorChoices(stringResource(R.string.appearance_icon_cat), draftCat) { draftCat = it }
         EtaTextButton(
             text = stringResource(R.string.appearance_icon_apply),
             enabled = dirty,
             // 收在右下角：确认动作不再拉成一条通栏大按钮。
-            modifier = if (material3) Modifier.align(Alignment.End) else Modifier.fillMaxWidth(),
+            modifier = Modifier.align(Alignment.End),
             onClick = {
                 TouchHaptics.click(view)
-                onConfirm(draftLight, draftDark, draftCat)
+                onConfirm(draftLight, draftDark)
             },
         )
     }
@@ -1347,63 +1049,49 @@ private fun IconAppearanceEditor(
 @Composable
 private fun IconColorChoices(title: String, selected: Int, onSelect: (Int) -> Unit) {
     val view = LocalView.current
-    val material3 = isMaterial3Theme()
     Column(
-        modifier = if (material3) Modifier.fillMaxWidth() else Modifier,
+        modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         EtaText(text = title, secondary = true)
         // 8 个色板在窄屏（360dp）一行放不下：交给 FlowRow 换行，色板不会再被挤出屏幕右侧。
         FlowRow(
-            modifier = if (material3) Modifier.fillMaxWidth() else Modifier,
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             iconSwatches.forEach { color ->
-                if (material3) {
-                    // M3 Expressive 没有取色器组件：色板用官方 IconToggleButton 承载，
-                    // 容器直接填色值本身（KernelSU ColorButtonMaterial 的紧凑版），
-                    // 选中时在色块上叠一个对比色对勾；尺寸取官方 extraSmall 档（32dp）。
-                    val swatch = Color(color)
-                    val onSwatch = if (swatch.luminance() > 0.5f) Color.Black else Color.White
-                    IconToggleButton(
-                        checked = color == selected,
-                        onCheckedChange = {
-                            TouchHaptics.click(view)
-                            onSelect(color)
-                        },
-                        modifier = Modifier.size(IconButtonDefaults.extraSmallContainerSize()),
-                        colors = IconButtonDefaults.iconToggleButtonColors(
-                            containerColor = swatch,
-                            contentColor = swatch,
-                            disabledContainerColor = swatch,
-                            disabledContentColor = swatch,
-                            checkedContainerColor = swatch,
-                            checkedContentColor = onSwatch,
-                        ),
-                    ) {
-                        Icon(
-                            imageVector = if (color == selected) Icons.Rounded.Check else Icons.Rounded.Circle,
-                            // 色板没有文案：用色值作无障碍名称。
-                            // 必须给：IconToggleButton 经 Surface 的 childSemantics() 合并子节点，
-                            // 若这里是 contentDescription = null，8 个色块会变成「无名按钮」。
-                            contentDescription = stringResource(R.string.appearance_color_a11y, "#%08X".format(color)),
-                            modifier = Modifier.size(IconButtonDefaults.extraSmallIconSize),
-                            // 未选中时对勾位用色值本身填满（与容器同色、不可见），
-                            // 选中时换成黑/白对勾，保证任何底色上都看得清。
-                            tint = if (color == selected) onSwatch else swatch,
-                        )
-                    }
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(if (color == selected) 28.dp else 24.dp)
-                            .clip(CircleShape)
-                            .background(Color(color))
-                            .clickable {
-                                TouchHaptics.click(view)
-                                onSelect(color)
-                            },
+                // M3 Expressive 没有取色器组件：色板用官方 IconToggleButton 承载，
+                // 容器直接填色值本身（KernelSU ColorButtonMaterial 的紧凑版），
+                // 选中时在色块上叠一个对比色对勾；尺寸取官方 extraSmall 档（32dp）。
+                val swatch = Color(color)
+                val onSwatch = if (swatch.luminance() > 0.5f) Color.Black else Color.White
+                IconToggleButton(
+                    checked = color == selected,
+                    onCheckedChange = {
+                        TouchHaptics.click(view)
+                        onSelect(color)
+                    },
+                    modifier = Modifier.size(IconButtonDefaults.extraSmallContainerSize()),
+                    colors = IconButtonDefaults.iconToggleButtonColors(
+                        containerColor = swatch,
+                        contentColor = swatch,
+                        disabledContainerColor = swatch,
+                        disabledContentColor = swatch,
+                        checkedContainerColor = swatch,
+                        checkedContentColor = onSwatch,
+                    ),
+                ) {
+                    Icon(
+                        imageVector = if (color == selected) Icons.Rounded.Check else Icons.Rounded.Circle,
+                        // 色板没有文案：用色值作无障碍名称。
+                        // 必须给：IconToggleButton 经 Surface 的 childSemantics() 合并子节点，
+                        // 若这里是 contentDescription = null，8 个色块会变成「无名按钮」。
+                        contentDescription = stringResource(R.string.appearance_color_a11y, "#%08X".format(color)),
+                        modifier = Modifier.size(IconButtonDefaults.extraSmallIconSize),
+                        // 未选中时对勾位用色值本身填满（与容器同色、不可见），
+                        // 选中时换成黑/白对勾，保证任何底色上都看得清。
+                        tint = if (color == selected) onSwatch else swatch,
                     )
                 }
             }
@@ -1414,10 +1102,9 @@ private fun IconColorChoices(title: String, selected: Int, onSelect: (Int) -> Un
 @Composable
 private fun LauncherIconPreview(
     background: Int,
-    cat: Int,
 ) {
     val context = LocalContext.current
-    val name = LauncherIconSync.resourceName(background, cat)
+    val name = LauncherIconSync.resourceName(background)
     val id = context.resources.getIdentifier(name, "drawable", context.packageName)
     Box(
         modifier = Modifier

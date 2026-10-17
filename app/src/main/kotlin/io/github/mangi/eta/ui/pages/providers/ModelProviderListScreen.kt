@@ -16,7 +16,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -25,6 +28,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
@@ -52,27 +58,19 @@ import io.github.mangi.eta.ui.adaptive.EtaSectionTitle
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedItem
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.components.ListEmptyState
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.navigation.AppRoute
 import io.github.mangi.eta.ui.navigation.NewProviderType
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.ui.state.ToggleableState
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton as M3IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TextButton as M3TextButton
 import androidx.compose.material3.Text as M3Text
-import top.yukonga.miuix.kmp.basic.Checkbox as MiuixCheckbox
-
-/** 分组与页面边缘的统一边距：与 KernelSU 分段列表调用方一致（水平 16dp、组间 13dp）。 */
-private val SectionEdgePadding = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp)
 
 /** 分组标题（已含上下留白）+ 分段列表的组合外边距。 */
 private val SectionGroupPadding = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 21.dp)
@@ -90,10 +88,27 @@ internal fun ModelProviderListScreen(
     val storedProviderId by RuntimeConfigRepository.selectedProviderIdFlow().collectAsState(initial = null)
     val selectedProviderId = currentProviderId?.takeIf { it.isNotBlank() } ?: storedProviderId
     var searchQuery by remember { mutableStateOf("") }
+    var searchVisible by remember { mutableStateOf(false) }
+    val searchFocus = remember { FocusRequester() }
+    val listState = rememberLazyListState()
     var selectionMode by remember { mutableStateOf(false) }
     var selectedProviderIds by remember { mutableStateOf(setOf<String>()) }
     var showBatchDeleteDialog by remember { mutableStateOf(false) }
     var isDeleting by remember { mutableStateOf(false) }
+
+    // 打开搜索时回到列表顶部并聚焦顶栏搜索框；关闭时清空过滤词。
+    // 顶栏标题槽内容随状态切换，聚焦失败时稍候重试。
+    LaunchedEffect(searchVisible) {
+        if (!searchVisible) {
+            searchQuery = ""
+            return@LaunchedEffect
+        }
+        runCatching { listState.scrollToItem(0) }
+        repeat(10) {
+            if (runCatching { searchFocus.requestFocus() }.isSuccess) return@LaunchedEffect
+            delay(32)
+        }
+    }
 
     LaunchedEffect(Unit) {
         RuntimeConfigRepository.ensureDefaults(EtaApp.serviceInstance)
@@ -133,9 +148,6 @@ internal fun ModelProviderListScreen(
         },
     )
 
-    // LazyListScope 的 content lambda 非组合上下文，主题判定需在外层解析后按值分支。
-    val material3 = isMaterial3Theme()
-
     Box(modifier = Modifier.fillMaxSize()) {
         EtaScaffoldPage(
             title = stringResource(R.string.ui_model_provider_e8c7f5),
@@ -147,102 +159,81 @@ internal fun ModelProviderListScreen(
                     onBack()
                 }
             },
-        ) {
-            if (material3) {
-                materialProviderListContent(
-                    searchQuery = searchQuery,
-                    onSearchQueryChange = { searchQuery = it },
-                    filteredProviders = filteredProviders,
-                    selectableProviders = selectableProviders,
-                    selectionMode = selectionMode,
-                    selectedProviderIds = selectedProviderIds,
-                    selectedProviderId = selectedProviderId,
-                    onToggleChecked = { id ->
-                        if (id in selectedProviderIds) {
-                            selectedProviderIds - id
-                        } else {
-                            selectedProviderIds + id
-                        }
-                    },
-                    onSelectAll = {
-                        TouchHaptics.click(view)
-                        selectedProviderIds = if (
-                            selectableProviders.isNotEmpty() &&
-                            selectedProviderIds.containsAll(selectableProviders.map { it.id })
-                        ) {
-                            emptySet()
-                        } else {
-                            selectableProviders.mapTo(mutableSetOf()) { it.id }
-                        }
-                    },
-                    onOpen = { id ->
-                        TouchHaptics.click(view)
-                        onNavigate(AppRoute.ModelProviderDetail(id))
-                    },
-                    onEnterSelection = { id ->
-                        selectionMode = true
-                        selectedProviderIds = setOf(id)
-                    },
-                    onAddProvider = { type ->
-                        TouchHaptics.click(view)
-                        onNavigate(
-                            when (type) {
-                                NewProviderType.OpenAiCompatible -> {
-                                    AppRoute.ModelProviderAuthMethod(NewProviderType.OpenAiCompatible)
-                                }
-                                else -> AppRoute.ModelProviderNew(type)
-                            },
-                        )
-                    },
-                )
+            listState = listState,
+            // 搜索态：搜索框直接落在标题栏位置（顶栏标题槽），不再占列表首项。
+            titleContent = if (searchVisible) {
+                {
+                    ProviderSearchField(
+                        query = searchQuery,
+                        onQueryChange = { searchQuery = it },
+                        placeholder = stringResource(R.string.ui_search_provider_74e049),
+                        modifier = Modifier.focusRequester(searchFocus),
+                    )
+                }
             } else {
-                miuixProviderListContent(
-                    searchQuery = searchQuery,
-                    onSearchQueryChange = { searchQuery = it },
-                    filteredProviders = filteredProviders,
-                    selectableProviders = selectableProviders,
-                    selectionMode = selectionMode,
-                    selectedProviderIds = selectedProviderIds,
-                    selectedProviderId = selectedProviderId,
-                    onToggleChecked = { id ->
-                        if (id in selectedProviderIds) {
-                            selectedProviderIds - id
-                        } else {
-                            selectedProviderIds + id
-                        }
-                    },
-                    onSelectAll = {
-                        TouchHaptics.click(view)
-                        selectedProviderIds = if (
-                            selectableProviders.isNotEmpty() &&
-                            selectedProviderIds.containsAll(selectableProviders.map { it.id })
-                        ) {
-                            emptySet()
-                        } else {
-                            selectableProviders.mapTo(mutableSetOf()) { it.id }
-                        }
-                    },
-                    onOpen = { id ->
-                        TouchHaptics.click(view)
-                        onNavigate(AppRoute.ModelProviderDetail(id))
-                    },
-                    onEnterSelection = { id ->
-                        selectionMode = true
-                        selectedProviderIds = setOf(id)
-                    },
-                    onAddProvider = { type ->
-                        TouchHaptics.click(view)
-                        onNavigate(
-                            when (type) {
-                                NewProviderType.OpenAiCompatible -> {
-                                    AppRoute.ModelProviderAuthMethod(NewProviderType.OpenAiCompatible)
-                                }
-                                else -> AppRoute.ModelProviderNew(type)
-                            },
-                        )
-                    },
-                )
-            }
+                null
+            },
+            actions = {
+                val onToggleSearch = {
+                    TouchHaptics.click(view)
+                    searchVisible = !searchVisible
+                }
+                val searchLabel = stringResource(R.string.ui_search_provider_74e049)
+                val closeLabel = stringResource(R.string.action_cancel)
+                M3IconButton(onClick = onToggleSearch) {
+                    Icon(
+                        imageVector = if (searchVisible) Icons.Rounded.Close else Icons.Rounded.Search,
+                        contentDescription = if (searchVisible) closeLabel else searchLabel,
+                    )
+                }
+            },
+        ) {
+            materialProviderListContent(
+                searchQuery = searchQuery,
+                onSearchQueryChange = { searchQuery = it },
+                filteredProviders = filteredProviders,
+                selectableProviders = selectableProviders,
+                selectionMode = selectionMode,
+                selectedProviderIds = selectedProviderIds,
+                selectedProviderId = selectedProviderId,
+                onToggleChecked = { id ->
+                    if (id in selectedProviderIds) {
+                        selectedProviderIds - id
+                    } else {
+                        selectedProviderIds + id
+                    }
+                },
+                onSelectAll = {
+                    TouchHaptics.click(view)
+                    selectedProviderIds = if (
+                        selectableProviders.isNotEmpty() &&
+                        selectedProviderIds.containsAll(selectableProviders.map { it.id })
+                    ) {
+                        emptySet()
+                    } else {
+                        selectableProviders.mapTo(mutableSetOf()) { it.id }
+                    }
+                },
+                onOpen = { id ->
+                    TouchHaptics.click(view)
+                    onNavigate(AppRoute.ModelProviderDetail(id))
+                },
+                onEnterSelection = { id ->
+                    selectionMode = true
+                    selectedProviderIds = setOf(id)
+                },
+                onAddProvider = { type ->
+                    TouchHaptics.click(view)
+                    onNavigate(
+                        when (type) {
+                            NewProviderType.OpenAiCompatible -> {
+                                AppRoute.ModelProviderAuthMethod(NewProviderType.OpenAiCompatible)
+                            }
+                            else -> AppRoute.ModelProviderNew(type)
+                        },
+                    )
+                },
+            )
 
             // 选择模式下预留底部操作条高度；其余场景用骨架自带的底距。
             if (selectionMode) {
@@ -309,7 +300,7 @@ internal fun ModelProviderListScreen(
                 }
             }
         }
-        // 自适应弹窗：M3 → 官方 AlertDialog + TextButton；MIUI X → WindowDialog + MiuixDialogActions。
+        // 自适应弹窗：M3 → 官方 AlertDialog + TextButton。
         EtaDialog(
             show = true,
             title = dialogTitle,
@@ -329,7 +320,7 @@ internal fun ModelProviderListScreen(
 }
 
 /**
- * Material 3 列表内容：KernelSU 式分段列表布局 —— 搜索框、添加组标题+分段列、
+ * Material 3 列表内容：KernelSU 式分段列表布局 —— 添加组标题+分段列、
  * 已配置标题行（含全选）+ 分段供应商行；空态为无容器的居中文本。
  */
 private fun androidx.compose.foundation.lazy.LazyListScope.materialProviderListContent(
@@ -346,17 +337,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.materialProviderListC
     onEnterSelection: (String) -> Unit,
     onAddProvider: (NewProviderType) -> Unit,
 ) {
-    item(key = "search") {
-        ProviderSearchField(
-            query = searchQuery,
-            onQueryChange = onSearchQueryChange,
-            placeholder = stringResource(R.string.ui_search_provider_74e049),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp),
-        )
-    }
-
     item(key = "create_section") {
         EtaSegmentedColumn(
             modifier = SectionGroupPadding,
@@ -457,118 +437,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.materialProviderListC
     }
 }
 
-/**
- * MIUI X 列表内容：与 Material 3 分支信息架构一致 —— 搜索框、添加组标题+卡片、
- * 已配置标题行（含全选）+ 卡片供应商行；空态同样为无容器文本。
- */
-private fun androidx.compose.foundation.lazy.LazyListScope.miuixProviderListContent(
-    searchQuery: String,
-    onSearchQueryChange: (String) -> Unit,
-    filteredProviders: List<ProviderSetting>,
-    selectableProviders: List<ProviderSetting>,
-    selectionMode: Boolean,
-    selectedProviderIds: Set<String>,
-    selectedProviderId: String?,
-    onToggleChecked: (String) -> Unit,
-    onSelectAll: () -> Unit,
-    onOpen: (String) -> Unit,
-    onEnterSelection: (String) -> Unit,
-    onAddProvider: (NewProviderType) -> Unit,
-) {
-    item(key = "search") {
-        ProviderSearchField(
-            query = searchQuery,
-            onQueryChange = onSearchQueryChange,
-            placeholder = stringResource(R.string.ui_search_provider_74e049),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp),
-        )
-    }
-
-    item(key = "create_section") {
-        Column(modifier = SectionGroupPadding) {
-            EtaSectionTitle(text = stringResource(R.string.ui_add_new_provider_74df54))
-            EtaCard {
-                ProviderClickableRow(
-                    title = stringResource(R.string.ui_added_openai_compatible_6bd471),
-                    summary = stringResource(R.string.ui_support_chatgpt_deepseek_kimi_glm_qwen_etc_b31d02),
-                    leading = { ProviderBrandIcon(ProviderSourceTypes.OPENAI) },
-                    onClick = { onAddProvider(NewProviderType.OpenAiCompatible) },
-                )
-                ProviderClickableRow(
-                    title = stringResource(R.string.ui_new_anthropic_db6098),
-                    summary = stringResource(R.string.ui_support_anthropic_claude_official_or_compatible_api_de3f80),
-                    leading = { ProviderBrandIcon(ProviderSourceTypes.ANTHROPIC) },
-                    onClick = { onAddProvider(NewProviderType.Anthropic) },
-                )
-                ProviderClickableRow(
-                    title = stringResource(R.string.ui_new_doubao_speech),
-                    summary = stringResource(R.string.ui_new_doubao_speech_summary),
-                    leading = { ProviderBrandIcon(ProviderSourceTypes.DOUBAO_SPEECH) },
-                    onClick = { onAddProvider(NewProviderType.DoubaoSpeech) },
-                )
-            }
-        }
-    }
-
-    item(key = "list_title") {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(modifier = Modifier.weight(1f)) {
-                EtaSectionTitle(
-                    text = pluralStringResource(
-                        R.plurals.provider_configured_count,
-                        filteredProviders.size,
-                        filteredProviders.size,
-                    ),
-                )
-            }
-            if (selectionMode && selectableProviders.isNotEmpty()) {
-                Text(
-                    text = stringResource(R.string.page_select_all_3e44b2),
-                    style = MiuixTheme.textStyles.body2,
-                    modifier = Modifier
-                        .clickable(onClick = onSelectAll)
-                        .padding(end = 16.dp),
-                )
-            }
-        }
-    }
-
-    if (filteredProviders.isEmpty()) {
-        item(key = "empty") {
-            ListEmptyState(
-                title = if (searchQuery.isBlank()) {
-                    stringResource(R.string.provider_empty)
-                } else {
-                    stringResource(R.string.provider_no_matches)
-                },
-            )
-        }
-    } else {
-        item(key = "list_card") {
-            Column(modifier = SectionEdgePadding) {
-                EtaCard {
-                    filteredProviders.forEach { provider ->
-                        ProviderListItem(
-                            provider = provider,
-                            isCurrent = provider.id == selectedProviderId,
-                            selectionMode = selectionMode,
-                            checked = provider.id in selectedProviderIds,
-                            onOpen = { onOpen(provider.id) },
-                            onToggleChecked = { onToggleChecked(provider.id) },
-                            onEnterSelection = { onEnterSelection(provider.id) },
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
 @Composable
 private fun ProviderSelectionBar(
     selectedCount: Int,
@@ -610,7 +478,7 @@ private fun ProviderSelectionBar(
  * 供应商列表项。
  *
  * Material 3 走官方 [ListItem]（selected + onClick + onLongClick 一次覆盖点按、长按与
- * 多选勾选框），替掉「Row + combinedClickable + 手搓勾选」；MIUI X 保持原有实现。
+ * 多选勾选框），替掉「Row + combinedClickable + 手搓勾选」。
  */
 @Composable
 private fun ProviderListItem(
@@ -633,146 +501,90 @@ private fun ProviderListItem(
     val showCheckbox = selectionMode && selectable
     val showCurrentMark = !selectionMode && isCurrent
 
-    val trailing: (@Composable () -> Unit)? = if (showCheckbox || showCurrentMark) {
-        {
-            if (showCheckbox) {
-                if (isMaterial3Theme()) {
-                    Checkbox(checked = checked, onCheckedChange = { onToggleChecked() })
-                } else {
-                    MiuixCheckbox(
-                        state = if (checked) ToggleableState.On else ToggleableState.Off,
-                        onClick = onToggleChecked,
-                    )
-                }
-            } else {
-                Icon(
-                    imageVector = Icons.Rounded.Check,
-                    contentDescription = stringResource(R.string.ui_current_25e74d),
-                    tint = if (isMaterial3Theme()) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MiuixTheme.colorScheme.primary
-                    },
-                    modifier = Modifier.padding(start = 8.dp),
-                )
+    // 行尾三态：多选勾选框 → 选择模式下不可多选的内建行无尾部 → 常态显示
+    // 「当前」对勾（若有）与导航箭头共存。
+    val trailing: (@Composable () -> Unit)? = when {
+        showCheckbox -> {
+            {
+                Checkbox(checked = checked, onCheckedChange = { onToggleChecked() })
             }
         }
-    } else {
-        null
+        selectionMode -> null
+        else -> {
+            {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (showCurrentMark) {
+                        Icon(
+                            imageVector = Icons.Rounded.Check,
+                            contentDescription = stringResource(R.string.ui_current_25e74d),
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
     }
 
     val meta: @Composable () -> Unit = {
-        if (isMaterial3Theme()) {
+        M3Text(
+            text = metaText,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (!provider.isEnabled) {
             M3Text(
-                text = metaText,
+                text = stringResource(R.string.ui_disabled_0fe5a9),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        } else {
-            Text(
-                text = metaText,
-                style = MiuixTheme.textStyles.footnote1,
-            )
-        }
-        if (!provider.isEnabled) {
-            if (isMaterial3Theme()) {
-                M3Text(
-                    text = stringResource(R.string.ui_disabled_0fe5a9),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                Text(
-                    text = stringResource(R.string.ui_disabled_0fe5a9),
-                    style = MiuixTheme.textStyles.footnote1,
-                )
-            }
         }
     }
 
-    if (isMaterial3Theme()) {
-        EtaSegmentedRow(
-            selected = isCurrent,
-            onClick = {
-                when {
-                    selectionMode && selectable -> onToggleChecked()
-                    selectionMode -> Unit
-                    else -> onOpen()
-                }
-            },
-            onLongClick = {
-                if (selectable) {
-                    if (selectionMode) onToggleChecked() else onEnterSelection()
-                }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .graphicsLayer { alpha = opacity },
-            leadingContent = { ProviderIcon(provider) },
-            content = {
+    EtaSegmentedRow(
+        selected = isCurrent,
+        onClick = {
+            when {
+                selectionMode && selectable -> onToggleChecked()
+                selectionMode -> Unit
+                else -> onOpen()
+            }
+        },
+        onLongClick = {
+            if (selectable) {
+                if (selectionMode) onToggleChecked() else onEnterSelection()
+            }
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer { alpha = opacity },
+        leadingContent = { ProviderIcon(provider) },
+        content = {
+            M3Text(
+                text = provider.name,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        },
+        supportingContent = {
+            // Column 不能省：supportingContent 内多个文本若裸排会叠在同一位置。
+            Column {
                 M3Text(
-                    text = provider.name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            },
-            supportingContent = {
-                // 本行只会在 M3 分支组合，直接用官方样式，无需再判主题。
-                // Column 不能省：supportingContent 内多个文本若裸排会叠在同一位置。
-                Column {
-                    M3Text(
-                        text = provider.baseUrl,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    meta()
-                }
-            },
-            trailingContent = trailing,
-        )
-    } else {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .combinedClickable(
-                    onClick = {
-                        when {
-                            selectionMode && selectable -> onToggleChecked()
-                            selectionMode -> Unit
-                            else -> onOpen()
-                        }
-                    },
-                    onLongClick = {
-                        if (selectable) {
-                            if (selectionMode) onToggleChecked() else onEnterSelection()
-                        }
-                    },
-                )
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-                .graphicsLayer { alpha = opacity },
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            ProviderIcon(provider)
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = provider.name,
-                    style = MiuixTheme.textStyles.headline1,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
                     text = provider.baseUrl,
-                    style = MiuixTheme.textStyles.body2,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 2.dp),
                 )
                 meta()
             }
-            trailing?.invoke()
-        }
-    }
+        },
+        trailingContent = trailing,
+    )
 }

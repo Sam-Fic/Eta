@@ -1,15 +1,19 @@
 package io.github.mangi.eta.agent.voice
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
+import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
@@ -17,10 +21,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -38,7 +40,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.TextFieldState
@@ -46,10 +47,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CancelPresentation
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DesktopWindows
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text as M3Text
 import androidx.compose.runtime.Composable
@@ -87,20 +90,22 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
-import io.github.mangi.eta.agent.media.AgentVideoCodec
 import io.github.mangi.eta.ui.components.AgentConversationMessages
+import io.github.mangi.eta.ui.components.ChatImagePreviewHost
 import io.github.mangi.eta.ui.components.ChatInputPopupMargin
 import io.github.mangi.eta.ui.components.Material3ComposerBody
 import io.github.mangi.eta.ui.components.PendingFileReferenceStrip
+import io.github.mangi.eta.ui.components.PendingImageStrip
+import io.github.mangi.eta.ui.components.collectPreviewableChatImages
 import io.github.mangi.eta.ui.components.rememberDataUrlBitmap
 import io.github.mangi.eta.ui.components.rememberImeVisible
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
 import io.github.mangi.eta.ui.model.AgentMessageUi
 import io.github.mangi.eta.ui.model.ConversationMentionInputUi
-import io.github.mangi.eta.ui.model.PendingImageUi
 import io.github.mangi.eta.ui.model.ThinkingMessageUi
 import io.github.mangi.eta.ui.model.ToolActivityMessageUi
 import io.github.mangi.eta.ui.model.UserMessageUi
@@ -108,15 +113,6 @@ import kotlin.math.ceil
 import kotlin.math.max
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.anim.folmeSpring
-import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.ListPopupDefaults
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.squircle.squircleBackground
-import top.yukonga.miuix.kmp.squircle.squircleClip
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 internal enum class EtaVoicePhase {
     READY,
@@ -369,40 +365,46 @@ internal fun EtaVoicePanel(
             val maxContentHeightPx = with(density) {
                 (maxHeight - 88.dp).toPx() - statusTop - navigationBottom
             }.coerceAtLeast(with(density) { 220.dp.toPx() })
-            AssistantPanel(
-                state = state,
-                textFieldState = textFieldState,
-                composer = composer,
-                voiceState = voiceState,
-                colors = colors,
-                focusRequester = focusRequester,
-                canOpenConversation = canOpenConversation,
-                baseContentHeightPx = assistantBaseHeightPx(
-                    messages = state.messages,
-                    maxHeightPx = maxContentHeightPx,
-                    density = density.density,
-                ),
-                maxContentHeightPx = maxContentHeightPx,
-                bottomInsetPx = bottomInset,
-                imeOverlapPx = imeOverlap,
-                imeInsetPx = imeBottom,
-                panelEntry = panelEntry,
-                backdropEntry = backdropEntry,
-                composerConversationId = composerConversationId,
-                onStartVoiceMode = onStartVoiceMode,
-                onStopVoiceMode = onStopVoiceMode,
-                onScreenContextSelect = onScreenContextSelect,
-                onScreenContextRemove = onScreenContextRemove,
-                onSubmit = {
-                    keyboard?.hide()
-                    onSubmit(it)
-                },
-                onStop = onStop,
-                onClose = onClose,
-                onOpenConversation = onOpenConversation,
-                onQuestionDraftChanged = onQuestionDraftChanged,
-                onSubmitQuestionAnswer = onSubmitQuestionAnswer,
-            )
+            // 图片预览宿主：与应用内（AgentChatBody）同款。消息里的图片与输入区待发缩略图
+            // 都依赖 LocalOpenChatImagePreview，没有宿主时点击没有任何反应。
+            ChatImagePreviewHost(
+                gallery = collectPreviewableChatImages(state.messages, composer.pendingImages),
+            ) {
+                AssistantPanel(
+                    state = state,
+                    textFieldState = textFieldState,
+                    composer = composer,
+                    voiceState = voiceState,
+                    colors = colors,
+                    focusRequester = focusRequester,
+                    canOpenConversation = canOpenConversation,
+                    baseContentHeightPx = assistantBaseHeightPx(
+                        messages = state.messages,
+                        maxHeightPx = maxContentHeightPx,
+                        density = density.density,
+                    ),
+                    maxContentHeightPx = maxContentHeightPx,
+                    bottomInsetPx = bottomInset,
+                    imeOverlapPx = imeOverlap,
+                    imeInsetPx = imeBottom,
+                    panelEntry = panelEntry,
+                    backdropEntry = backdropEntry,
+                    composerConversationId = composerConversationId,
+                    onStartVoiceMode = onStartVoiceMode,
+                    onStopVoiceMode = onStopVoiceMode,
+                    onScreenContextSelect = onScreenContextSelect,
+                    onScreenContextRemove = onScreenContextRemove,
+                    onSubmit = {
+                        keyboard?.hide()
+                        onSubmit(it)
+                    },
+                    onStop = onStop,
+                    onClose = onClose,
+                    onOpenConversation = onOpenConversation,
+                    onQuestionDraftChanged = onQuestionDraftChanged,
+                    onSubmitQuestionAnswer = onSubmitQuestionAnswer,
+                )
+            }
         }
     }
 }
@@ -462,7 +464,7 @@ private fun BoxScope.AssistantPanel(
     }
     val animatedHeightPx by animateFloatAsState(
         targetValue = targetHeightPx,
-        animationSpec = folmeSpring(damping = 0.9f, response = 0.38f),
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "assistant_content_height",
     )
     val sheetBackgroundAlpha = animateFloatAsState(
@@ -780,15 +782,15 @@ private fun AssistantComposer(
             with(density) {
                 (inputContainerTopPx[0] - statusBarTopPx).coerceAtLeast(0).toDp()
             }.minus(ChatInputPopupMargin * 2)
-                .coerceAtLeast(ListPopupDefaults.MinPopupHeight)
+                .coerceAtLeast(50.dp)
         }
     }
 
-    Column(
-        modifier = modifier.animateContentSize(
-            animationSpec = folmeSpring(damping = 0.92f, response = 0.34f),
-        ),
-    ) {
+    // 输入区进出场动效统一取与应用内输入区同一套官方 Expressive 弹簧规格。
+    val fadeEnterSpec: FiniteAnimationSpec<Float> = MaterialTheme.motionScheme.defaultSpatialSpec()
+    val fadeExitSpec: FiniteAnimationSpec<Float> = MaterialTheme.motionScheme.defaultSpatialSpec()
+    val shrinkTallSpec: FiniteAnimationSpec<IntSize> = MaterialTheme.motionScheme.defaultSpatialSpec()
+    Column(modifier = modifier) {
         ScreenContextAttachment(
             state = state.screenContext,
             enabled = !processing,
@@ -799,17 +801,26 @@ private fun AssistantComposer(
         if (state.screenContext.phase != EtaScreenContextPhase.CONSUMED) {
             Spacer(Modifier.height(8.dp))
         }
-        // 附件预览条：与应用内输入区一致，文件引用在上、图片 / 视频在下，都渲染在输入框之上。
+        // 附件预览条：与应用内输入区一致，文件引用在上、图片 / 视频在下，都渲染在输入框之上；
+        // 进出场也与应用内同款（淡入淡出 + 纵向展开/收缩）。
         // （`Material3ComposerBody` 自身不渲染预览条，需由调用方提供。）
-        if (composer.pendingFileReferences.isNotEmpty()) {
+        AnimatedVisibility(
+            visible = composer.pendingFileReferences.isNotEmpty(),
+            enter = fadeIn(fadeEnterSpec),
+            exit = fadeOut(fadeExitSpec) + shrinkVertically(shrinkTallSpec),
+        ) {
             PendingFileReferenceStrip(
                 references = composer.pendingFileReferences,
                 onRemoveReference = composer::removePendingFileReference,
                 modifier = Modifier.padding(bottom = 8.dp),
             )
         }
-        if (composer.pendingImages.isNotEmpty()) {
-            OverlayPendingImageStrip(
+        AnimatedVisibility(
+            visible = composer.pendingImages.isNotEmpty(),
+            enter = fadeIn(fadeEnterSpec),
+            exit = fadeOut(fadeExitSpec) + shrinkVertically(shrinkTallSpec),
+        ) {
+            PendingImageStrip(
                 images = composer.pendingImages,
                 onRemoveImage = composer::removePendingImage,
                 modifier = Modifier.padding(bottom = 8.dp),
@@ -818,8 +829,9 @@ private fun AssistantComposer(
         Material3ComposerBody(
             textFieldState = textFieldState,
             focusRequester = focusRequester,
-            // 生成中禁止聚焦输入框（与应用内旧浮层行为一致）；发送 / 停止按钮不受影响。
-            interactionBlocked = processing,
+            // 生成中输入框保持可编辑（与应用内一致）：此时尾部按钮回到「发送」，
+            // 提交的内容作为追加指令送进当前 run（见 EtaAssistantOverlayService.steerInput）。
+            interactionBlocked = false,
             imeVisible = rememberImeVisible(),
             // 入口浮层没有「编辑消息」与「暂停运行」，这些槽位按不适用处理。
             isEditingMessage = false,
@@ -931,7 +943,7 @@ private fun ScreenContextAttachment(
                 ) {
                     when (screenContext.phase) {
                         EtaScreenContextPhase.CAPTURING -> CircularProgressIndicator(
-                            size = ButtonDefaults.IconSize,
+                            modifier = Modifier.size(ButtonDefaults.IconSize),
                             strokeWidth = 2.dp,
                         )
                         EtaScreenContextPhase.AVAILABLE -> Icon(
@@ -980,7 +992,7 @@ private fun SelectedScreenContext(
     Row(
         modifier = Modifier
             .height(60.dp)
-            .squircleBackground(colors.inputSolid, 15.dp)
+            .background(colors.inputSolid, RoundedCornerShape(15.dp))
             .padding(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -990,32 +1002,30 @@ private fun SelectedScreenContext(
                 contentDescription = stringResource(R.string.voice_screen_preview),
                 modifier = Modifier
                     .size(50.dp)
-                    .squircleClip(11.dp),
+                    .clip(RoundedCornerShape(11.dp)),
                 contentScale = ContentScale.Crop,
             )
         }
         Column(
             modifier = Modifier.padding(start = 8.dp, end = 8.dp),
         ) {
-            Text(
+            M3Text(
                 text = stringResource(R.string.voice_screen_title),
                 color = titleColor,
-                fontSize = MiuixTheme.textStyles.footnote1.fontSize,
+                fontSize = MaterialTheme.typography.bodySmall.fontSize,
                 maxLines = 1,
             )
-            Text(
+            M3Text(
                 text = stringResource(R.string.voice_screen_context_summary),
                 color = summaryColor,
-                fontSize = MiuixTheme.textStyles.footnote2.fontSize,
+                fontSize = MaterialTheme.typography.labelSmall.fontSize,
                 maxLines = 1,
             )
         }
         IconButton(
             onClick = onRemove,
             enabled = enabled,
-            minWidth = 30.dp,
-            minHeight = 30.dp,
-            cornerRadius = 16.dp,
+            modifier = Modifier.size(30.dp),
         ) {
             Icon(
                 imageVector = Icons.Rounded.Close,
@@ -1041,94 +1051,6 @@ private fun DragHandle(colors: EtaVoicePanelColors, modifier: Modifier = Modifie
                 .clip(CircleShape)
                 .background(colors.tertiary),
         )
-    }
-}
-
-/**
- * 浮层输入区的待发图片 / 视频预览条。
- *
- * 应用内的同名条是 `private`，浮层无法复用，因此这里按同一套外观（60dp 见方、12dp 圆角、
- * 右上角移除圆钮、视频叠时长与播放图标）重写一份；图片解码复用内部 `rememberDataUrlBitmap`。
- */
-@Composable
-private fun OverlayPendingImageStrip(
-    images: List<PendingImageUi>,
-    onRemoveImage: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        images.forEach { image ->
-            // 角标 / 移除钮压在缩略图上：取 M3 inverseSurface 作**全不透明**底板（再合成一层
-            // 容器色，兜住自定义配色里可能残留的 alpha），不使用半透明黑。
-            val badgeSurface = MaterialTheme.colorScheme.inverseSurface
-                .compositeOver(MaterialTheme.colorScheme.surfaceContainerHigh)
-            val badgeOnSurface = MaterialTheme.colorScheme.inverseOnSurface
-                .compositeOver(badgeSurface)
-            Box(
-                modifier = Modifier
-                    .size(60.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-            ) {
-                rememberDataUrlBitmap(image.dataUrl, fallback = image.uri)?.let { bitmap ->
-                    Image(
-                        bitmap = bitmap,
-                        contentDescription = stringResource(
-                            if (image.isVideo) R.string.chat_video_preview else R.string.chat_image_preview,
-                        ),
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                    )
-                }
-                if (image.isVideo) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(4.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(badgeSurface)
-                            .padding(horizontal = 4.dp, vertical = 2.dp),
-                    ) {
-                        M3Text(
-                            text = AgentVideoCodec.formatDuration(image.durationMs ?: 0L),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = badgeOnSurface,
-                        )
-                    }
-                    Icon(
-                        imageVector = Icons.Rounded.PlayArrow,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .size(20.dp),
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(4.dp)
-                        .size(18.dp)
-                        .clip(CircleShape)
-                        .background(badgeSurface)
-                        .clickable { onRemoveImage(image.id) },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Close,
-                        contentDescription = stringResource(R.string.ui_remove_image_089db3),
-                        modifier = Modifier.size(12.dp),
-                        tint = badgeOnSurface,
-                    )
-                }
-            }
-        }
     }
 }
 
