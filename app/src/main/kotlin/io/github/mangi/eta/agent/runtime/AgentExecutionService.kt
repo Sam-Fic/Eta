@@ -104,7 +104,7 @@ internal class AgentExecutionService : Service() {
         )
         val icon = currentLauncherBitmap()
         val builder = Notification.Builder(this, CHANNEL)
-            .setSmallIcon(R.drawable.ic_stat_cat)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(getString(R.string.execution_title))
             .setContentText(
                 status?.localizedText(resources)
