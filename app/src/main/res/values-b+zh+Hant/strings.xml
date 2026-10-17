@@ -1492,8 +1492,6 @@
   <string name="model_feature_missing">未選擇或模型不可用</string>
   <string name="vision_feature_description">主模型不支援圖片時，將圖片及相關問題交給所選視覺模型，並把分析結果以文字傳回。支援聊天圖片、工具截圖及影片封面；主模型支援視覺時直接看圖。圖片會傳送至所選提供商，額外請求可能產生費用。</string>
   <string name="title_feature_description">為新會話自動產生簡短標題。未開啟自訂時使用目前會話模型；失敗時保留本機標題，不覆蓋手動修改的標題。</string>
-  <string name="title_feature_default">目前會話模型</string>
-  <string name="vision_feature_off">未開啟：非視覺模型無法看圖</string>
   <string name="revision_history_unavailable">無法定位這則訊息對應的原始上下文，已取消操作並保留現有歷史；這不代表會話已壓縮。</string>
   <string name="appearance_message_timestamps">訊息時間戳</string>
   <string name="appearance_message_timestamps_summary">在回覆操作列右側顯示本輪回覆產生完成的時間。</string>

@@ -1511,8 +1511,6 @@
   <string name="model_feature_missing">Not selected or unavailable</string>
   <string name="vision_feature_description">For text-only chat models, send images and the relevant question to the selected vision model. Its description is returned as text. Screenshots and video cover frames are supported. Native vision models continue to read images directly. Extra requests may incur charges.</string>
   <string name="title_feature_description">Generate a short title for new conversations. When custom selection is off, use the current conversation model. On failure, keep the local title. Manually renamed titles are never overwritten.</string>
-  <string name="title_feature_default">Current conversation model</string>
-  <string name="vision_feature_off">Disabled: text-only models cannot read images</string>
   <string name="revision_history_unavailable">Cannot locate the original context for this message. Operation cancelled; existing history is preserved. This does not mean the conversation was compressed.</string>
   <string name="appearance_message_timestamps">Message timestamps</string>
   <string name="appearance_message_timestamps_summary">Show when each reply finished generating, on the right of its action bar.</string>
