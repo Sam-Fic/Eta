@@ -456,6 +456,7 @@ private fun titleForRoute(route: AppRoute?, currentConversationTitle: String? = 
     is AppRoute.SharedFolders -> stringResource(R.string.route_shared_folders)
     is AppRoute.LinuxFiles -> stringResource(R.string.route_linux_files)
     is AppRoute.ModelProviders -> stringResource(R.string.route_model_providers)
+    is AppRoute.ModelProviderSearch -> stringResource(R.string.ui_model_provider_e8c7f5)
     is AppRoute.McpServers -> stringResource(R.string.route_mcp_servers)
     is AppRoute.McpServerDetail -> stringResource(R.string.route_mcp_server_detail)
     is AppRoute.ModelProviderDetail -> stringResource(R.string.route_provider_details)
@@ -465,6 +466,7 @@ private fun titleForRoute(route: AppRoute?, currentConversationTitle: String? = 
     is AppRoute.UsageStats -> stringResource(R.string.stats_page_title)
     is AppRoute.ManageChats -> stringResource(R.string.history_page_title)
     is AppRoute.Assistants -> stringResource(R.string.assistant_list_title)
+    is AppRoute.AssistantSearch -> stringResource(R.string.assistant_search)
     is AppRoute.AssistantEdit -> stringResource(R.string.assistant_edit_title)
     null -> stringResource(R.string.app_name)
 }

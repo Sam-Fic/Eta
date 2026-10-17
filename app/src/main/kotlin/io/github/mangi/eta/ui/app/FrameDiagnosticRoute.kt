@@ -34,6 +34,7 @@ internal fun AppRoute.frameDiagnosticPage(): FrameDiagnosticPage = when (this) {
     AppRoute.Workspace -> FrameDiagnosticPage.Workspace
     is AppRoute.LinuxFiles -> FrameDiagnosticPage.LinuxFiles
     AppRoute.ModelProviders -> FrameDiagnosticPage.ModelProviders
+    AppRoute.ModelProviderSearch -> FrameDiagnosticPage.ModelProviders
     AppRoute.McpServers -> FrameDiagnosticPage.McpServers
     is AppRoute.McpServerDetail -> FrameDiagnosticPage.McpServerDetail
     is AppRoute.ModelProviderDetail -> FrameDiagnosticPage.ModelProviderDetail
@@ -41,6 +42,7 @@ internal fun AppRoute.frameDiagnosticPage(): FrameDiagnosticPage = when (this) {
     is AppRoute.ModelProviderNew -> FrameDiagnosticPage.ModelProviderNew
     AppRoute.ContextCompression -> FrameDiagnosticPage.ContextCompression
     is AppRoute.Assistants -> FrameDiagnosticPage.Assistants
+    is AppRoute.AssistantSearch -> FrameDiagnosticPage.Assistants
     is AppRoute.AssistantEdit -> FrameDiagnosticPage.AssistantEdit
     AppRoute.UsageStats -> FrameDiagnosticPage.UsageStats
     AppRoute.ManageChats -> FrameDiagnosticPage.ManageChats

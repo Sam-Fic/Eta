@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -29,8 +28,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
@@ -63,7 +60,6 @@ import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.navigation.AppRoute
 import io.github.mangi.eta.ui.navigation.NewProviderType
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
@@ -87,44 +83,20 @@ internal fun ModelProviderListScreen(
     val providers by ProviderRepository.providersFlow().collectAsState(initial = emptyList())
     val storedProviderId by RuntimeConfigRepository.selectedProviderIdFlow().collectAsState(initial = null)
     val selectedProviderId = currentProviderId?.takeIf { it.isNotBlank() } ?: storedProviderId
-    var searchQuery by remember { mutableStateOf("") }
-    var searchVisible by remember { mutableStateOf(false) }
-    val searchFocus = remember { FocusRequester() }
     val listState = rememberLazyListState()
     var selectionMode by remember { mutableStateOf(false) }
     var selectedProviderIds by remember { mutableStateOf(setOf<String>()) }
     var showBatchDeleteDialog by remember { mutableStateOf(false) }
     var isDeleting by remember { mutableStateOf(false) }
 
-    // 打开搜索时回到列表顶部并聚焦顶栏搜索框；关闭时清空过滤词。
-    // 顶栏标题槽内容随状态切换，聚焦失败时稍候重试。
-    LaunchedEffect(searchVisible) {
-        if (!searchVisible) {
-            searchQuery = ""
-            return@LaunchedEffect
-        }
-        runCatching { listState.scrollToItem(0) }
-        repeat(10) {
-            if (runCatching { searchFocus.requestFocus() }.isSuccess) return@LaunchedEffect
-            delay(32)
-        }
-    }
-
     LaunchedEffect(Unit) {
         RuntimeConfigRepository.ensureDefaults(EtaApp.serviceInstance)
     }
 
-    val filteredProviders = remember(providers, searchQuery) {
-        val query = searchQuery.trim()
-        providers.filter { provider ->
-            query.isBlank() ||
-                provider.name.contains(query, ignoreCase = true) ||
-                provider.baseUrl.contains(query, ignoreCase = true) ||
-                provider.typeLabel.contains(query, ignoreCase = true)
-        }
-    }
-    val selectableProviders = remember(filteredProviders) {
-        filteredProviders.filterNot(ProviderSetting::isBuiltIn)
+    // 主页不过滤（query 恒空即全量），搜索交给独立搜索页。
+    val filteredProviders = providers
+    val selectableProviders = remember(providers) {
+        providers.filterNot(ProviderSetting::isBuiltIn)
     }
 
     LaunchedEffect(selectionMode, selectedProviderIds, providers) {
@@ -160,37 +132,21 @@ internal fun ModelProviderListScreen(
                 }
             },
             listState = listState,
-            // 搜索态：搜索框直接落在标题栏位置（顶栏标题槽），不再占列表首项。
-            titleContent = if (searchVisible) {
-                {
-                    ProviderSearchField(
-                        query = searchQuery,
-                        onQueryChange = { searchQuery = it },
-                        placeholder = stringResource(R.string.ui_search_provider_74e049),
-                        modifier = Modifier.focusRequester(searchFocus),
-                    )
-                }
-            } else {
-                null
-            },
             actions = {
-                val onToggleSearch = {
+                // 搜索入口：大标题栏只保留这一个单搜索图标，点击进独立搜索页。
+                M3IconButton(onClick = {
                     TouchHaptics.click(view)
-                    searchVisible = !searchVisible
-                }
-                val searchLabel = stringResource(R.string.ui_search_provider_74e049)
-                val closeLabel = stringResource(R.string.action_cancel)
-                M3IconButton(onClick = onToggleSearch) {
+                    onNavigate(AppRoute.ModelProviderSearch)
+                }) {
                     Icon(
-                        imageVector = if (searchVisible) Icons.Rounded.Close else Icons.Rounded.Search,
-                        contentDescription = if (searchVisible) closeLabel else searchLabel,
+                        imageVector = Icons.Rounded.Search,
+                        contentDescription = stringResource(R.string.ui_search_provider_74e049),
                     )
                 }
             },
         ) {
             materialProviderListContent(
-                searchQuery = searchQuery,
-                onSearchQueryChange = { searchQuery = it },
+                searchQuery = "",
                 filteredProviders = filteredProviders,
                 selectableProviders = selectableProviders,
                 selectionMode = selectionMode,
@@ -322,10 +278,11 @@ internal fun ModelProviderListScreen(
 /**
  * Material 3 列表内容：KernelSU 式分段列表布局 —— 添加组标题+分段列、
  * 已配置标题行（含全选）+ 分段供应商行；空态为无容器的居中文本。
+ *
+ * 供应商主页（大标题栏，query 恒空即全量）与独立搜索页共用。
  */
-private fun androidx.compose.foundation.lazy.LazyListScope.materialProviderListContent(
+internal fun androidx.compose.foundation.lazy.LazyListScope.materialProviderListContent(
     searchQuery: String,
-    onSearchQueryChange: (String) -> Unit,
     filteredProviders: List<ProviderSetting>,
     selectableProviders: List<ProviderSetting>,
     selectionMode: Boolean,

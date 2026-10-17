@@ -93,6 +93,9 @@ sealed interface AppRoute {
     data object ModelProviders : AppRoute
 
     @Serializable
+    data object ModelProviderSearch : AppRoute
+
+    @Serializable
     data object McpServers : AppRoute
 
     @Serializable
@@ -115,6 +118,9 @@ sealed interface AppRoute {
 
     @Serializable
     data class Assistants(val picker: Boolean = false) : AppRoute
+
+    @Serializable
+    data class AssistantSearch(val picker: Boolean = false) : AppRoute
 
     @Serializable
     data class AssistantEdit(val assistantId: String) : AppRoute

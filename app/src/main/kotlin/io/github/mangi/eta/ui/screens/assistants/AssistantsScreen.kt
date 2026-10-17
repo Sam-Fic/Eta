@@ -2,21 +2,18 @@ package io.github.mangi.eta.ui.screens.assistants
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -29,7 +26,6 @@ import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedItem
 import io.github.mangi.eta.ui.navigation.AppRoute
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.material3.Icon
@@ -50,32 +46,8 @@ internal fun AssistantsScreen(
     val profiles by AssistantRepository.profiles.collectAsState()
     val repositoryActiveId by AssistantRepository.activeId.collectAsState()
     val activeId = selectedAssistantId ?: repositoryActiveId
-    var searchQuery by remember { mutableStateOf("") }
-    var searchVisible by remember { mutableStateOf(false) }
-    val searchFocus = remember { FocusRequester() }
-    val listState = rememberLazyListState()
     var deleteProfile by remember { mutableStateOf<AssistantProfile?>(null) }
-
-    // 打开搜索时回到列表顶部并聚焦顶栏搜索框；关闭时清空过滤词。
-    // 顶栏标题槽内容随状态切换，聚焦失败时稍候重试。
-    LaunchedEffect(searchVisible) {
-        if (!searchVisible) {
-            searchQuery = ""
-            return@LaunchedEffect
-        }
-        runCatching { listState.scrollToItem(0) }
-        repeat(10) {
-            if (runCatching { searchFocus.requestFocus() }.isSuccess) return@LaunchedEffect
-            delay(32)
-        }
-    }
-
-    val filtered = remember(profiles, searchQuery) {
-        val query = searchQuery.trim()
-        profiles.filter { profile ->
-            query.isBlank() || profile.name.contains(query, ignoreCase = true)
-        }
-    }
+    val listState = rememberLazyListState()
 
     // 浏览态进编辑页；选择态（picker）选中助手后返回。
     val openProfile: (AssistantProfile) -> Unit = { profile ->
@@ -101,81 +73,45 @@ internal fun AssistantsScreen(
         title = stringResource(R.string.assistant_list_title),
         onBack = onBack,
         listState = listState,
-        // 搜索态：搜索框直接落在标题栏位置（顶栏标题槽），不再占列表首项。
-        titleContent = if (searchVisible) {
-            {
-                AssistantSearchField(
-                    query = searchQuery,
-                    onQueryChange = { searchQuery = it },
-                    placeholder = stringResource(R.string.assistant_search),
-                    modifier = Modifier.focusRequester(searchFocus),
-                )
-            }
-        } else {
-            null
-        },
         actions = {
-            val onAdd = {
+            M3IconButton(onClick = {
                 scope.launch {
                     val created = withContext(Dispatchers.IO) {
                         AssistantRepository.create()
                     }
                     onNavigate(AppRoute.AssistantEdit(created.id))
                 }
-            }
-            val onToggleSearch = { searchVisible = !searchVisible }
-            val searchLabel = stringResource(R.string.assistant_search)
-            val closeLabel = stringResource(R.string.action_cancel)
-            M3IconButton(onClick = { onAdd() }) {
+            }) {
                 Icon(
                     imageVector = Icons.Rounded.Add,
                     contentDescription = stringResource(R.string.assistant_add),
                 )
             }
-            M3IconButton(onClick = onToggleSearch) {
+            // 搜索入口：大标题栏只保留这一个单搜索图标，点击进独立搜索页。
+            M3IconButton(onClick = { onNavigate(AppRoute.AssistantSearch(picker = picker)) }) {
                 Icon(
-                    imageVector = if (searchVisible) Icons.Rounded.Close else Icons.Rounded.Search,
-                    contentDescription = if (searchVisible) closeLabel else searchLabel,
+                    imageVector = Icons.Rounded.Search,
+                    contentDescription = stringResource(R.string.assistant_search),
                 )
             }
         },
     ) {
-        // 所有助手合并为一个 KernelSU 式分段组，行尾三点菜单提供「复制/编辑/删除」。
-        filtered.forEachIndexed { index, profile ->
-            item(key = profile.id) {
-                EtaSegmentedItem(index = index, count = filtered.size) {
-                    AssistantRow(
-                        profile = profile,
-                        selected = profile.id == activeId,
-                        onOpen = { openProfile(profile) },
-                        onCopy = {
-                            scope.launch {
-                                withContext(Dispatchers.IO) {
-                                    AssistantRepository.duplicate(profile.id)
-                                }
-                            }
-                        },
-                        onEdit = { onNavigate(AppRoute.AssistantEdit(profile.id)) },
-                        onDelete = { deleteProfile = profile },
-                        modifier = Modifier.padding(
-                            start = 16.dp,
-                            end = 16.dp,
-                            bottom = if (index == filtered.lastIndex) 13.dp else 2.dp,
-                        ),
-                    )
+        // 主页不过滤（query 恒空即全量），搜索交给独立搜索页。
+        assistantItems(
+            profiles = profiles,
+            activeId = activeId,
+            query = "",
+            onOpen = openProfile,
+            onCopy = { profile ->
+                scope.launch {
+                    withContext(Dispatchers.IO) {
+                        AssistantRepository.duplicate(profile.id)
+                    }
                 }
-            }
-        }
-        if (filtered.isEmpty()) {
-            item(key = "empty") {
-                M3Text(
-                    text = stringResource(R.string.assistant_empty),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
-                )
-            }
-        }
+            },
+            onEdit = { profile -> onNavigate(AppRoute.AssistantEdit(profile.id)) },
+            onDelete = { profile -> deleteProfile = profile },
+        )
     }
 
     deleteProfile?.let { profile ->
@@ -198,7 +134,56 @@ internal fun AssistantsScreen(
 }
 
 /**
+ * 助手列表项：按搜索词过滤后的 KernelSU 式分段行 + 空态文案。
+ * 助手主页（query 恒空即全量）与独立搜索页共用；行尾三点菜单提供「复制/编辑/删除」。
+ */
+internal fun LazyListScope.assistantItems(
+    profiles: List<AssistantProfile>,
+    activeId: String,
+    query: String,
+    onOpen: (AssistantProfile) -> Unit,
+    onCopy: (AssistantProfile) -> Unit,
+    onEdit: (AssistantProfile) -> Unit,
+    onDelete: (AssistantProfile) -> Unit,
+) {
+    val needle = query.trim()
+    val filtered = profiles.filter { profile ->
+        needle.isBlank() || profile.name.contains(needle, ignoreCase = true)
+    }
+    filtered.forEachIndexed { index, profile ->
+        item(key = profile.id) {
+            EtaSegmentedItem(index = index, count = filtered.size) {
+                AssistantRow(
+                    profile = profile,
+                    selected = profile.id == activeId,
+                    onOpen = { onOpen(profile) },
+                    onCopy = { onCopy(profile) },
+                    onEdit = { onEdit(profile) },
+                    onDelete = { onDelete(profile) },
+                    modifier = Modifier.padding(
+                        start = 16.dp,
+                        end = 16.dp,
+                        bottom = if (index == filtered.lastIndex) 13.dp else 2.dp,
+                    ),
+                )
+            }
+        }
+    }
+    if (filtered.isEmpty()) {
+        item(key = "empty") {
+            M3Text(
+                text = stringResource(R.string.assistant_empty),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+            )
+        }
+    }
+}
+
+/**
  * 助手搜索框：官方 [OutlinedTextField]（只加搜索图标，形状/配色走官方默认）。
+ * 供「助手与模型」弹窗等行内联搜索使用；独立搜索页走 [io.github.mangi.eta.ui.adaptive.EtaSearchPage]。
  */
 @Composable
 internal fun AssistantSearchField(

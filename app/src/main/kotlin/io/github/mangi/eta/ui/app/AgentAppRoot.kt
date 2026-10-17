@@ -92,7 +92,9 @@ import io.github.mangi.eta.ui.navigation.toAppRoute
 import io.github.mangi.eta.ui.pages.providers.ModelProviderDetailScreen
 import io.github.mangi.eta.ui.pages.providers.ProviderAuthMethodScreen
 import io.github.mangi.eta.ui.pages.providers.ModelProviderListScreen
+import io.github.mangi.eta.ui.pages.providers.ModelProviderSearchScreen
 import io.github.mangi.eta.ui.screens.assistants.AssistantEditScreen
+import io.github.mangi.eta.ui.screens.assistants.AssistantSearchScreen
 import io.github.mangi.eta.ui.screens.assistants.AssistantsScreen
 import io.github.mangi.eta.ui.screens.backup.DataBackupScreen
 import io.github.mangi.eta.ui.screens.browser.AgentBrowserScreen
@@ -1030,6 +1032,13 @@ fun AgentAppRoot(
                     currentProviderId = shellHomeState.providerId,
                 )
             }
+            composable<AppRoute.ModelProviderSearch> {
+                ModelProviderSearchScreen(
+                    onNavigate = { route -> pushRoute(route) },
+                    onBack = ::popRoute,
+                    currentProviderId = shellHomeState.providerId,
+                )
+            }
             composable<AppRoute.McpServers> {
                 McpServersScreen(
                     onNavigate = { route -> pushRoute(route) },
@@ -1063,6 +1072,16 @@ fun AgentAppRoot(
             composable<AppRoute.Assistants> { entry ->
                 val route = entry.toRoute<AppRoute.Assistants>()
                 AssistantsScreen(
+                    picker = route.picker,
+                    onNavigate = { destination -> pushRoute(destination) },
+                    onBack = ::popRoute,
+                    selectedAssistantId = shellHomeState.assistantId.ifBlank { null },
+                    onSelectAssistant = agentState::selectAssistant,
+                )
+            }
+            composable<AppRoute.AssistantSearch> { entry ->
+                val route = entry.toRoute<AppRoute.AssistantSearch>()
+                AssistantSearchScreen(
                     picker = route.picker,
                     onNavigate = { destination -> pushRoute(destination) },
                     onBack = ::popRoute,
