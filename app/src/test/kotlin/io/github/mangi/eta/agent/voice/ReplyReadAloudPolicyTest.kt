@@ -242,4 +242,47 @@ class ReplyReadAloudPolicyTest {
             ),
         )
     }
+
+    @Test fun userStopMarksTheCurrentReplyFinalized() {
+        val tracker = ReplyReadAloudTracker()
+        tracker.onSnapshot(VoiceChatSnapshot(isStreaming = true, lastAgentId = "m0", lastAgentText = "旧回复。"), streamSynthesis = true)
+        tracker.onSnapshot(VoiceChatSnapshot(isStreaming = true, lastAgentId = "m1", lastAgentText = "第一句。"), streamSynthesis = true)
+        // 用户点朗读按钮停止：当前回复立刻定稿，流式继续推进也不再读出剩余句子。
+        tracker.markCurrentFinalized()
+        assertEquals("m1", tracker.finalizedId)
+        assertTrue(
+            tracker.onSnapshot(
+                VoiceChatSnapshot(isStreaming = true, lastAgentId = "m1", lastAgentText = "第一句。第二句"),
+                streamSynthesis = true,
+            ).isEmpty(),
+        )
+        assertTrue(
+            tracker.onSnapshot(
+                VoiceChatSnapshot(isStreaming = false, lastAgentId = "m1", lastAgentText = "第一句。第二句"),
+                streamSynthesis = true,
+            ).isEmpty(),
+        )
+        // 下一轮新回复不受影响：新运行开始时第一条快照仍盯着上一条回复（记为基线），
+        // 随后新回复出现，照常自动朗读。
+        assertTrue(
+            tracker.onSnapshot(
+                VoiceChatSnapshot(isStreaming = true, lastAgentId = "m1", lastAgentText = "第一句。第二句"),
+                streamSynthesis = true,
+            ).isEmpty(),
+        )
+        assertEquals(
+            listOf("新回复。"),
+            tracker.onSnapshot(
+                VoiceChatSnapshot(isStreaming = true, lastAgentId = "m2", lastAgentText = "新回复。"),
+                streamSynthesis = true,
+            ),
+        )
+    }
+
+    @Test fun userStopWithoutCurrentReplyIsANoOp() {
+        val tracker = ReplyReadAloudTracker()
+        // 还没有任何回复在处理时点停止（比如刚切进会话），不能把历史回复定稿。
+        tracker.markCurrentFinalized()
+        assertNull(tracker.finalizedId)
+    }
 }

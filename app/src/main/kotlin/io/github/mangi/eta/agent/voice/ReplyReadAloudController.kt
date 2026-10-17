@@ -102,6 +102,11 @@ internal class ReplyReadAloudTracker {
         spokenCount = 0
         finalizedId = null
     }
+
+    /** 用户主动停止当前回复的自动朗读：这条回复视为已读完，不再读出剩余句子。 */
+    fun markCurrentFinalized() {
+        currentId?.let { finalizedId = it }
+    }
 }
 
 /**
@@ -140,6 +145,15 @@ internal object ReplyReadAloudController {
     /** 关闭总开关 / 结束 Service 时调用：停掉自己的播放并清空进度。 */
     fun stop() {
         disable()
+    }
+
+    /**
+     * 用户点回复的朗读按钮停止自动朗读：当前回复立刻标记为已读完（流式继续推进、
+     * 甚至下一轮快照到来都不会再读出剩余句子），并收掉自己的播放。
+     */
+    fun stopCurrent() {
+        tracker.markCurrentFinalized()
+        SpeechPlayback.stopOwned("auto_read_stop") { it.startsWith(OWNER_PREFIX) }
     }
 
     private suspend fun runLoop() {

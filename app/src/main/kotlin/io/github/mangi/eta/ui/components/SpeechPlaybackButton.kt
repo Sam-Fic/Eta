@@ -19,6 +19,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import io.github.mangi.eta.R
+import io.github.mangi.eta.agent.voice.ReplyReadAloudController
 import io.github.mangi.eta.agent.voice.tts.SpeechPlayback
 import io.github.mangi.eta.ui.adaptive.EtaConnectedIconAction
 import io.github.mangi.eta.ui.adaptive.EtaDimens
@@ -38,11 +39,20 @@ internal fun SpeechPlaybackButton(
 ) {
     val context = LocalContext.current
     val state by SpeechPlayback.state.collectAsState()
-    val active = state.owner == messageId
+    // 自动朗读本条回复时（owner = 前缀 + 消息 id）同样点亮按钮：正在朗读 → 停止键。
+    val autoOwner = ReplyReadAloudController.OWNER_PREFIX + messageId
+    val autoReading = state.owner == autoOwner
+    val active = state.owner == messageId || autoReading
     val description = stringResource(if (active) R.string.tts_stop else R.string.tts_read)
     if (count > 0) {
         EtaConnectedIconAction(
-            onClick = { SpeechPlayback.toggle(context, messageId, text) },
+            onClick = {
+                if (autoReading) {
+                    ReplyReadAloudController.stopCurrent()
+                } else {
+                    SpeechPlayback.toggle(context, messageId, text)
+                }
+            },
             enabled = !state.recording,
             index = index,
             count = count,
@@ -70,7 +80,13 @@ internal fun SpeechPlaybackButton(
     // 官方 IconButton（无尺寸覆盖，走官方默认档），配色只引用官方 colorScheme 角色。
     androidx.compose.material3.IconButton(
         modifier = Modifier.semantics { contentDescription = description },
-        onClick = { SpeechPlayback.toggle(context, messageId, text) },
+        onClick = {
+            if (autoReading) {
+                ReplyReadAloudController.stopCurrent()
+            } else {
+                SpeechPlayback.toggle(context, messageId, text)
+            }
+        },
         enabled = !state.recording,
     ) {
         if (active && state.preparing) {

@@ -7,9 +7,7 @@ import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -22,7 +20,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -48,12 +45,14 @@ import androidx.compose.material.icons.rounded.CancelPresentation
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DesktopWindows
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text as M3Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -106,10 +105,6 @@ import io.github.mangi.eta.ui.components.rememberImeVisible
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
 import io.github.mangi.eta.ui.model.AgentMessageUi
 import io.github.mangi.eta.ui.model.ConversationMentionInputUi
-import io.github.mangi.eta.ui.model.ThinkingMessageUi
-import io.github.mangi.eta.ui.model.ToolActivityMessageUi
-import io.github.mangi.eta.ui.model.UserMessageUi
-import kotlin.math.ceil
 import kotlin.math.max
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -173,71 +168,28 @@ internal object EtaScreenContextStateReducer {
     )
 }
 
-private data class EtaVoicePanelColors(
-    val content: Color,
-    val input: Color,
-    val inputPrimary: Color,
-    val inputSecondary: Color,
-    val inputTertiary: Color,
-    val tertiary: Color,
-    val scrim: Color,
-    /**
-     * 输入区上方功能件（屏幕上下文卡片等）的**全不透明**底色。
-     *
-     * [input] 自身带 alpha，再叠 0.92 后铺在浮窗上会把下层内容（用户当前界面、底部渐变）
-     * 透出来。功能件一律读这个值：它按同一外观合成到了不透明的面板底色上。
-     */
-    val inputSolid: Color,
-)
-
-@Composable
-private fun rememberEtaVoicePanelColors(): EtaVoicePanelColors {
-    val dark = isSystemInDarkTheme()
-    return remember(dark) {
-        if (dark) {
-            // 去掉 alpha 后的面板实色，用于把半透明功能件底色合成为不透明等价色。
-            val sheetSolid = Color(0xFF2B2C2F)
-            EtaVoicePanelColors(
-                content = Color(0xF52B2C2F),
-                input = Color(0xF2404040),
-                inputPrimary = Color(0xE6FFFFFF),
-                inputSecondary = Color(0x8AFFFFFF),
-                inputTertiary = Color(0x4DFFFFFF),
-                tertiary = Color(0x66FFFFFF),
-                scrim = Color(0x52000000),
-                inputSolid = Color(0xF2404040).copy(alpha = 0.92f).compositeOver(sheetSolid),
-            )
-        } else {
-            val sheetSolid = Color(0xFFF7F7F9)
-            EtaVoicePanelColors(
-                content = Color(0xFAF7F7F9),
-                input = Color(0xF2FFFFFF),
-                inputPrimary = Color(0xE6000000),
-                inputSecondary = Color(0x8A000000),
-                inputTertiary = Color(0x42000000),
-                tertiary = Color(0x52000000),
-                scrim = Color(0x30000000),
-                inputSolid = Color(0xF2FFFFFF).copy(alpha = 0.92f).compositeOver(sheetSolid),
-            )
-        }
-    }
+/**
+ * 内容面板的高度档位：半屏 / 全屏两档。
+ *
+ * 只允许在这两档之间切换，不提供任意中间高度：拖拽跟手，松手按位置与惯性吸附到
+ * 最近一档；档位切换动画统一走官方 M3E 空间弹簧（见 [AssistantPanel]）。
+ */
+internal enum class AssistantSheetMode {
+    HALF,
+    FULL,
 }
 
 /**
- * 入口浮层底部渐变压暗的**最小**高度。实际高度改为跟随输入区实测高度
- * （见 [AssistantInputBackdropExtraHeight]）：输入区早已不是单行，而是
- * 「屏幕上下文 chip + M3E 浮动工具栏（+ 附件预览条 / 语音聆听条）」，
- * 再固定 104dp 会让渐变的透明端跑到输入框上方、深色端压在输入框底下，
- * 视觉上就退化成一段等透明度的暗条。
+ * 半屏档高度占可用高度的比例；全屏档即可用高度的 100%。
+ * 可用高度 = 整窗高度 − 顶部余量 − 状态栏 − 导航栏（见 [EtaVoicePanel]）。
  */
-private val AssistantInputBackdropHeight = 104.dp
+private const val AssistantHalfSheetFraction = 0.5f
 
-/** 渐变压暗在输入区实测高度之上再多出一小截，让顶端透明段落在输入框上方可见。 */
-private val AssistantInputBackdropExtraHeight = 16.dp
+/** 官方底部面板顶部圆角（M3 `BottomSheetDefaults` 同款 28dp）。 */
+private val AssistantSheetTopCorner = 28.dp
 
 /**
- * 入口弹出时的上移距离：内容面板与底部渐变压暗都从下方这个距离平移到位。
- * 面板走 M3E 弹簧、渐变压暗走普通补间，两者同时上移。
+ * 入口弹出时的上移距离：内容面板从下方这个距离平移到位（M3E 弹簧）。
  */
 private val AssistantEntryTranslation = 56.dp
 
@@ -252,6 +204,28 @@ private val AssistantExitOvershoot = 48.dp
  * 反向平移回去、用普通非线性曲线（不用弹簧）。
  */
 private const val AssistantExitDurationMillis = 220
+
+/** 半屏档继续下拉超过该距离即关闭浮层（下拉关闭阈值）。 */
+private val AssistantDismissThreshold = 92.dp
+
+/** 全屏档继续上拉超过该距离即把对话交接回主程序（交接阈值）。 */
+private val AssistantHandoffThreshold = 72.dp
+
+/** 列表上滑时第二段交接的阈值（pre-scroll 阶段整段消费）。 */
+private val AssistantDirectHandoffThreshold = 48.dp
+
+/** 甩动速度阈值：快速下滑关闭、快速上滑展开，超过即按惯性翻档。 */
+private val AssistantFlingVelocity = 900.dp
+
+/**
+ * 空态（仅浮动输入胶囊）时输入区下方渐变压暗的**最小**高度。实际高度跟随输入区
+ * 实测高度（见 [AssistantInputBackdropExtraHeight]）：输入区早已不是单行，而是
+ * 「屏幕上下文 chip + M3E 浮动工具栏（+ 附件预览条 / 语音聆听条）」。
+ */
+private val AssistantInputBackdropHeight = 104.dp
+
+/** 渐变压暗在输入区实测高度之上再多出一小截，让顶端透明段落在输入框上方可见。 */
+private val AssistantInputBackdropExtraHeight = 16.dp
 
 @Composable
 internal fun EtaVoicePanel(
@@ -274,35 +248,25 @@ internal fun EtaVoicePanel(
     onQuestionDraftChanged: (String, String, io.github.mangi.eta.agent.question.AgentQuestionAnswer) -> Unit,
     onSubmitQuestionAnswer: (String, String) -> Unit,
 ) {
-    val colors = rememberEtaVoicePanelColors()
     val keyboard = LocalSoftwareKeyboardController.current
     val density = LocalDensity.current
     val focusRequester = remember { FocusRequester() }
     val panelEntry = remember { Animatable(0f) }
-    val backdropEntry = remember { Animatable(0f) }
     val exitProgress = remember { Animatable(0f) }
     // 整窗高度（px）：退场要按它把内容完全推出屏幕，动画结束时任何内容都不再可见。
     var windowHeightPx by remember { mutableIntStateOf(0) }
 
-    // 弹出：内容面板走 M3E 弹簧（纯平移入场），底部渐变压暗同期走普通补间平移，
-    // 两者一起自下而上平移到位，只是曲线不同；全程不掺透明度变化。弹簧规格须在组合期读取。
+    // 弹出：内容面板走 M3E 弹簧（纯平移入场），全程不掺透明度变化。
+    // 弹簧规格须在组合期读取。
     val panelEntrySpec = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
     LaunchedEffect(Unit) {
-        launch {
-            panelEntry.animateTo(
-                targetValue = 1f,
-                animationSpec = panelEntrySpec,
-            )
-        }
-        launch {
-            backdropEntry.animateTo(
-                targetValue = 1f,
-                animationSpec = tween(260, easing = FastOutSlowInEasing),
-            )
-        }
+        panelEntry.animateTo(
+            targetValue = 1f,
+            animationSpec = panelEntrySpec,
+        )
     }
 
-    // 退场：点空白处 / 返回键 / 交接时，面板连同底部渐变压暗**整体向下平移出屏**。
+    // 退场：点空白处 / 返回键 / 交接时，面板**整体向下平移出屏**（压暗层同步淡出）。
     // 与入场相反，这里用普通非线性曲线而不用弹簧；位移量按整窗高度 + 余量计算，
     // 保证动画结束时所有内容都已经滑出屏幕，而不是走一半等窗口被移除时「闪现消失」。
     // 全程只有位移、不做淡出。
@@ -325,14 +289,26 @@ internal fun EtaVoicePanel(
         }
     }
 
+    // Bottom Sheet 压暗层：官方 M3 scrim 角色 @ 32%（模态底部面板标准规格），与主程序
+    // 同一取色链。只在有消息（面板可见）时压暗用户界面；空态仅一枚浮动输入胶囊，不遮挡。
+    // 退场时随面板退场一起淡出，避免窗口被移除时压暗「闪现消失」。
+    val scrimColor = MaterialTheme.colorScheme.scrim.copy(alpha = 0.32f)
+    val scrimAlpha by animateFloatAsState(
+        targetValue = if (exitRequested || state.messages.isEmpty()) 0f else 1f,
+        animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
+        label = "assistant_scrim",
+    )
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .onSizeChanged { windowHeightPx = it.height },
     ) {
+        // 压暗 + 点击空白处关闭：绘制在内容面板之下，只透出面板上下的用户界面区域。
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .drawBehind { drawRect(color = scrimColor, alpha = scrimAlpha) }
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -375,20 +351,11 @@ internal fun EtaVoicePanel(
                     textFieldState = textFieldState,
                     composer = composer,
                     voiceState = voiceState,
-                    colors = colors,
                     focusRequester = focusRequester,
                     canOpenConversation = canOpenConversation,
-                    baseContentHeightPx = assistantBaseHeightPx(
-                        messages = state.messages,
-                        maxHeightPx = maxContentHeightPx,
-                        density = density.density,
-                    ),
                     maxContentHeightPx = maxContentHeightPx,
                     bottomInsetPx = bottomInset,
                     imeOverlapPx = imeOverlap,
-                    imeInsetPx = imeBottom,
-                    panelEntry = panelEntry,
-                    backdropEntry = backdropEntry,
                     composerConversationId = composerConversationId,
                     onStartVoiceMode = onStartVoiceMode,
                     onStopVoiceMode = onStopVoiceMode,
@@ -415,16 +382,11 @@ private fun BoxScope.AssistantPanel(
     textFieldState: TextFieldState,
     composer: EtaAssistantComposerState,
     voiceState: VoiceModeState,
-    colors: EtaVoicePanelColors,
     focusRequester: FocusRequester,
     canOpenConversation: Boolean,
-    baseContentHeightPx: Float,
     maxContentHeightPx: Float,
     bottomInsetPx: Int,
     imeOverlapPx: Int,
-    imeInsetPx: Int,
-    panelEntry: Animatable<Float, AnimationVector1D>,
-    backdropEntry: Animatable<Float, AnimationVector1D>,
     composerConversationId: String?,
     onStartVoiceMode: (VoiceEntryMode) -> Unit,
     onStopVoiceMode: () -> Unit,
@@ -441,7 +403,10 @@ private fun BoxScope.AssistantPanel(
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
-    var settledHeightPx by remember { mutableFloatStateOf(baseContentHeightPx) }
+    // 两档高度：半屏 / 全屏。拖拽跟手，松手按位置与惯性吸附到最近一档，
+    // 不存在任意中间高度；档位切换统一走官方 M3E 空间弹簧。
+    val halfSheetHeightPx = maxContentHeightPx * AssistantHalfSheetFraction
+    var sheetMode by remember { mutableStateOf(AssistantSheetMode.HALF) }
     var draggedHeightPx by remember { mutableStateOf<Float?>(null) }
     var dismissPullPx by remember { mutableFloatStateOf(0f) }
     var handoffPullPx by remember { mutableFloatStateOf(0f) }
@@ -449,24 +414,27 @@ private fun BoxScope.AssistantPanel(
     var thresholdHapticSent by remember { mutableStateOf(false) }
     var handoffRunning by remember { mutableStateOf(false) }
     var keepBottomAnchored by remember { mutableStateOf(true) }
-    // 输入区实测高度（含它自己的内边距）：底部渐变压暗按它取材，输入区长高/缩短时
-    // 渐变同步变高，不会退化成等透明度的暗条。绘制阶段读取，只触发重绘不触发重组。
+    // 空态输入区下方渐变压暗的实测取材：输入区实测高度（含自身内边距），
+    // 输入区长高 / 缩短时渐变同步变高。绘制阶段读取，只触发重绘不触发重组。
     var composerHeightPx by remember { mutableFloatStateOf(0f) }
-    val handoffThresholdPx = with(density) { 72.dp.toPx() }
-    val directHandoffThresholdPx = with(density) { 48.dp.toPx() }
-    val dismissThresholdPx = with(density) { 92.dp.toPx() }
-    val handoffVelocityPx = with(density) { 900.dp.toPx() }
+    val handoffThresholdPx = with(density) { AssistantHandoffThreshold.toPx() }
+    val directHandoffThresholdPx = with(density) { AssistantDirectHandoffThreshold.toPx() }
+    val dismissThresholdPx = with(density) { AssistantDismissThreshold.toPx() }
+    val flingVelocityPx = with(density) { AssistantFlingVelocity.toPx() }
     val hasMessages = state.messages.isNotEmpty()
     val targetHeightPx = if (hasMessages) {
-        settledHeightPx.coerceIn(baseContentHeightPx, maxContentHeightPx)
+        when (sheetMode) {
+            AssistantSheetMode.HALF -> halfSheetHeightPx
+            AssistantSheetMode.FULL -> maxContentHeightPx
+        }
     } else {
         0f
     }
-    val animatedHeightPx by animateFloatAsState(
-        targetValue = targetHeightPx,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-        label = "assistant_content_height",
-    )
+    // 高度唯一来源：[Animatable]。拖拽时 snapTo 直接写当前值（跟手），松手时
+    // animateTo 从**当前手指位置**续接到目标档 —— 不会先跳回旧档位再播放。
+    // 弹簧规格须在组合期读取（MaterialTheme.motionScheme 是 @Composable getter）。
+    val sheetHeight = remember { Animatable(0f) }
+    val sheetHeightSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
     val sheetBackgroundAlpha = animateFloatAsState(
         targetValue = if (hasMessages) 1f else 0f,
         animationSpec = tween(durationMillis = 160, easing = LinearOutSlowInEasing),
@@ -481,28 +449,36 @@ private fun BoxScope.AssistantPanel(
         },
         label = "assistant_message_reveal",
     )
-    val currentAnimatedHeight = rememberUpdatedState(animatedHeightPx)
-    val sheetHeightPx = draggedHeightPx ?: animatedHeightPx
+    val sheetHeightPx = draggedHeightPx ?: sheetHeight.value
     val visibleSheetHeightPx = sheetHeightPx.coerceAtMost(
         (maxContentHeightPx - imeOverlapPx).coerceAtLeast(0f),
     )
-    val nearFullscreen = sheetHeightPx >= maxContentHeightPx * 0.88f
-    val handoffReady = canOpenConversation && nearFullscreen &&
+    val handoffReady = canOpenConversation &&
         (handoffPullPx >= handoffThresholdPx ||
             directHandoffPullPx >= directHandoffThresholdPx)
-    val sheetTranslationPx = dismissPullPx * 0.28f - handoffPullPx.coerceAtMost(
-        with(density) { 28.dp.toPx() },
-    ) * 0.12f
 
-    LaunchedEffect(hasMessages, baseContentHeightPx, maxContentHeightPx) {
-        settledHeightPx = if (hasMessages) {
-            settledHeightPx.coerceIn(baseContentHeightPx, maxContentHeightPx)
-        } else {
-            0f
+    /**
+     * 吸附到目标高度：从 [sheetHeight] 的当前值（即手指松手位置）开始续接播放，
+     * 并把松手瞬间的甩动速度作为初速度，运动状态与手指连贯、无跳跃。
+     */
+    fun settleSheet(target: Float, velocityY: Float = 0f) {
+        scope.launch {
+            sheetHeight.animateTo(
+                targetValue = target,
+                animationSpec = sheetHeightSpec,
+                initialVelocity = -velocityY,
+            )
         }
     }
+
     LaunchedEffect(state.messages.size) {
         if (state.messages.isNotEmpty()) keepBottomAnchored = true
+    }
+    // 首条消息出现（面板从无到有）：从 0 长起到当前档位。
+    LaunchedEffect(hasMessages) {
+        if (hasMessages && draggedHeightPx == null) {
+            settleSheet(targetHeightPx)
+        }
     }
     LaunchedEffect(handoffReady) {
         if (handoffReady && !thresholdHapticSent) {
@@ -513,55 +489,70 @@ private fun BoxScope.AssistantPanel(
         }
     }
 
-    fun triggerHandoff() {
+    fun triggerHandoff(velocityY: Float = 0f) {
         if (handoffRunning || !canOpenConversation) return
         handoffRunning = true
-        settledHeightPx = maxContentHeightPx
+        // 交接动画期间先吸附到全屏档，避免交接途中高度掉回半屏。
+        sheetMode = AssistantSheetMode.FULL
         draggedHeightPx = null
+        settleSheet(maxContentHeightPx, velocityY)
         scope.launch {
             delay(120)
             onOpenConversation()
         }
     }
 
+    /**
+     * 拖拽跟手：按当前基准高度与手指位移请求新高度（上拉变大、下拉变小），
+     * 同时刷新「半屏档继续下拉（关闭）」与「全屏档继续上拉（交接）」的越界量。
+     * 高度直接写 [sheetHeight] 当前值（不播放动画），松手后由 [settleSheet] 从此处续接。
+     */
     fun dragBy(deltaY: Float): Float {
         if (handoffRunning || state.messages.isEmpty()) return 0f
-        val current = draggedHeightPx ?: currentAnimatedHeight.value
-        val requested = current - deltaY
-        return when {
-            requested > maxContentHeightPx -> {
-                draggedHeightPx = maxContentHeightPx
-                if (deltaY < 0f) handoffPullPx += -deltaY
-                deltaY
-            }
-            requested < baseContentHeightPx -> {
-                draggedHeightPx = baseContentHeightPx
-                if (deltaY > 0f) dismissPullPx += deltaY
-                deltaY
-            }
-            else -> {
-                draggedHeightPx = requested
-                dismissPullPx = 0f
-                handoffPullPx = 0f
-                deltaY
-            }
-        }
+        val base = draggedHeightPx ?: sheetHeight.value
+        val requested = base - deltaY
+        val clamped = requested.coerceIn(0f, maxContentHeightPx)
+        draggedHeightPx = clamped
+        dismissPullPx = (halfSheetHeightPx - requested).coerceAtLeast(0f)
+        handoffPullPx = (requested - maxContentHeightPx).coerceAtLeast(0f)
+        scope.launch { sheetHeight.snapTo(clamped) }
+        return deltaY
     }
 
+    /**
+     * 松手：先判「继续上拉交接 / 继续下拉关闭」，其余按位置与惯性在两档之间吸附。
+     * 吸附一律从松手位置续接（见 [settleSheet]），不再有「跳回原位再播放」。
+     * 速度判据只对面板自身拖拽生效，避免消息列表的甩动被误判成翻档 / 关闭。
+     */
     fun finishDrag(velocityY: Float = 0f) {
-        val current = draggedHeightPx ?: currentAnimatedHeight.value
+        if (state.messages.isEmpty()) return
+        val wasDragging = draggedHeightPx != null
+        val current = draggedHeightPx ?: sheetHeight.value
+        draggedHeightPx = null
+        val dismissPull = dismissPullPx
+        val handoffPull = handoffPullPx
+        dismissPullPx = 0f
+        handoffPullPx = 0f
+        directHandoffPullPx = 0f
+        val flingUp = wasDragging && velocityY <= -flingVelocityPx
+        val flingDown = wasDragging && velocityY >= flingVelocityPx
+        val pastMidpoint = current >= (halfSheetHeightPx + maxContentHeightPx) / 2f
         when {
-            dismissPullPx >= dismissThresholdPx -> onClose()
-            canOpenConversation && current >= maxContentHeightPx * 0.88f &&
-                (handoffReady || velocityY <= -handoffVelocityPx) -> triggerHandoff()
+            // 全屏档继续上拉：交接回主程序（或快速上甩）。
+            handoffPull >= handoffThresholdPx ||
+                (flingUp && current >= maxContentHeightPx * 0.98f) ->
+                triggerHandoff(velocityY)
+            // 半屏档继续下拉：关闭浮层（或快速下甩）。
+            dismissPull >= dismissThresholdPx ||
+                (flingDown && current < halfSheetHeightPx) ->
+                onClose()
+            pastMidpoint || flingUp -> {
+                sheetMode = AssistantSheetMode.FULL
+                settleSheet(maxContentHeightPx, velocityY)
+            }
             else -> {
-                val medium = baseContentHeightPx +
-                    (maxContentHeightPx - baseContentHeightPx) * 0.58f
-                val anchors = floatArrayOf(baseContentHeightPx, medium, maxContentHeightPx)
-                settledHeightPx = anchors.minBy { kotlin.math.abs(it - current) }
-                draggedHeightPx = null
-                dismissPullPx = 0f
-                handoffPullPx = 0f
+                sheetMode = AssistantSheetMode.HALF
+                settleSheet(halfSheetHeightPx, velocityY)
             }
         }
     }
@@ -569,18 +560,18 @@ private fun BoxScope.AssistantPanel(
     val dragByState = rememberUpdatedState<(Float) -> Float>(::dragBy)
     val finishDragState = rememberUpdatedState<(Float) -> Unit>(::finishDrag)
     val nestedScrollConnection = remember(
-        baseContentHeightPx,
+        halfSheetHeightPx,
         maxContentHeightPx,
         canOpenConversation,
         listState,
     ) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                val current = draggedHeightPx ?: currentAnimatedHeight.value
+                val current = draggedHeightPx ?: sheetHeight.value
                 if (
                     available.y < 0f &&
                     canOpenConversation &&
-                    current >= maxContentHeightPx * 0.88f
+                    current >= maxContentHeightPx * 0.98f
                 ) {
                     directHandoffPullPx += -available.y
                     if (directHandoffPullPx >= directHandoffThresholdPx) {
@@ -590,8 +581,10 @@ private fun BoxScope.AssistantPanel(
                     // overscroll 先截走事件后，接管手势永远达不到阈值。
                     return Offset(0f, available.y)
                 }
+                // 未到全屏时上滑先长高、到顶后下滑先收缩（半屏档继续下滑即下拉关闭），
+                // 两档之外不消费，交还列表自身滚动。
                 val shouldResize = (available.y < 0f && current < maxContentHeightPx) ||
-                    (available.y > 0f && current > baseContentHeightPx && !listState.canScrollBackward)
+                    (available.y > 0f && current > halfSheetHeightPx && !listState.canScrollBackward)
                 return if (shouldResize) {
                     Offset(0f, dragByState.value(available.y))
                 } else {
@@ -605,9 +598,9 @@ private fun BoxScope.AssistantPanel(
                 source: NestedScrollSource,
             ): Offset {
                 if (available.y == 0f) return Offset.Zero
-                val current = draggedHeightPx ?: currentAnimatedHeight.value
-                val atUpperEdge = available.y < 0f && current >= maxContentHeightPx * 0.88f
-                val atLowerEdge = available.y > 0f && current <= baseContentHeightPx
+                val current = draggedHeightPx ?: sheetHeight.value
+                val atUpperEdge = available.y < 0f && current >= maxContentHeightPx * 0.98f
+                val atLowerEdge = available.y > 0f && current <= halfSheetHeightPx
                 return if (atUpperEdge || atLowerEdge) {
                     Offset(0f, dragByState.value(available.y))
                 } else {
@@ -629,117 +622,120 @@ private fun BoxScope.AssistantPanel(
 
     val bottomInset = with(density) { bottomInsetPx.toDp() }
     val messageRevealOffsetPx = with(density) { 12.dp.toPx() }
-    val sheetShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
-    // 会话面板（发出消息后弹出的这块 bottomsheet）底色：用 surfaceContainer，并且强制
-    // 全不透明。原先用带 alpha 的 colors.content，铺在用户界面上会把下层内容透出来。
-    val sheetSurface = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 1f)
-    Column(
+    // 官方底部面板形状：顶部 28dp 圆角（M3 BottomSheetDefaults 同款）。
+    val sheetShape = RoundedCornerShape(
+        topStart = AssistantSheetTopCorner,
+        topEnd = AssistantSheetTopCorner,
+    )
+    // 面板底色：官方 surfaceContainer 角色（与主程序聊天背景同一取色、同一条动态取色链），
+    // 全不透明。有消息时整块面板自消息区到屏幕底沿同色衔接，不叠任何渐变。
+    val sheetSurface = MaterialTheme.colorScheme.surfaceContainer
+    // 空态渐变：与模态压暗同色（官方 scrim 角色 @ 32%），Brush 只建一次、按帧复用。
+    val inputBackdropColor = MaterialTheme.colorScheme.scrim.copy(alpha = 0.32f)
+    val inputBackdropBrush = remember(inputBackdropColor) {
+        Brush.verticalGradient(colors = listOf(Color.Transparent, inputBackdropColor))
+    }
+    Surface(
         modifier = Modifier
             .align(Alignment.BottomCenter)
-            .fillMaxWidth()
-            .offset(y = with(density) { sheetTranslationPx.toDp() })
-            .clip(sheetShape)
-            .drawBehind {
-                drawRect(
-                    color = sheetSurface.copy(alpha = sheetBackgroundAlpha.value),
-                )
-                // 输入区下方的渐变压暗：画在面板底色之上、输入框之下。
-                // 面板本体走 M3E 弹簧上移，这里抵消掉面板的弹簧位移、再叠加渐变自己的
-                // 普通补间位移，让渐变单独按普通曲线平移上来。
-                // 和输入框一样：入场 / 退场只位移，不跟着改透明度。
-                val translationPx = AssistantEntryTranslation.toPx()
-                val panelOffsetPx = (1f - panelEntry.value) * translationPx
-                val backdropOffsetPx = (1f - backdropEntry.value) * translationPx
-                // 渐变高度跟随输入区实测高度再加一小截，并保留最小值兜底（首帧未测量时）。
-                val scrimHeightPx = maxOf(
-                    AssistantInputBackdropHeight.toPx(),
-                    composerHeightPx + AssistantInputBackdropExtraHeight.toPx(),
-                )
-                // 底部一直垫到物理屏幕底（键盘弹起时抬到键盘上沿），
-                // 因此手势条区域也被一并压暗，不会空出一道。
-                val scrimBottomPx = size.height - imeInsetPx
-                drawRect(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            colors.scrim,
-                        ),
-                    ),
-                    topLeft = Offset(
-                        x = 0f,
-                        y = scrimBottomPx - scrimHeightPx + (backdropOffsetPx - panelOffsetPx),
-                    ),
-                    size = Size(size.width, scrimHeightPx),
-                )
-            },
+            .fillMaxWidth(),
+        shape = sheetShape,
+        color = Color.Transparent,
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(with(density) { visibleSheetHeightPx.toDp() })
-                .nestedScroll(nestedScrollConnection),
-        ) {
-            DragHandle(
-                colors = colors,
-                modifier = Modifier.pointerInput(baseContentHeightPx, maxContentHeightPx) {
-                    detectVerticalDragGestures(
-                        onDragStart = { draggedHeightPx = currentAnimatedHeight.value },
-                        onVerticalDrag = { change, dragAmount ->
-                            change.consume()
-                            dragBy(dragAmount)
-                        },
-                        onDragEnd = { finishDrag() },
-                        onDragCancel = { finishDrag() },
-                    )
+                .drawBehind {
+                    // 空态（仅浮动输入胶囊）：输入区下方渐变压暗，把胶囊「压」在用户界面上；
+                    // 有消息时被上方不透明面板底色完全盖住，并随底色淡入同步淡出，
+                    // 不会重现「输入框下面一块灰」的断裂带。
+                    val backdropFade = 1f - sheetBackgroundAlpha.value
+                    if (backdropFade > 0f) {
+                        val scrimHeightPx = maxOf(
+                            AssistantInputBackdropHeight.toPx(),
+                            composerHeightPx + AssistantInputBackdropExtraHeight.toPx(),
+                        )
+                        drawRect(
+                            brush = inputBackdropBrush,
+                            topLeft = Offset(x = 0f, y = size.height - scrimHeightPx),
+                            size = Size(size.width, scrimHeightPx),
+                            alpha = backdropFade,
+                        )
+                    }
+                    // 有消息（Bottom Sheet 可见）：整块面板只用 surfaceContainer 实色，
+                    // 自消息区到屏幕底沿同色衔接。
+                    drawRect(color = sheetSurface, alpha = sheetBackgroundAlpha.value)
                 },
-            )
-            Box(
+        ) {
+            Column(
                 modifier = Modifier
-                    .weight(1f)
-                    .graphicsLayer {
-                        alpha = messageRevealProgress.value
-                        translationY = (1f - messageRevealProgress.value) * messageRevealOffsetPx
-                    },
+                    .fillMaxWidth()
+                    .height(with(density) { visibleSheetHeightPx.toDp() })
+                    .nestedScroll(nestedScrollConnection),
             ) {
+                // 手势条只在有消息（面板可见）时出现；空态只有一枚浮动输入胶囊。
                 if (hasMessages) {
-                    AgentConversationMessages(
-                        visibleMessages = state.messages,
-                        scrollState = listState,
-                        isStreaming = state.phase == EtaVoicePhase.PROCESSING,
-                        bottomInset = 8.dp,
-                        keepBottomAnchored = keepBottomAnchored,
-                        onBottomAnchorChanged = { keepBottomAnchored = it },
-                        onQuestionDraftChanged = onQuestionDraftChanged,
-                        onSubmitQuestionAnswer = onSubmitQuestionAnswer,
-                        modifier = Modifier.fillMaxSize(),
+                    DragHandle(
+                        modifier = Modifier.pointerInput(halfSheetHeightPx, maxContentHeightPx) {
+                            detectVerticalDragGestures(
+                                onDragStart = { draggedHeightPx = sheetHeight.value },
+                                onVerticalDrag = { change, dragAmount ->
+                                    change.consume()
+                                    dragBy(dragAmount)
+                                },
+                                onDragEnd = { finishDrag() },
+                                onDragCancel = { finishDrag() },
+                            )
+                        },
                     )
                 }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .graphicsLayer {
+                            alpha = messageRevealProgress.value
+                            translationY = (1f - messageRevealProgress.value) * messageRevealOffsetPx
+                        },
+                ) {
+                    if (hasMessages) {
+                        AgentConversationMessages(
+                            visibleMessages = state.messages,
+                            scrollState = listState,
+                            isStreaming = state.phase == EtaVoicePhase.PROCESSING,
+                            bottomInset = 8.dp,
+                            keepBottomAnchored = keepBottomAnchored,
+                            onBottomAnchorChanged = { keepBottomAnchored = it },
+                            onQuestionDraftChanged = onQuestionDraftChanged,
+                            onSubmitQuestionAnswer = onSubmitQuestionAnswer,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                }
             }
+            AssistantComposer(
+                state = state,
+                textFieldState = textFieldState,
+                composer = composer,
+                voiceState = voiceState,
+                focusRequester = focusRequester,
+                composerConversationId = composerConversationId,
+                onStartVoiceMode = onStartVoiceMode,
+                onStopVoiceMode = onStopVoiceMode,
+                onScreenContextSelect = onScreenContextSelect,
+                onScreenContextRemove = onScreenContextRemove,
+                onSubmit = onSubmit,
+                onStop = onStop,
+                modifier = Modifier
+                    .onSizeChanged { composerHeightPx = it.height.toFloat() }
+                    .fillMaxWidth()
+                    .padding(
+                        start = 16.dp,
+                        end = 16.dp,
+                        top = 8.dp,
+                        bottom = bottomInset + 10.dp,
+                    ),
+            )
         }
-        AssistantComposer(
-            state = state,
-            textFieldState = textFieldState,
-            composer = composer,
-            voiceState = voiceState,
-            colors = colors,
-            focusRequester = focusRequester,
-            composerConversationId = composerConversationId,
-            onStartVoiceMode = onStartVoiceMode,
-            onStopVoiceMode = onStopVoiceMode,
-            onScreenContextSelect = onScreenContextSelect,
-            onScreenContextRemove = onScreenContextRemove,
-            onSubmit = onSubmit,
-            onStop = onStop,
-            modifier = Modifier
-                .onSizeChanged { composerHeightPx = it.height.toFloat() }
-                .fillMaxWidth()
-                .padding(
-                    start = 16.dp,
-                    end = 16.dp,
-                    top = 8.dp,
-                    bottom = bottomInset + 10.dp,
-                ),
-        )
     }
 }
 
@@ -749,7 +745,6 @@ private fun AssistantComposer(
     textFieldState: TextFieldState,
     composer: EtaAssistantComposerState,
     voiceState: VoiceModeState,
-    colors: EtaVoicePanelColors,
     focusRequester: FocusRequester,
     composerConversationId: String?,
     onStartVoiceMode: (VoiceEntryMode) -> Unit,
@@ -794,7 +789,6 @@ private fun AssistantComposer(
         ScreenContextAttachment(
             state = state.screenContext,
             enabled = !processing,
-            colors = colors,
             onSelect = onScreenContextSelect,
             onRemove = onScreenContextRemove,
         )
@@ -887,7 +881,6 @@ private fun AssistantComposer(
 private fun ScreenContextAttachment(
     state: EtaScreenContextUiState,
     enabled: Boolean,
-    colors: EtaVoicePanelColors,
     onSelect: () -> Unit,
     onRemove: () -> Unit,
 ) {
@@ -910,7 +903,6 @@ private fun ScreenContextAttachment(
                 SelectedScreenContext(
                     previewDataUrl = screenContext.previewDataUrl,
                     enabled = enabled,
-                    colors = colors,
                     onRemove = onRemove,
                 )
             }
@@ -942,9 +934,9 @@ private fun ScreenContextAttachment(
                     ),
                 ) {
                     when (screenContext.phase) {
-                        EtaScreenContextPhase.CAPTURING -> CircularProgressIndicator(
+                        EtaScreenContextPhase.CAPTURING -> LoadingIndicator(
                             modifier = Modifier.size(ButtonDefaults.IconSize),
-                            strokeWidth = 2.dp,
+                            color = LocalContentColor.current,
                         )
                         EtaScreenContextPhase.AVAILABLE -> Icon(
                             imageVector = Icons.Rounded.DesktopWindows,
@@ -979,20 +971,19 @@ private fun ScreenContextAttachment(
 private fun SelectedScreenContext(
     previewDataUrl: String?,
     enabled: Boolean,
-    colors: EtaVoicePanelColors,
     onRemove: () -> Unit,
 ) {
     val previewBitmap = previewDataUrl?.let { rememberDataUrlBitmap(it) }
-    // 卡片底色与前景墨色全部取**全不透明**值：功能件不允许半透明；禁用态（生成中）的移除钮
-    // 靠合成后的实色深浅区分，而不是靠降低透明度。
-    val titleColor = colors.inputPrimary.compositeOver(colors.inputSolid)
-    val summaryColor = colors.inputSecondary.compositeOver(colors.inputSolid)
-    val removeColor = (if (enabled) colors.inputSecondary else colors.inputTertiary)
-        .compositeOver(colors.inputSolid)
+    // 取色与主程序一致：全部走官方 M3 角色（surfaceContainerHigh 卡片底、onSurface /
+    // onSurfaceVariant 前景、outline 禁用态），深浅色与动态取色自动适配。
+    val scheme = MaterialTheme.colorScheme
+    val titleColor = scheme.onSurface
+    val summaryColor = scheme.onSurfaceVariant
+    val removeColor = if (enabled) scheme.onSurfaceVariant else scheme.outline
     Row(
         modifier = Modifier
             .height(60.dp)
-            .background(colors.inputSolid, RoundedCornerShape(15.dp))
+            .background(scheme.surfaceContainerHigh, RoundedCornerShape(15.dp))
             .padding(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1038,7 +1029,9 @@ private fun SelectedScreenContext(
 }
 
 @Composable
-private fun DragHandle(colors: EtaVoicePanelColors, modifier: Modifier = Modifier) {
+private fun DragHandle(modifier: Modifier = Modifier) {
+    // 官方底部面板手势条：onSurfaceVariant @ 40%（M3 BottomSheetDefaults.DragHandle 同款取色），
+    // 走主题调色板，深浅色与动态取色自动适配，与主程序保持一致。
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -1049,29 +1042,8 @@ private fun DragHandle(colors: EtaVoicePanelColors, modifier: Modifier = Modifie
             modifier = Modifier
                 .size(width = 36.dp, height = 4.dp)
                 .clip(CircleShape)
-                .background(colors.tertiary),
+                .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)),
         )
     }
 }
 
-private fun assistantBaseHeightPx(
-    messages: List<AgentChatMessageUi>,
-    maxHeightPx: Float,
-    density: Float,
-): Float {
-    if (messages.isEmpty()) return 0f
-    val estimatedLines = messages.sumOf { message ->
-        when (message) {
-            is UserMessageUi -> ceil(message.content.length / 22f).toInt().coerceAtLeast(1)
-            is AgentMessageUi -> ceil(message.content.length / 24f).toInt().coerceAtLeast(1)
-            is ThinkingMessageUi -> 2
-            is io.github.mangi.eta.ui.model.AgentQuestionMessageUi -> 7 + message.request.options.size * 2
-            is ToolActivityMessageUi -> 2
-            else -> 1
-        }
-    }
-    val estimatedDp = 92f + estimatedLines * 23f + messages.size * 12f
-    return max(230f, estimatedDp)
-        .times(density)
-        .coerceAtMost(maxHeightPx * 0.68f)
-}

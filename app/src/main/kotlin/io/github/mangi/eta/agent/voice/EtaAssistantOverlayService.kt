@@ -102,7 +102,9 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
     }
     private val runtimeClient = AgentRuntimeClient(this, AndroidAgentLogger)
     // 生成中追加指令（不附带图片时）无需落盘；带附件时按应用内同一套路径把附件暂存到会话缓存目录。
-    private val chatImageCache = AgentChatImageCache(this)
+    // 与下方三个协作者同理：AgentChatImageCache 构造期读取 applicationContext，必须等
+    // attachBaseContext 之后创建，否则主进程在 new Service 实例时就 NPE 崩溃，浮窗永远唤不出来。
+    private lateinit var chatImageCache: AgentChatImageCache
     private val runMessageProjector = AgentRunMessageProjector()
     private val conversationKey = "eta_assistant_${UUID.randomUUID()}"
     private var conversationHistory = emptyList<AgentModelClient.ConversationMessage>()
@@ -154,6 +156,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         super.onCreate()
         // 基类已 attach，这里才允许读取 applicationContext（见上方字段注释）。
         overlayResultRegistry = EtaAssistantOverlayResultRegistry(this)
+        chatImageCache = AgentChatImageCache(this)
         composerState = EtaAssistantComposerState(this, scope)
         voiceController = VoiceModeController(this, scope) { text ->
             // 语音回调来自后台协程；提交会操作 WindowManager / Compose 状态，统一切回主线程。
