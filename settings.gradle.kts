@@ -24,3 +24,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Eta"
 include(":app")
+include(":baselineprofile")

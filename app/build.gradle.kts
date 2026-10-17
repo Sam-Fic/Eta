@@ -6,6 +6,8 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     id("eta.compose-semantics-cache")
+    // 消费 :baselineprofile 生成的基准配置文件，降低滑动 JIT 抖动（仅 release 生效）。
+    id("androidx.baselineprofile")
 }
 
 val keystoreProperties = Properties().apply {
@@ -157,6 +159,8 @@ dependencies {
     implementation(libs.material3)
     // 取色引擎：由强调色种子 + 配色风格生成 9 套 DynamicScheme（Spec2025）
     implementation(libs.material.color.utilities)
+    // 基准配置文件：由 :baselineprofile 模块在真机 / 模拟器上生成（generateBaselineProfile）。
+    baselineProfile(project(":baselineprofile"))
     implementation(libs.hidden.api.bypass)
 
     // DataStore：Provider / Model 结构化 JSON 与当前选中 ID 等键值
