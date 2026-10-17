@@ -6,7 +6,7 @@ import org.junit.Test
 
 class AppUpdateParserTest {
     @Test
-    fun parsesGithubReleaseAndPrefersDaiyuApk() {
+    fun parsesGithubReleaseAndPrefersEtaApk() {
         val offer = AppUpdateParser.parseLatestRelease(
             """
             {
@@ -26,8 +26,8 @@ class AppUpdateParserTest {
                   "browser_download_url":"https://github.com/y2485871697/Eta/releases/download/v5.2.3/app-release.apk"
                 },
                 {
-                  "name":"daiyu-5.2.3.apk",
-                  "browser_download_url":"https://github.com/y2485871697/Eta/releases/download/v5.2.3/daiyu-5.2.3.apk"
+                  "name":"eta-5.2.3.apk",
+                  "browser_download_url":"https://github.com/y2485871697/Eta/releases/download/v5.2.3/eta-5.2.3.apk"
                 }
               ]
             }
@@ -37,9 +37,9 @@ class AppUpdateParserTest {
         assertEquals("5.2.3", offer.versionName)
         assertEquals("v5.2.3", offer.tagName)
         assertEquals("bug fixes", offer.notes)
-        assertEquals("daiyu-5.2.3.apk", offer.apkName)
+        assertEquals("eta-5.2.3.apk", offer.apkName)
         assertEquals(
-            "https://github.com/y2485871697/Eta/releases/download/v5.2.3/daiyu-5.2.3.apk",
+            "https://github.com/y2485871697/Eta/releases/download/v5.2.3/eta-5.2.3.apk",
             offer.apkUrl,
         )
     }

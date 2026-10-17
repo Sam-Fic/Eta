@@ -71,7 +71,7 @@ internal object AppUpdateRepository {
         val name = offer.apkName
             ?.substringAfterLast('/')
             ?.takeIf { it.endsWith(".apk", ignoreCase = true) }
-            ?: "daiyu-${AppVersion.normalize(offer.versionName).ifBlank { "update" }}.apk"
+            ?: "eta-${AppVersion.normalize(offer.versionName).ifBlank { "update" }}.apk"
         val dir = File(context.applicationContext.cacheDir, "updates").apply { mkdirs() }
         val destination = File(dir, name)
         val request = Request.Builder()

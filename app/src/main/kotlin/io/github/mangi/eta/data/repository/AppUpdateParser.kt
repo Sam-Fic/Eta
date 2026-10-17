@@ -27,7 +27,7 @@ internal object AppUpdateParser {
             asset.string("name").orEmpty().endsWith(".apk", ignoreCase = true)
         }
         val apk = apkFiles.firstOrNull { asset ->
-            asset.string("name").orEmpty().startsWith("daiyu", ignoreCase = true)
+            asset.string("name").orEmpty().startsWith("eta", ignoreCase = true)
         } ?: apkFiles.firstOrNull()
         val notes = root.string("body")
             ?.trim()
