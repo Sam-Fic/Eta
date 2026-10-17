@@ -5,8 +5,11 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 
+/**
+ * M3 的 PopupPositionProvider 只提供 anchorBounds/windowSize/popupContentSize，
+ * 没有 miuix 的 alignment 与 popupMargin，所以这里的断言按当前实现直接推导。
+ */
 class InputPopupPositionProviderTest {
     @Test
     fun calculatePosition_alignsToWindowEndAboveInputContainer() {
@@ -15,29 +18,27 @@ class InputPopupPositionProviderTest {
             windowHorizontalInsetPx = 40,
         ).calculatePosition(
             anchorBounds = IntRect(left = 400, top = 1_850, right = 500, bottom = 1_900),
-            windowBounds = IntRect(left = 0, top = 72, right = 1_080, bottom = 2_200),
+            windowSize = IntSize(width = 1_080, height = 2_200),
             layoutDirection = LayoutDirection.Ltr,
             popupContentSize = IntSize(width = 300, height = 600),
-            popupMargin = IntRect(left = 0, top = 24, right = 0, bottom = 24),
-            alignment = PopupPositionProvider.Align.TopEnd,
         )
 
+        // x 贴窗口末端内边距：1080 - 300 - 40；y 贴在输入容器上沿：1800 - 600。
         assertEquals(740, result.x)
-        assertEquals(1_176, result.y)
+        assertEquals(1_200, result.y)
     }
 
     @Test
-    fun calculatePosition_clampsToSafeWindowBounds() {
+    fun calculatePosition_clampsToWindowSafeBounds() {
         val result = InputPopupPositionProvider(inputContainerTopPx = 300).calculatePosition(
-            anchorBounds = IntRect(left = 80, top = 320, right = 160, bottom = 360),
-            windowBounds = IntRect(left = 24, top = 72, right = 1_056, bottom = 2_200),
+            anchorBounds = IntRect(left = -50, top = 320, right = 30, bottom = 360),
+            windowSize = IntSize(width = 1_032, height = 2_128),
             layoutDirection = LayoutDirection.Ltr,
             popupContentSize = IntSize(width = 400, height = 500),
-            popupMargin = IntRect(left = 0, top = 24, right = 0, bottom = 24),
-            alignment = PopupPositionProvider.Align.TopEnd,
         )
 
-        assertEquals(24, result.x)
-        assertEquals(96, result.y)
+        // 锚点越界（左侧 < 0）、内容高于输入容器上沿，都收敛到窗口原点。
+        assertEquals(0, result.x)
+        assertEquals(0, result.y)
     }
 }
