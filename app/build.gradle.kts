@@ -149,6 +149,8 @@ dependencies {
     implementation(libs.miuix.nav)
     implementation(libs.miuix.preference)
     implementation(libs.material.icons.extended)
+    // 官方类型安全导航（替代 miuix 的 NavDisplay/NavBackStack）
+    implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.navigationevent)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)

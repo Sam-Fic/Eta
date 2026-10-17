@@ -1,25 +1,38 @@
 package io.github.mangi.eta.ui.app
 
 import android.view.Choreographer
-import androidx.compose.ui.graphics.GraphicsLayerScope
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.util.fastRoundToInt
+import androidx.navigation.NavBackStackEntry
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
-import top.yukonga.miuix.kmp.nav.transition.NavTransition
-import top.yukonga.miuix.kmp.nav.transition.NavTransitionScope
-import top.yukonga.miuix.kmp.nav.transition.navGraphicsTransition
 
 internal const val NAVIGATION_ACTIVITY_STALE_NS = 200_000_000L
+
+/** 转场时长，与下面的转场动画保持一致，用来确定导航活跃的采样窗口。 */
+private const val NAVIGATION_TRANSITION_DURATION_MS = 300
+private const val NAVIGATION_TRANSITION_WINDOW_NS = NAVIGATION_TRANSITION_DURATION_MS * 1_000_000L
 
 /** A draw that stopped updating must not keep the covered chat live. */
 internal fun navigationActivityIsCurrent(flag: Boolean, stampNs: Long, nowNs: Long, staleNs: Long): Boolean =
     flag && nowNs - stampNs < staleNs
 
 /**
- * Samples the navigation transition from the draw phase without writing snapshot state there.
- * The draw loop only stores atomics. A frame callback publishes the boolean when it actually changes,
- * and treats a frozen stamp as idle so the last frame cannot leave the chat running.
+ * Samples the navigation transition. The sampler only stores atomics and a frame callback publishes the
+ * boolean when it actually changes, and treats a frozen stamp as idle so the last frame cannot leave the
+ * chat running.
  */
 internal class ChatNavigationActivityTracker(
     private val onChanged: (Boolean) -> Unit,
@@ -69,36 +82,76 @@ internal class ChatNavigationActivityTracker(
     }
 }
 
+/**
+ * NavHost 的转场与导航活跃采样。转场几何沿用原来的默认值：新页从侧边整屏推入，
+ * 被盖住的页只做四分之一屏的视差并淡到 0.9。
+ */
 internal class ChatNavigationActivityTransition(
-    val transition: NavTransition,
+    val enterTransition: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition,
+    val exitTransition: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition,
+    val popEnterTransition: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition,
+    val popExitTransition: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition,
     private val tracker: ChatNavigationActivityTracker,
 ) {
+    constructor(rtl: Boolean, tracker: ChatNavigationActivityTracker) : this(
+        enterTransition = {
+            slideInHorizontally(animationSpec = tween(NAVIGATION_TRANSITION_DURATION_MS)) { fullWidth ->
+                if (rtl) -fullWidth else fullWidth
+            }
+        },
+        exitTransition = {
+            slideOutHorizontally(animationSpec = tween(NAVIGATION_TRANSITION_DURATION_MS)) { fullWidth ->
+                if (rtl) fullWidth / 4 else -fullWidth / 4
+            } + fadeOut(
+                animationSpec = tween(NAVIGATION_TRANSITION_DURATION_MS),
+                targetAlpha = 0.9f,
+            )
+        },
+        popEnterTransition = {
+            slideInHorizontally(animationSpec = tween(NAVIGATION_TRANSITION_DURATION_MS)) { fullWidth ->
+                if (rtl) fullWidth / 4 else -fullWidth / 4
+            } + fadeIn(
+                animationSpec = tween(NAVIGATION_TRANSITION_DURATION_MS),
+                initialAlpha = 0.9f,
+            )
+        },
+        popExitTransition = {
+            slideOutHorizontally(animationSpec = tween(NAVIGATION_TRANSITION_DURATION_MS)) { fullWidth ->
+                if (rtl) -fullWidth else fullWidth
+            }
+        },
+        tracker = tracker,
+    )
+
     fun cancel() = tracker.cancel()
+
+    /**
+     * 一次导航的转场期间逐帧标记活跃；采样结束后由 tracker 的过期看门狗把它收敛成不活跃。
+     */
+    suspend fun sampleWhileAnimating(windowNs: Long = NAVIGATION_TRANSITION_WINDOW_NS) {
+        var startNs = 0L
+        var started = false
+        while (true) {
+            val frameNs = withFrameNanos { it }
+            if (!started) {
+                startNs = frameNs
+                started = true
+            }
+            tracker.observeFrame(true)
+            if (frameNs - startNs >= windowNs) break
+        }
+    }
 }
 
 /**
- * Same geometry as MiuixDefault (full-width slide, quarter-width parallax, 10% alpha), plus an
- * activity sample. The sample must not assign Compose state inside this draw block.
+ * 转场几何与导航活跃采样；[onActivityChanged] 只在活跃状态真正变化时回调。
  */
+@Composable
 internal fun chatNavigationActivityTransition(
     onActivityChanged: (Boolean) -> Unit,
 ): ChatNavigationActivityTransition {
-    val tracker = ChatNavigationActivityTracker(onActivityChanged)
-    val transition = navGraphicsTransition(opaqueDepth = 1f) { scope ->
-        tracker.observeFrame(scope.gesture != null || scope.settle != null)
-        applyDefaultCoveredChatTransform(scope)
-    }
-    return ChatNavigationActivityTransition(transition, tracker)
-}
-
-private fun GraphicsLayerScope.applyDefaultCoveredChatTransform(scope: NavTransitionScope) {
-    val width = scope.layoutSize.width.toFloat()
-    val depth = scope.relativeDepth
-    val rtl = scope.layoutDirection == LayoutDirection.Rtl
-    if (depth <= 0f) {
-        translationX = ((if (rtl) -1f else 1f) * (-depth).coerceIn(0f, 1f) * width).fastRoundToInt().toFloat()
-    } else {
-        translationX = (if (rtl) 1f else -1f) * depth.coerceIn(0f, 1f) * width * 0.25f
-        alpha = 1f - 0.1f * depth.coerceIn(0f, 1f)
-    }
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    val publish = rememberUpdatedState(onActivityChanged)
+    val tracker = remember { ChatNavigationActivityTracker(onChanged = { active -> publish.value(active) }) }
+    return remember(rtl) { ChatNavigationActivityTransition(rtl, tracker) }
 }
