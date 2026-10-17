@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="execution_channel">任务运行</string>
-    <string name="execution_title">代鱼正在运行</string>
-    <string name="execution_summary">%1$d 个任务正在运行，可返回代鱼查看进度</string>
-    <string name="execution_summary_idle">没有正在执行的会话，可返回代鱼</string>
+    <string name="execution_title">Eta正在运行</string>
+    <string name="execution_summary">%1$d 个任务正在运行，可返回Eta查看进度</string>
+    <string name="execution_summary_idle">没有正在执行的会话，可返回Eta</string>
     <string name="execution_stop">停止运行任务</string>
     <string name="execution_chip_running">操作中</string>
     <string name="execution_chip_answering">回答中</string>

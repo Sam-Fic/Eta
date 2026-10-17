@@ -154,19 +154,19 @@ internal object AgentTaskSurface {
                 "手机会弹窗请用户选择前台或后台；工具会等用户选完才返回，不要因为等待而重复调用。" +
                 "普通选择结果 task_surface_scope=ordinary_run 的 task_surface=foreground 表示普通应用之后在主屏操作；" +
                 "普通选择结果 task_surface=background 表示普通应用之后在后台副屏操作，并遵守：" + BACKGROUND_CLAUSE +
-                "返回 TASK_SURFACE_CANCELLED 表示用户取消了这次操作，不要再调用普通应用界面工具；代鱼自身例外不重置取消状态。"
+                "返回 TASK_SURFACE_CANCELLED 表示用户取消了这次操作，不要再调用普通应用界面工具；Eta自身例外不重置取消状态。"
     }
 
     private const val SELF_APP_CLAUSE =
-        "仅当需要打开并操控代鱼自身（io.github.mangi.eta）时，先直接 launch_app 精确自身包名：已解析自身目标在主屏前台打开，" +
-            "随后仍针对代鱼自身的界面操作是自身前台片段，不因ASK询问，不为自身调用 start_virtual_session，也不要用 ask_user 询问执行位置。" +
+        "仅当需要打开并操控Eta自身（io.github.mangi.eta）时，先直接 launch_app 精确自身包名：已解析自身目标在主屏前台打开，" +
+            "随后仍针对Eta自身的界面操作是自身前台片段，不因ASK询问，不为自身调用 start_virtual_session，也不要用 ask_user 询问执行位置。" +
             "此例外不改基础偏好、不把整轮改成前台；打开其它应用仍按原ASK或后台选择执行。" +
             "task_surface_scope=self_app 的 task_surface=foreground 仅表示自身片段，base_task_surface 是普通应用基础位置。" +
-            "SELF_APP_TARGET_LOST 表示未确认主屏仍为代鱼，本次未执行；重新打开目标并重新观察，不重放旧坐标到其它应用或副屏。" +
+            "SELF_APP_TARGET_LOST 表示未确认主屏仍为Eta，本次未执行；重新打开目标并重新观察，不重放旧坐标到其它应用或副屏。" +
             "普通URI、系统面板、HOME/RECENTS、闹钟/计时器不继承自身例外；已有副屏仍按原后台生命周期收尾，自身不是副屏交付任务。"
 
     private const val BACKGROUND_CLAUSE =
-            "本次普通应用选择实验性后台副屏。除上述代鱼自身片段外，其它应用GUI 不得回退主屏；先 launch_app 精确包名、observe_screen 截图再坐标操作。节点、系统面板及不支持的工具会明确拒绝。要切回本次副屏已打开的应用，直接对同一包名再次 launch_app（返回 reused=true），不要强制停止应用。任务完成前用 keep_virtual_result 标记交付任务，再 finish_virtual_session，只有返回 handedOff=true 且 released=true 才可声称交付完成。没有可交付结果时也要调用 finish_virtual_session，它会清理本次中间任务并关闭副屏（handedOff=false）。收尾失败保留副屏，禁止杀进程或用终端绕过关闭。提示用户期间不要从桌面启动或清理正在操作的应用。"
+            "本次普通应用选择实验性后台副屏。除上述Eta自身片段外，其它应用GUI 不得回退主屏；先 launch_app 精确包名、observe_screen 截图再坐标操作。节点、系统面板及不支持的工具会明确拒绝。要切回本次副屏已打开的应用，直接对同一包名再次 launch_app（返回 reused=true），不要强制停止应用。任务完成前用 keep_virtual_result 标记交付任务，再 finish_virtual_session，只有返回 handedOff=true 且 released=true 才可声称交付完成。没有可交付结果时也要调用 finish_virtual_session，它会清理本次中间任务并关闭副屏（handedOff=false）。收尾失败保留副屏，禁止杀进程或用终端绕过关闭。提示用户期间不要从桌面启动或清理正在操作的应用。"
 
     fun useVirtualDisplay(): Boolean = useVirtualDisplay(stored())
 

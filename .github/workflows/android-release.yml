@@ -89,7 +89,7 @@ jobs:
       - name: 验证并整理 APK
         id: apk
         run: |
-          # 代鱼底座沿用 AGP 默认产物名（app-debug.apk / app-release.apk），按数量校验后取用
+          # Eta底座沿用 AGP 默认产物名（app-debug.apk / app-release.apk），按数量校验后取用
           shopt -s nullglob
           debug_apks=(app/build/outputs/apk/debug/*.apk)
           release_apks=(app/build/outputs/apk/release/*.apk)
@@ -152,7 +152,7 @@ jobs:
     steps:
       # 未压缩上传的 Artifact 以文件名命名。文件名不经 job outputs 传递：
       # 输出值只要包含任一 Secret 的子串就会被 Actions 整体丢弃，下载步骤随之退化为下载全部产物。
-      # 代鱼底座沿用 AGP 默认产物名，Release APK 固定为 app-release.apk。
+      # Eta底座沿用 AGP 默认产物名，Release APK 固定为 app-release.apk。
       - name: 下载 Release APK
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:

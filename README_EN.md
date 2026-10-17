@@ -1,4 +1,4 @@
-# Daiyu (代鱼)
+# Eta
 
 [简体中文](README.md) | **English**
 
@@ -6,9 +6,9 @@
 
 **A system-level Android AI assistant that steps past the sandbox**
 
-Daiyu is more than a chat box. Point your own model at the phone: it can call system APIs, see the screen, run a terminal, read and write files, and look up notifications, calendars, photos, and other local data. Asking and doing can happen in the same conversation.
+Eta is more than a chat box. Point your own model at the phone: it can call system APIs, see the screen, run a terminal, read and write files, and look up notifications, calendars, photos, and other local data. Asking and doing can happen in the same conversation.
 
-It is based on [Eta](https://github.com/Mangi-11/Eta). Upstream built the agent runtime, system entry points, and tool layer. Daiyu keeps iterating on daily use: compression, backup and restore, share-to-open, vision models, the browser, and the Linux environment. **You supply your own API key (BYOK)** and choose the model.
+It is based on [Eta](https://github.com/Mangi-11/Eta). Upstream built the agent runtime, system entry points, and tool layer. This fork keeps iterating on daily use: compression, backup and restore, share-to-open, vision models, the browser, and the Linux environment. **You supply your own API key (BYOK)** and choose the model.
 
 **What it can actually reach:**
 
@@ -16,7 +16,7 @@ It is based on [Eta](https://github.com/Mangi-11/Eta). Upstream built the agent 
 - **Screen:** an accessibility GUI agent for taps, scrolls, and typing. You can stop or take over at any time.
 - **Terminal:** Android shells plus Alpine / Debian Linux, including files, scripts, and daemon tasks.
 - **On-device data:** notifications, photos, calendars, SMS, and more. Some sources need root, plus a matching ROM and app.
-- **System entry points:** with LSPosed, route the power button, Breeno, or Super XiaoAI into Daiyu.
+- **System entry points:** with LSPosed, route the power button, Breeno, or Super XiaoAI into Eta.
 
 Requires **Android 14 or later**. The app is not brand-locked; core features work without root. Root and LSPosed unlock more system access and assistant integration, depending on permission and ROM support.
 
@@ -26,7 +26,7 @@ Requires **Android 14 or later**. The app is not brand-locked; core features wor
 
 | GUI Agent | Breeno with your own model |
 | :---: | :---: |
-| <img src="docs/Screenshots/demo_gui_agent.gif" width="320" alt="Daiyu GUI Agent in action"> | <img src="docs/Screenshots/demo_tools.gif" width="320" alt="Starting a Daiyu task through Breeno"> |
+| <img src="docs/Screenshots/demo_gui_agent.gif" width="320" alt="Eta GUI Agent in action"> | <img src="docs/Screenshots/demo_tools.gif" width="320" alt="Starting a Eta task through Breeno"> |
 
 More screenshots: chat, system tools, and settings
 
@@ -59,33 +59,33 @@ A task can combine these tools: read web sources and then organize files with a 
 
 ### Agent runtime
 
-The runtime runs inside Daiyu. Requests from chat and system assistants use the same agent loop: the model selects tools through tool calling, execution results return to its context, and it decides what to do next. Calls are validated against JSON Schema and permissions are checked before execution. Hooked processes only handle the entry point and return path.
+The runtime runs inside Eta. Requests from chat and system assistants use the same agent loop: the model selects tools through tool calling, execution results return to its context, and it decides what to do next. Calls are validated against JSON Schema and permissions are checked before execution. Hooked processes only handle the entry point and return path.
 
-The runtime also manages streaming events, steering, cancellation, and incremental transcripts. Steering messages enter after the current turn completes. Conversations and results are stored locally; after an interruption, Daiyu attempts to recover existing records without automatically replaying actions. See [Agent Runtime](docs/AGENT_RUNTIME.md) for implementation details.
+The runtime also manages streaming events, steering, cancellation, and incremental transcripts. Steering messages enter after the current turn completes. Conversations and results are stored locally; after an interruption, Eta attempts to recover existing records without automatically replaying actions. See [Agent Runtime](docs/AGENT_RUNTIME.md) for implementation details.
 
 ## A terminal designed for mobile
 
-You can use Daiyu's terminal yourself or let the agent use it. Each session retains its working directory and environment. The compact view groups input and output by command; the PTY console supports TUIs, keyboard shortcuts, and ANSI rendering. Asynchronous commands and daemon tasks have logs and explicit stop controls.
+You can use Eta's terminal yourself or let the agent use it. Each session retains its working directory and environment. The compact view groups input and output by command; the PTY console supports TUIs, keyboard shortcuts, and ANSI rendering. Asynchronous commands and daemon tasks have logs and explicit stop controls.
 
 - **Linux environments:** choose Alpine or Debian. PRoot works without root; rooted devices can also use chroot. The backends have separate installations, with no automatic data migration. PRoot's simulated root identity does not grant Android system privileges.
 - **Development tools:** install Python, Node.js, SSH, APK analysis tools, and Kimi Code as needed.
 - **File management:** import and export files through the private workspace, share accessible Android directories under `/workspace/mounts/` in Linux, and browse Linux files from the app.
 
-Daiyu itself can read projects, edit code, run commands, and verify results. For longer coding sessions on a phone, [Kimi Code](https://github.com/MoonshotAI/kimi-code)'s **Kimi Web** offers a web UI well suited to mobile. Continue a conversation, inspect code changes, and review execution results in your browser, with a full coding-agent workflow for vibe coding wherever you are.
+Eta itself can read projects, edit code, run commands, and verify results. For longer coding sessions on a phone, [Kimi Code](https://github.com/MoonshotAI/kimi-code)'s **Kimi Web** offers a web UI well suited to mobile. Continue a conversation, inspect code changes, and review execution results in your browser, with a full coding-agent workflow for vibe coding wherever you are.
 
-After installing Linux, Node.js, and Kimi Code in Daiyu, launch Kimi Web from the home screen or run `kimi` in the terminal. Kimi has its own model configuration and sessions, so it requires a separate sign-in or setup. You can return to a running instance after leaving the page, or stop it from Daiyu.
+After installing Linux, Node.js, and Kimi Code in Eta, launch Kimi Web from the home screen or run `kimi` in the terminal. Kimi has its own model configuration and sessions, so it requires a separate sign-in or setup. You can return to a running instance after leaving the page, or stop it from Eta.
 
 ## Models and BYOK
 
-Daiyu's AI features require **your own model-provider API key**. Add OpenAI-compatible or Anthropic Messages services, fetch model lists, or add models by hand. There are no built-in providers; keys and configuration live in your own backup.
+Eta's AI features require **your own model-provider API key**. Add OpenAI-compatible or Anthropic Messages services, fetch model lists, or add models by hand. There are no built-in providers; keys and configuration live in your own backup.
 
 The provider layer supports OpenAI-compatible Chat Completions, the Responses API, and Anthropic Messages, including SSE streaming, tool calling, image input, and reasoning content. Configure custom endpoints, headers, and request bodies; fetch model lists or add models manually; and override context windows and reasoning effort. Available features depend on the model and API. Some Responses providers also support server-side web search.
 
 ## System assistant entry points
 
-- **Power-button long press:** choose the default OEM assistant, Gemini, or Daiyu.
-- **Daiyu system assistant:** open Daiyu's text conversation panel from the power button, with screen context and follow-up conversations.
-- **Breeno / Super XiaoAI integration:** keep the familiar OEM assistant entry point while routing requests to Daiyu and your configured model.
+- **Power-button long press:** choose the default OEM assistant, Gemini, or Eta.
+- **Eta system assistant:** open Eta's text conversation panel from the power button, with screen context and follow-up conversations.
+- **Breeno / Super XiaoAI integration:** keep the familiar OEM assistant entry point while routing requests to Eta and your configured model.
 
 Power-button interception requires LSPosed and a supported system.
 
@@ -101,14 +101,14 @@ These features require LSPosed and a supported system. See [Technical Implementa
 System tools, sensitive reads, sensitive actions, terminal and file access, browsing, and memory have separate switches, currently enabled by default. The runtime rechecks permissions before execution. Revoked access or a lost connection does not overwrite your saved settings.
 
 - **Model requests:** task-relevant conversation content, images, and tool results are sent to your configured provider. A local runtime does not imply local inference. Custom HTTP endpoints transmit API keys and request content without transport encryption.
-- **Local records:** raw arguments and results from sensitive tools and MCP tools are excluded from persistent conversation history; model replies are still saved. Once notification access is granted, Daiyu retains up to 1,000 notifications for seven days. MCP authentication tokens are stored encrypted.
+- **Local records:** raw arguments and results from sensitive tools and MCP tools are excluded from persistent conversation history; model replies are still saved. Once notification access is granted, Eta retains up to 1,000 notifications for seven days. MCP authentication tokens are stored encrypted.
 - **Conversations and backups:** copy or edit messages, delete a conversation from a selected turn onward, and regenerate replies. Import or export conversations, model configurations, and memory. Backups contain API keys.
 - **Execution limits:** tasks can be stopped or taken over. Background work remains subject to Android and OEM process management; restart tasks manually after a force-stop or reboot. System and app updates may also require hook adaptations.
 
 ## Getting started
 
 1. Download the APK from [Releases](https://github.com/y2485871697/Eta/releases/latest). After installation, open **Model provider** in Settings, enter your API key, and select a model. Task execution requires tool calling; interpreting images also requires image input support.
-2. Enable the tools and permissions you need. GUI control requires Daiyu's accessibility service. Notification access and usage access are granted separately; location tools require **Allow all the time**. The tools page shows what is available on your device.
+2. Enable the tools and permissions you need. GUI control requires Eta's accessibility service. Notification access and usage access are granted separately; location tools require **Allow all the time**. The tools page shows what is available on your device.
 3. Start a conversation. For Linux, install a distribution, base tools, and any development tools you need under **Linux tool environment**. For assistant integration, see [System assistant entry points](#system-assistant-entry-points).
 
 - **Unrooted devices:** Android 14+ supports chat, browsing, memory, Skills, MCP, the ordinary terminal, and a private workspace. GUI control and personal data access need their respective permissions. Linux is available on supported 64-bit devices.
@@ -119,7 +119,7 @@ Dedicated searches for contacts, SMS messages, and calendar events still require
 
 ## About upstream
 
-Daiyu is derived from [Eta](https://github.com/Mangi-11/Eta). The original author's design notes remain in the [upstream README](https://github.com/Mangi-11/Eta/blob/main/README.md). They explain why Eta was built this way; they are not Daiyu's product story.
+This project is derived from [Eta](https://github.com/Mangi-11/Eta). The original author's design notes remain in the [upstream README](https://github.com/Mangi-11/Eta/blob/main/README.md). They explain why Eta was built this way; they are not this fork's product story.
 
 ## Further reading
 
@@ -133,7 +133,7 @@ These implementation notes are currently in Chinese:
 
 ## References and acknowledgements
 
-- [Eta](https://github.com/Mangi-11/Eta): the upstream project Daiyu is based on.
+- [Eta](https://github.com/Mangi-11/Eta): the upstream project this fork is based on.
 - [Pi Coding Agent](https://github.com/earendil-works/pi): the main reference for the agent runtime, including the agent loop, tool calling, steering, and transcript state management.
 - [OmniBot](https://github.com/omnimind-ai/OmniBot): a reference project for AI agents on Android.
 - [libxposed API](https://github.com/libxposed/api): the modern Xposed API.
@@ -148,4 +148,4 @@ These implementation notes are currently in Chinese:
 
 ## License
 
-Daiyu uses the same [PolyForm Noncommercial License 1.0.0](LICENSE) as upstream Eta. Selling, paid installation, and other commercial use require written permission from the [original author](https://github.com/Mangi-11).
+This project uses the same [PolyForm Noncommercial License 1.0.0](LICENSE) as upstream Eta. Selling, paid installation, and other commercial use require written permission from the [original author](https://github.com/Mangi-11).

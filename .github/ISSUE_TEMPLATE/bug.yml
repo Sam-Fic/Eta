@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        反馈代鱼的问题。提交前请先搜一下有没有类似 Issue。
+        反馈Eta的问题。提交前请先搜一下有没有类似 Issue。
   - type: textarea
     id: what-happened
     attributes:

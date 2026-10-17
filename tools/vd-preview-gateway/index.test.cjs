@@ -169,7 +169,7 @@ test('no fragment preserves legacy mode; selecting unauthenticated Eta shows exp
     assert.equal(page.elements['btn-toggle'].textContent, '开启副屏');
     assert.equal(page.elements['btn-toggle'].disabled, false);
     await page.mode('eta');
-    assert.equal(page.message(), '未连接代鱼预览，请从代鱼副屏入口打开');
+    assert.equal(page.message(), '未连接Eta预览，请从Eta副屏入口打开');
     assert.equal(page.elements['btn-toggle'].disabled, true);
     await page.invoke('toggleScreen');
     await page.invoke('refreshSnapshot');
@@ -192,7 +192,7 @@ test('invalid fragment and non-local page origin fail closed and scrub the fragm
 test('empty, absent, malformed lists, 401 and 410 remain distinct with no legacy fallback', async () => {
     const cases = [
         [list([]), /列表为空/],
-        [response(404), /无法获取代鱼副屏列表/],
+        [response(404), /无法获取Eta副屏列表/],
         [response(200, { ok: true }), /列表响应无效/],
         [list([{ ...A, uniqueId: '' }]), /列表响应无效/],
         [list([A, A]), /列表响应无效/],
@@ -343,7 +343,7 @@ test('switching mode suppresses late Eta frame and late legacy status/screenshot
     await settle();
     assert.equal(legacy.images.length, 0, 'late module status must not start a screenshot');
     assert.equal(legacy.elements['btn-toggle'].disabled, true);
-    assert.match(legacy.message(), /未连接代鱼预览/);
+    assert.match(legacy.message(), /未连接Eta预览/);
 
     const screenshot = setup({ hash: '', fetch: () => response(200, { status: 'running', display_id: 4 }) });
     await settle();
@@ -353,7 +353,7 @@ test('switching mode suppresses late Eta frame and late legacy status/screenshot
     lateLoad();
     assert.equal(screenshot.elements['snapshot-img'].src, '');
     assert.equal(screenshot.requests.length, 1);
-    assert.match(screenshot.message(), /未连接代鱼预览/);
+    assert.match(screenshot.message(), /未连接Eta预览/);
 });
 
 test('legacy start/stop remain operational and never receive Eta identity or token', async () => {
@@ -384,7 +384,7 @@ test('legacy start/stop remain operational and never receive Eta identity or tok
 test('network/CORS failure and timeout are manual-retry errors, not sleeping or automatic fallback', async () => {
     const disconnected = setup({ fetch: () => Promise.reject(new TypeError('CORS')) });
     await settle();
-    assert.match(disconnected.message(), /无法连接代鱼预览/);
+    assert.match(disconnected.message(), /无法连接Eta预览/);
     assert.doesNotMatch(disconnected.message(), /休眠/);
     assert.equal(disconnected.requests.length, 1);
     assert.equal(disconnected.timers.size, 0);

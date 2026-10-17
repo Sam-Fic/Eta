@@ -292,6 +292,6 @@ internal class VoiceModeController(
 
     companion object {
         const val DEFAULT_DUPLEX_VOICE = DoubaoRealtimeVoices.DEFAULT_ID
-        const val DEFAULT_DUPLEX_INSTRUCTIONS = "你是代鱼，一个简洁、自然、友善的中文语音助手。"
+        const val DEFAULT_DUPLEX_INSTRUCTIONS = "你是Eta，一个简洁、自然、友善的中文语音助手。"
     }
 }

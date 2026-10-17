@@ -8,7 +8,7 @@ internal object AgentBrowserToolCatalog {
         tools.put(
             AgentToolSchema.function(
                 name = "browser_use",
-                description = "操作代鱼的离屏多标签浏览器（每个会话最多 3 个标签，编号只用 0、1、2，不会占用其他会话的页面），不会切换到外部浏览器。一次调用只执行一个 action。支持 new_tab、close_tab、list_tabs；tab_id 指定标签，不提供则操作当前标签。navigate 接受完整 URL、域名、搜索词、/workspace、/var/minis 或 minis://。可用 desktop_chrome / mobile_chrome。get_cookies 只返回摘要和 /var/minis/offloads/env_cookies_xxx.sh，明文不进对话。通常先 navigate，再用 get_readable 提取 Markdown 正文，或用 find_elements / get_backbone 了解结构。选择器以当前 DOM 为准，搜索框可能是 textarea 或 contenteditable，不一定是 input；scroll_and_collect 返回 0 条时先检查结构和关键词过滤，不直接认定页面无内容。go_back/go_forward 逐条移动历史索引。需要把 URI 显式交给外部应用时使用 open_uri。",
+                description = "操作Eta的离屏多标签浏览器（每个会话最多 3 个标签，编号只用 0、1、2，不会占用其他会话的页面），不会切换到外部浏览器。一次调用只执行一个 action。支持 new_tab、close_tab、list_tabs；tab_id 指定标签，不提供则操作当前标签。navigate 接受完整 URL、域名、搜索词、/workspace、/var/minis 或 minis://。可用 desktop_chrome / mobile_chrome。get_cookies 只返回摘要和 /var/minis/offloads/env_cookies_xxx.sh，明文不进对话。通常先 navigate，再用 get_readable 提取 Markdown 正文，或用 find_elements / get_backbone 了解结构。选择器以当前 DOM 为准，搜索框可能是 textarea 或 contenteditable，不一定是 input；scroll_and_collect 返回 0 条时先检查结构和关键词过滤，不直接认定页面无内容。go_back/go_forward 逐条移动历史索引。需要把 URI 显式交给外部应用时使用 open_uri。",
                 parameters = JSONObject()
                     .put("type", "object")
                     .put(

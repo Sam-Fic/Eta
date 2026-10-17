@@ -59,7 +59,7 @@ class SelfAppSurfaceContractTest(unittest.TestCase):
         self.assertIn('不改变其它应用的ASK/后台偏好', schema)
 
     def test_all_preference_translations_describe_self_only_exception(self):
-        for folder, token in [('values', 'Eta itself'), ('values-b+zh+Hans', '代鱼自身'), ('values-b+zh+Hant', '代魚自身')]:
+        for folder, token in [('values', 'Eta itself'), ('values-b+zh+Hans', 'Eta自身'), ('values-b+zh+Hant', 'Eta自身')]:
             texts = {e.attrib['name']: e.text for e in ET.parse(APP / 'src/main/res' / folder / 'agent_task_preference_ui.xml').getroot()}
             for key in ['agent_task_preference_mode_hint_background', 'agent_task_surface_prompt_message', 'agent_task_preference_mode_hint_ask']:
                 self.assertIn(token, texts[key])

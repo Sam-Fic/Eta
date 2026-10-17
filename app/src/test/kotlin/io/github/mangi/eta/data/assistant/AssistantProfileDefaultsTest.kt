@@ -13,7 +13,7 @@ class AssistantProfileDefaultsTest {
     @Test
     fun missingFieldsDefaultToMemoryOnAndBuiltinSkills() {
         val decoded = json.decodeFromString<AssistantProfile>(
-            """{"id":"default","name":"代鱼","prompt":""}""",
+            """{"id":"default","name":"Eta","prompt":""}""",
         )
         assertTrue(decoded.memoryEnabled)
         assertEquals(AssistantDefaults.ENABLED_SKILL_IDS, decoded.enabledSkillIds)

@@ -70,7 +70,7 @@ class AgentTaskSurfaceDialogActivity : ComponentActivity() {
     }
 
     override fun onStop() {
-        // 退到后台不取消请求，只让应用内兜底弹窗接管，回到代鱼即可继续选择。
+        // 退到后台不取消请求，只让应用内兜底弹窗接管，回到Eta即可继续选择。
         markHidden()
         super.onStop()
     }
@@ -115,7 +115,7 @@ class AgentTaskSurfaceDialogActivity : ComponentActivity() {
                 .putExtra(EXTRA_REQUEST_ID, requestId)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
             runCatching { context.startActivity(intent) }.onFailure { throwable ->
-                // 后台启动受限时退回应用内弹窗，回到代鱼即可看到。
+                // 后台启动受限时退回应用内弹窗，回到Eta即可看到。
                 AndroidAgentLogger.warnThrottled("task_surface_dialog_launch_failed") {
                     "Task surface dialog launch failed: type=${throwable.safeLogType()}"
                 }

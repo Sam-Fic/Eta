@@ -16,6 +16,6 @@
     <string name="tts_preparing">正在准备音频，可再次点击取消</string>
     <string name="tts_manual_hint">仅手动播放，不自动朗读。</string>
     <string name="tts_privacy">播放的是合成语音，不是真人录音。系统模式仅选择引擎声明的本地音色；缺失时提示安装。云端模式会发送清理后的回复正文，可能产生费用；失败不自动切换或从头重播。停止朗读不结束对话任务。</string>
-    <string name="tts_sample">你好，我是代鱼。这是语音朗读试听。</string>
+    <string name="tts_sample">你好，我是Eta。这是语音朗读试听。</string>
   <string name="tts_voice_personal">个人</string>
 </resources>

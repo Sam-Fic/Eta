@@ -305,7 +305,7 @@ internal class AgentLocalTools(
                         .put("base_task_surface", runSurface.wire)
                         .put("self_app_segment_active", selfSurface.active)
                         .put("self_app_segment_lost", selfSurface.lost)
-                        .put("surface_note", "仅代鱼自身前台片段；其它应用仍按基础ASK/后台偏好执行")
+                        .put("surface_note", "仅Eta自身前台片段；其它应用仍按基础ASK/后台偏好执行")
                         .toString()
                 }.getOrDefault(result.content)
                 return result.copy(content = note)
@@ -429,7 +429,7 @@ internal class AgentLocalTools(
                 publishedObservation.set(PublishedObservation())
                 return@runCatching textResult(errorResult(
                     "SELF_APP_TARGET_LOST",
-                    "未确认主屏焦点仍为代鱼自身，本次未执行；请重新打开代鱼，或按原偏好打开其它应用并重新观察，勿重放旧坐标",
+                    "未确认主屏焦点仍为Eta自身，本次未执行；请重新打开Eta，或按原偏好打开其它应用并重新观察，勿重放旧坐标",
                 ))
             }
             when (toolCall.name) {

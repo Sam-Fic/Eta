@@ -141,12 +141,12 @@
         <label for="preview-mode">模式
             <select id="preview-mode" onchange="changePreviewMode()">
                 <option value="module">模块副屏</option>
-                <option value="eta">代鱼副屏</option>
+                <option value="eta">Eta副屏</option>
             </select>
         </label>
         <label id="eta-display-controls" for="eta-display" hidden>Display 编号
             <select id="eta-display" onchange="etaSelectDisplay()" disabled>
-                <option value="">未连接代鱼预览</option>
+                <option value="">未连接Eta预览</option>
             </select>
         </label>
     </div>
@@ -169,7 +169,7 @@
         <div id="empty-tip">副屏未启动</div>
     </div>
 
-    <div class="footer-note">两种模式均为手动刷新。代鱼首次授权后可记住配对，以后直接打开本页。</div>
+    <div class="footer-note">两种模式均为手动刷新。Eta首次授权后可记住配对，以后直接打开本页。</div>
 
     <script>
         // Only preview capabilities are remembered, after an explicit browser opt-in.
@@ -262,9 +262,9 @@
         let etaCloseBusy = false;
         const etaUnconfirmed = new Set();
         const etaIdentityKey = d => JSON.stringify([d.displayId, d.uniqueId]);
-        let etaUnavailable = etaPairingDamaged ? '已保存的配对无效，请从代鱼副屏入口重新授权' : etaRequested
-            ? '预览链接无效，请从代鱼副屏入口重新打开'
-            : '未连接代鱼预览，请从代鱼副屏入口打开';
+        let etaUnavailable = etaPairingDamaged ? '已保存的配对无效，请从Eta副屏入口重新授权' : etaRequested
+            ? '预览链接无效，请从Eta副屏入口重新打开'
+            : '未连接Eta预览，请从Eta副屏入口打开';
         let requestGeneration = 0, requestAbort = null, moduleImage = null, etaObjectUrl = null;
         const frameLimit = 6 * 1024 * 1024;
         const phaseLabels = { active: '运行中', held: '保留中', uncertain: '异常保留',
@@ -292,9 +292,9 @@
             const cleared = clearStoredPair();
             cancelRequests(); etaConfig = null; etaRemembered = false;
             etaDisplays = []; etaSelected = null; previewMode = 'eta';
-            etaUnavailable = cleared ? '已忘记此浏览器配对，请从代鱼副屏入口重新授权'
+            etaUnavailable = cleared ? '已忘记此浏览器配对，请从Eta副屏入口重新授权'
                 : '未能清除浏览器配对，请在浏览器设置中清除本站数据；当前连接已断开';
-            renderDisplays('未连接代鱼预览'); renderMode(); showMessage(etaUnavailable, '#d29922');
+            renderDisplays('未连接Eta预览'); renderMode(); showMessage(etaUnavailable, '#d29922');
         }
         function invalidatePairing() {
             clearStoredPair(etaConfig);
@@ -379,8 +379,8 @@
             modeEl.value = previewMode;
             displayControlsEl.hidden = previewMode !== 'eta';
             footerEl.textContent = previewMode === 'eta'
-                ? (etaConfig && etaConfig.controlToken ? '已授权手动关闭 · 仅关闭身份和空屏状态已核实的代鱼副屏 · 不强杀或自动重试' : '代鱼只读预览 · 手动刷新列表和画面 · 手动关闭请从代鱼的「网页实时预览」入口授权')
-                : '模块画面为手动刷新。代鱼会话请切换到「代鱼副屏」。';
+                ? (etaConfig && etaConfig.controlToken ? '已授权手动关闭 · 仅关闭身份和空屏状态已核实的Eta副屏 · 不强杀或自动重试' : 'Eta只读预览 · 手动刷新列表和画面 · 手动关闭请从Eta的「网页实时预览」入口授权')
+                : '模块画面为手动刷新。Eta会话请切换到「Eta副屏」。';
             renderToggle();
         }
         function changePreviewMode() {
@@ -433,7 +433,7 @@
             return blob;
         }
         async function etaLoadFrame(selected, generation, controller) {
-            showMessage('代鱼副屏 · Display ' + selected.displayId + ' · 正在读取画面…', '#58a6ff');
+            showMessage('Eta副屏 · Display ' + selected.displayId + ' · 正在读取画面…', '#58a6ff');
             // Eta binds frame identity through headers, not query parameters.
             const response = await etaFetch('/eta-preview/frame', controller, {
                 'X-Eta-Display-Id': String(selected.displayId),
@@ -453,19 +453,19 @@
             catch (_) { throw new Error('ETA_FRAME_INVALID'); }
             if (!isCurrent(generation, 'eta') || !sameDisplay(selected, etaSelected)) return;
             imgEl.style.display = 'block'; tipEl.style.display = 'none';
-            showMessage('代鱼副屏 · Display ' + selected.displayId + ' · ' +
+            showMessage('Eta副屏 · Display ' + selected.displayId + ' · ' +
                 (phaseLabels[selected.phase] || selected.phase || '状态未知') + ' · 只读快照', '#7ee787');
         }
         function etaShowError(error) {
             clearFrame();
             const messages = {
-                ETA_AUTH: '代鱼预览授权已失效（401），请从代鱼副屏入口重新打开',
-                ETA_GONE: '代鱼副屏或预览会话已关闭（410），请手动刷新列表或重新打开入口',
+                ETA_AUTH: 'Eta预览授权已失效（401），请从Eta副屏入口重新打开',
+                ETA_GONE: 'Eta副屏或预览会话已关闭（410），请手动刷新列表或重新打开入口',
                 ETA_IDENTITY: '副屏身份不匹配，已拒绝显示；请手动刷新列表',
-                ETA_LIST_UNAVAILABLE: '无法获取代鱼副屏列表，请确认代鱼预览已开启后手动刷新',
-                ETA_LIST_INVALID: '代鱼副屏列表响应无效，请手动刷新或重新打开入口',
-                ETA_FRAME_UNAVAILABLE: '所选代鱼副屏暂无可用画面，请手动刷新',
-                ETA_FRAME_INVALID: '代鱼画面不是有效的 PNG 或超过大小限制'
+                ETA_LIST_UNAVAILABLE: '无法获取Eta副屏列表，请确认Eta预览已开启后手动刷新',
+                ETA_LIST_INVALID: 'Eta副屏列表响应无效，请手动刷新或重新打开入口',
+                ETA_FRAME_UNAVAILABLE: '所选Eta副屏暂无可用画面，请手动刷新',
+                ETA_FRAME_INVALID: 'Eta画面不是有效的 PNG 或超过大小限制'
             };
             if (error.message === 'ETA_AUTH' || error.message === 'ETA_GONE' ||
                 error.message === 'ETA_LIST_UNAVAILABLE' || error.message === 'ETA_LIST_INVALID') {
@@ -476,8 +476,8 @@
                 etaUnavailable = messages.ETA_AUTH;
             }
             showMessage(messages[error.message] || (error.name === 'AbortError'
-                ? '代鱼预览请求超时，请手动刷新'
-                : '无法连接代鱼预览：服务离线或连接受限；请启动代鱼后手动刷新，原配对会保留'), '#f85149');
+                ? 'Eta预览请求超时，请手动刷新'
+                : '无法连接Eta预览：服务离线或连接受限；请启动Eta后手动刷新，原配对会保留'), '#f85149');
         }
         // One bounded request per user action (or initial entry); no polling,
         // automatic retries, visibility-based refresh, or legacy fallback.
@@ -485,13 +485,13 @@
             if (previewMode !== 'eta' || etaCloseBusy) return;
             const { generation, controller } = beginRequest();
             if (!etaConfig) {
-                etaDisplays = []; etaSelected = null; renderDisplays('未连接代鱼预览');
+                etaDisplays = []; etaSelected = null; renderDisplays('未连接Eta预览');
                 showMessage(etaUnavailable, '#d29922'); return;
             }
             const timeout = setTimeout(() => controller.abort(), 8000);
             try {
                 if (reloadList) {
-                    showMessage('正在读取代鱼副屏列表…', '#58a6ff');
+                    showMessage('正在读取Eta副屏列表…', '#58a6ff');
                     const response = await etaFetch('/eta-preview/displays', controller);
                     if (!isCurrent(generation, 'eta')) return;
                     const data = await response.json();
@@ -510,14 +510,14 @@
                     renderDisplays(etaDisplays.length ? '请选择副屏' : '暂无副屏');
                     renderToggle();
                     if (!etaDisplays.length) {
-                        showMessage('代鱼当前没有可预览的副屏（列表为空）', '#d29922'); return;
+                        showMessage('Eta当前没有可预览的副屏（列表为空）', '#d29922'); return;
                     }
                     if (!etaSelected) {
                         showMessage('原选副屏已关闭或身份已变化，请重新选择 Display', '#d29922'); return;
                     }
                 }
                 if (etaSelected) await etaLoadFrame(etaSelected, generation, controller);
-                else showMessage('请选择代鱼副屏 Display', '#d29922');
+                else showMessage('请选择Eta副屏 Display', '#d29922');
             } catch (error) {
                 if (isCurrent(generation, 'eta')) etaShowError(error);
             } finally {
@@ -584,7 +584,7 @@
                     !/^[A-Za-z0-9_-]{1,128}$/.test(prepared.nonce) || !Number.isInteger(prepared.expiresInMs) ||
                     prepared.expiresInMs <= 0 || prepared.expiresInMs > 30000) throw new Error('CLOSE_RESPONSE_INVALID');
                 const preparedAt = Date.now();
-                if (!window.confirm('确认关闭代鱼 Display ' + selected.displayId + '？系统将再次核验空屏，不会迁移任务或强杀进程。')) {
+                if (!window.confirm('确认关闭Eta Display ' + selected.displayId + '？系统将再次核验空屏，不会迁移任务或强杀进程。')) {
                     showMessage('已取消关闭，副屏保持不变', '#8b949e'); return;
                 }
                 if (!isCurrent(generation, 'eta') || !sameDisplay(selected, etaSelected) || controller.signal.aborted ||
@@ -605,15 +605,15 @@
                     etaUnconfirmed.delete(identityKey);
                     showMessage('未关闭：' + (result.reason || '状态不允许关闭'), '#d29922');
                 } else {
-                    showMessage('关闭结果未确认，已停止重试；请到代鱼查看恢复状态', '#f85149');
+                    showMessage('关闭结果未确认，已停止重试；请到Eta查看恢复状态', '#f85149');
                 }
             } catch (error) {
                 if (isCurrent(generation, 'eta') && error.message === 'ETA_AUTH') {
                     invalidatePairing();
-                    etaUnavailable = '代鱼预览授权已失效（401），请从代鱼副屏入口重新打开';
+                    etaUnavailable = 'Eta预览授权已失效（401），请从Eta副屏入口重新打开';
                     showMessage(dispatched ? etaUnavailable + '；关闭结果未确认，已停止重试' : etaUnavailable, '#f85149');
                 } else if (isCurrent(generation, 'eta')) showMessage(dispatched
-                    ? '关闭结果未确认，已停止重试；请到代鱼查看恢复状态'
+                    ? '关闭结果未确认，已停止重试；请到Eta查看恢复状态'
                     : '关闭核验失败，未发送关闭请求；请检查授权或重新打开入口', '#f85149');
             } finally {
                 clearTimeout(timeout);
@@ -692,7 +692,7 @@
 
         window.addEventListener('pagehide', () => {
             cancelRequests();
-            if (previewMode === 'eta') showMessage('代鱼预览已暂停，请手动刷新');
+            if (previewMode === 'eta') showMessage('Eta预览已暂停，请手动刷新');
         });
         renderMode();
         refreshSnapshot();

@@ -18,8 +18,8 @@
     <string name="voice_mode_connecting">正在连接…</string>
     <string name="voice_mode_listening">正在听你说…</string>
     <string name="voice_mode_transcribing">正在完成识别…</string>
-    <string name="voice_mode_thinking">代鱼正在思考…</string>
-    <string name="voice_mode_speaking">代鱼正在说话</string>
+    <string name="voice_mode_thinking">Eta正在思考…</string>
+    <string name="voice_mode_speaking">Eta正在说话</string>
     <string name="voice_mode_doubao_provider">实时通话提供商</string>
     <string name="voice_mode_doubao_provider_missing">请先新增并配置豆包语音提供商</string>
     <string name="voice_mode_doubao_voice">实时通话音色 ID</string>

@@ -8,7 +8,7 @@ import java.util.Locale
 
 /**
  * 应用级语言偏好：直接读写系统的 per-app language（`LocaleManager`），
- * 与「设置 → 应用 → 代鱼 → 语言」共用同一份状态。
+ * 与「设置 → 应用 → Eta → 语言」共用同一份状态。
  */
 internal class LanguageSettingsRepository(context: Context) {
     private val appContext = context.applicationContext

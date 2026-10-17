@@ -18,8 +18,8 @@
     <string name="voice_mode_connecting">Connecting…</string>
     <string name="voice_mode_listening">Listening…</string>
     <string name="voice_mode_transcribing">Finishing transcription…</string>
-    <string name="voice_mode_thinking">Daiyu is thinking…</string>
-    <string name="voice_mode_speaking">Daiyu is speaking</string>
+    <string name="voice_mode_thinking">Eta is thinking…</string>
+    <string name="voice_mode_speaking">Eta is speaking</string>
     <string name="voice_mode_doubao_provider">Realtime call provider</string>
     <string name="voice_mode_doubao_provider_missing">Add and configure a Doubao Voice provider first</string>
     <string name="voice_mode_doubao_voice">Realtime voice ID</string>

@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        说明想解决什么问题，以及希望代鱼怎么做。
+        说明想解决什么问题，以及希望Eta怎么做。
   - type: textarea
     id: problem
     attributes:

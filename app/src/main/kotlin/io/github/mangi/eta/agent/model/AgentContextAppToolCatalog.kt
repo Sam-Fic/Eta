@@ -54,7 +54,7 @@ internal object AgentContextAppToolCatalog {
             .put(
                 AgentToolSchema.function(
                     name = "launch_app",
-                    description = "启动一个已安装 Android 应用。优先提供 package_name；只有应用名时允许模糊匹配，匹配多个会返回候选而不会启动。本次副屏已经打开的应用会切回原任务（reused=true）。已解析目标为代鱼自身（io.github.mangi.eta）时直接主屏前台打开，不触发ASK；后续自身GUI也是自身前台片段，不改变其它应用的ASK/后台偏好。不要为自身启动副屏或询问执行位置。",
+                    description = "启动一个已安装 Android 应用。优先提供 package_name；只有应用名时允许模糊匹配，匹配多个会返回候选而不会启动。本次副屏已经打开的应用会切回原任务（reused=true）。已解析目标为Eta自身（io.github.mangi.eta）时直接主屏前台打开，不触发ASK；后续自身GUI也是自身前台片段，不改变其它应用的ASK/后台偏好。不要为自身启动副屏或询问执行位置。",
                     parameters = JSONObject()
                         .put("type", "object")
                         .put(

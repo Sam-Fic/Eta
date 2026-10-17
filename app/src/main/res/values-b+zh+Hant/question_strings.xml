@@ -4,7 +4,7 @@
     <string name="question_other">其他…</string>
     <string name="question_other_hint">填寫你的選擇</string>
     <string name="question_delegate">你看著辦</string>
-    <string name="question_delegate_hint">僅把當前問題交給代魚決定，不擴大操作權限</string>
+    <string name="question_delegate_hint">僅把當前問題交給Eta決定，不擴大操作權限</string>
     <string name="question_note">補充說明（選填）</string>
     <string name="question_submit">提交回答</string>
     <string name="question_submitting">正在提交…</string>

@@ -16,6 +16,6 @@
     <string name="tts_preparing">Preparing audio; tap again to cancel</string>
     <string name="tts_manual_hint">Manual playback only.</string>
     <string name="tts_privacy">Audio is machine-generated, not a human recording. System mode selects voices declared local by the engine and asks you to install a voice if missing. Cloud mode sends cleaned reply text and may incur charges. Failures never switch services or restart automatically. Stopping speech does not stop the Agent task.</string>
-    <string name="tts_sample">Hello, I am Daiyu. This is a speech preview.</string>
+    <string name="tts_sample">Hello, I am Eta. This is a speech preview.</string>
   <string name="tts_voice_personal">Personal</string>
 </resources>

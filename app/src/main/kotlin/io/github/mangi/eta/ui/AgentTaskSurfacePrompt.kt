@@ -39,7 +39,7 @@ import io.github.mangi.eta.ui.haptics.TouchHaptics
 
 /**
  * 应用内兜底：独立弹窗 Activity 没能拉起来（例如后台启动受限）或已退到后台时，
- * 回到代鱼界面也能看到同一个待决选择。
+ * 回到Eta界面也能看到同一个待决选择。
  */
 @Composable
 internal fun AgentTaskSurfacePrompt() {

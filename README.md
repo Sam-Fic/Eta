@@ -1,4 +1,4 @@
-# 代鱼
+# Eta
 
 **简体中文** | [English](README_EN.md)
 
@@ -6,9 +6,9 @@
 
 **越过沙盒的 Android 系统级 AI 助手**
 
-代鱼不只是聊天框。把你自己的模型接到手机上：它可以调系统 API、看屏幕、跑终端、读写文件，也可以检索通知、日程、相册这些本机信息。同一轮对话里，问清楚和做完事可以连在一起。
+Eta不只是聊天框。把你自己的模型接到手机上：它可以调系统 API、看屏幕、跑终端、读写文件，也可以检索通知、日程、相册这些本机信息。同一轮对话里，问清楚和做完事可以连在一起。
 
-它基于 [Eta](https://github.com/Mangi-11/Eta)。上游把 Agent Runtime、系统入口和工具层搭好了；代鱼继续改日常使用：压缩策略、备份还原、打开方式、视觉模型、浏览器和 Linux 环境。模型与服务商由你选，**需要自备 API Key（BYOK）**。
+它基于 [Eta](https://github.com/Mangi-11/Eta)。上游把 Agent Runtime、系统入口和工具层搭好了；本项目继续改日常使用：压缩策略、备份还原、打开方式、视觉模型、浏览器和 Linux 环境。模型与服务商由你选，**需要自备 API Key（BYOK）**。
 
 **它实际能碰到什么**：
 
@@ -16,7 +16,7 @@
 - **屏幕**：无障碍 GUI Agent，点击、滚动、输入；你可以随时停止或接手。
 - **终端**：Android Shell 和 Alpine / Debian Linux，文件、脚本、守护任务都能跑。
 - **本机数据**：通知、相册、日历、短信等；部分来源需要 Root，以及对应 ROM 与应用。
-- **系统入口**：有 LSPosed 时，可接管电源键、小布和超级小爱，从原来的助手入口把任务交给代鱼。
+- **系统入口**：有 LSPosed 时，可接管电源键、小布和超级小爱，从原来的助手入口把任务交给Eta。
 
 支持 **Android 14 及以上**。App 本体不限品牌，基础功能不用 Root。Root 和 LSPosed 能再打开系统访问与助手入口，具体取决于授权和 ROM。
 
@@ -26,7 +26,7 @@
 
 | GUI Agent | 小布助手 BYOK |
 | :-------: | :-----------: |
-| <img src="docs/Screenshots/demo_gui_agent.gif" width="320" alt="代鱼 GUI Agent 执行演示"> | <img src="docs/Screenshots/demo_tools.gif" width="320" alt="从小布助手入口发起代鱼任务"> |
+| <img src="docs/Screenshots/demo_gui_agent.gif" width="320" alt="Eta GUI Agent 执行演示"> | <img src="docs/Screenshots/demo_tools.gif" width="320" alt="从小布助手入口发起Eta任务"> |
 
 更多界面：聊天、设备工具与设置
 
@@ -59,35 +59,35 @@
 
 ### Agent Runtime
 
-Agent Runtime 运行在代鱼 App 内，来自聊天页面和系统助手的请求共用同一个 Agent Loop。模型通过 Tool Calling 选择工具，执行结果回到上下文，再决定下一步。工具调用按 JSON Schema 校验，并在执行前检查权限；Hook 进程只负责入口与结果回传。
+Agent Runtime 运行在Eta App 内，来自聊天页面和系统助手的请求共用同一个 Agent Loop。模型通过 Tool Calling 选择工具，执行结果回到上下文，再决定下一步。工具调用按 JSON Schema 校验，并在执行前检查权限；Hook 进程只负责入口与结果回传。
 
 Runtime 同时管理流式事件、steering、取消和增量 transcript。追加指令在当前 turn 完成后进入下一轮，会话与结果在本机归档；中断后尝试恢复已有记录，不自动重放操作。详细设计见 [Agent Runtime](docs/AGENT_RUNTIME.md)。
 
 ## 为移动设备重新设计的终端
 
-代鱼的终端可以由 Agent 调用，也可以由你直接操作。多个会话各自保留工作目录与环境；简洁模式按命令展示输入输出，PTY 控制台支持 TUI、快捷键与 ANSI 渲染。异步命令和守护任务都可以查看日志、主动停止。
+Eta的终端可以由 Agent 调用，也可以由你直接操作。多个会话各自保留工作目录与环境；简洁模式按命令展示输入输出，PTY 控制台支持 TUI、快捷键与 ANSI 渲染。异步命令和守护任务都可以查看日志、主动停止。
 
 - **Linux 环境**：可选 Alpine 或 Debian，普通设备使用 PRoot，Root 设备还可选择 chroot。两种后端独立安装，不自动迁移数据；PRoot 中的模拟 root 不提供 Android 系统权限。
 - **开发工具**：Python、Node.js、SSH、APK 分析与 Kimi Code 按需安装。
 - **文件管理**：私有工作区支持导入、导出；已授权的 Android 目录可共享到 Linux 的 `/workspace/mounts/`，也可在 App 内浏览 Linux 文件。
 
-代鱼本体可以读取项目、修改代码、运行命令并验证结果。如果想在手机上持续进行编程工作，[Kimi Code](https://github.com/MoonshotAI/kimi-code) 的 **Kimi Web** 提供了更适合移动端的 Web UI，可以在浏览器中持续对话、查看代码修改与执行结果，享受完整的 Coding Agent 工作体验，随时随地 Vibe Coding。
+Eta本体可以读取项目、修改代码、运行命令并验证结果。如果想在手机上持续进行编程工作，[Kimi Code](https://github.com/MoonshotAI/kimi-code) 的 **Kimi Web** 提供了更适合移动端的 Web UI，可以在浏览器中持续对话、查看代码修改与执行结果，享受完整的 Coding Agent 工作体验，随时随地 Vibe Coding。
 
-在代鱼中安装 Linux、Node.js 与 Kimi Code 后，即可从首页一键启动 Kimi Web，也可以在终端运行 `kimi`。Kimi 使用独立的模型配置与会话，需单独完成登录或配置；离开页面后可返回继续使用，也可从代鱼主动停止。
+在Eta中安装 Linux、Node.js 与 Kimi Code 后，即可从首页一键启动 Kimi Web，也可以在终端运行 `kimi`。Kimi 使用独立的模型配置与会话，需单独完成登录或配置；离开页面后可返回继续使用，也可从Eta主动停止。
 
 ## 模型与 BYOK
 
-使用代鱼的 AI 功能需要自备模型服务的 **API Key**。可添加 OpenAI-compatible、Anthropic Messages 等自定义服务，也可拉取或手动添加模型。没有内置提供商，密钥和配置都在你自己的备份里。
+使用Eta的 AI 功能需要自备模型服务的 **API Key**。可添加 OpenAI-compatible、Anthropic Messages 等自定义服务，也可拉取或手动添加模型。没有内置提供商，密钥和配置都在你自己的备份里。
 
 Provider 层支持 OpenAI-compatible Chat Completions、Responses API 和 Anthropic Messages，包括 SSE、Tool Calling、图片输入、视频封面帧与推理内容。你可以自定义服务地址、请求头和请求体，调整上下文长度与思考档位。视觉能力按模型 ID 自动判断，也可以在编辑模型时手动覆盖；文本模型默认不发图。
 
-提供商配置中的“自定义请求头”默认折叠，可添加、编辑和删除名称/值，保存后用于模型列表与对话请求；“测试连接”会使用尚未保存的配置。支持覆盖 `User-Agent`，认证和传输请求头仍由代鱼管理。连接 OpenCode 官方端点时，代鱼自动发送每段对话稳定的 `x-opencode-session`，无需手动填写；默认客户端标识仍为 `Eta`。
+提供商配置中的“自定义请求头”默认折叠，可添加、编辑和删除名称/值，保存后用于模型列表与对话请求；“测试连接”会使用尚未保存的配置。支持覆盖 `User-Agent`，认证和传输请求头仍由Eta管理。连接 OpenCode 官方端点时，Eta自动发送每段对话稳定的 `x-opencode-session`，无需手动填写；默认客户端标识仍为 `Eta`。
 
 ## 系统助手入口
 
-- **长按电源键**：选择唤起系统默认助手、Gemini 或代鱼。
-- **代鱼系统助手**：从电源键入口打开代鱼文字对话面板，支持屏幕上下文与连续追问。
-- **小布 / 超级小爱接管**：保留厂商助手的电源键入口，将请求交给代鱼，使用自己配置的模型。
+- **长按电源键**：选择唤起系统默认助手、Gemini 或Eta。
+- **Eta系统助手**：从电源键入口打开Eta文字对话面板，支持屏幕上下文与连续追问。
+- **小布 / 超级小爱接管**：保留厂商助手的电源键入口，将请求交给Eta，使用自己配置的模型。
 
 电源键接管需要 LSPosed 与对应系统支持。
 
@@ -121,7 +121,7 @@ Provider 层支持 OpenAI-compatible Chat Completions、Responses API 和 Anthro
 
 ## 关于上游
 
-代鱼是 [Eta](https://github.com/Mangi-11/Eta) 的衍生版本。下面这篇是上游作者写的设计说明，解释 Eta 为什么做成现在这样；不是代鱼自己的产品故事。
+本项目是 [Eta](https://github.com/Mangi-11/Eta) 的衍生版本。下面这篇是上游作者写的设计说明，解释 Eta 为什么做成现在这样；不是本项目自己的产品故事。
 
 ### 从不好用的手机助手开始
 
@@ -177,7 +177,7 @@ Eta 先从现有 Android 上的模型、上下文与工具做起。真正落地�
 
 ## 参考与致谢
 
-- [Eta](https://github.com/Mangi-11/Eta)：代鱼基于的上游项目。
+- [Eta](https://github.com/Mangi-11/Eta)：本项目基于的上游项目。
 - [Pi Coding Agent](https://github.com/earendil-works/pi)：Agent Runtime 的核心参考，包括 Agent Loop、Tool Calling、steering 与 transcript 状态管理。
 - [OmniBot](https://github.com/omnimind-ai/OmniBot)：Android AI Agent 方向的参考项目。
 - [libxposed API](https://github.com/libxposed/api)：现代 Xposed API。
@@ -192,4 +192,4 @@ Eta 先从现有 Android 上的模型、上下文与工具做起。真正落地�
 
 ## 许可证
 
-代鱼与上游 Eta 一样采用 [PolyForm Noncommercial License 1.0.0](LICENSE)。未经[原作者](https://github.com/Mangi-11)书面授权，禁止贩卖、收费代装及其他商业使用。
+本项目与上游 Eta 一样采用 [PolyForm Noncommercial License 1.0.0](LICENSE)。未经[原作者](https://github.com/Mangi-11)书面授权，禁止贩卖、收费代装及其他商业使用。
