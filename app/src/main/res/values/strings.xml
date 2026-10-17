@@ -569,6 +569,18 @@
   <string name="tool_set_device_state">Device controls</string>
   <string name="tool_app_state_control">App controls</string>
   <string name="tool_get_logcat">Read system logs</string>
+  <string name="tool_eta_get_settings">Read Eta settings</string>
+  <string name="tool_eta_set_settings">Change Eta settings</string>
+  <string name="tool_eta_manage_models">Configure Eta models</string>
+  <string name="state_eta_itself">Eta itself</string>
+  <string name="tool_ui_eta_get_settings">Read Eta settings</string>
+  <string name="tool_ui_eta_get_settings_summary">Read every switch of Eta itself together with its current value.</string>
+  <string name="tool_ui_eta_set_settings">Change Eta settings</string>
+  <string name="tool_ui_eta_set_settings_summary">Change switches of Eta itself, for example turning on read-aloud.</string>
+  <string name="tool_ui_eta_manage_models">Configure Eta models</string>
+  <string name="tool_ui_eta_manage_models_summary">Switch, add or remove the models and providers Eta itself uses.</string>
+  <string name="settings_self_settings_tools">Eta self-configuration tools</string>
+  <string name="settings_self_settings_tools_summary">Let the model read and change Eta's own settings, models and providers.</string>
   <string name="tool_status_running">Running</string>
   <string name="tool_status_success">Completed</string>
   <string name="tool_status_failed">Failed</string>
@@ -1214,6 +1226,8 @@
   <string name="browser_opening_host">Opening %1$s</string>
   <string name="model_not_selected">Not selected</string>
   <string name="model_switch_current">Switch model. Current: %1$s</string>
+  <string name="model_collapse_provider">Collapse %1$s</string>
+  <string name="model_expand_provider">Expand %1$s</string>
   <string name="context_no_previous_usage">No conversation context yet</string>
   <string name="context_no_model_limit">The current model does not provide a context limit</string>
   <string name="context_window_send_blocked">Context is 99% full. Enable auto-compress or start a new conversation</string>
