@@ -224,10 +224,9 @@
   <string name="appearance_title">外觀與主題</string>
   <string name="appearance_group_color">顏色與主題</string>
   <string name="appearance_icon">圖示</string>
-  <string name="appearance_icon_summary">淺色、暗色和貓咪顏色</string>
+  <string name="appearance_icon_summary">淺色和暗色背景</string>
   <string name="appearance_icon_light">淺色</string>
   <string name="appearance_icon_dark">暗色</string>
-  <string name="appearance_icon_cat">貓咪顏色</string>
   <string name="appearance_icon_apply">確定</string>
   <string name="appearance_group_interface">介面與效果</string>
   <string name="appearance_theme_mode">主題模式</string>

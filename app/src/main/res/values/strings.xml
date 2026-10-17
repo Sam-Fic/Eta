@@ -188,10 +188,9 @@
   <string name="appearance_title">Appearance &amp; Theme</string>
   <string name="appearance_group_color">Colors &amp; Theme</string>
   <string name="appearance_icon">Icon</string>
-  <string name="appearance_icon_summary">Light background, dark background, and the cat</string>
+  <string name="appearance_icon_summary">Light background and dark background</string>
   <string name="appearance_icon_light">Light</string>
   <string name="appearance_icon_dark">Dark</string>
-  <string name="appearance_icon_cat">Cat</string>
   <string name="appearance_icon_apply">Apply</string>
   <string name="appearance_group_interface">Interface &amp; Effects</string>
   <string name="appearance_theme_mode">Theme mode</string>

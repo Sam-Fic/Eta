@@ -265,13 +265,13 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
-            <activity-alias
-            android:name=".icon.L_F27A1A_F27A1A"
+        <activity-alias
+            android:name=".icon.L_F27A1A"
             android:targetActivity=".ui.MainActivity"
             android:exported="true"
             android:enabled="false"
-            android:icon="@drawable/launcher_f27a1a_f27a1a"
-            android:roundIcon="@drawable/launcher_f27a1a_f27a1a"
+            android:icon="@drawable/launcher_f27a1a"
+            android:roundIcon="@drawable/launcher_f27a1a"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -280,12 +280,12 @@
         </activity-alias>
 
         <activity-alias
-            android:name=".icon.L_F27A1A_7B61FF"
+            android:name=".icon.L_7B61FF"
             android:targetActivity=".ui.MainActivity"
             android:exported="true"
             android:enabled="false"
-            android:icon="@drawable/launcher_f27a1a_7b61ff"
-            android:roundIcon="@drawable/launcher_f27a1a_7b61ff"
+            android:icon="@drawable/launcher_7b61ff"
+            android:roundIcon="@drawable/launcher_7b61ff"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -294,12 +294,12 @@
         </activity-alias>
 
         <activity-alias
-            android:name=".icon.L_F27A1A_F26D9A"
+            android:name=".icon.L_F26D9A"
             android:targetActivity=".ui.MainActivity"
             android:exported="true"
             android:enabled="false"
-            android:icon="@drawable/launcher_f27a1a_f26d9a"
-            android:roundIcon="@drawable/launcher_f27a1a_f26d9a"
+            android:icon="@drawable/launcher_f26d9a"
+            android:roundIcon="@drawable/launcher_f26d9a"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -308,12 +308,12 @@
         </activity-alias>
 
         <activity-alias
-            android:name=".icon.L_F27A1A_3DDC84"
+            android:name=".icon.L_3DDC84"
             android:targetActivity=".ui.MainActivity"
             android:exported="true"
             android:enabled="false"
-            android:icon="@drawable/launcher_f27a1a_3ddc84"
-            android:roundIcon="@drawable/launcher_f27a1a_3ddc84"
+            android:icon="@drawable/launcher_3ddc84"
+            android:roundIcon="@drawable/launcher_3ddc84"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -322,12 +322,12 @@
         </activity-alias>
 
         <activity-alias
-            android:name=".icon.L_F27A1A_F5C542"
+            android:name=".icon.L_F5C542"
             android:targetActivity=".ui.MainActivity"
             android:exported="true"
             android:enabled="false"
-            android:icon="@drawable/launcher_f27a1a_f5c542"
-            android:roundIcon="@drawable/launcher_f27a1a_f5c542"
+            android:icon="@drawable/launcher_f5c542"
+            android:roundIcon="@drawable/launcher_f5c542"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -336,12 +336,12 @@
         </activity-alias>
 
         <activity-alias
-            android:name=".icon.L_F27A1A_2491FF"
+            android:name=".icon.L_2491FF"
             android:targetActivity=".ui.MainActivity"
             android:exported="true"
             android:enabled="false"
-            android:icon="@drawable/launcher_f27a1a_2491ff"
-            android:roundIcon="@drawable/launcher_f27a1a_2491ff"
+            android:icon="@drawable/launcher_2491ff"
+            android:roundIcon="@drawable/launcher_2491ff"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -350,12 +350,12 @@
         </activity-alias>
 
         <activity-alias
-            android:name=".icon.L_F27A1A_F6F7F9"
+            android:name=".icon.L_F6F7F9"
             android:targetActivity=".ui.MainActivity"
             android:exported="true"
             android:enabled="false"
-            android:icon="@drawable/launcher_f27a1a_f6f7f9"
-            android:roundIcon="@drawable/launcher_f27a1a_f6f7f9"
+            android:icon="@drawable/launcher_f6f7f9"
+            android:roundIcon="@drawable/launcher_f6f7f9"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -364,796 +364,12 @@
         </activity-alias>
 
         <activity-alias
-            android:name=".icon.L_F27A1A_1C1C1E"
+            android:name=".icon.L_1C1C1E"
             android:targetActivity=".ui.MainActivity"
             android:exported="true"
             android:enabled="false"
-            android:icon="@drawable/launcher_f27a1a_1c1c1e"
-            android:roundIcon="@drawable/launcher_f27a1a_1c1c1e"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_7B61FF_F27A1A"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_7b61ff_f27a1a"
-            android:roundIcon="@drawable/launcher_7b61ff_f27a1a"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_7B61FF_7B61FF"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_7b61ff_7b61ff"
-            android:roundIcon="@drawable/launcher_7b61ff_7b61ff"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_7B61FF_F26D9A"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_7b61ff_f26d9a"
-            android:roundIcon="@drawable/launcher_7b61ff_f26d9a"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_7B61FF_3DDC84"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_7b61ff_3ddc84"
-            android:roundIcon="@drawable/launcher_7b61ff_3ddc84"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_7B61FF_F5C542"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_7b61ff_f5c542"
-            android:roundIcon="@drawable/launcher_7b61ff_f5c542"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_7B61FF_2491FF"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_7b61ff_2491ff"
-            android:roundIcon="@drawable/launcher_7b61ff_2491ff"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_7B61FF_F6F7F9"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_7b61ff_f6f7f9"
-            android:roundIcon="@drawable/launcher_7b61ff_f6f7f9"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_7B61FF_1C1C1E"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_7b61ff_1c1c1e"
-            android:roundIcon="@drawable/launcher_7b61ff_1c1c1e"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_F26D9A_F27A1A"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_f26d9a_f27a1a"
-            android:roundIcon="@drawable/launcher_f26d9a_f27a1a"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_F26D9A_7B61FF"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_f26d9a_7b61ff"
-            android:roundIcon="@drawable/launcher_f26d9a_7b61ff"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_F26D9A_F26D9A"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_f26d9a_f26d9a"
-            android:roundIcon="@drawable/launcher_f26d9a_f26d9a"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_F26D9A_3DDC84"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_f26d9a_3ddc84"
-            android:roundIcon="@drawable/launcher_f26d9a_3ddc84"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_F26D9A_F5C542"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_f26d9a_f5c542"
-            android:roundIcon="@drawable/launcher_f26d9a_f5c542"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_F26D9A_2491FF"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_f26d9a_2491ff"
-            android:roundIcon="@drawable/launcher_f26d9a_2491ff"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_F26D9A_F6F7F9"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_f26d9a_f6f7f9"
-            android:roundIcon="@drawable/launcher_f26d9a_f6f7f9"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_F26D9A_1C1C1E"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_f26d9a_1c1c1e"
-            android:roundIcon="@drawable/launcher_f26d9a_1c1c1e"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_3DDC84_F27A1A"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_3ddc84_f27a1a"
-            android:roundIcon="@drawable/launcher_3ddc84_f27a1a"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_3DDC84_7B61FF"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_3ddc84_7b61ff"
-            android:roundIcon="@drawable/launcher_3ddc84_7b61ff"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_3DDC84_F26D9A"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_3ddc84_f26d9a"
-            android:roundIcon="@drawable/launcher_3ddc84_f26d9a"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_3DDC84_3DDC84"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_3ddc84_3ddc84"
-            android:roundIcon="@drawable/launcher_3ddc84_3ddc84"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_3DDC84_F5C542"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_3ddc84_f5c542"
-            android:roundIcon="@drawable/launcher_3ddc84_f5c542"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_3DDC84_2491FF"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_3ddc84_2491ff"
-            android:roundIcon="@drawable/launcher_3ddc84_2491ff"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_3DDC84_F6F7F9"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_3ddc84_f6f7f9"
-            android:roundIcon="@drawable/launcher_3ddc84_f6f7f9"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_3DDC84_1C1C1E"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_3ddc84_1c1c1e"
-            android:roundIcon="@drawable/launcher_3ddc84_1c1c1e"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_F5C542_F27A1A"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_f5c542_f27a1a"
-            android:roundIcon="@drawable/launcher_f5c542_f27a1a"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_F5C542_7B61FF"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_f5c542_7b61ff"
-            android:roundIcon="@drawable/launcher_f5c542_7b61ff"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_F5C542_F26D9A"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_f5c542_f26d9a"
-            android:roundIcon="@drawable/launcher_f5c542_f26d9a"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_F5C542_3DDC84"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_f5c542_3ddc84"
-            android:roundIcon="@drawable/launcher_f5c542_3ddc84"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_F5C542_F5C542"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_f5c542_f5c542"
-            android:roundIcon="@drawable/launcher_f5c542_f5c542"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_F5C542_2491FF"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_f5c542_2491ff"
-            android:roundIcon="@drawable/launcher_f5c542_2491ff"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_F5C542_F6F7F9"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_f5c542_f6f7f9"
-            android:roundIcon="@drawable/launcher_f5c542_f6f7f9"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_F5C542_1C1C1E"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_f5c542_1c1c1e"
-            android:roundIcon="@drawable/launcher_f5c542_1c1c1e"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_2491FF_F27A1A"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_2491ff_f27a1a"
-            android:roundIcon="@drawable/launcher_2491ff_f27a1a"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_2491FF_7B61FF"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_2491ff_7b61ff"
-            android:roundIcon="@drawable/launcher_2491ff_7b61ff"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_2491FF_F26D9A"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_2491ff_f26d9a"
-            android:roundIcon="@drawable/launcher_2491ff_f26d9a"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_2491FF_3DDC84"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_2491ff_3ddc84"
-            android:roundIcon="@drawable/launcher_2491ff_3ddc84"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_2491FF_F5C542"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_2491ff_f5c542"
-            android:roundIcon="@drawable/launcher_2491ff_f5c542"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_2491FF_2491FF"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_2491ff_2491ff"
-            android:roundIcon="@drawable/launcher_2491ff_2491ff"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_2491FF_F6F7F9"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_2491ff_f6f7f9"
-            android:roundIcon="@drawable/launcher_2491ff_f6f7f9"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_2491FF_1C1C1E"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_2491ff_1c1c1e"
-            android:roundIcon="@drawable/launcher_2491ff_1c1c1e"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_F6F7F9_F27A1A"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_f6f7f9_f27a1a"
-            android:roundIcon="@drawable/launcher_f6f7f9_f27a1a"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_F6F7F9_7B61FF"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_f6f7f9_7b61ff"
-            android:roundIcon="@drawable/launcher_f6f7f9_7b61ff"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_F6F7F9_F26D9A"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_f6f7f9_f26d9a"
-            android:roundIcon="@drawable/launcher_f6f7f9_f26d9a"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_F6F7F9_3DDC84"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_f6f7f9_3ddc84"
-            android:roundIcon="@drawable/launcher_f6f7f9_3ddc84"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_F6F7F9_F5C542"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_f6f7f9_f5c542"
-            android:roundIcon="@drawable/launcher_f6f7f9_f5c542"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_F6F7F9_2491FF"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="true"
-            android:icon="@drawable/launcher_f6f7f9_2491ff"
-            android:roundIcon="@drawable/launcher_f6f7f9_2491ff"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_F6F7F9_F6F7F9"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_f6f7f9_f6f7f9"
-            android:roundIcon="@drawable/launcher_f6f7f9_f6f7f9"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_F6F7F9_1C1C1E"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_f6f7f9_1c1c1e"
-            android:roundIcon="@drawable/launcher_f6f7f9_1c1c1e"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_1C1C1E_F27A1A"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_1c1c1e_f27a1a"
-            android:roundIcon="@drawable/launcher_1c1c1e_f27a1a"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_1C1C1E_7B61FF"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_1c1c1e_7b61ff"
-            android:roundIcon="@drawable/launcher_1c1c1e_7b61ff"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_1C1C1E_F26D9A"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_1c1c1e_f26d9a"
-            android:roundIcon="@drawable/launcher_1c1c1e_f26d9a"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_1C1C1E_3DDC84"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_1c1c1e_3ddc84"
-            android:roundIcon="@drawable/launcher_1c1c1e_3ddc84"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_1C1C1E_F5C542"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_1c1c1e_f5c542"
-            android:roundIcon="@drawable/launcher_1c1c1e_f5c542"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_1C1C1E_2491FF"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_1c1c1e_2491ff"
-            android:roundIcon="@drawable/launcher_1c1c1e_2491ff"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_1C1C1E_F6F7F9"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_1c1c1e_f6f7f9"
-            android:roundIcon="@drawable/launcher_1c1c1e_f6f7f9"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".icon.L_1C1C1E_1C1C1E"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@drawable/launcher_1c1c1e_1c1c1e"
-            android:roundIcon="@drawable/launcher_1c1c1e_1c1c1e"
+            android:icon="@drawable/launcher_1c1c1e"
+            android:roundIcon="@drawable/launcher_1c1c1e"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

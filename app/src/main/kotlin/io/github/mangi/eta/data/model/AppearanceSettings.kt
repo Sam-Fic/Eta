@@ -23,20 +23,17 @@ data class AppearanceSettings(
     val messageTimestampsEnabled: Boolean = false,
     val iconLightColor: Int = DEFAULT_ICON_LIGHT,
     val iconDarkColor: Int = DEFAULT_ICON_DARK,
-    val iconCatColor: Int = DEFAULT_ICON_CAT,
 ) {
     fun normalized(): AppearanceSettings = copy(
         monetEnabled = true,
         interfaceScale = normalizeInterfaceScale(interfaceScale),
         iconLightColor = iconLightColor or 0xFF000000.toInt(),
         iconDarkColor = iconDarkColor or 0xFF000000.toInt(),
-        iconCatColor = iconCatColor or 0xFF000000.toInt(),
     )
 
     companion object {
         const val DEFAULT_ICON_LIGHT = 0xFFFFFFFF.toInt()
         const val DEFAULT_ICON_DARK = 0xFF1C1C1E.toInt()
-        const val DEFAULT_ICON_CAT = 0xFF2491FF.toInt()
     }
 }
 

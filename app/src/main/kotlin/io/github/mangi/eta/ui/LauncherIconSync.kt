@@ -11,6 +11,7 @@ import io.github.mangi.eta.data.model.AppearanceThemeMode
 internal object LauncherIconSync {
     private const val PREFS = "launcher_icon"
     private const val KEY_RES = "res"
+    private const val PREFIX = "launcher_"
 
     val swatches: IntArray = intArrayOf(
         0xFFF27A1A.toInt(),
@@ -34,10 +35,9 @@ internal object LauncherIconSync {
         }
     }
 
-    fun resourceName(background: Int, cat: Int): String {
+    fun resourceName(background: Int): String {
         val bg = nearest(background) and 0xFFFFFF
-        val ink = nearest(cat) and 0xFFFFFF
-        return "launcher_%06x_%06x".format(bg, ink)
+        return PREFIX + "%06x".format(bg)
     }
 
     fun apply(context: Context, settings: AppearanceSettings) {
@@ -50,10 +50,9 @@ internal object LauncherIconSync {
         }
         val background = if (darkUi) settings.iconDarkColor else settings.iconLightColor
         val bg = nearest(background) and 0xFFFFFF
-        val ink = nearest(settings.iconCatColor) and 0xFFFFFF
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_RES, "launcher_%06x_%06x".format(bg, ink)).apply()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_RES, PREFIX + "%06x".format(bg)).apply()
         val packageName = context.packageName
-        val target = ComponentName(packageName, "$packageName.icon.L_%06X_%06X".format(bg, ink))
+        val target = ComponentName(packageName, componentName(packageName, bg))
         val pm = context.packageManager
         val changed = !isLauncherEnabled(pm, target)
         if (!changed) {
@@ -66,32 +65,37 @@ internal object LauncherIconSync {
             PackageManager.DONT_KILL_APP,
         )
         for (swatchBackground in swatches) {
-            for (swatchCat in swatches) {
-                val component = ComponentName(
-                    packageName,
-                    "$packageName.icon.L_%06X_%06X".format(
-                        swatchBackground and 0xFFFFFF,
-                        swatchCat and 0xFFFFFF,
-                    ),
-                )
-                if (component == target) continue
-                pm.setComponentEnabledSetting(
-                    component,
-                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-                    PackageManager.DONT_KILL_APP,
-                )
-            }
+            val component = ComponentName(
+                packageName,
+                componentName(packageName, swatchBackground and 0xFFFFFF),
+            )
+            if (component == target) continue
+            pm.setComponentEnabledSetting(
+                component,
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                PackageManager.DONT_KILL_APP,
+            )
         }
         io.github.mangi.eta.agent.runtime.AgentExecutionService.refreshIcon()
     }
 
-    fun currentIconResName(context: Context): String? =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_RES, null)
+    private fun componentName(packageName: String, rgb: Int): String =
+        "$packageName.icon.L_%06X".format(rgb)
+
+    fun currentIconResName(context: Context): String? {
+        val stored = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_RES, null)
+            ?: return null
+        // 旧版本资源名是「背景_前景」两段式，前景段已废弃：只取背景段，避免历史值解析不到资源。
+        val bg = stored.removePrefix(PREFIX).substringBefore('_')
+        if (bg.length != 6) return null
+        return PREFIX + bg
+    }
 
     private fun isLauncherEnabled(pm: PackageManager, component: ComponentName): Boolean {
         val state = pm.getComponentEnabledSetting(component)
         if (state == PackageManager.COMPONENT_ENABLED_STATE_ENABLED) return true
         if (state == PackageManager.COMPONENT_ENABLED_STATE_DISABLED) return false
-        return component.className.endsWith("L_F6F7F9_2491FF")
+        // 别名在 manifest 里默认 enabled=false，系统清单状态（DEFAULT）时只有浅色默认图标生效。
+        return component.className.endsWith("L_F6F7F9")
     }
 }

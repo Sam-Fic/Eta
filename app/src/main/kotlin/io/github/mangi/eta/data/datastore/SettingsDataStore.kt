@@ -57,7 +57,6 @@ internal object SettingsDataStore {
         booleanPreferencesKey("appearance_message_timestamps_enabled")
     private val APPEARANCE_ICON_LIGHT = intPreferencesKey("appearance_icon_light")
     private val APPEARANCE_ICON_DARK = intPreferencesKey("appearance_icon_dark")
-    private val APPEARANCE_ICON_CAT = intPreferencesKey("appearance_icon_cat")
     private val APP_LAUNCH_COUNT = intPreferencesKey("app_launch_count")
     private val UPDATE_DISMISSED_VERSION = stringPreferencesKey("update_dismissed_version")
     private val UPDATE_LAST_CHECK_AT = longPreferencesKey("update_last_check_at")
@@ -579,7 +578,6 @@ internal object SettingsDataStore {
             messageTimestampsEnabled = this[APPEARANCE_MESSAGE_TIMESTAMPS_ENABLED] ?: false,
             iconLightColor = this[APPEARANCE_ICON_LIGHT] ?: AppearanceSettings.DEFAULT_ICON_LIGHT,
             iconDarkColor = this[APPEARANCE_ICON_DARK] ?: AppearanceSettings.DEFAULT_ICON_DARK,
-            iconCatColor = this[APPEARANCE_ICON_CAT] ?: AppearanceSettings.DEFAULT_ICON_CAT,
         ).normalized(),
     )
 
@@ -599,7 +597,6 @@ internal object SettingsDataStore {
         this[APPEARANCE_MESSAGE_TIMESTAMPS_ENABLED] = settings.messageTimestampsEnabled
         this[APPEARANCE_ICON_LIGHT] = settings.iconLightColor
         this[APPEARANCE_ICON_DARK] = settings.iconDarkColor
-        this[APPEARANCE_ICON_CAT] = settings.iconCatColor
     }
 }
 
