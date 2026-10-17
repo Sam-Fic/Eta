@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -14,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedRadioRow
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
 
@@ -145,6 +148,32 @@ internal fun ModelPickerRadioRow(
         onClick()
     }
     EtaSegmentedRadioRow(title = title, selected = selected, onClick = click)
+}
+
+/**
+ * 模型选择弹窗中的可选项（对勾版）：左侧不放单选按钮，改为选中行行尾显示对勾，
+ * 选中态由整行底色 + 对勾共同承担（与 [ModelPickerRadioRow] 共用分段行外观与轻触反馈）。
+ *
+ * 由输入区「Assistant & model」底部弹窗的模型列表使用。
+ */
+@Composable
+internal fun ModelPickerCheckRow(
+    title: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    // 显式类型：if 分支里的可组合 lambda 需要标注，避免推断落到 Nothing?。
+    val trailing: (@Composable () -> Unit)? = if (selected) {
+        { Icon(imageVector = Icons.Rounded.Check, contentDescription = null) }
+    } else {
+        null
+    }
+    EtaSegmentedRow(
+        selected = selected,
+        onClick = onClick,
+        trailingContent = trailing,
+        content = { Text(text = title) },
+    )
 }
 
 internal data class SpeechVoiceSections(

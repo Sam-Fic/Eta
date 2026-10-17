@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.runtime.Composable
@@ -269,12 +270,11 @@ internal fun AssistantRow(
         },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                // 选中指示从「Current」文案改为行尾对勾（与模型列表同款，不再用文字标记）。
                 if (selected) {
-                    M3Text(
-                        text = stringResource(R.string.assistant_current),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        maxLines = 1,
+                    Icon(
+                        imageVector = Icons.Rounded.Check,
+                        contentDescription = null,
                     )
                 }
                 Box {
