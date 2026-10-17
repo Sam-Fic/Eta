@@ -12,6 +12,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -290,6 +293,12 @@ internal fun AssistantRow(
                     ) {
                         DropdownMenuItem(
                             text = { M3Text(text = stringResource(R.string.ui_copy_4edd1d)) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Rounded.ContentCopy,
+                                    contentDescription = null,
+                                )
+                            },
                             onClick = {
                                 menuExpanded = false
                                 onCopy()
@@ -297,6 +306,12 @@ internal fun AssistantRow(
                         )
                         DropdownMenuItem(
                             text = { M3Text(text = stringResource(R.string.ui_edit_a7f814)) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Rounded.Edit,
+                                    contentDescription = null,
+                                )
+                            },
                             onClick = {
                                 menuExpanded = false
                                 onEdit()
@@ -304,6 +319,12 @@ internal fun AssistantRow(
                         )
                         DropdownMenuItem(
                             text = { M3Text(text = stringResource(R.string.action_delete)) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Rounded.Delete,
+                                    contentDescription = null,
+                                )
+                            },
                             onClick = {
                                 menuExpanded = false
                                 onDelete()
