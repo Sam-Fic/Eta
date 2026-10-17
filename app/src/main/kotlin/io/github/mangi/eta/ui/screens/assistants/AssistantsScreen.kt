@@ -54,7 +54,6 @@ internal fun AssistantsScreen(
     var searchVisible by remember { mutableStateOf(false) }
     val searchFocus = remember { FocusRequester() }
     val listState = rememberLazyListState()
-    var actionProfile by remember { mutableStateOf<AssistantProfile?>(null) }
     var deleteProfile by remember { mutableStateOf<AssistantProfile?>(null) }
 
     // 打开搜索时回到列表顶部并聚焦顶栏搜索框；关闭时清空过滤词。
@@ -141,11 +140,11 @@ internal fun AssistantsScreen(
             }
         },
     ) {
-        // 所有助手合并为一个 KernelSU 式分段组，行左滑露出「复制/编辑/删除」。
+        // 所有助手合并为一个 KernelSU 式分段组，行尾三点菜单提供「复制/编辑/删除」。
         filtered.forEachIndexed { index, profile ->
             item(key = profile.id) {
                 EtaSegmentedItem(index = index, count = filtered.size) {
-                    AssistantSwipeRow(
+                    AssistantRow(
                         profile = profile,
                         selected = profile.id == activeId,
                         onOpen = { openProfile(profile) },
@@ -177,30 +176,6 @@ internal fun AssistantsScreen(
                 )
             }
         }
-    }
-
-    actionProfile?.let { profile ->
-        AssistantActionsDialog(
-            profile = profile,
-            canDelete = profiles.size > 1,
-            onCopy = {
-                actionProfile = null
-                scope.launch {
-                    withContext(Dispatchers.IO) {
-                        AssistantRepository.duplicate(profile.id)
-                    }
-                }
-            },
-            onEdit = {
-                actionProfile = null
-                onNavigate(AppRoute.AssistantEdit(profile.id))
-            },
-            onDelete = {
-                actionProfile = null
-                deleteProfile = profile
-            },
-            onDismiss = { actionProfile = null },
-        )
     }
 
     deleteProfile?.let { profile ->

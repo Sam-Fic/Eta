@@ -49,8 +49,8 @@ import io.github.mangi.eta.ui.model.AgentContextUsageUi
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
 import io.github.mangi.eta.ui.model.defaultExpandedModelProviderIds
 import io.github.mangi.eta.ui.screens.assistants.AssistantDeleteDialog
+import io.github.mangi.eta.ui.screens.assistants.AssistantRow
 import io.github.mangi.eta.ui.screens.assistants.AssistantSearchField
-import io.github.mangi.eta.ui.screens.assistants.AssistantSwipeRow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -61,7 +61,7 @@ import kotlinx.coroutines.withContext
  * 结构：
  * 1. 标题。（关闭走 ModalBottomSheet 的下拉 / 点遮罩，不放关闭按钮。）
  * 2. 官方单选分段按钮的页签：助手 / 模型。
- *    - 助手页签：官方搜索框 + KernelSU 式分段列表（行左滑露出复制 / 编辑 / 删除）。
+ *    - 助手页签：官方搜索框 + KernelSU 式分段列表（行尾三点菜单提供复制 / 编辑 / 删除）。
  *    - 模型页签：官方搜索框 + 服务商分组 + 官方 `SelectableDropdownMenuItem`（选中态为 RadioButton）。
  * 3. 底部固定两行「思考档位」「上下文用量」，复用输入区原有的两个控件（含各自弹窗 /
  *    长按语义），替代旧布局里的两个独立按钮。
@@ -210,7 +210,7 @@ internal fun M3ComposerPickerSheet(
 }
 
 /**
- * 助手页签：官方搜索框 + KernelSU 式分段列表；行左滑露出复制 / 编辑 / 删除，
+ * 助手页签：官方搜索框 + KernelSU 式分段列表；行尾三点菜单提供复制 / 编辑 / 删除，
  * 与独立助手选择弹窗的 Material 3 分支保持同一套交互。
  */
 @Composable
@@ -240,7 +240,7 @@ private fun M3AssistantPickerTab(
     EtaSegmentedColumn(modifier = Modifier.fillMaxWidth()) {
         filtered.forEach { profile ->
             item(key = profile.id) {
-                AssistantSwipeRow(
+                AssistantRow(
                     profile = profile,
                     selected = profile.id == activeId,
                     onOpen = { onOpen(profile.id) },

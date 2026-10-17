@@ -1,22 +1,17 @@
 package io.github.mangi.eta.ui.screens.assistants
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -40,27 +35,21 @@ import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
-import io.github.mangi.eta.ui.adaptive.LocalEtaSegmentedShapes
 import io.github.mangi.eta.ui.components.AssistantAvatar
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults as M3ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SheetValue
-import androidx.compose.material3.Surface
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberBottomSheetState
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.Text as M3Text
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -77,13 +66,11 @@ internal fun AssistantPickerDialog(
     val repositoryActiveId by AssistantRepository.activeId.collectAsState()
     val activeId = selectedAssistantId ?: repositoryActiveId
     var searchQuery by remember { mutableStateOf("") }
-    var actionProfile by remember { mutableStateOf<AssistantProfile?>(null) }
     var deleteProfile by remember { mutableStateOf<AssistantProfile?>(null) }
 
     LaunchedEffect(show) {
         if (!show) {
             searchQuery = ""
-            actionProfile = null
             deleteProfile = null
         }
     }
@@ -100,7 +87,7 @@ internal fun AssistantPickerDialog(
     if (show) {
         ModalBottomSheet(
             onDismissRequest = {
-                if (actionProfile == null && deleteProfile == null) onDismiss()
+                if (deleteProfile == null) onDismiss()
             },
             sheetState = rememberBottomSheetState(
                 initialValue = SheetValue.Hidden,
@@ -141,11 +128,11 @@ internal fun AssistantPickerDialog(
                         .weight(1f, fill = false)
                         .verticalScroll(rememberScrollState()),
                 ) {
-                    // 助手合并为一个 KernelSU 式分段组，行左滑露出「复制/编辑/删除」。
+                    // 助手合并为一个 KernelSU 式分段组，行尾三点菜单提供「复制/编辑/删除」。
                     EtaSegmentedColumn(modifier = Modifier.fillMaxWidth()) {
                         filtered.forEach { profile ->
                             item(key = profile.id) {
-                                AssistantSwipeRow(
+                                AssistantRow(
                                     profile = profile,
                                     selected = profile.id == activeId,
                                     onOpen = {
@@ -179,31 +166,6 @@ internal fun AssistantPickerDialog(
                 }
             }
         }
-    }
-
-    actionProfile?.let { profile ->
-        AssistantActionsDialog(
-            profile = profile,
-            canDelete = profiles.size > 1,
-            onCopy = {
-                actionProfile = null
-                scope.launch {
-                    withContext(Dispatchers.IO) {
-                        AssistantRepository.duplicate(profile.id)
-                    }
-                }
-            },
-            onEdit = {
-                actionProfile = null
-                onDismiss()
-                onEdit(profile.id)
-            },
-            onDelete = {
-                actionProfile = null
-                deleteProfile = profile
-            },
-            onDismiss = { actionProfile = null },
-        )
     }
 
     deleteProfile?.let { profile ->
@@ -277,14 +239,12 @@ internal fun AssistantProfileCard(
 }
 
 /**
- * Material 3 助手行：KernelSU 式分段行 + 官方 [SwipeToDismissBox]。
+ * 助手行：KernelSU 式分段行 + 行尾官方三点菜单（与 Skills 页的技能行同一套交互）。
  *
- * 左滑露出「复制 / 编辑 / 删除」三个操作按钮：滑动过程露出，越过阈值（总距离的 50%）后
- * 停留在露出状态；点击露出区域的空白处或执行复制 / 编辑后自动收起。危险操作（删除）用
- * `errorContainer` 底色区分，中性操作（复制 / 编辑）沿用分段行同级的 `surfaceContainerHighest`。
+ * 「复制 / 编辑 / 删除」收进 [DropdownMenu]，行本身只负责打开助手；删除仍需二次确认。
  */
 @Composable
-internal fun AssistantSwipeRow(
+internal fun AssistantRow(
     profile: AssistantProfile,
     selected: Boolean,
     onOpen: () -> Unit,
@@ -293,83 +253,22 @@ internal fun AssistantSwipeRow(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val view = LocalView.current
-    val scope = rememberCoroutineScope()
-    val dismissState = rememberSwipeToDismissBoxState(
-        positionalThreshold = { totalDistance -> totalDistance * 0.5f },
-    )
-    SwipeToDismissBox(
-        state = dismissState,
-        // 只允许向左滑动露出操作；右滑（或点击空白）用于收起。
-        enableDismissFromStartToEnd = false,
-        enableDismissFromEndToStart = true,
-        backgroundContent = {
-            // 背景圆角与分段行一致，避免未滑动时四角露出底色。
-            val shape = LocalEtaSegmentedShapes.current?.shape ?: MaterialTheme.shapes.large
-            Surface(
-                onClick = { scope.launch { dismissState.reset() } },
-                color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                shape = shape,
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    IconButton(onClick = {
-                        onCopy()
-                        scope.launch { dismissState.reset() }
-                    }) {
-                        Icon(
-                            imageVector = Icons.Rounded.ContentCopy,
-                            contentDescription = stringResource(R.string.ui_copy_4edd1d),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    IconButton(onClick = {
-                        onEdit()
-                        scope.launch { dismissState.reset() }
-                    }) {
-                        Icon(
-                            imageVector = Icons.Rounded.Edit,
-                            contentDescription = stringResource(R.string.ui_edit_a7f814),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    // 危险操作（删除）用 errorContainer 底色与 onErrorContainer 图标区分。
-                    Box(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .background(MaterialTheme.colorScheme.errorContainer),
-                    ) {
-                        IconButton(onClick = { onDelete() }) {
-                            Icon(
-                                imageVector = Icons.Rounded.Delete,
-                                contentDescription = stringResource(R.string.action_delete),
-                                tint = MaterialTheme.colorScheme.onErrorContainer,
-                            )
-                        }
-                    }
-                }
-            }
+    var menuExpanded by remember { mutableStateOf(false) }
+    EtaSegmentedRow(
+        selected = selected,
+        onClick = onOpen,
+        modifier = modifier.fillMaxWidth(),
+        leadingContent = { AssistantAvatar(assistant = profile, size = 32.dp) },
+        content = {
+            M3Text(
+                text = profile.name,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         },
-        modifier = modifier,
-    ) {
-        EtaSegmentedRow(
-            selected = selected,
-            onClick = onOpen,
-            modifier = Modifier.fillMaxWidth(),
-            leadingContent = { AssistantAvatar(assistant = profile, size = 32.dp) },
-            content = {
-                M3Text(
-                    text = profile.name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            },
-            trailingContent = {
+        trailingContent = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 if (selected) {
                     M3Text(
                         text = stringResource(R.string.assistant_current),
@@ -378,55 +277,43 @@ internal fun AssistantSwipeRow(
                         maxLines = 1,
                     )
                 }
-            },
-        )
-    }
-    // 越过阈值停住时给一次触觉反馈（与 ManageChatsScreen 同款）。
-    LaunchedEffect(dismissState.currentValue) {
-        if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
-            TouchHaptics.gestureThreshold(view)
-        }
-    }
-}
-
-@Composable
-internal fun AssistantActionsDialog(
-    profile: AssistantProfile,
-    canDelete: Boolean,
-    onCopy: () -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    EtaDialog(
-        show = true,
-        title = profile.name,
-        onDismissRequest = onDismiss,
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            // 官方按钮：形状、行高、配色全部使用官方默认值。
-            OutlinedButton(onClick = onCopy, modifier = Modifier.fillMaxWidth()) {
-                M3Text(text = stringResource(R.string.ui_copy_4edd1d))
+                Box {
+                    IconButton(onClick = { menuExpanded = true }) {
+                        Icon(
+                            imageVector = Icons.Rounded.MoreHoriz,
+                            contentDescription = stringResource(R.string.assistant_more_named, profile.name),
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false },
+                    ) {
+                        DropdownMenuItem(
+                            text = { M3Text(text = stringResource(R.string.ui_copy_4edd1d)) },
+                            onClick = {
+                                menuExpanded = false
+                                onCopy()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { M3Text(text = stringResource(R.string.ui_edit_a7f814)) },
+                            onClick = {
+                                menuExpanded = false
+                                onEdit()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { M3Text(text = stringResource(R.string.action_delete)) },
+                            onClick = {
+                                menuExpanded = false
+                                onDelete()
+                            },
+                        )
+                    }
+                }
             }
-            OutlinedButton(onClick = onEdit, modifier = Modifier.fillMaxWidth()) {
-                M3Text(text = stringResource(R.string.ui_edit_a7f814))
-            }
-            Button(
-                onClick = onDelete,
-                enabled = canDelete,
-                modifier = Modifier.fillMaxWidth(),
-                colors = M3ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error,
-                    contentColor = MaterialTheme.colorScheme.onError,
-                ),
-            ) {
-                M3Text(text = stringResource(R.string.action_delete))
-            }
-        }
-    }
+        },
+    )
 }
 
 @Composable
