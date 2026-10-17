@@ -7,25 +7,16 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -41,7 +32,6 @@ import io.github.mangi.eta.agent.voice.offline.OfflineSpeechPack
 import io.github.mangi.eta.agent.voice.offline.OfflineSpeechSession
 import io.github.mangi.eta.agent.voice.offline.SpeechInputPolicy
 import io.github.mangi.eta.agent.voice.offline.SpeechDraft
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -177,15 +167,11 @@ internal fun ChatSpeechIndicator(
         }
     }
 
-    // M3 Expressive：直径变化走官方 motionScheme 空间动效；miuix 分支保留原弹性参数。
+    // M3 Expressive：直径变化走官方 motionScheme 空间动效。
     // 触摸区仍是固定 48dp（等于 Compose 官方最小可点区域），避免生长时挤动输入栏其它按钮。
     val diameter by animateDpAsState(
         targetValue = if (active) 40.dp else 24.dp,
-        animationSpec = if (isMaterial3Theme()) {
-            MaterialTheme.motionScheme.defaultSpatialSpec<Dp>()
-        } else {
-            spring<Dp>(dampingRatio = 0.65f)
-        },
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Dp>(),
         label = "speechDiameter",
     )
     val label = stringResource(if (active) R.string.speech_stop else R.string.speech_start)
@@ -220,55 +206,35 @@ internal fun ChatSpeechIndicator(
                 if (active) stateDescription = status
             }
         }
-        if (isMaterial3Theme()) {
-            // M3 Expressive：官方 IconButton 承担 48dp 命中区、官方形状、官方涟漪与 Role；
-            // 按钮内容是官方 ContainedLoadingIndicator（见 ContainedMorphLoadingIndicator）。
-            // 长按切换语音模式：官方图标按钮没有 onLongClick 槽位（material3 1.5.0-alpha29
-            // 里只有 ListItem 提供，而 ListItem 无法表达圆形录音按钮），因此长按检测放进按钮
-            // 内容，只观察指针不消费，点击、禁用与涟漪仍全部由官方按钮处理。
-            // 长按语义由 ChatInputLongPressSlot 自己用 onLongClick key 声明（子节点，父为 null
-            // 时合并进来）。不要再在按钮 modifier 上补一份：同 key 父非空会赢，会把共享助手的
-            // 语义整份遮掉。
-            IconButton(
-                onClick = clickAction,
-                // modifier 必须包住整个按钮（含官方 minimumInteractiveComponentSize 的 48dp
-                // 命中区）：输入区把本入口放进只留 40dp 的尾部槽，不在此收口，命中区会把
-                // 槽位撑宽，让胶囊与发送按钮位置错开。
-                modifier = modifier.then(accessibility),
-                enabled = (speechEnabled || forceVisible) &&
-                    (!interactionBlocked &&
-                        (allowed || active || onLongClick != null ||
-                            onUnavailableClick != null || onIdleClick != null)),
-            ) {
-                if (longPressAction != null) {
-                    ChatInputLongPressSlot(
-                        enabled = !interactionBlocked,
-                        onLongPress = longPressAction,
-                        longClickLabel = label,
-                        content = indicator,
-                    )
-                } else {
-                    indicator()
-                }
-            }
-            return@AnimatedVisibility
-        }
-        // miuix 主题族：保持零 indication 的紧凑命中区，维持流式滚动性能。
-        Box(
-            modifier = Modifier.size(48.dp).clip(CircleShape)
-                .then(accessibility)
-                .then(if (speechEnabled || forceVisible) Modifier.combinedClickable(
-                    enabled = !interactionBlocked && (allowed || active || onLongClick != null || onUnavailableClick != null || onIdleClick != null),
-                    role = Role.Button,
-                    indication = null,
-                    interactionSource = remember { MutableInteractionSource() },
-                    hapticFeedbackEnabled = false,
-                    onLongClick = longPressAction,
-                    onClick = clickAction,
-                ) else Modifier),
-            contentAlignment = Alignment.Center,
+        // M3 Expressive：官方 IconButton 承担 48dp 命中区、官方形状、官方涟漪与 Role；
+        // 按钮内容是官方 ContainedLoadingIndicator（见 ContainedMorphLoadingIndicator）。
+        // 长按切换语音模式：官方图标按钮没有 onLongClick 槽位（material3 1.5.0-alpha29
+        // 里只有 ListItem 提供，而 ListItem 无法表达圆形录音按钮），因此长按检测放进按钮
+        // 内容，只观察指针不消费，点击、禁用与涟漪仍全部由官方按钮处理。
+        // 长按语义由 ChatInputLongPressSlot 自己用 onLongClick key 声明（子节点，父为 null
+        // 时合并进来）。不要再在按钮 modifier 上补一份：同 key 父非空会赢，会把共享助手的
+        // 语义整份遮掉。
+        IconButton(
+            onClick = clickAction,
+            // modifier 必须包住整个按钮（含官方 minimumInteractiveComponentSize 的 48dp
+            // 命中区）：输入区把本入口放进只留 40dp 的尾部槽，不在此收口，命中区会把
+            // 槽位撑宽，让胶囊与发送按钮位置错开。
+            modifier = modifier.then(accessibility),
+            enabled = (speechEnabled || forceVisible) &&
+                (!interactionBlocked &&
+                    (allowed || active || onLongClick != null ||
+                        onUnavailableClick != null || onIdleClick != null)),
         ) {
-            indicator()
+            if (longPressAction != null) {
+                ChatInputLongPressSlot(
+                    enabled = !interactionBlocked,
+                    onLongPress = longPressAction,
+                    longClickLabel = label,
+                    content = indicator,
+                )
+            } else {
+                indicator()
+            }
         }
     }
 }

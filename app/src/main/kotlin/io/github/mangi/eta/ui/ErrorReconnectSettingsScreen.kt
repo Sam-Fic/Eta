@@ -2,15 +2,7 @@ package io.github.mangi.eta.ui
 
 import android.widget.Toast
 import androidx.annotation.StringRes
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -18,12 +10,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.datastore.SettingsDataStore
@@ -32,12 +21,6 @@ import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedRadioRow
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedScope
-import io.github.mangi.eta.ui.adaptive.EtaText
-import io.github.mangi.eta.ui.adaptive.EtaTextStyle
-import io.github.mangi.eta.ui.adaptive.etaOnSurfaceVariant
-import io.github.mangi.eta.ui.adaptive.etaPrimary
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
-import io.github.mangi.eta.ui.haptics.TouchHaptics
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.map
@@ -92,8 +75,7 @@ internal fun ErrorReconnectSettingsScreen(onBack: () -> Unit) {
  * 重连策略选项组：注册进分段列，每个选项独立一条目，自行拿分段形状
  * （KernelSU `SegmentedRadioItem` 式的单选列表）。
  *
- * Material 3：前导 RadioButton + 标题 + 摘要说明，整行可选；
- * MIUI X：保留原有的「整行 selectable + 尾部 RadioButton」结构。
+ * Material 3：前导 RadioButton + 标题 + 摘要说明，整行可选。
  *
  * A single global policy: no provider/model selector or per-model configuration.
  */
@@ -104,69 +86,14 @@ internal fun EtaSegmentedScope.ErrorReconnectPolicyOptions(
 ) {
     ErrorReconnectPolicy.entries.forEach { policy ->
         item(key = policy.name) {
-            if (isMaterial3Theme()) {
-                EtaSegmentedRadioRow(
-                    title = stringResource(errorReconnectPolicyLabel(policy)),
-                    summary = stringResource(errorReconnectPolicyHint(policy)),
-                    selected = selectedPolicy == policy,
-                    enabled = enabled,
-                    onClick = {
-                        onSelect(policy)
-                    },
-                )
-            } else {
-                ErrorReconnectPolicyMiuixRow(
-                    policy = policy,
-                    selectedPolicy = selectedPolicy,
-                    enabled = enabled,
-                    onSelect = onSelect,
-                )
-            }
-        }
-    }
-}
-
-/** MIUI X 主题族的单选行：整行 selectable，尾部 RadioButton，与原版观感一致。 */
-@Composable
-private fun ErrorReconnectPolicyMiuixRow(
-    policy: ErrorReconnectPolicy,
-    selectedPolicy: ErrorReconnectPolicy,
-    enabled: Boolean,
-    onSelect: (ErrorReconnectPolicy) -> Unit,
-) {
-    val view = LocalView.current
-    Column(modifier = Modifier.selectableGroup()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 48.dp)
-                .selectable(
-                    selected = selectedPolicy == policy,
-                    enabled = enabled,
-                    role = Role.RadioButton,
-                    onClick = {
-                        TouchHaptics.click(view)
-                        onSelect(policy)
-                    },
-                )
-                .padding(horizontal = 16.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                EtaText(text = stringResource(errorReconnectPolicyLabel(policy)))
-                EtaText(
-                    text = stringResource(errorReconnectPolicyHint(policy)),
-                    style = EtaTextStyle.Footnote,
-                )
-            }
-            RadioButton(
+            EtaSegmentedRadioRow(
+                title = stringResource(errorReconnectPolicyLabel(policy)),
+                summary = stringResource(errorReconnectPolicyHint(policy)),
                 selected = selectedPolicy == policy,
                 enabled = enabled,
-                onClick = null,
-                colors = RadioButtonDefaults.colors(
-                    selectedColor = etaPrimary(),
-                    unselectedColor = etaOnSurfaceVariant(),
-                ),
+                onClick = {
+                    onSelect(policy)
+                },
             )
         }
     }

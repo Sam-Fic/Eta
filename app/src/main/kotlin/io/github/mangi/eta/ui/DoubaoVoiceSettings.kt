@@ -46,9 +46,7 @@ import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
 import io.github.mangi.eta.ui.adaptive.EtaText
 import io.github.mangi.eta.ui.adaptive.EtaTextButton
 import io.github.mangi.eta.ui.adaptive.EtaTextStyle
-import io.github.mangi.eta.ui.adaptive.etaOnSurfaceVariant
 import io.github.mangi.eta.ui.adaptive.etaPrimary
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.components.EtaMaterialDropdownMenu
 import io.github.mangi.eta.ui.components.EtaMaterialDropdownMenuItem
 import io.github.mangi.eta.ui.components.ListEmptyState
@@ -457,8 +455,7 @@ private fun VoiceTextField(
 }
 
 /**
- * 自适应单选行：M3 走 [EtaSegmentedRadioRow]（分段单选行），
- * MIUI X 保留原有「整行 selectable + 尾部 RadioButton」结构。
+ * 自适应单选行：走 [EtaSegmentedRadioRow]（分段单选行）。
  */
 @Composable
 private fun VoiceRadioRow(
@@ -468,36 +465,7 @@ private fun VoiceRadioRow(
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
-    if (isMaterial3Theme()) {
-        EtaSegmentedRadioRow(title = title, summary = summary, selected = selected, enabled = enabled, onClick = onClick)
-        return
-    }
-    val view = LocalView.current
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 48.dp)
-            .selectableGroup()
-            .selectable(
-                selected = selected,
-                enabled = enabled,
-                role = Role.RadioButton,
-                onClick = { TouchHaptics.click(view); onClick() },
-            )
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            EtaText(text = title)
-            if (summary != null) EtaText(text = summary, style = EtaTextStyle.Footnote)
-        }
-        RadioButton(
-            selected = selected,
-            enabled = enabled,
-            onClick = null,
-            colors = RadioButtonDefaults.colors(selectedColor = etaPrimary(), unselectedColor = etaOnSurfaceVariant()),
-        )
-    }
+    EtaSegmentedRadioRow(title = title, summary = summary, selected = selected, enabled = enabled, onClick = onClick)
 }
 
 /** 语音槽位状态文案。 */

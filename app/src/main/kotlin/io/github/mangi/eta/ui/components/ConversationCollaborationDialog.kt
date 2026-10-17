@@ -14,7 +14,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
@@ -23,14 +22,10 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.delegation.ConversationSubAgentPreferences
 import io.github.mangi.eta.data.repository.ProviderRepository
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 
 /** A popup entry belongs to one real configuration owner (including the unique draft key).
@@ -79,7 +74,6 @@ internal fun ConversationCollaborationDialog(
     val latestCanChange by rememberUpdatedState(canChange)
     val directory = editor?.let { rememberSubAgentPresetDirectory(it.repository) }
     val providers by remember { ProviderRepository.providersFlow() }.collectAsState(initial = emptyList())
-    val maximumHeight = (LocalConfiguration.current.screenHeightDp - 48).coerceAtLeast(160).dp
     val view = LocalView.current
     // Share the same lifetime-bound chooser/panel with the non-scrolling footer.
     val chooserPopup = if (choosing && directory != null && editor != null) {
@@ -103,18 +97,13 @@ internal fun ConversationCollaborationDialog(
     val panelState = panelEditor?.observe()
     val panelConfig = (panelState as? SubAgentEditorState.Loaded)?.config
     val panelEnabled = canChange && panelEditor?.enabled == true && panelConfig != null
-    // M3E 主题下的弹窗观感：外壳、头部、空态与动作区都按官方 Expressive 形态呈现；
-    // miuix 主题沿用原来的窗口对话框与左次右主动作区，结构不动。
-    val useExpressive = isMaterial3Theme()
+    // 弹窗观感：外壳、头部、空态与动作区都按官方 Expressive 形态呈现。
     CompositionLocalProvider(LocalRippleConfiguration provides etaRippleConfiguration()) {
         WithoutPressRipple {
-            // M3E 走官方 [ModalBottomSheet]：拖拽把手、遮罩、圆角与底部安全区都由组件提供；
-            // miuix 仍是原来的窗口对话框与 480dp 卡片，结构不动。
+            // 走官方 [ModalBottomSheet]：拖拽把手、遮罩、圆角与底部安全区都由组件提供。
             CollaborationDialogShell(
-                useExpressive = useExpressive,
                 title = stringResource(R.string.ccd_title),
                 onDismissRequest = onDismiss,
-                legacyMaxHeight = maximumHeight,
             ) {
                 Column(Modifier.fillMaxWidth().weight(1f, fill = false).testTag("subagent-collaboration-body")
                     .verticalScroll(key(editor, choosing, current?.presetApplicationToken) { rememberScrollState() })
@@ -132,10 +121,10 @@ internal fun ConversationCollaborationDialog(
                         val (popup, ticket) = chooserPopup
                         // M3E：模式名是分组标题，不能比对话框标题还大。
                         Text(stringResource(R.string.ccd_choose_group),
-                            style = if (useExpressive) MaterialTheme.typography.titleMedium else MaterialTheme.typography.headlineSmall)
+                            style = MaterialTheme.typography.titleMedium)
                         Text(stringResource(R.string.ccd_apply_note),
                             style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 12.dp))
-                        if (useExpressive) ExpressivePresetDirectoryStatus(directory) else SubAgentPresetDirectoryStatus(directory)
+                        ExpressivePresetDirectoryStatus(directory)
                         directory.entries.forEach { preset ->
                             key(editor, preset.id) {
                                 SubAgentPresetCard(preset, canChange && directory.error == null && !directory.loading,
@@ -229,12 +218,8 @@ internal fun ConversationCollaborationDialog(
                 // Fixed footer: changing the chooser state never requires scrolling past the cards.
                 Row(Modifier.fillMaxWidth().padding(top = 4.dp).heightIn(min = 48.dp).testTag("subagent-collaboration-footer"),
                     verticalAlignment = Alignment.CenterVertically,
-                    // M3E：动作区右对齐（官方对话框动作形态）；miuix 保持「左次要 + 右主要」。
-                    horizontalArrangement = if (useExpressive) {
-                        Arrangement.spacedBy(8.dp, Alignment.End)
-                    } else {
-                        Arrangement.spacedBy(8.dp)
-                    }) {
+                    // 动作区右对齐（官方对话框动作形态）。
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
                     if (choosing && current != null && editor != null && chooserPopup != null) {
                         val (popup, ticket) = chooserPopup
                         TextButton(enabled = canChange, modifier = Modifier.semantics { onClick {
@@ -265,7 +250,6 @@ internal fun ConversationCollaborationDialog(
                             }
                         }) { Text(stringResource(R.string.ccd_switch_group)) }
                     }
-                    if (!useExpressive) Spacer(Modifier.weight(1f))
                     TextButton(enabled = !taskRunning, onClick = {
                         if (latestOwnerMatches() && !latestTaskRunning) { TouchHaptics.click(view); onDismiss() }
                     }) { Text(stringResource(R.string.action_done)) }
@@ -276,51 +260,35 @@ internal fun ConversationCollaborationDialog(
 }
 
 /**
- * 弹窗外壳。两种主题共用同一份正文与固定动作区（[content]）：
- * M3E 用官方 [ModalBottomSheet]，拖拽把手、遮罩、圆角与底部安全区都由组件提供，
- * 高度随内容增长、超出屏幕再由正文自己滚动；miuix 沿用原来的窗口对话框与 480dp 卡片。
+ * 弹窗外壳：官方 [ModalBottomSheet]，拖拽把手、遮罩、圆角与底部安全区都由组件提供，
+ * 高度随内容增长、超出屏幕再由正文自己滚动。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CollaborationDialogShell(
-    useExpressive: Boolean,
     title: String,
     onDismissRequest: () -> Unit,
-    legacyMaxHeight: Dp,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    if (useExpressive) {
-        ModalBottomSheet(
-            onDismissRequest = onDismissRequest,
-            // 与「助手与模型」选择器一致：只保留 Hidden↔Expanded 两态，不进半展开。
-            sheetState = rememberBottomSheetState(
-                initialValue = SheetValue.Hidden,
-                enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
-            ),
+    ModalBottomSheet(
+        onDismissRequest = onDismissRequest,
+        // 与「助手与模型」选择器一致：只保留 Hidden↔Expanded 两态，不进半展开。
+        sheetState = rememberBottomSheetState(
+            initialValue = SheetValue.Hidden,
+            enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+        ),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 24.dp),
         ) {
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 24.dp),
-            ) {
-                ExpressiveCollaborationHeader(title)
-                content()
-            }
-        }
-    } else {
-        Dialog(onDismissRequest = onDismissRequest, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-            Card(Modifier.widthIn(max = 480.dp).fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp)
-                .heightIn(max = legacyMaxHeight).testTag("subagent-collaboration-card")) {
-                Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp)) {
-                    Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(bottom = 16.dp))
-                    content()
-                }
-            }
+            ExpressiveCollaborationHeader(title)
+            content()
         }
     }
 }
 
 /**
  * M3E 头部：色调圆底图标 + 标题，与官方对话框的 icon/title 层级一致。
- * 只有 M3E 主题走这里，miuix 仍用原来那行 titleLarge 文本。
  */
 @Composable
 private fun ExpressiveCollaborationHeader(title: String) {

@@ -2,15 +2,11 @@ package io.github.mangi.eta.ui.components
 
 import android.app.Activity
 import android.view.View
-import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalIconButton
@@ -36,7 +32,6 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.focus.FocusManager
@@ -45,18 +40,15 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import io.github.mangi.eta.ui.adaptive.isMaterial3Theme
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onLongClick
-import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.core.view.WindowCompat
@@ -103,12 +95,9 @@ internal suspend fun showChatInputIme(
  * Material 3 Expressive renders the official icon button family — [IconButton],
  * [FilledTonalIconButton] or [FilledIconButton]. Container shape, ripple, container
  * colors, disabled colors and sizes are all supplied by the library: [containerShape],
- * [containerColor] and [containerSize] are forwarded to the official component instead of
- * being re-created with `clip` + `background` + `clickable`. When the caller passes the
- * official `secondaryContainer` / `primary` container color, the tonal / filled variant is
- * used so the official defaults apply untouched.
- *
- * MIUI X keeps its original 40dp hit area with the tap/long-press detector.
+ * [containerColor] and [containerSize] are forwarded to the official component. When the
+ * caller passes the official `secondaryContainer` / `primary` container color, the tonal /
+ * filled variant is used so the official defaults apply untouched.
  */
 @Composable
 internal fun ChatInputNonFocusableIconButton(
@@ -126,140 +115,100 @@ internal fun ChatInputNonFocusableIconButton(
     content: @Composable () -> Unit,
 ) {
     val view = LocalView.current
-    if (isMaterial3Theme()) {
-        // 没有长按时直接透传内容：长按宿主会多出一个布局节点和一个语义节点，
-        // 而绝大多数输入栏按钮并不需要它。居中由官方组件自己的 Box 负责。
-        val buttonContent: @Composable () -> Unit = if (onLongClick == null) {
-            content
-        } else {
-            {
-                ChatInputLongPressSlot(
-                    enabled = enabled,
-                    onLongPress = onLongClick,
-                    longClickLabel = longClickLabel,
-                    content = content,
-                )
+    // 没有长按时直接透传内容：长按宿主会多出一个布局节点和一个语义节点，
+    // 而绝大多数输入栏按钮并不需要它。居中由官方组件自己的 Box 负责。
+    val buttonContent: @Composable () -> Unit = if (onLongClick == null) {
+        content
+    } else {
+        {
+            ChatInputLongPressSlot(
+                enabled = enabled,
+                onLongPress = onLongClick,
+                longClickLabel = longClickLabel,
+                content = content,
+            )
+        }
+    }
+    val buttonModifier = modifier
+        .size(containerSize)
+        .focusProperties { canFocus = false }
+        .semantics {
+            this.role = Role.Button
+            if (contentDescription != null) {
+                this.contentDescription = contentDescription
             }
         }
-        val buttonModifier = modifier
-            .size(containerSize)
-            .focusProperties { canFocus = false }
-            .semantics {
-                this.role = Role.Button
-                if (contentDescription != null) {
-                    this.contentDescription = contentDescription
-                }
-            }
-        val click: () -> Unit = {
-            TouchHaptics.click(view)
-            onClick()
-        }
-        if (connectedShapes != null) {
-            // 官方连体按钮组：M3 Expressive ToggleButton + ButtonGroupDefaults 连体形状组，
-            // 自带官方按压形变动画。checked 恒为 false（菜单触发按钮没有选中态），
-            // 点击经 onCheckedChange 回调转成一次 click。
-            val tone = containerColor ?: MaterialTheme.colorScheme.secondaryContainer
-            val toneContent = contentColor ?: MaterialTheme.colorScheme.onSecondaryContainer
-            ToggleButton(
-                checked = false,
-                onCheckedChange = { click() },
-                modifier = buttonModifier,
-                enabled = enabled,
-                buttonSize = ToggleButtonSize.Small,
-                shapes = connectedShapes,
-                // 连体组是固定 40dp 容器的图标按钮，官方文字按钮的默认水平内边距会挤压内容，
-                // 置零后由官方 Row 自身居中。
-                contentPadding = PaddingValues(0.dp),
-                colors = ToggleButtonDefaults.colors(
-                    containerColor = tone,
-                    contentColor = toneContent,
-                    checkedContainerColor = tone,
-                    checkedContentColor = toneContent,
-                ),
-                content = { buttonContent() },
-            )
-            return
-        }
-        when {
-            // Standard icon button: transparent container, official shape and ripple.
-            containerColor == null -> IconButton(
-                onClick = click,
-                modifier = buttonModifier,
-                enabled = enabled,
-                shape = containerShape ?: IconButtonDefaults.standardShape,
-                content = buttonContent,
-            )
-            // Official tonal default is secondaryContainer / onSecondaryContainer.
-            containerColor == MaterialTheme.colorScheme.secondaryContainer -> FilledTonalIconButton(
-                onClick = click,
-                modifier = buttonModifier,
-                enabled = enabled,
-                shape = containerShape ?: IconButtonDefaults.filledShape,
-                content = buttonContent,
-            )
-            // Official filled default is primary / onPrimary.
-            containerColor == MaterialTheme.colorScheme.primary -> FilledIconButton(
-                onClick = click,
-                modifier = buttonModifier,
-                enabled = enabled,
-                shape = containerShape ?: IconButtonDefaults.filledShape,
-                content = buttonContent,
-            )
-            // Any other container color still comes from the color scheme; only the
-            // container / content slots are overridden, everything else stays official.
-            // contentColor 透传，使调用方能随容器色一起驱动图标内容色（如输入框「+」按钮的
-            // 透明 ↔ primary 渐变），未传时仍回落到官方 LocalContentColor 隐式值。
-            else -> IconButton(
-                onClick = click,
-                modifier = buttonModifier,
-                enabled = enabled,
-                shape = containerShape ?: IconButtonDefaults.standardShape,
-                colors = IconButtonDefaults.iconButtonColors(
-                    containerColor = containerColor,
-                    contentColor = contentColor ?: LocalContentColor.current,
-                ),
-                content = buttonContent,
-            )
-        }
+    val click: () -> Unit = {
+        TouchHaptics.click(view)
+        onClick()
+    }
+    if (connectedShapes != null) {
+        // 官方连体按钮组：M3 Expressive ToggleButton + ButtonGroupDefaults 连体形状组，
+        // 自带官方按压形变动画。checked 恒为 false（菜单触发按钮没有选中态），
+        // 点击经 onCheckedChange 回调转成一次 click。
+        val tone = containerColor ?: MaterialTheme.colorScheme.secondaryContainer
+        val toneContent = contentColor ?: MaterialTheme.colorScheme.onSecondaryContainer
+        ToggleButton(
+            checked = false,
+            onCheckedChange = { click() },
+            modifier = buttonModifier,
+            enabled = enabled,
+            buttonSize = ToggleButtonSize.Small,
+            shapes = connectedShapes,
+            // 连体组是固定 40dp 容器的图标按钮，官方文字按钮的默认水平内边距会挤压内容，
+            // 置零后由官方 Row 自身居中。
+            contentPadding = PaddingValues(0.dp),
+            colors = ToggleButtonDefaults.colors(
+                containerColor = tone,
+                contentColor = toneContent,
+                checkedContainerColor = tone,
+                checkedContentColor = toneContent,
+            ),
+            content = { buttonContent() },
+        )
         return
     }
-    Box(
-        modifier = modifier
-            .size(containerSize)
-            .then(
-                if (containerShape != null && containerColor != null) {
-                    Modifier.clip(containerShape).background(containerColor)
-                } else {
-                    Modifier
-                },
-            )
-            .focusProperties { canFocus = false }
-            .semantics(mergeDescendants = true) {
-                this.role = Role.Button
-                if (contentDescription != null) {
-                    this.contentDescription = contentDescription
-                }
-                if (onLongClick != null) {
-                    this.onLongClick(label = longClickLabel) { TouchHaptics.longPress(view); onLongClick(); true }
-                }
-                onClick {
-                    TouchHaptics.click(view)
-                    onClick()
-                    true
-                }
-            }
-            .pointerInput(onClick, onLongClick) {
-                detectTapGestures(
-                    onLongPress = onLongClick?.let { action -> { _: androidx.compose.ui.geometry.Offset ->
-                        TouchHaptics.longPress(view)
-                        action()
-                    } },
-                    onTap = { TouchHaptics.click(view); onClick() },
-                )
-            },
-        contentAlignment = Alignment.Center,
-        content = { content() },
-    )
+    when {
+        // Standard icon button: transparent container, official shape and ripple.
+        containerColor == null -> IconButton(
+            onClick = click,
+            modifier = buttonModifier,
+            enabled = enabled,
+            shape = containerShape ?: IconButtonDefaults.standardShape,
+            content = buttonContent,
+        )
+        // Official tonal default is secondaryContainer / onSecondaryContainer.
+        containerColor == MaterialTheme.colorScheme.secondaryContainer -> FilledTonalIconButton(
+            onClick = click,
+            modifier = buttonModifier,
+            enabled = enabled,
+            shape = containerShape ?: IconButtonDefaults.filledShape,
+            content = buttonContent,
+        )
+        // Official filled default is primary / onPrimary.
+        containerColor == MaterialTheme.colorScheme.primary -> FilledIconButton(
+            onClick = click,
+            modifier = buttonModifier,
+            enabled = enabled,
+            shape = containerShape ?: IconButtonDefaults.filledShape,
+            content = buttonContent,
+        )
+        // Any other container color still comes from the color scheme; only the
+        // container / content slots are overridden, everything else stays official.
+        // contentColor 透传，使调用方能随容器色一起驱动图标内容色（如输入框「+」按钮的
+        // 透明 ↔ primary 渐变），未传时仍回落到官方 LocalContentColor 隐式值。
+        else -> IconButton(
+            onClick = click,
+            modifier = buttonModifier,
+            enabled = enabled,
+            shape = containerShape ?: IconButtonDefaults.standardShape,
+            colors = IconButtonDefaults.iconButtonColors(
+                containerColor = containerColor,
+                contentColor = contentColor ?: LocalContentColor.current,
+            ),
+            content = buttonContent,
+        )
+    }
 }
 
 /**
@@ -366,14 +315,15 @@ private suspend fun PointerInputScope.detectChatInputLongPress(onLongPress: () -
  */
 @Composable
 internal fun rememberKeepImeWhenOpeningMenu(): () -> Unit {
-    val density = LocalDensity.current
     val keyboard = LocalSoftwareKeyboardController.current
     val requester = LocalChatInputFocusRequester.current
     val view = LocalView.current
     val restoreToken = remember { mutableIntStateOf(0) }
     val shouldRestore = remember { mutableStateOf(false) }
     val token = restoreToken.intValue
-    val imeVisible = WindowInsets.ime.getBottom(density) > 0
+    // IME 可见性走离散布尔（snapshotFlow 在组合外观察，见 rememberImeVisible）：键盘动画期间
+    // 逐帧变化的是 inset 数值，在组合期直接读取会让本函数每帧重启、返回的回调每帧换新实例。
+    val imeVisible = rememberImeVisible()
 
     LaunchedEffect(token) {
         if (token == 0 || !shouldRestore.value) return@LaunchedEffect

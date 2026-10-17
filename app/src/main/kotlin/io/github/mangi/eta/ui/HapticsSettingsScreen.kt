@@ -108,9 +108,8 @@ internal fun HapticsSettingsScreen(onBack: () -> Unit) {
         onBack = onBack,
     ) {
         item(key = "haptics_touch_group") {
-            // 与兄弟设置页一致：全部走自适应共享行组件（EtaSwitchRow），两种主题各自落到
-            // 官方 M3 分段行或 miuix 行。总开关与它的细分项同组，总开关关掉时细分项置灰但
-            // 仍然可见，用户能看全自己能配的东西。
+            // 与兄弟设置页一致：全部走自适应共享行组件（EtaSwitchRow）。总开关与它的细分项
+            // 同组，总开关关掉时细分项置灰但仍然可见，用户能看全自己能配的东西。
             EtaSegmentedColumn(modifier = groupPadding) {
                 item(key = "touch_feedback") {
                     EtaSwitchRow(

@@ -1,5 +1,6 @@
 package io.github.mangi.eta.ui.markdown
 
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.layout
@@ -227,7 +228,7 @@ internal fun DocumentStaticMarkdown(content: String, modifier: Modifier = Modifi
     SideEffect { io.github.mangi.eta.ui.components.traceChatBodyRun(
         if (document == null) "md.phase.loading" else "md.phase.success", traceMount) }
     CompositionLocalProvider(LocalUriHandler provides handler) {
-        if (document == null) top.yukonga.miuix.kmp.basic.Text(content, style = style.body, modifier = modifier)
+        if (document == null) Text(content, style = style.body, modifier = modifier)
         else MarkdownContent(checkNotNull(document), style, modifier)
     }
 }
