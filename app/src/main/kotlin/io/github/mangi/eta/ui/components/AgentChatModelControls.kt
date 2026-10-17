@@ -1,6 +1,5 @@
 package io.github.mangi.eta.ui.components
 
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -13,7 +12,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Dns
-import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.lifecycleScope
@@ -30,7 +28,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
@@ -47,7 +44,6 @@ import io.github.mangi.eta.ui.model.AgentContextUsageUi
 import io.github.mangi.eta.ui.model.AgentModelOptionUi
 import io.github.mangi.eta.ui.model.AgentModelProviderGroupUi
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
-import io.github.mangi.eta.ui.model.defaultExpandedModelProviderIds
 import io.github.mangi.eta.ui.model.formatContextUsage
 import androidx.compose.material3.SelectableDropdownMenuItem
 import androidx.compose.material3.CircularProgressIndicator as M3CircularProgressIndicator
@@ -55,7 +51,6 @@ import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider as M3HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
@@ -72,6 +67,7 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.Stroke
+import io.github.mangi.eta.ui.adaptive.EtaDimens
 import io.github.mangi.eta.ui.adaptive.EtaType
 import io.github.mangi.eta.ui.adaptive.etaTextStyle
 
@@ -138,7 +134,6 @@ internal fun AgentModelPickerButton(
             }
         },
     )
-    var expandedProviderIds by remember(owner) { mutableStateOf(emptySet<String>()) }
     var modelQuery by remember(owner) { mutableStateOf("") }
     val selected = state.selectedModel
     val pickerAvailable = (!isStreaming || isPaused) && state.providerGroups.isNotEmpty()
@@ -170,7 +165,6 @@ internal fun AgentModelPickerButton(
         // 单击打开模型菜单不需要子代理 editor owner（主会话里 owner 为空），
         // owner 只用于长按打开的协作设置对话框。
         if (pickerAvailable) {
-            expandedProviderIds = defaultExpandedModelProviderIds(state.selectedModel)
             modelQuery = ""
             menuState.onAnchorClick()
             menuTicket = if (menuState.expanded) popup.open() else {
@@ -184,11 +178,6 @@ internal fun AgentModelPickerButton(
             popup.dismiss()
             menuTicket = null
             menuState.dismiss()
-        }
-    }
-    val onProviderExpandedChange: (String, Boolean) -> Unit = { providerId, expanded ->
-        popup.dispatch(capturedMenuTicket, currentPopup) {
-            expandedProviderIds = if (expanded) setOf(providerId) else emptySet()
         }
     }
     val onPickModel: (String, String) -> Unit = { providerId, modelId ->
@@ -257,8 +246,6 @@ internal fun AgentModelPickerButton(
                             state = state,
                             query = modelQuery,
                             onQueryChange = { modelQuery = it },
-                            expandedProviderIds = expandedProviderIds,
-                            onProviderExpandedChange = onProviderExpandedChange,
                             onModelSelected = onPickModel,
                         )
                     }
@@ -272,7 +259,7 @@ internal fun AgentModelPickerButton(
  * 订阅并按需刷新各服务商的余额快照；模型选择菜单共用。
  */
 @Composable
-private fun rememberProviderBalanceStates(): Map<String, ProviderBalanceState> {
+internal fun rememberProviderBalanceStates(): Map<String, ProviderBalanceState> {
     val states by ProviderBalanceStore.states.collectAsState()
     val context = LocalContext.current
     LaunchedEffect(Unit) {
@@ -285,7 +272,7 @@ private fun rememberProviderBalanceStates(): Map<String, ProviderBalanceState> {
 }
 
 /** 按搜索词过滤服务商分组：命中服务商名时保留全部模型，否则只保留命中的模型。 */
-private fun filterModelProviderGroups(
+internal fun filterModelProviderGroups(
     providerGroups: List<AgentModelProviderGroupUi>,
     needle: String,
 ): List<AgentModelProviderGroupUi> {
@@ -308,28 +295,21 @@ private fun filterModelProviderGroups(
 // Material 3 Expressive：模型选择菜单
 // ---------------------------------------------------------------------------
 
-/** 菜单行模型：映射成官方 DropdownMenuItem 序列。 */
+/** 菜单行模型：服务商分类标题 + 官方 DropdownMenuItem 序列。 */
 private sealed interface ModelMenuRow {
     data class Provider(
-        val providerId: String,
         val name: String,
-        val expanded: Boolean,
-        val collapsible: Boolean,
         val balance: ProviderBalanceState?,
     ) : ModelMenuRow
 
     data class Model(val model: AgentModelOptionUi, val selected: Boolean) : ModelMenuRow
 
-    data object Divider : ModelMenuRow
-
     data object Empty : ModelMenuRow
 }
 
+/** 只有模型行是菜单项；服务商标题把菜单项切成若干形状段。 */
 private fun List<ModelMenuRow>.isMenuItemAt(index: Int): Boolean =
-    when (getOrNull(index)) {
-        is ModelMenuRow.Provider, is ModelMenuRow.Model -> true
-        else -> false
-    }
+    getOrNull(index) is ModelMenuRow.Model
 
 /** 当前连续菜单项段的首项下标。 */
 private fun List<ModelMenuRow>.firstItemInRunAt(index: Int): Int {
@@ -346,74 +326,84 @@ private fun List<ModelMenuRow>.itemRunLengthAt(index: Int): Int {
     return last - first + 1
 }
 
+/** 模型搜索框：旧模型菜单与「助手与模型」弹窗共用（官方 `OutlinedTextField`）。 */
+@Composable
+internal fun ModelSearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        modifier = modifier.fillMaxWidth(),
+        singleLine = true,
+        leadingIcon = { Icon(imageVector = Icons.Rounded.Search, contentDescription = null) },
+        placeholder = { M3Text(text = stringResource(R.string.model_search_hint)) },
+    )
+}
+
 /**
- * 官方 `DropdownMenu` 内容：官方 `OutlinedTextField` 搜索框 +
- * 官方 `DropdownMenuItem`（单选模型项用官方 `selected` 重载，语义为 RadioButton）+
- * 官方 `HorizontalDivider`，行形状与选中配色全部来自 `MenuDefaults`。
+ * 官方 `DropdownMenu` 内容：官方搜索框 + 官方 `DropdownMenuGroupLabel` 服务商分类标题 +
+ * 官方 `SelectableDropdownMenuItem`（单选模型项用官方 `selected` 重载，语义为 RadioButton），
+ * 行形状与选中配色全部来自 `MenuDefaults`。
  *
- * 同时被旧模型菜单与「助手与模型」二合一弹窗的模型页签复用。
+ * 模型全部平铺，不再按服务商折叠；服务商只作为分类文字出现。
  */
 @Composable
 internal fun ModelPickerMenuContentM3(
     state: AgentModelPickerUiState,
     query: String,
     onQueryChange: (String) -> Unit,
-    expandedProviderIds: Set<String>,
-    onProviderExpandedChange: (String, Boolean) -> Unit,
     onModelSelected: (String, String) -> Unit,
 ) {
     val balanceStates = rememberProviderBalanceStates()
-    val needle = query.trim()
-    val groups = filterModelProviderGroups(state.providerGroups, needle)
+    val groups = filterModelProviderGroups(state.providerGroups, query.trim())
+    val selected = state.selectedModel
     val rows: List<ModelMenuRow> = buildList {
         if (groups.isEmpty()) {
             add(ModelMenuRow.Empty)
         } else {
-            groups.forEachIndexed { groupIndex, group ->
-                if (groupIndex > 0) add(ModelMenuRow.Divider)
-                val expanded = needle.isNotEmpty() || group.providerId in expandedProviderIds
+            groups.forEach { group ->
                 add(
                     ModelMenuRow.Provider(
-                        providerId = group.providerId,
                         name = group.providerName,
-                        expanded = expanded,
-                        collapsible = needle.isEmpty(),
                         balance = balanceStates[group.providerId],
                     ),
                 )
-                if (expanded) {
-                    group.models.forEach { model ->
-                        add(
-                            ModelMenuRow.Model(
-                                model = model,
-                                selected = model.id == state.selectedModel?.id &&
-                                    model.providerId == state.selectedModel?.providerId,
-                            ),
-                        )
-                    }
+                group.models.forEach { model ->
+                    add(
+                        ModelMenuRow.Model(
+                            model = model,
+                            selected = selected != null &&
+                                model.id == selected.id &&
+                                model.providerId == selected.providerId,
+                        ),
+                    )
                 }
             }
         }
     }
-    OutlinedTextField(
-        value = query,
-        onValueChange = onQueryChange,
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true,
-        leadingIcon = { Icon(imageVector = Icons.Rounded.Search, contentDescription = null) },
-        placeholder = { M3Text(text = stringResource(R.string.model_search_hint)) },
-    )
+    ModelSearchField(query = query, onQueryChange = onQueryChange)
     rows.forEachIndexed { index, row ->
         when (row) {
-            is ModelMenuRow.Provider -> DropdownMenuItem(
-                onClick = { onProviderExpandedChange(row.providerId, !row.expanded) },
-                text = {
-                    M3Text(text = row.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                },
-                trailingContent = { ModelProviderHeaderTrailingM3(row = row) },
-                enabled = row.collapsible,
-                shape = MenuDefaults.itemShape(index, rows.itemRunLengthAt(index)).shape,
-            )
+            is ModelMenuRow.Provider -> MenuDefaults.DropdownMenuGroupLabel {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(MenuDefaults.GroupSpacing),
+                ) {
+                    M3Text(
+                        text = row.name,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (hasBalanceIndicatorContent(row.balance)) {
+                        ProviderBalanceIndicator(state = row.balance)
+                    }
+                }
+            }
 
             is ModelMenuRow.Model -> SelectableDropdownMenuItem(
                 selected = row.selected,
@@ -425,11 +415,11 @@ internal fun ModelPickerMenuContentM3(
                         overflow = TextOverflow.Ellipsis,
                     )
                 },
-                shapes = MenuDefaults.itemShape(index, rows.itemRunLengthAt(index)),
-            )
-
-            ModelMenuRow.Divider -> M3HorizontalDivider(
-                modifier = Modifier.padding(MenuDefaults.HorizontalDividerPadding),
+                // 形状段以「服务商标题」为界，首/末项各自拿到官方 leading/trailing 形状。
+                shapes = MenuDefaults.itemShape(
+                    index = index - rows.firstItemInRunAt(index),
+                    count = rows.itemRunLengthAt(index),
+                ),
             )
 
             ModelMenuRow.Empty -> DropdownMenuItem(
@@ -439,37 +429,6 @@ internal fun ModelPickerMenuContentM3(
                 shape = MenuDefaults.standaloneItemShape,
             )
         }
-    }
-}
-
-/**
- * 服务商行尾部：余额 + 展开箭头。
- * 箭头旋转使用官方 `MaterialTheme.motionScheme` 空间动效规格，不自定义 tween。
- */
-@Composable
-private fun ModelProviderHeaderTrailingM3(row: ModelMenuRow.Provider) {
-    val arrowRotation by animateFloatAsState(
-        targetValue = if (row.expanded) 180f else 0f,
-        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Float>(),
-        label = "model_provider_arrow",
-    )
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(MenuDefaults.GroupSpacing),
-    ) {
-        if (hasBalanceIndicatorContent(row.balance)) {
-            ProviderBalanceIndicator(state = row.balance)
-        }
-        Icon(
-            imageVector = Icons.Rounded.ExpandMore,
-            contentDescription = if (row.expanded) {
-                stringResource(R.string.model_collapse_provider, row.name)
-            } else {
-                stringResource(R.string.model_expand_provider, row.name)
-            },
-            modifier = Modifier.graphicsLayer { rotationZ = arrowRotation },
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 
@@ -489,7 +448,7 @@ internal fun AgentContextUsageButton(
      * 会先把约束收紧，因此实际渲染以本参数为准（详见进度环分支内的注释）。
      */
     ringSize: Dp = ChatInputActionIconSize,
-    ringStrokeWidth: Dp = 2.5.dp,
+    ringStrokeWidth: Dp = EtaDimens.SmallRingStroke,
     /** 波浪样式（Material 3 Expressive）：模型回复中使用。 */
     wavy: Boolean = false,
 ) {

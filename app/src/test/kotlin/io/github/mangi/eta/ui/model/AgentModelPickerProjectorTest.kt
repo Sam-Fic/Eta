@@ -141,22 +141,6 @@ class AgentModelPickerProjectorTest {
     }
 
     @Test
-    fun providerGroups_expandCurrentByDefault() {
-        val selected = AgentModelOptionUi(
-            id = "model",
-            providerId = "current",
-            providerName = "Current",
-            providerSourceType = ProviderSourceTypes.CUSTOM,
-            modelId = "model",
-            displayName = "Model",
-            contextWindow = null,
-        )
-        val expanded = defaultExpandedModelProviderIds(selected)
-
-        assertEquals(setOf("current"), expanded)
-    }
-
-    @Test
     fun latestContextUsage_usesLastMeasuredRoundAndSelectedWindow() {
         val selected = AgentModelOptionUi(
             id = "model",

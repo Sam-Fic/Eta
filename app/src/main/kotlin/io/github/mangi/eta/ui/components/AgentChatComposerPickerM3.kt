@@ -22,7 +22,6 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -33,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.EtaApp
@@ -41,13 +41,18 @@ import io.github.mangi.eta.data.model.AssistantProfile
 import io.github.mangi.eta.data.model.GptSpeedMode
 import io.github.mangi.eta.data.model.ReasoningEffort
 import io.github.mangi.eta.data.repository.AssistantRepository
+import io.github.mangi.eta.data.repository.ProviderBalanceState
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
+import io.github.mangi.eta.ui.ModelPickerCheckRow
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedGroupSpacing
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedTitleSpacing
 import io.github.mangi.eta.ui.adaptive.EtaType
 import io.github.mangi.eta.ui.adaptive.etaTextStyle
 import io.github.mangi.eta.ui.model.AgentContextUsageUi
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
-import io.github.mangi.eta.ui.model.defaultExpandedModelProviderIds
+import io.github.mangi.eta.ui.pages.providers.ProviderBalanceIndicator
+import io.github.mangi.eta.ui.pages.providers.hasBalanceIndicatorContent
 import io.github.mangi.eta.ui.screens.assistants.AssistantDeleteDialog
 import io.github.mangi.eta.ui.screens.assistants.AssistantRow
 import io.github.mangi.eta.ui.screens.assistants.AssistantSearchField
@@ -62,7 +67,7 @@ import kotlinx.coroutines.withContext
  * 1. 标题。（关闭走 ModalBottomSheet 的下拉 / 点遮罩，不放关闭按钮。）
  * 2. 官方单选分段按钮的页签：助手 / 模型。
  *    - 助手页签：官方搜索框 + KernelSU 式分段列表（行尾三点菜单提供复制 / 编辑 / 删除）。
- *    - 模型页签：官方搜索框 + 服务商分组 + 官方 `SelectableDropdownMenuItem`（选中态为 RadioButton）。
+ *    - 模型页签：官方搜索框 + 服务商分类标题 + 分组内的官方分段单选行（全部平铺，不折叠）。
  * 3. 底部固定两行「思考档位」「上下文用量」，复用输入区原有的两个控件（含各自弹窗 /
  *    长按语义），替代旧布局里的两个独立按钮。
  */
@@ -90,13 +95,6 @@ internal fun M3ComposerPickerSheet(
 ) {
     if (!show) return
     var tabIndex by remember { mutableIntStateOf(0) }
-    var expandedProviderIds by remember { mutableStateOf(emptySet<String>()) }
-    // 打开弹窗 / 切到模型页签时，展开当前模型所在服务商（与旧模型菜单一致）。
-    LaunchedEffect(show, tabIndex) {
-        if (show && tabIndex == 1) {
-            expandedProviderIds = defaultExpandedModelProviderIds(modelPickerState.selectedModel)
-        }
-    }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberBottomSheetState(
@@ -153,10 +151,6 @@ internal fun M3ComposerPickerSheet(
                         state = modelPickerState,
                         isStreaming = isStreaming,
                         isPaused = isPaused,
-                        expandedProviderIds = expandedProviderIds,
-                        onProviderExpandedChange = { providerId, expanded ->
-                            expandedProviderIds = if (expanded) setOf(providerId) else emptySet()
-                        },
                         onModelSelected = onModelSelected,
                     )
                 }
@@ -285,7 +279,9 @@ private fun M3AssistantPickerTab(
 }
 
 /**
- * 模型页签：复用旧模型菜单的官方内容（搜索框 + 服务商分组 + 单选模型项），
+ * 模型页签：官方搜索框 + 按服务商分类平铺的分段单选列表（与辅助视觉模型等弹窗同款）。
+ *
+ * 不再按服务商折叠：服务商只作为分类标题，所有模型直接列在下方。
  * 选中模型时的可用性判断与旧入口一致（切换中或列表为空时不派发）。
  */
 @Composable
@@ -293,20 +289,83 @@ private fun M3ModelPickerTab(
     state: AgentModelPickerUiState,
     isStreaming: Boolean,
     isPaused: Boolean,
-    expandedProviderIds: Set<String>,
-    onProviderExpandedChange: (String, Boolean) -> Unit,
     onModelSelected: (String, String) -> Unit,
 ) {
     var modelQuery by remember { mutableStateOf("") }
     val pickerAvailable = (!isStreaming || isPaused) && state.providerGroups.isNotEmpty()
-    ModelPickerMenuContentM3(
-        state = state,
-        query = modelQuery,
-        onQueryChange = { modelQuery = it },
-        expandedProviderIds = expandedProviderIds,
-        onProviderExpandedChange = onProviderExpandedChange,
-        onModelSelected = { providerId, modelId ->
-            if (!state.isChanging && pickerAvailable) onModelSelected(providerId, modelId)
-        },
-    )
+    val balanceStates = rememberProviderBalanceStates()
+    val needle = modelQuery.trim()
+    val groups = remember(state.providerGroups, needle) {
+        filterModelProviderGroups(state.providerGroups, needle)
+    }
+    val selected = state.selectedModel
+    ModelSearchField(query = modelQuery, onQueryChange = { modelQuery = it })
+    if (groups.isEmpty()) {
+        Text(
+            text = stringResource(R.string.model_search_empty),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(vertical = 12.dp),
+        )
+        return
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = EtaSegmentedGroupSpacing),
+        verticalArrangement = Arrangement.spacedBy(EtaSegmentedGroupSpacing),
+    ) {
+        groups.forEach { group ->
+            Column(modifier = Modifier.fillMaxWidth()) {
+                ModelProviderGroupHeader(
+                    name = group.providerName,
+                    balance = balanceStates[group.providerId],
+                )
+                EtaSegmentedColumn(modifier = Modifier.fillMaxWidth()) {
+                    group.models.forEach { model ->
+                        item(key = "${model.providerId}/${model.id}") {
+                            ModelPickerCheckRow(
+                                title = model.displayName,
+                                selected = selected != null &&
+                                    model.id == selected.id &&
+                                    model.providerId == selected.providerId,
+                                onClick = {
+                                    if (!state.isChanging && pickerAvailable) {
+                                        onModelSelected(model.providerId, model.id)
+                                    }
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 服务商分类标题：与 [EtaSegmentedColumn] 的组标题同款字阶与配色
+ * （官方 `titleSmallEmphasized` + primary），右侧保留余额指示器。
+ */
+@Composable
+private fun ModelProviderGroupHeader(name: String, balance: ProviderBalanceState?) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = EtaSegmentedTitleSpacing),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = name,
+            style = MaterialTheme.typography.titleSmallEmphasized,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (hasBalanceIndicatorContent(balance)) {
+            ProviderBalanceIndicator(state = balance)
+        }
+    }
 }

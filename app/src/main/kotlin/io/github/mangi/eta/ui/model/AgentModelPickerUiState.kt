@@ -147,9 +147,6 @@ internal object AgentModelPickerProjector {
         )
 }
 
-internal fun defaultExpandedModelProviderIds(selectedModel: AgentModelOptionUi?): Set<String> =
-    selectedModel?.providerId?.let(::setOf).orEmpty()
-
 internal fun latestContextUsage(
     messages: List<AgentChatMessageUi>,
     selectedModel: AgentModelOptionUi?,
