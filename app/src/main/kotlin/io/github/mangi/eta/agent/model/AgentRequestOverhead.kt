@@ -4,6 +4,7 @@ import io.github.mangi.eta.agent.memory.AgentMemoryContext
 import io.github.mangi.eta.agent.skill.SkillContext
 import io.github.mangi.eta.agent.tool.AgentToolCapabilities
 import io.github.mangi.eta.config.InteractiveModePreference
+import io.github.mangi.eta.config.Prefs
 import org.json.JSONArray
 
 /**
@@ -48,6 +49,7 @@ internal object AgentRequestOverhead {
             skillGitHubDiscovery = true,
             skillGitHubInstall = true,
             memoryTools = memoryContext.enabled,
+            selfSettingsTools = Prefs.isEnabled(Prefs.Keys.AGENT_SELF_SETTINGS_TOOLS),
             capabilities = capabilities,
         )
         for (index in 0 until additionalTools.length()) {

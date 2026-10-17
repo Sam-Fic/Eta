@@ -48,5 +48,7 @@ internal object AgentSensitiveToolPolicy {
         "set_setting",
         "memory_get",
         "memory_write",
+        // 参数可能携带供应商密钥与端点；原始结果不进入持久会话。
+        "eta_manage_models",
     )
 }

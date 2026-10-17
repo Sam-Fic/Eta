@@ -169,6 +169,7 @@ internal object AgentModelClient {
                 skillGitHubDiscovery = true,
                 skillGitHubInstall = true,
                 memoryTools = memoryEnabled,
+                selfSettingsTools = Prefs.isEnabled(Prefs.Keys.AGENT_SELF_SETTINGS_TOOLS),
                 capabilities = capabilities,
             )
             for (index in 0 until additionalTools.length()) {

@@ -17,6 +17,7 @@ import io.github.mangi.eta.agent.device.RootShellDeviceController
 import io.github.mangi.eta.agent.device.BoundedRootCommandExecutor
 import io.github.mangi.eta.agent.model.AgentModelClient
 import io.github.mangi.eta.agent.model.AgentScreenObservationContract
+import io.github.mangi.eta.agent.model.AgentSelfSettingsToolCatalog
 import io.github.mangi.eta.agent.model.AgentSensitiveToolPolicy
 import io.github.mangi.eta.agent.overlay.AgentHapticFeedback
 import io.github.mangi.eta.agent.overlay.GestureIndicator
@@ -86,6 +87,9 @@ internal class AgentLocalTools(
     private val deviceSensitiveActionToolsEnabled: () -> Boolean = {
         Prefs.isEnabled(Prefs.Keys.AGENT_DEVICE_SENSITIVE_ACTION_TOOLS)
     },
+    private val selfSettingsToolsEnabled: () -> Boolean = {
+        Prefs.isEnabled(Prefs.Keys.AGENT_SELF_SETTINGS_TOOLS)
+    },
     private val memoryToolsEnabled: (() -> Boolean)? = null,
     private val screenshotExcludedPackages: () -> Set<String> = { emptySet() },
     private val screenObservationProvider: (
@@ -152,6 +156,8 @@ internal class AgentLocalTools(
         rootAvailable,
         conversationId = browserConversationId,
     )
+    private val selfSettingsTools = AgentSelfSettingsTools()
+    private val selfModelTools = AgentSelfModelTools(context)
     private val terminalController = RootShellTerminalController(
         processSupervisor = io.github.mangi.eta.agent.terminal.ShellProcessSupervisor(skillsDirectoryProvider = { runSkillsRoot }),
         logger = logger,
@@ -478,6 +484,9 @@ internal class AgentLocalTools(
                 "skills_list_curated" -> textResult(skillsListCurated())
                 "skills_inspect_github" -> textResult(skillsInspectGitHub(args))
                 "skills_install_from_github" -> textResult(skillsInstallFromGitHub(args))
+                AgentSelfSettingsToolCatalog.GET_SETTINGS -> textResult(selfSettingsTool { selfSettingsTools.list() })
+                AgentSelfSettingsToolCatalog.SET_SETTINGS -> textResult(selfSettingsTool { selfSettingsTools.set(args) })
+                AgentSelfSettingsToolCatalog.MANAGE_MODELS -> textResult(selfSettingsTool { selfModelTools.execute(args) })
                 else -> textResult(
                     errorResult(
                         code = "UNKNOWN_TOOL",
@@ -521,6 +530,14 @@ internal class AgentLocalTools(
             sensitive = toolName in DEVICE_SENSITIVE_READ_TOOL_NAMES ||
                 toolName in DEVICE_SENSITIVE_ACTION_TOOL_NAMES,
         )
+    }
+
+    /** 自身配置工具的统一门禁：开关从设置页关闭后，即使模型重放旧的工具调用也直接拒绝。 */
+    private fun selfSettingsTool(block: () -> String): String {
+        if (!selfSettingsToolsEnabled()) {
+            return errorResult("SELF_SETTINGS_TOOLS_DISABLED", "应用自身配置工具已关闭，本次未执行")
+        }
+        return block()
     }
 
     private fun terminalTool(block: () -> String): String {

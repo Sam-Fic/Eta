@@ -53,6 +53,7 @@ import androidx.compose.material.icons.rounded.Smartphone
 import androidx.compose.material.icons.rounded.SwipeUp
 import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material.icons.rounded.TouchApp
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material.icons.rounded.VerifiedUser
 import androidx.compose.material.icons.rounded.Visibility
@@ -538,6 +539,17 @@ internal fun SettingsScreen(
                         title = stringResource(R.string.ui_enable_terminal_file_tools_18bb43),
                         key = Prefs.Keys.AGENT_TERMINAL_TOOLS,
                         icon = Icons.Rounded.Terminal,
+                    )
+                }
+
+                row {
+                    SwitchPref(
+                        context = context,
+                        prefs = agentPrefs,
+                        title = stringResource(R.string.settings_self_settings_tools),
+                        summary = stringResource(R.string.settings_self_settings_tools_summary),
+                        key = Prefs.Keys.AGENT_SELF_SETTINGS_TOOLS,
+                        icon = Icons.Rounded.Tune,
                     )
                 }
 

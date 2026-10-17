@@ -873,6 +873,7 @@ internal class AgentAppState(
                 Prefs.Keys.AGENT_DEVICE_DIRECT_TOOLS,
                 Prefs.Keys.AGENT_DEVICE_SENSITIVE_READ_TOOLS,
                 Prefs.Keys.AGENT_DEVICE_SENSITIVE_ACTION_TOOLS,
+                Prefs.Keys.AGENT_SELF_SETTINGS_TOOLS,
             )
             val overheadListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
                 if (key == null || key in overheadKeys) {
@@ -7377,6 +7378,15 @@ internal fun buildToolsState(context: Context): AgentToolsUiState =
                 tools = listOf(
                     ToolItemUi("memory_get", context.getString(R.string.tool_ui_read_memory_979135), context.getString(R.string.tool_ui_paged_to_read_or_retrieve_long_term_memory_in_me_88afc4)),
                     ToolItemUi("memory_write", context.getString(R.string.tool_ui_organize_memory_2b08eb), context.getString(R.string.tool_ui_partially_update_append_or_clear_long_term_memor_c1bab6)),
+                ),
+            ),
+            ToolGroupUi(
+                id = "self",
+                title = context.getString(R.string.state_eta_itself),
+                tools = listOf(
+                    ToolItemUi("eta_get_settings", context.getString(R.string.tool_ui_eta_get_settings), context.getString(R.string.tool_ui_eta_get_settings_summary)),
+                    ToolItemUi("eta_set_settings", context.getString(R.string.tool_ui_eta_set_settings), context.getString(R.string.tool_ui_eta_set_settings_summary)),
+                    ToolItemUi("eta_manage_models", context.getString(R.string.tool_ui_eta_manage_models), context.getString(R.string.tool_ui_eta_manage_models_summary)),
                 ),
             ),
             ToolGroupUi(

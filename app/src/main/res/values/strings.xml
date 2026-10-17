@@ -580,7 +580,7 @@
   <string name="tool_ui_eta_manage_models">Configure Eta models</string>
   <string name="tool_ui_eta_manage_models_summary">Switch, add or remove the models and providers Eta itself uses.</string>
   <string name="settings_self_settings_tools">Eta self-configuration tools</string>
-  <string name="settings_self_settings_tools_summary">Let the model read and change Eta's own settings, models and providers.</string>
+  <string name="settings_self_settings_tools_summary">Let the model read and change Eta\'s own settings, models and providers.</string>
   <string name="tool_status_running">Running</string>
   <string name="tool_status_success">Completed</string>
   <string name="tool_status_failed">Failed</string>

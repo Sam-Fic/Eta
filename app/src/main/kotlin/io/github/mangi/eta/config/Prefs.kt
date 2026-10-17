@@ -43,6 +43,11 @@ internal object Prefs {
         const val AGENT_DEVICE_DIRECT_TOOLS = "agent_device_direct_tools"
         const val AGENT_DEVICE_SENSITIVE_READ_TOOLS = "agent_device_sensitive_read_tools"
         const val AGENT_DEVICE_SENSITIVE_ACTION_TOOLS = "agent_device_sensitive_action_tools"
+        /**
+         * 是否启用「让模型读写 Eta 自身配置」的三个工具。
+         * 只由用户在设置页决定：该 key 不出现在 AI 可见的设置列表里，模型不能自己关掉自己的配置能力。
+         */
+        const val AGENT_SELF_SETTINGS_TOOLS = "agent_self_settings_tools"
         const val AGENT_THINKING_ENABLED = "agent_thinking_enabled"
         const val AGENT_RUNTIME_CONFIG_JSON = "agent_runtime_config_json"
         const val AGENT_AUTO_COMPRESS_ENABLED = "agent_auto_compress_enabled"
@@ -98,6 +103,7 @@ internal object Prefs {
             AGENT_DEVICE_DIRECT_TOOLS to true,
             AGENT_DEVICE_SENSITIVE_READ_TOOLS to true,
             AGENT_DEVICE_SENSITIVE_ACTION_TOOLS to true,
+            AGENT_SELF_SETTINGS_TOOLS to true,
             AGENT_THINKING_ENABLED to true,
             AGENT_AUTO_COMPRESS_ENABLED to false,
             AGENT_COMPRESS_CUSTOM_MODEL_ENABLED to false,
@@ -122,6 +128,7 @@ internal object Prefs {
             AGENT_DEVICE_DIRECT_TOOLS,
             AGENT_DEVICE_SENSITIVE_READ_TOOLS,
             AGENT_DEVICE_SENSITIVE_ACTION_TOOLS,
+            AGENT_SELF_SETTINGS_TOOLS,
             AGENT_THINKING_ENABLED,
             AGENT_AUTO_COMPRESS_ENABLED,
             AGENT_COMPRESS_CUSTOM_MODEL_ENABLED,
