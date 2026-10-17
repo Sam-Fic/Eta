@@ -13,6 +13,7 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.RecordVoiceOver
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material.icons.rounded.Summarize
@@ -69,6 +70,7 @@ internal fun TopBarOverflowMenu(
     onRefreshKimiWeb: () -> Unit,
     onOpenBrowser: () -> Unit,
     onOpenWorkspace: () -> Unit,
+    onOpenVoiceSettings: () -> Unit = {},
     autoCompressEnabled: Boolean,
     isCompressingContext: Boolean = false,
     onToggleAutoCompress: (Boolean) -> Unit,
@@ -116,6 +118,7 @@ internal fun TopBarOverflowMenu(
                 onStopKimiWeb = onStopKimiWeb,
                 onOpenBrowser = onOpenBrowser,
                 onOpenWorkspace = onOpenWorkspace,
+                onOpenVoiceSettings = onOpenVoiceSettings,
                 autoCompressEnabled = autoCompressEnabled,
                 isCompressingContext = isCompressingContext,
                 onToggleAutoCompress = onToggleAutoCompress,
@@ -146,6 +149,7 @@ internal fun TopBarMenuItems(
     onStopKimiWeb: () -> Unit,
     onOpenBrowser: () -> Unit,
     onOpenWorkspace: () -> Unit,
+    onOpenVoiceSettings: () -> Unit,
     autoCompressEnabled: Boolean,
     isCompressingContext: Boolean = false,
     onToggleAutoCompress: (Boolean) -> Unit,
@@ -181,6 +185,20 @@ internal fun TopBarMenuItems(
             )
         },
         onClick = { TouchHaptics.click(view); dismiss(); showSearchDialog = true },
+    )
+    // 语音设置快捷入口：识别 / 朗读 / 语音对话都在一页，顶栏一步直达，不必翻设置列表。
+    DropdownMenuItem(
+        modifier = CompactMenuItemModifier,
+        contentPadding = CompactMenuItemPadding,
+        text = { Text(stringResource(R.string.action_voice_settings)) },
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Rounded.RecordVoiceOver,
+                contentDescription = null,
+                modifier = Modifier.size(TopBarMenuIconSize),
+            )
+        },
+        onClick = { TouchHaptics.click(view); dismiss(); onOpenVoiceSettings() },
     )
     MenuSectionDivider()
     DropdownMenuItem(

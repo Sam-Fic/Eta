@@ -45,6 +45,16 @@ class SpeechPlaybackOwnerPolicyTest {
         )
     }
 
+    @Test fun autoReadPlaybackIsNotTreatedAsOrphan() {
+        assertFalse(
+            shouldStopOrphanSpeechPlayback(
+                owner = "auto-read-assistant-1",
+                messageEditActive = false,
+                visibleCompletedAgentIds = emptySet(),
+            ),
+        )
+    }
+
     @Test fun streamingOrMissingReplyPlaybackStops() {
         assertTrue(
             shouldStopOrphanSpeechPlayback(

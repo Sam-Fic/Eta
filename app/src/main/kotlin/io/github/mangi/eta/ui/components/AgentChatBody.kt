@@ -101,6 +101,7 @@ import io.github.mangi.eta.agent.voice.VoiceChatSnapshot
 import io.github.mangi.eta.agent.voice.VoiceEntryMode
 import io.github.mangi.eta.agent.voice.VoiceModeController
 import io.github.mangi.eta.agent.voice.VoiceModeState
+import io.github.mangi.eta.agent.voice.ReplyReadAloudController
 import io.github.mangi.eta.agent.voice.VOICE_MODE_SPEECH_OWNER_PREFIX
 import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.data.model.ReasoningEffort
@@ -313,13 +314,14 @@ internal fun AgentChatBody(
     LaunchedEffect(messages, isStreaming) {
         val last = messages.filterIsInstance<AgentMessageUi>().lastOrNull()
         val speechText = last?.content.orEmpty()
-        voiceController.updateChat(
-            VoiceChatSnapshot(
-                isStreaming = isStreaming,
-                lastAgentId = last?.id,
-                lastAgentText = speechText,
-            )
+        val snapshot = VoiceChatSnapshot(
+            isStreaming = isStreaming,
+            lastAgentId = last?.id,
+            lastAgentText = speechText,
         )
+        voiceController.updateChat(snapshot)
+        // 自动朗读与语音对话共用同一份快照：是否开口由各自的开关决定。
+        ReplyReadAloudController.updateChat(context, snapshot)
     }
     val speechPlayback by io.github.mangi.eta.agent.voice.tts.SpeechPlayback.state.collectAsState()
     LaunchedEffect(visibleMessages, messageEdit?.targetMessageId, speechPlayback.owner) {
@@ -2823,7 +2825,11 @@ internal fun shouldStopOrphanSpeechPlayback(
 ): Boolean {
     if (owner.isNullOrBlank()) return false
     // 试听、语音模式和 Agent 朗读工具都不绑定某条回复，不能按“回复不在可见列表里”收掉。
-    if (owner == "tts-preview" || owner == io.github.mangi.eta.agent.voice.tts.AGENT_SPEECH_OWNER || owner.startsWith(VOICE_MODE_SPEECH_OWNER_PREFIX)) return false
+    // 自动朗读同样不绑定某条可见行：它读的是整条回复，流式中就可能开始。
+    if (owner == "tts-preview" || owner == io.github.mangi.eta.agent.voice.tts.AGENT_SPEECH_OWNER ||
+        owner.startsWith(VOICE_MODE_SPEECH_OWNER_PREFIX) ||
+        owner.startsWith(ReplyReadAloudController.OWNER_PREFIX)
+    ) return false
     return messageEditActive || owner !in visibleCompletedAgentIds
 }
 

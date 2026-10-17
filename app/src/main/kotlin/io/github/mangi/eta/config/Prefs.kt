@@ -57,6 +57,10 @@ internal object Prefs {
         const val AGENT_TTS_MODEL_PROVIDER_ID = "agent_tts_model_provider_id"
         const val AGENT_TTS_MODEL_ID = "agent_tts_model_id"
         const val AGENT_TTS_VOICE = "agent_tts_voice"
+        // 回复自动朗读分两层：总开关（是否自动朗读）→ 流式合成（输出同时按整句朗读，
+        // 而不是等回复全部结束）。细分开关只在总开关打开时生效，见 ReplyReadAloudTracker。
+        const val AGENT_TTS_AUTO_READ = "agent_tts_auto_read"
+        const val AGENT_TTS_STREAM_SYNTH = "agent_tts_stream_synth"
         const val AGENT_VOICE_CONVERSATION_MODE = "agent_voice_conversation_mode"
         const val AGENT_VOICE_CONVERSATION_PROVIDER_ID = "agent_voice_conversation_provider_id"
         const val AGENT_VOICE_CONVERSATION_MODEL_ID = "agent_voice_conversation_model_id"
@@ -97,6 +101,8 @@ internal object Prefs {
             AGENT_THINKING_ENABLED to true,
             AGENT_AUTO_COMPRESS_ENABLED to false,
             AGENT_COMPRESS_CUSTOM_MODEL_ENABLED to false,
+            AGENT_TTS_AUTO_READ to false,
+            AGENT_TTS_STREAM_SYNTH to true,
             HAPTIC_TOUCH_FEEDBACK to true,
             HAPTIC_TAP to true,
             HAPTIC_LONG_PRESS to true,
@@ -119,6 +125,8 @@ internal object Prefs {
             AGENT_THINKING_ENABLED,
             AGENT_AUTO_COMPRESS_ENABLED,
             AGENT_COMPRESS_CUSTOM_MODEL_ENABLED,
+            AGENT_TTS_AUTO_READ,
+            AGENT_TTS_STREAM_SYNTH,
             HAPTIC_TOUCH_FEEDBACK,
             HAPTIC_TAP,
             HAPTIC_LONG_PRESS,

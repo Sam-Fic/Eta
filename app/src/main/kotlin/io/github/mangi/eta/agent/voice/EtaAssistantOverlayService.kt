@@ -318,17 +318,18 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
                 ) {
                     // 语音会话快照：把浮窗当前的流式状态与最新助手消息同步给
                     // [VoiceModeController]，「通用语音对话」说完后才能读到回复。
+                    // 同一份快照也驱动回复自动朗读（ReplyReadAloudController）。
                     LaunchedEffect(uiState.messages, uiState.phase) {
                         val lastAssistant = uiState.messages
                             .filterIsInstance<AgentMessageUi>()
                             .lastOrNull()
-                        voiceController.updateChat(
-                            VoiceChatSnapshot(
-                                isStreaming = uiState.phase == EtaVoicePhase.PROCESSING,
-                                lastAgentId = lastAssistant?.id,
-                                lastAgentText = lastAssistant?.content.orEmpty(),
-                            ),
+                        val snapshot = VoiceChatSnapshot(
+                            isStreaming = uiState.phase == EtaVoicePhase.PROCESSING,
+                            lastAgentId = lastAssistant?.id,
+                            lastAgentText = lastAssistant?.content.orEmpty(),
                         )
+                        voiceController.updateChat(snapshot)
+                        ReplyReadAloudController.updateChat(applicationContext, snapshot)
                     }
                     EtaVoicePanel(
                         state = uiState,
@@ -1118,6 +1119,8 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         entryCaptureJob?.cancel()
         entryCaptureJob = null
         cancelCurrentRun()
+        // 浮窗关闭即收声：自动朗读不跨浮窗生命周期继续。
+        ReplyReadAloudController.stop()
         scope.launch(Dispatchers.Main.immediate) {
             delay(EXIT_ANIMATION_DURATION_MS)
             screenContextAttachment = null

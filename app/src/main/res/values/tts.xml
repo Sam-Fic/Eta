@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="tts_title">Read aloud</string>
+    <string name="tts_auto_read">Auto read replies</string>
+    <string name="tts_auto_read_hint">Read each reply aloud automatically once it is generated, without tapping the read button.</string>
+    <string name="tts_stream_synth">Streaming synthesis</string>
+    <string name="tts_stream_synth_hint">Start reading committed sentences while the reply is still streaming, instead of waiting for it to finish.</string>
     <string name="tts_cloud">Use cloud speech</string>
     <string name="tts_mode_hint">When off, use an installed local system voice.</string>
     <string name="tts_model">Speech model</string>

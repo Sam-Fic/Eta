@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="tts_title">朗读</string>
+    <string name="tts_auto_read">自动朗读回复</string>
+    <string name="tts_auto_read_hint">回复生成后自动朗读，无需手动点击朗读按钮。</string>
+    <string name="tts_stream_synth">流式合成朗读</string>
+    <string name="tts_stream_synth_hint">回复输出的同时按已完成的整句开始朗读，而不是等回复全部结束。</string>
     <string name="tts_cloud">使用云端朗读</string>
     <string name="tts_mode_hint">关闭时使用系统已安装的本地音色。</string>
     <string name="tts_model">朗读模型</string>

@@ -35,6 +35,7 @@
   <string name="action_open_browser">Open browser</string>
   <string name="action_search_history">Search history</string>
   <string name="action_interactive_mode">Interactive mode</string>
+  <string name="action_voice_settings">Voice settings</string>
   <string name="search_history_hint">Search messages</string>
   <string name="search_history_empty">Enter a keyword to search conversations</string>
   <string name="search_history_no_results">No matching messages</string>

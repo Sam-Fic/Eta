@@ -12,6 +12,7 @@ import io.github.mangi.eta.agent.voice.tts.SpeechPlaybackProfile
 import io.github.mangi.eta.agent.voice.tts.SpeechVoice
 import io.github.mangi.eta.agent.voice.tts.SpeechVoices
 import io.github.mangi.eta.config.Prefs
+import io.github.mangi.eta.config.ReplyReadAloudPreference
 import io.github.mangi.eta.data.model.SpeechSynthesisModels
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.ui.adaptive.EtaClickableRow
@@ -29,6 +30,9 @@ internal fun TtsSettingsScreen(onBack: () -> Unit, conversation: Boolean = false
     var voice by remember(profile) { mutableStateOf(Prefs.getString(profile.voiceKey)) }
     var picker by remember { mutableStateOf(false) }
     var voicePicker by remember { mutableStateOf(false) }
+    // 自动朗读只属于「朗读」分区：语音对话（conversation）本身就在逐句朗读回复。
+    var autoRead by remember(profile) { mutableStateOf(!conversation && ReplyReadAloudPreference.autoRead) }
+    var streamSynth by remember(profile) { mutableStateOf(ReplyReadAloudPreference.streamSynthesis) }
     val providers by remember { ProviderRepository.providersFlow() }.collectAsState(initial = emptyList())
     val models = remember(providers, providerId, modelId) {
         AgentModelPickerProjector.project(providers.filter(SpeechSynthesisModels::isReadAloudProvider), providerId, modelId, includeSpeechModels = true, speechOnly = true)
@@ -77,6 +81,29 @@ internal fun TtsSettingsScreen(onBack: () -> Unit, conversation: Boolean = false
         // 云相关行随开关以分段动画显隐（visible 注册），不再按条件拆多个嵌套组。
         if (conversation) item(key = "conversation_recognition") { VoiceConversationRecognitionSettings() }
         voiceGroup(key = "tts") {
+            if (!conversation) item(key = "tts_auto_read") {
+                EtaSwitchRow(
+                    title = stringResource(R.string.tts_auto_read),
+                    summary = stringResource(R.string.tts_auto_read_hint),
+                    checked = autoRead,
+                    onCheckedChange = {
+                        autoRead = it
+                        ReplyReadAloudPreference.setAutoRead(it)
+                    },
+                )
+            }
+            if (!conversation) item(key = "tts_stream_synth", visible = autoRead) {
+                EtaSwitchRow(
+                    title = stringResource(R.string.tts_stream_synth),
+                    summary = stringResource(R.string.tts_stream_synth_hint),
+                    checked = streamSynth,
+                    enabled = autoRead,
+                    onCheckedChange = {
+                        streamSynth = it
+                        ReplyReadAloudPreference.setStreamSynthesis(it)
+                    },
+                )
+            }
             item {
                 EtaSwitchRow(
                     title = stringResource(R.string.tts_cloud),
