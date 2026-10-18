@@ -1646,6 +1646,7 @@
   <string name="phe_field">字段</string>
   <string name="phe_custom_headers">自定义请求头</string>
   <string name="phe_headers_summary">可覆盖 User-Agent；认证与传输请求头由系统管理。</string>
+  <string name="phe_hint_example">示例：请求头 User-Agent，值 \"Eta/1.0\"；名称只能使用字母、数字与连字符。</string>
   <string name="phe_add_header">添加请求头</string>
   <string name="phe_name">名称</string>
   <string name="phe_value">值</string>

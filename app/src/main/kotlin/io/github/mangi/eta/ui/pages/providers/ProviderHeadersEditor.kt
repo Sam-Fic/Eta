@@ -28,6 +28,8 @@ import io.github.mangi.eta.data.model.SessionGatewayRule
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedItemContainer
 import io.github.mangi.eta.ui.haptics.TouchHaptics
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text as M3Text
 
 /** 分段列调用方的统一水平边距：16dp 与 KernelSU 分段列表一致。 */
 internal val EditorSectionPadding = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp)
@@ -140,6 +142,13 @@ internal fun LazyListScope.providerHeadersEditor(
                                     onRemove = { onHeadersChange(headers.filterNot { it.id == row.id }) },
                                 )
                             }
+                        }
+                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                            M3Text(
+                                text = stringResource(R.string.phe_hint_example),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                         ProviderDivider()
                         ProviderAddRow(text = stringResource(R.string.phe_add_header)) {

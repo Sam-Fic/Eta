@@ -1657,6 +1657,7 @@
   <string name="phe_field">欄位</string>
   <string name="phe_custom_headers">自訂請求標頭</string>
   <string name="phe_headers_summary">可覆寫 User-Agent；認證與傳輸請求標頭由系統管理。</string>
+  <string name="phe_hint_example">範例：請求標頭 User-Agent，值 \"Eta/1.0\"；名稱只能使用字母、數字與連字號。</string>
   <string name="phe_add_header">新增請求標頭</string>
   <string name="phe_name">名稱</string>
   <string name="phe_value">值</string>

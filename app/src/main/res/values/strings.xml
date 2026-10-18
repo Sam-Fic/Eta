@@ -1892,6 +1892,7 @@
   <string name="phe_field">Field</string>
   <string name="phe_custom_headers">Custom request headers</string>
   <string name="phe_headers_summary">Can override User-Agent; auth and transport headers are managed by the system.</string>
+  <string name="phe_hint_example">Example: header User-Agent with value \"Eta/1.0\"; names allow letters, digits and hyphens.</string>
   <string name="phe_add_header">Add request header</string>
   <string name="phe_name">Name</string>
   <string name="phe_value">Value</string>
