@@ -21,7 +21,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
-@Config(application = io.github.mangi.eta.EtaApp::class, sdk = [36], qualifiers = "zh-rCN-w411dp-h891dp")
+@Config(application = io.github.mangi.eta.EtaApp::class, sdk = [36], qualifiers = "zh-rCN-w320dp-h891dp")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class SubAgentPresetSettingsTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
@@ -34,10 +34,10 @@ class SubAgentPresetSettingsTest {
         compose.setSubAgentContent(fixture) {
             MaterialTheme(colorScheme = lightColorScheme()) { SubAgentSettingsScreen({ exits++ }, { fixture.repository }) }
         }
-        compose.onNodeWithText("添加子代理组").assertIsDisplayed()
+        compose.onNodeWithText("添加子代理组", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithText("添加子代理", substring = false).assertDoesNotExist()
-        compose.onNodeWithContentDescription("编辑子代理组${group.name}").performClick()
-        compose.onNodeWithText("添加子代理", substring = false).assertIsEnabled().performClick()
+        compose.onNodeWithContentDescription("编辑子代理组 ${group.name}").performClick()
+        compose.onNodeWithText("添加子代理", substring = false, useUnmergedTree = true).assertIsEnabled().performClick()
         compose.onNodeWithContentDescription("名称").performTextReplacement("未确认的新代理")
         compose.onNodeWithText("确认").assertIsNotEnabled() // New profiles require a valid model.
         compose.runOnIdle {
@@ -48,10 +48,10 @@ class SubAgentPresetSettingsTest {
         compose.onNodeWithText("取消").performClick()
         compose.runOnIdle { assertEquals(group.config, fixture.repository.snapshot(SubAgentConfigKey.Preset(group.id))) }
         compose.onNodeWithContentDescription("返回").performClick()
-        compose.onNodeWithText("添加子代理组").assertExists()
-        compose.onNodeWithContentDescription("编辑子代理组${group.name}").performClick()
+        compose.onNodeWithText("添加子代理组", useUnmergedTree = true).assertExists()
+        compose.onNodeWithContentDescription("编辑子代理组 ${group.name}").performClick()
         compose.runOnIdle { compose.activity.onBackPressedDispatcher.onBackPressed() }
-        compose.onNodeWithText("添加子代理组").assertExists()
+        compose.onNodeWithText("添加子代理组", useUnmergedTree = true).assertExists()
         compose.runOnIdle { assertEquals(0, exits) }
         compose.onNodeWithContentDescription("返回").performClick()
         compose.runOnIdle { assertEquals(1, exits) }
@@ -64,7 +64,7 @@ class SubAgentPresetSettingsTest {
         val group = fixture.createPreset("一个较长的子代理组名称用于窄屏面板")
         val before = fixture.snapshot()
         compose.setSubAgentContent(fixture) { SubAgentSettingsScreen({}, { fixture.repository }) }
-        compose.onNodeWithContentDescription("${group.name}组更多操作").performScrollTo()
+        compose.onNodeWithContentDescription("${group.name} 组操作").performScrollTo()
             .assertHeightIsAtLeast(48.dp).performClick()
         compose.onNodeWithContentDescription("子代理组操作面板").assertIsDisplayed()
             .assertWidthIsAtLeast(280.dp)
@@ -84,7 +84,7 @@ class SubAgentPresetSettingsTest {
         compose.onNodeWithContentDescription("子代理组操作面板").assertDoesNotExist()
         compose.onNodeWithContentDescription("组名称").assertIsDisplayed()
         compose.onNodeWithText("取消").performClick()
-        compose.onNodeWithContentDescription("${group.name}组更多操作").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("${group.name} 组操作").performScrollTo().performClick()
         compose.onNodeWithText("删除组").performClick()
         compose.onNodeWithContentDescription("子代理组操作面板").assertDoesNotExist()
         compose.onNodeWithText("删除子代理组？").assertIsDisplayed()
@@ -100,11 +100,11 @@ class SubAgentPresetSettingsTest {
         val group = fixture.createPreset()
         val before = fixture.snapshot()
         compose.setSubAgentContent(fixture) { SubAgentSettingsScreen({}, { fixture.repository }) }
-        compose.onNodeWithContentDescription("编辑子代理组${group.name}").performClick()
+        compose.onNodeWithContentDescription("编辑子代理组 ${group.name}").performClick()
         compose.onNodeWithText("自动委派", substring = false).assertDoesNotExist()
         compose.onNodeWithText("子代理诊断日志").assertDoesNotExist()
-        compose.onNodeWithContentDescription("启用执行代理 1").performTouchInput { click() }
-        compose.onNodeWithContentDescription("执行代理 1更多操作").performClick()
+        compose.onNodeWithContentDescription("启用 执行代理 1").performTouchInput { click() }
+        compose.onNodeWithContentDescription("执行代理 1 操作").performClick()
         compose.onNodeWithText("重命名", substring = false).performClick()
         compose.onNodeWithText("重命名代理").assertIsDisplayed()
         compose.onNodeWithContentDescription("名称").assertIsDisplayed().performTextReplacement("预设代理新名")
@@ -118,7 +118,7 @@ class SubAgentPresetSettingsTest {
             assertTrue(fixture.repository.update(SubAgentConfigKey.Preset(group.id)) { it.copy(enabled = true) }
                 is io.github.mangi.eta.agent.delegation.ConversationSubAgentPreferences.WriteResult.Saved)
         }
-        compose.onNodeWithContentDescription("启用预设代理新名").performTouchInput { click() }
+        compose.onNodeWithContentDescription("启用 预设代理新名").performTouchInput { click() }
         compose.runOnIdle {
             val saved = fixture.repository.snapshot(SubAgentConfigKey.Preset(group.id))
             assertTrue("profile edits must also preserve an enabled preset", saved.enabled)
@@ -134,26 +134,26 @@ class SubAgentPresetSettingsTest {
         val owner = SubAgentConfigKey.Preset(group.id)
         val before = fixture.snapshot()
         compose.setSubAgentContent(fixture) { SubAgentSettingsScreen({}, { fixture.repository }) }
-        compose.onNodeWithContentDescription("编辑子代理组${group.name}").performClick()
-        compose.onNodeWithContentDescription("设置分工代理任务分工").assertIsEnabled().assert(hasText("未设置分工"))
+        compose.onNodeWithContentDescription("编辑子代理组 ${group.name}").performClick()
+        compose.onNodeWithContentDescription("设置 分工代理 的任务分工").assertIsEnabled().assert(hasText("未设置分工"))
         compose.runOnIdle { assertNull(fixture.repository.snapshot(owner).profiles.single().tier) }
         for (tier in SubAgentTaskTier.entries) {
-            compose.onNodeWithContentDescription("设置分工代理任务分工").performClick()
+            compose.onNodeWithContentDescription("设置 分工代理 的任务分工").performClick()
             compose.onNode(isSelectable() and hasText(tier.label)).performClick()
             compose.runOnIdle {
                 assertEquals(tier, fixture.repository.snapshot(owner).profiles.single().tier)
                 assertEquals(before, fixture.snapshot())
             }
             compose.onNodeWithContentDescription("返回").performClick()
-            compose.onNodeWithContentDescription("编辑子代理组${group.name}").performClick()
-            compose.onNodeWithContentDescription("设置分工代理任务分工").assert(hasText(tier.label)).performClick()
+            compose.onNodeWithContentDescription("编辑子代理组 ${group.name}").performClick()
+            compose.onNodeWithContentDescription("设置 分工代理 的任务分工").assert(hasText(tier.label)).performClick()
             compose.onNode(isSelectable() and hasText(tier.label)).assertIsSelected().performClick()
         }
-        compose.onNodeWithContentDescription("设置分工代理任务分工").performClick()
+        compose.onNodeWithContentDescription("设置 分工代理 的任务分工").performClick()
         compose.onNode(isSelectable() and hasText("未设置分工")).performClick()
         compose.onNodeWithContentDescription("返回").performClick()
-        compose.onNodeWithContentDescription("编辑子代理组${group.name}").performClick()
-        compose.onNodeWithContentDescription("设置分工代理任务分工").assert(hasText("未设置分工")).performClick()
+        compose.onNodeWithContentDescription("编辑子代理组 ${group.name}").performClick()
+        compose.onNodeWithContentDescription("设置 分工代理 的任务分工").assert(hasText("未设置分工")).performClick()
         compose.onNode(isSelectable() and hasText("未设置分工")).assertIsSelected().performClick()
         compose.runOnIdle {
             assertNull(fixture.repository.snapshot(owner).profiles.single().tier)
@@ -168,12 +168,12 @@ class SubAgentPresetSettingsTest {
         val owner = SubAgentConfigKey.Preset(group.id)
         val before = fixture.snapshot()
         compose.setSubAgentContent(fixture) { SubAgentSettingsScreen({}, { fixture.repository }) }
-        compose.onNodeWithContentDescription("编辑子代理组${group.name}").performClick()
-        compose.onNodeWithContentDescription("设置分工代理任务分工").assert(hasText("复杂任务"))
-        for ((role, label) in listOf("review" to "审查／总结", "image_generation" to "图片生成", "video_generation" to "视频生成")) {
-            compose.onNodeWithContentDescription("选择分工代理职责").performClick()
+        compose.onNodeWithContentDescription("编辑子代理组 ${group.name}").performClick()
+        compose.onNodeWithContentDescription("设置 分工代理 的任务分工").assert(hasText("复杂任务"))
+        for ((role, label) in listOf("review" to "审查/总结", "image_generation" to "图片生成", "video_generation" to "视频生成")) {
+            compose.onNodeWithContentDescription("为 分工代理 选择职责").performClick()
             compose.onNode(isSelectable() and hasText(label)).performClick()
-            compose.onNodeWithContentDescription("设置分工代理任务分工").assertDoesNotExist()
+            compose.onNodeWithContentDescription("设置 分工代理 的任务分工").assertDoesNotExist()
             compose.onNodeWithText("任务分工").assertDoesNotExist()
             compose.runOnIdle {
                 val saved = fixture.repository.snapshot(owner).profiles.single()
@@ -181,9 +181,9 @@ class SubAgentPresetSettingsTest {
                 assertNull(saved.tier)
                 assertEquals(before, fixture.snapshot())
             }
-            compose.onNodeWithContentDescription("选择分工代理职责").performClick()
-            compose.onNode(isSelectable() and hasText("执行")).performClick()
-            compose.onNodeWithContentDescription("设置分工代理任务分工").assertIsEnabled().assert(hasText("未设置分工"))
+            compose.onNodeWithContentDescription("为 分工代理 选择职责").performClick()
+            compose.onNode(isSelectable() and hasText("实现")).performClick()
+            compose.onNodeWithContentDescription("设置 分工代理 的任务分工").assertIsEnabled().assert(hasText("未设置分工"))
             compose.runOnIdle { assertNull(fixture.repository.snapshot(owner).profiles.single().tier) }
         }
     }
@@ -197,7 +197,7 @@ class SubAgentPresetSettingsTest {
         assertTrue("The real form must settle with the standard Compose clock", compose.mainClock.autoAdvance)
         val nameField = compose.onNodeWithContentDescription("组名称")
 
-        compose.onNodeWithText("添加子代理组").performClick()
+        compose.onNodeWithText("添加子代理组", useUnmergedTree = true).performClick()
         // CI used to time out fetching this node, before performTextInput requested focus.
         // Assert layout and semantics have settled separately from the subsequent focus/input action.
         nameField.assertIsDisplayed().assertIsNotFocused().assert(hasSetTextAction())
@@ -212,14 +212,14 @@ class SubAgentPresetSettingsTest {
             assertEquals(before, fixture.snapshot())
         }
 
-        compose.onNodeWithText("添加子代理组").performClick()
+        compose.onNodeWithText("添加子代理组", useUnmergedTree = true).performClick()
         nameField.assertIsDisplayed().assertIsNotFocused()
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("")))
         nameField.performTextInput(" 新组 ")
         compose.onNodeWithText("保存").assertIsEnabled().performClick()
         nameField.assertDoesNotExist()
-        compose.onNodeWithContentDescription("编辑子代理组新组").performScrollTo().performClick()
-        compose.onNodeWithText("添加子代理", substring = false).assertExists()
+        compose.onNodeWithContentDescription("编辑子代理组 新组").performScrollTo().performClick()
+        compose.onNodeWithText("添加子代理", substring = false, useUnmergedTree = true).assertExists()
         var createdId = ""
         compose.runOnIdle {
             val created = fixture.repository.presets().single { it.name == "新组" }
@@ -228,7 +228,7 @@ class SubAgentPresetSettingsTest {
             assertEquals(before, fixture.snapshot())
         }
         compose.onNodeWithContentDescription("返回").performClick()
-        compose.onNodeWithContentDescription("新组组更多操作").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("新组 组操作").performScrollTo().performClick()
         compose.onNodeWithText("重命名组").performClick()
         nameField.assertIsDisplayed().assertIsNotFocused()
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("新组")))
@@ -240,7 +240,7 @@ class SubAgentPresetSettingsTest {
             assertEquals(before, fixture.snapshot())
         }
 
-        compose.onNodeWithContentDescription("新组组更多操作").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("新组 组操作").performScrollTo().performClick()
         compose.onNodeWithText("重命名组").performClick()
         nameField.assertIsDisplayed()
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("新组")))
@@ -253,10 +253,10 @@ class SubAgentPresetSettingsTest {
             assertTrue(renamed.config.profiles.isEmpty())
             assertEquals(before, fixture.snapshot())
         }
-        compose.onNodeWithContentDescription("改名组组更多操作").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("改名组 组操作").performScrollTo().performClick()
         compose.onNodeWithText("删除组").performClick()
         compose.onNodeWithText("删除", substring = false).performClick()
-        compose.onNodeWithContentDescription("编辑子代理组改名组").assertDoesNotExist()
+        compose.onNodeWithContentDescription("编辑子代理组 改名组").assertDoesNotExist()
         compose.runOnIdle {
             assertFalse(fixture.repository.presets().any { it.name == "改名组" })
             assertFalse(fixture.repository.presets().any { it.id == createdId })

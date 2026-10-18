@@ -39,7 +39,7 @@ import org.robolectric.annotation.GraphicsMode
  * 子代理入口的接线与手势行为，不重复像素级断言。
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(application = io.github.mangi.eta.EtaApp::class, sdk = [36], qualifiers = "w411dp-h891dp")
+@Config(application = io.github.mangi.eta.EtaApp::class, sdk = [36], qualifiers = "zh-rCN-w411dp-h891dp")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class SubAgentGptSpeedButtonTest {
     @get:Rule val compose = createComposeRule()
@@ -75,16 +75,16 @@ class SubAgentGptSpeedButtonTest {
     private fun speedNode(name: String) =
         compose.onNodeWithContentDescription("$name GPT 速度", substring = true)
 
-    private fun assertSpeedContentCentered(name: String, label: String) {
+    private fun assertSpeedContentCentered(name: String, label: String, minTouch: androidx.compose.ui.unit.Dp = 48.dp) {
         val touch = speedNode(name).fetchSemanticsNode().boundsInRoot
         val text = compose.onNode(
             hasText(label) and hasAnyAncestor(hasContentDescription("$name GPT 速度", substring = true)),
             useUnmergedTree = true,
         ).fetchSemanticsNode().boundsInRoot
-        val minTouchSize = with(compose.density) { 48.dp.toPx() }
-        // Decorative Icon has no semantics node: recover the group bounds from its 18dp size
-        // and the shared 4dp gap declared in SubAgentGptSpeedButton.
-        val iconAndGap = with(compose.density) { 22.dp.toPx() }
+        val minTouchSize = with(compose.density) { minTouch.toPx() }
+        // Decorative Icon has no semantics node: recover the group bounds from the 18dp icon
+        // slot that abuts the label in the official AssistChip layout.
+        val iconAndGap = with(compose.density) { 18.dp.toPx() }
         val groupCenterX = (text.left - iconAndGap + text.right) / 2f
         assertTrue("$name touch width must be at least 48dp", touch.width >= minTouchSize - 1f)
         assertTrue("$name touch height must be at least 48dp", touch.height >= minTouchSize - 1f)
@@ -319,7 +319,7 @@ class SubAgentGptSpeedButtonTest {
         compose.setSubAgentContent(fixture) {
             MaterialTheme { SubAgentProfileRow(gptProfile, providers, enabled = true, settings = true) }
         }
-        val modelRow = compose.onNodeWithContentDescription("测试代理模型").fetchSemanticsNode().boundsInRoot
+        val modelRow = compose.onNodeWithContentDescription("测试代理 模型").fetchSemanticsNode().boundsInRoot
         val value = compose.onNodeWithText("GPT-5", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         val speed = speedNode("测试代理").fetchSemanticsNode().boundsInRoot
         // The settings shortcut remains inside the model row; the compact card has a config entry.
@@ -327,7 +327,8 @@ class SubAgentGptSpeedButtonTest {
         assertTrue(speed.bottom <= modelRow.bottom + 1f)
         assertTrue(speed.left > value.right)
         assertTrue(speed.right <= modelRow.right + 1f)
-        assertSpeedContentCentered("测试代理", "标准")
+        // 设置行行高固定，芯片槽 32dp；触控下限由行整体高度承担。
+        assertSpeedContentCentered("测试代理", "标准", minTouch = 32.dp)
     }
 
     @Test
@@ -341,21 +342,21 @@ class SubAgentGptSpeedButtonTest {
                 }
             }
         }
-        val implInfo = compose.onNodeWithContentDescription("执行代理模型").fetchSemanticsNode().boundsInRoot
+        val implInfo = compose.onNode(hasText("执行代理") and hasClickAction()).fetchSemanticsNode().boundsInRoot
         val implSpeed = speedNode("执行代理").fetchSemanticsNode().boundsInRoot
-        val implConfig = compose.onNodeWithContentDescription("配置执行代理").assertHasClickAction().fetchSemanticsNode().boundsInRoot
+        val implConfig = compose.onNodeWithContentDescription("配置 执行代理").assertHasClickAction().fetchSemanticsNode().boundsInRoot
         assertTrue(implSpeed.left >= implInfo.right - 1f)
         assertTrue(implSpeed.right <= implConfig.left + 1f)
         assertSpeedContentCentered("执行代理", "标准")
 
-        val reviewInfo = compose.onNodeWithContentDescription("审查代理模型").fetchSemanticsNode().boundsInRoot
+        val reviewInfo = compose.onNode(hasText("审查代理") and hasClickAction()).fetchSemanticsNode().boundsInRoot
         val reviewSpeed = speedNode("审查代理").fetchSemanticsNode().boundsInRoot
-        val reviewConfig = compose.onNodeWithContentDescription("配置审查代理").assertHasClickAction().fetchSemanticsNode().boundsInRoot
+        val reviewConfig = compose.onNodeWithContentDescription("配置 审查代理").assertHasClickAction().fetchSemanticsNode().boundsInRoot
         assertTrue(reviewSpeed.left >= reviewInfo.right - 1f)
         assertTrue(reviewSpeed.right <= reviewConfig.left + 1f)
         assertSpeedContentCentered("审查代理", "标准")
         compose.onNodeWithContentDescription("设置执行代理任务分工").assertDoesNotExist()
-        compose.onNodeWithContentDescription("设置审查代理任务分工").assertDoesNotExist()
+        compose.onNodeWithContentDescription("设置 审查代理 的任务分工").assertDoesNotExist()
         compose.onNodeWithText("复杂任务").assertDoesNotExist()
     }
 

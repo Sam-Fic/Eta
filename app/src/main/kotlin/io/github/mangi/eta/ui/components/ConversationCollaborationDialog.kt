@@ -279,7 +279,7 @@ private fun CollaborationDialogShell(
         ),
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 24.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 24.dp).testTag("subagent-collaboration-card"),
         ) {
             ExpressiveCollaborationHeader(title)
             content()

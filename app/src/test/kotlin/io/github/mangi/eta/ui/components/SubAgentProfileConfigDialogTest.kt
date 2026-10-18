@@ -22,8 +22,8 @@ import org.robolectric.annotation.GraphicsMode
 
 /** Bounded draft UI regressions; owner transactions/memory implementation are tested by the data suite. */
 @RunWith(RobolectricTestRunner::class)
-@Config(application = io.github.mangi.eta.EtaApp::class, sdk = [36], qualifiers = "w411dp-h891dp")
-@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(application = io.github.mangi.eta.EtaApp::class, sdk = [36], qualifiers = "zh-rCN-w320dp-h891dp")
+@GraphicsMode(GraphicsMode.Mode.LEGACY)
 class SubAgentProfileConfigDialogTest {
     @get:Rule val compose = createComposeRule()
     private val model = Model(id = "draft-record", modelId = "draft-api", displayName = "草稿测试模型")
@@ -106,7 +106,7 @@ class SubAgentProfileConfigDialogTest {
         compose.setSubAgentContent(fixture) {
             if (open.value) SubAgentProfileConfigDialog(session, fixture.editor, listOf(gptProvider), onDismiss = { open.value = false })
         }
-        compose.onNodeWithContentDescription("草稿GPT速度").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("草稿 GPT 速度").performScrollTo().performClick()
         compose.onNodeWithText("快速", useUnmergedTree = true).assertExists()
         compose.runOnIdle {
             assertEquals(original.copy(gptSpeedByModel = original.gptSpeedByModel + (key to GptSpeedMode.FAST)), session.draft)
@@ -135,8 +135,8 @@ class SubAgentProfileConfigDialogTest {
         compose.setSubAgentContent(fixture) {
             if (open.value) SubAgentProfileConfigDialog(session, fixture.editor, listOf(gptProvider), onDismiss = { open.value = false })
         }
-        compose.onNodeWithContentDescription("草稿GPT速度").performScrollTo().performClick()
-        compose.onNodeWithContentDescription("草稿GPT速度").performClick()
+        compose.onNodeWithContentDescription("草稿 GPT 速度").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("草稿 GPT 速度").performClick()
         compose.runOnIdle {
             assertEquals(GptSpeedMode.ULTRA_FAST, session.draft.gptSpeedForModel())
             assertEquals(before, fixture.snapshot())
@@ -168,19 +168,19 @@ class SubAgentProfileConfigDialogTest {
         compose.setSubAgentContent(fixture) {
             SubAgentProfileConfigDialog(session, fixture.editor, catalog.value, onDismiss = {})
         }
-        compose.onNodeWithContentDescription("草稿GPT速度").assertExists()
+        compose.onNodeWithContentDescription("草稿 GPT 速度").assertExists()
         compose.runOnIdle { session.selectModel(ModelFeatureSelection(true, provider.id, fakeGpt.id)) }
-        compose.onNodeWithContentDescription("草稿GPT速度").assertDoesNotExist()
+        compose.onNodeWithContentDescription("草稿 GPT 速度").assertDoesNotExist()
         compose.runOnIdle { session.selectModel(ModelFeatureSelection(true, gptProvider.id, gptModel.id)) }
-        compose.onNodeWithContentDescription("草稿GPT速度").assertExists()
+        compose.onNodeWithContentDescription("草稿 GPT 速度").assertExists()
         compose.runOnIdle { catalog.value = listOf(gptProvider.copy(isEnabled = false)) }
-        compose.onNodeWithContentDescription("草稿GPT速度").assertDoesNotExist()
+        compose.onNodeWithContentDescription("草稿 GPT 速度").assertDoesNotExist()
         compose.runOnIdle { catalog.value = listOf(gptProvider.copy(models = listOf(gptModel.copy(isEnabled = false)))) }
-        compose.onNodeWithContentDescription("草稿GPT速度").assertDoesNotExist()
+        compose.onNodeWithContentDescription("草稿 GPT 速度").assertDoesNotExist()
         compose.runOnIdle { catalog.value = listOf(gptProvider); session.edit { it.copy(role = "image_generation") } }
-        compose.onNodeWithContentDescription("草稿GPT速度").assertDoesNotExist()
+        compose.onNodeWithContentDescription("草稿 GPT 速度").assertDoesNotExist()
         compose.runOnIdle { session.selectModel(ModelFeatureSelection(true, "", "")) }
-        compose.onNodeWithContentDescription("草稿GPT速度").assertDoesNotExist()
+        compose.onNodeWithContentDescription("草稿 GPT 速度").assertDoesNotExist()
         compose.runOnIdle { assertEquals(before, fixture.snapshot()) }
     }
 
@@ -198,7 +198,7 @@ class SubAgentProfileConfigDialogTest {
             if (open.value) SubAgentProfileConfigDialog(session, fixture.editor, listOf(gptProvider), onDismiss = { open.value = false })
         }
         compose.onNodeWithContentDescription("名称").performTextReplacement("成功才关闭")
-        compose.onNodeWithContentDescription("草稿GPT速度").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("草稿 GPT 速度").performScrollTo().performClick()
         compose.runOnIdle { preferences.failNext = true }
         compose.onNodeWithText("确认").assertIsEnabled().performClick()
         compose.waitUntil { !session.submitting }
@@ -212,7 +212,7 @@ class SubAgentProfileConfigDialogTest {
             assertThrows(IllegalStateException::class.java) { fixture.repository.modelDefaults(gptProfile) }
             assertEquals(revision, fixture.repository.revision(fixture.owner).value)
         }
-        compose.onNodeWithText("未保存：配置或模型已变更", substring = true).performScrollTo().assertExists()
+        compose.onNodeWithText("未保存：配置或模型已更改", substring = true).performScrollTo().assertExists()
         compose.onNodeWithText("重试恢复配置（保留草稿）").performScrollTo().performClick()
         compose.onNodeWithText("确认").assertIsEnabled()
         compose.runOnIdle {
@@ -251,7 +251,7 @@ class SubAgentProfileConfigDialogTest {
     }
 
     @Test
-    @Config(qualifiers = "w320dp-h480dp")
+    @Config(qualifiers = "zh-rCN-w320dp-h480dp")
     fun standaloneCompactDraftKeepsActionsVisibleWhileBodyAndNestedChoicesScroll() {
         val fixture = SubAgentUiFixture(profiles = listOf(profile), providers = listOf(provider))
         val before = fixture.snapshot()

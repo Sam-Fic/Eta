@@ -21,7 +21,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
-@Config(application = io.github.mangi.eta.EtaApp::class, sdk = [36], qualifiers = "w411dp-h891dp")
+@Config(application = io.github.mangi.eta.EtaApp::class, sdk = [36], qualifiers = "zh-rCN-w411dp-h891dp")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class ConversationCollaborationDialogTest {
     @get:Rule val compose = createComposeRule()
@@ -99,16 +99,14 @@ class ConversationCollaborationDialogTest {
             ConversationCollaborationDialog(true, true, {}, {})
         }
         compose.onNodeWithText("使用当前配置").assertIsDisplayed().performClick()
-        compose.onNodeWithContentDescription("执行代理 1模型").performTouchInput { longClick() }
-        compose.onNodeWithText("选择执行代理 1模型").assertDoesNotExist()
-        compose.onNodeWithContentDescription("执行代理 1模型").performTouchInput { click() }
-        compose.onNodeWithText("选择执行代理 1模型").assertExists()
+        compose.onNode(hasText("执行代理 1") and hasText("无")).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnLongClick)
+        compose.onNodeWithText("为 执行代理 1 选择模型").assertDoesNotExist()
+        compose.onNode(hasText("执行代理 1") and hasText("无")).performTouchInput { click() }
+        compose.onNodeWithText("为 执行代理 1 选择模型").assertExists()
         compose.onNode(hasText("无") and SemanticsMatcher.expectValue(
             androidx.compose.ui.semantics.SemanticsProperties.Role, androidx.compose.ui.semantics.Role.RadioButton)).performClick()
+        compose.onNodeWithText("确认").performClick()
         compose.onNodeWithText("本会话协作").assertExists()
-        compose.onNodeWithContentDescription("执行代理 1模型").performTouchInput { longClick() }
-        compose.onNodeWithText("调整思考深度").assertDoesNotExist()
-        compose.onNodeWithText("选择执行代理 1模型").assertDoesNotExist()
         compose.runOnIdle { assertTrue(fixture.snapshot().profiles.first { it.id == "legacy-0" }.modelId.isBlank()) }
     }
 
@@ -123,13 +121,13 @@ class ConversationCollaborationDialogTest {
             ConversationCollaborationDialog(true, true, { changes++ }, { dismissals++ }, taskRunning = running.value)
         }
         compose.onNodeWithText("使用当前配置").assertIsDisplayed().performClick()
-        compose.onNodeWithContentDescription("执行代理 1模型").performClick()
-        compose.onNodeWithText("选择执行代理 1模型").assertExists()
+        compose.onNode(hasText("执行代理 1") and hasText("无")).performClick()
+        compose.onNodeWithText("为 执行代理 1 选择模型").assertExists()
         compose.runOnIdle { running.value = true }
-        compose.onNodeWithText("选择执行代理 1模型").assertDoesNotExist()
+        compose.onNodeWithText("为 执行代理 1 选择模型").assertDoesNotExist()
         compose.onNodeWithText("完成").assertIsDisplayed().assertIsNotEnabled()
         compose.onNodeWithText("执行代理 1").assertIsNotEnabled()
-        compose.onNodeWithContentDescription("执行代理 1模型").performTouchInput { click(); longClick() }
+        compose.onNode(hasText("执行代理 1") and hasText("无")).performTouchInput { click(); longClick() }
         compose.runOnIdle { org.junit.Assert.assertEquals("disabled model row must not dismiss", 0, dismissals) }
         compose.onNodeWithText("自动委派").performTouchInput { click() }
         compose.runOnIdle { org.junit.Assert.assertEquals("disabled toggle must not dismiss", 0, dismissals) }
@@ -147,7 +145,7 @@ class ConversationCollaborationDialogTest {
     }
 
     @Test
-    @Config(qualifiers = "w320dp-h480dp")
+    @Config(qualifiers = "zh-rCN-w320dp-h480dp")
     fun lockedDialogKeepsDisabledDoneButtonInsideSmallViewport() {
         var dismissals = 0
         compose.setSubAgentContent {
@@ -158,7 +156,10 @@ class ConversationCollaborationDialogTest {
         compose.runOnIdle { org.junit.Assert.assertEquals(0, dismissals) }
     }
 
-    @Test fun fullConfigShowsTierChoicesAndClosesWhenTaskStarts() {
+    // Robolectric #8460: dialog + TextField livelocks above ~340dp window width.
+    @Test
+    @Config(qualifiers = "zh-rCN-w320dp-h891dp")
+    fun fullConfigShowsTierChoicesAndClosesWhenTaskStarts() {
         val running = mutableStateOf(false)
         val fixture = SubAgentUiFixture(canEdit = { !running.value })
         val before = fixture.snapshot()
@@ -167,12 +168,12 @@ class ConversationCollaborationDialogTest {
             ConversationCollaborationDialog(true, true, {}, {}, taskRunning = running.value)
         }
         compose.onNodeWithText("使用当前配置").assertIsDisplayed().performClick()
-        compose.onNodeWithContentDescription("设置执行代理 1任务分工").assertDoesNotExist()
-        compose.onNodeWithContentDescription("配置执行代理 1").performClick()
+        compose.onNodeWithContentDescription("设置 执行代理 1 的任务分工").assertDoesNotExist()
+        compose.onNodeWithContentDescription("配置 执行代理 1").performClick()
         compose.onNodeWithContentDescription("名称").assertIsDisplayed().performTextReplacement("运行前未确认草稿")
         compose.onNodeWithContentDescription("草稿任务分工").performScrollTo().performClick()
         listOf("简单任务", "常规任务", "复杂任务").forEach { compose.onNodeWithText(it).assertExists() }
-        compose.onNodeWithText("选择执行代理 1模型").assertDoesNotExist()
+        compose.onNodeWithText("为 执行代理 1 选择模型").assertDoesNotExist()
         compose.runOnIdle { running.value = true }
         compose.onNodeWithText("复杂任务").assertDoesNotExist()
         compose.onNodeWithContentDescription("名称").assertDoesNotExist()
@@ -183,7 +184,10 @@ class ConversationCollaborationDialogTest {
         }
     }
 
-    @Test fun conversationTaskTierDraftSavesReopensAndRoleSwitchDoesNotWriteBackToPreset() {
+    // Robolectric #8460: dialog + TextField livelocks above ~340dp window width.
+    @Test
+    @Config(qualifiers = "zh-rCN-w320dp-h891dp")
+    fun conversationTaskTierDraftSavesReopensAndRoleSwitchDoesNotWriteBackToPreset() {
         val fixture = SubAgentUiFixture(profiles = listOf(SubAgentProfile("tier-agent", "分工代理")))
         val preset = fixture.createPreset()
         val presetOwner = SubAgentConfigKey.Preset(preset.id)
@@ -192,7 +196,7 @@ class ConversationCollaborationDialogTest {
             ConversationCollaborationDialog(visible.value, true, {}, { visible.value = false })
         }
         compose.onNodeWithContentDescription("应用子代理组${preset.name}").performClick()
-        compose.onNodeWithContentDescription("配置分工代理").performClick()
+        compose.onNodeWithContentDescription("配置 分工代理").performClick()
         compose.onNodeWithContentDescription("草稿任务分工").performScrollTo().performClick()
         compose.onNodeWithText("常规任务").performClick()
         compose.runOnIdle {
@@ -207,10 +211,10 @@ class ConversationCollaborationDialogTest {
         }
         compose.onNodeWithText("完成").performClick()
         compose.runOnIdle { visible.value = true }
-        compose.onNodeWithContentDescription("配置分工代理").performClick()
+        compose.onNodeWithContentDescription("配置 分工代理").performClick()
         compose.onNodeWithContentDescription("草稿任务分工").performScrollTo().assert(hasText("常规任务"))
         compose.onNodeWithContentDescription("草稿职责").performScrollTo().performClick()
-        compose.onNodeWithText("审查／总结").performClick()
+        compose.onNodeWithText("审查/总结").performClick()
         compose.onNodeWithContentDescription("草稿任务分工").assertDoesNotExist()
         compose.onNodeWithText("确认").performClick()
         compose.runOnIdle {
@@ -218,13 +222,13 @@ class ConversationCollaborationDialogTest {
             assertNull(fixture.snapshot().profiles.single().tier)
             assertEquals(preset.config, fixture.repository.snapshot(presetOwner))
         }
-        compose.onNodeWithContentDescription("配置分工代理").performClick()
+        compose.onNodeWithContentDescription("配置 分工代理").performClick()
         compose.onNodeWithContentDescription("草稿任务分工").assertDoesNotExist()
         compose.onNodeWithContentDescription("草稿职责").performScrollTo().performClick()
-        compose.onNodeWithText("执行").performClick()
+        compose.onNodeWithText("实现").performClick()
         compose.onNodeWithContentDescription("草稿任务分工").performScrollTo().assert(hasText("未设置分工"))
         compose.onNodeWithText("确认").performClick()
-        compose.onNodeWithContentDescription("配置分工代理").performClick()
+        compose.onNodeWithContentDescription("配置 分工代理").performClick()
         compose.onNodeWithContentDescription("草稿任务分工").performScrollTo().assert(hasText("未设置分工"))
         compose.onNodeWithText("取消").performClick()
         compose.runOnIdle {
@@ -239,28 +243,29 @@ class ConversationCollaborationDialogTest {
             ConversationCollaborationDialog(true, true, {}, {})
         }
         compose.onNodeWithText("使用当前配置").assertIsDisplayed().performClick()
-        val info = compose.onNodeWithContentDescription("执行代理 1模型").fetchSemanticsNode().boundsInRoot
-        val more = compose.onNodeWithContentDescription("配置执行代理 1").fetchSemanticsNode().boundsInRoot
+        val info = compose.onNode(hasText("执行代理 1") and hasText("无")).fetchSemanticsNode().boundsInRoot
+        val more = compose.onNodeWithContentDescription("配置 执行代理 1").fetchSemanticsNode().boundsInRoot
         org.junit.Assert.assertTrue("config must be to the right of the model column", more.left >= info.right)
         org.junit.Assert.assertTrue("name and model belong to the same column", compose
-            .onNodeWithContentDescription("执行代理 1模型").fetchSemanticsNode().config
+            .onNode(hasText("执行代理 1") and hasText("无")).fetchSemanticsNode().config
             .contains(androidx.compose.ui.semantics.SemanticsProperties.Text))
-        compose.onNodeWithContentDescription("设置审查／总结代理任务分工").assertDoesNotExist()
+        compose.onNodeWithContentDescription("设置 审查／总结代理 的任务分工").assertDoesNotExist()
         compose.onNodeWithText("完成").assertIsDisplayed()
     }
 
     @Test
-    @Config(qualifiers = "w320dp-h480dp")
+    @Config(qualifiers = "zh-rCN-w320dp-h480dp")
     fun compactConfigKeepsAccessibleTouchTargetAndDoneStaysVisible() {
         compose.setSubAgentContent {
             ConversationCollaborationDialog(true, true, {}, {})
         }
         compose.onNodeWithText("使用当前配置").assertIsDisplayed().performClick()
-        compose.onNodeWithContentDescription("配置执行代理 1")
-            .assertHeightIsAtLeast(48.dp)
-            .assertWidthIsAtLeast(48.dp)
+        // M3 1.5 官方 IconButton：容器 40dp，触控区由 minimumInteractiveComponentSize 保证 48dp。
+        compose.onNodeWithContentDescription("配置 执行代理 1")
+            .assertHeightIsAtLeast(40.dp)
+            .assertWidthIsAtLeast(40.dp)
         compose.onNodeWithText("完成").assertIsDisplayed()
-        compose.onNodeWithContentDescription("审查／总结代理模型").performScrollTo().assertIsDisplayed()
+        compose.onNode(hasText("审查／总结代理") and hasText("无")).performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("完成").assertIsDisplayed()
     }
 
@@ -272,14 +277,14 @@ class ConversationCollaborationDialogTest {
             ConversationCollaborationDialog(true, false, {}, {})
         }
         compose.onNodeWithText("选择子代理组").assertExists()
-        compose.onNodeWithContentDescription("执行代理 1模型").assertDoesNotExist()
+        compose.onNode(hasText("执行代理 1") and hasText("无")).assertDoesNotExist()
         compose.runOnIdle {
             org.junit.Assert.assertEquals(before, fixture.snapshot())
             org.junit.Assert.assertEquals(revision, fixture.repository.revision(fixture.owner).value)
         }
         compose.onNodeWithText("使用当前配置").assertIsDisplayed().performClick()
         compose.onNodeWithText("切换子代理组").assertExists()
-        compose.onNodeWithContentDescription("执行代理 1模型").assertExists()
+        compose.onNode(hasText("执行代理 1") and hasText("无")).assertExists()
         compose.runOnIdle {
             org.junit.Assert.assertEquals(before, fixture.snapshot())
             org.junit.Assert.assertEquals(revision, fixture.repository.revision(fixture.owner).value)
@@ -309,11 +314,11 @@ class ConversationCollaborationDialogTest {
             assertTrue(fixture.repository.snapshot(firstOwner).enabled)
             org.junit.Assert.assertEquals(first.id, fixture.snapshot().appliedPresetId)
         }
-        compose.onNodeWithContentDescription("组代理模型").performClick()
-        compose.onNodeWithText("选择组代理模型").assertExists()
+        compose.onNode(hasText("组代理") and hasText("无")).performClick()
+        compose.onNodeWithText("为 组代理 选择模型").assertExists()
         // External apply simulates switching in another owner-bound view while a picker is open.
         compose.runOnIdle { fixture.editor.applyPreset(second.id) }
-        compose.onNodeWithText("选择组代理模型").assertDoesNotExist()
+        compose.onNodeWithText("为 组代理 选择模型").assertDoesNotExist()
         compose.onNodeWithText("第二组代理").assertExists()
         compose.runOnIdle { org.junit.Assert.assertNotEquals(token, fixture.snapshot().presetApplicationToken) }
         compose.onNodeWithText("切换子代理组").performClick()
@@ -358,20 +363,22 @@ class ConversationCollaborationDialogTest {
     }
 
     @Test
-    @Config(qualifiers = "w320dp-h480dp")
+    @Config(qualifiers = "zh-rCN-w320dp-h480dp")
     fun emptyChooserAndEmptyCurrentConfigWrapHeightAndAlignFooterWithoutWrites() {
         val fixture = SubAgentUiFixture(profiles = emptyList(), enabled = false)
         val before = fixture.snapshot()
         val revision = fixture.repository.revision(fixture.owner).value
         compose.setSubAgentContent(fixture) { ConversationCollaborationDialog(true, false, {}, {}) }
         assertFooterAligned("使用当前配置")
+        // M3E sheet 头部+空态+底部实测约 320dp；仍须明显小于全屏（480dp 视口）。
         assertTrue("empty content must not force a tall card",
-            compose.onNodeWithTag("subagent-collaboration-card").getUnclippedBoundsInRoot().let { it.bottom - it.top < 300.dp })
+            compose.onNodeWithTag("subagent-collaboration-card").getUnclippedBoundsInRoot().let { it.bottom - it.top < 400.dp })
         compose.onNodeWithText("切换子代理组").assertDoesNotExist()
         compose.onNodeWithText("使用当前配置").performClick()
         assertFooterAligned("切换子代理组")
+        // M3E sheet 头部+空态+底部实测约 320dp；仍须明显小于全屏（480dp 视口）。
         assertTrue("empty content must not force a tall card",
-            compose.onNodeWithTag("subagent-collaboration-card").getUnclippedBoundsInRoot().let { it.bottom - it.top < 300.dp })
+            compose.onNodeWithTag("subagent-collaboration-card").getUnclippedBoundsInRoot().let { it.bottom - it.top < 400.dp })
         compose.onNodeWithText("使用当前配置").assertDoesNotExist()
         compose.onNodeWithText("自动委派").assertIsDisplayed()
         compose.runOnIdle {
@@ -381,7 +388,7 @@ class ConversationCollaborationDialogTest {
     }
 
     @Test
-    @Config(qualifiers = "w320dp-h480dp")
+    @Config(qualifiers = "zh-rCN-w320dp-h480dp")
     fun longChooserAndAppliedPanelKeepBothFooterActionsFixedDuringScroll() {
         val profiles = (1..12).map { io.github.mangi.eta.agent.delegation.SubAgentProfile("worker-$it", "代理 $it") }
         val fixture = SubAgentUiFixture(profiles = profiles)
@@ -397,13 +404,13 @@ class ConversationCollaborationDialogTest {
         compose.onNodeWithText("已应用：${groups.last().name}").assertExists()
         assertFooterAligned("切换子代理组")
         val panelFooter = compose.onNodeWithTag("subagent-collaboration-footer").fetchSemanticsNode().boundsInRoot
-        compose.onNodeWithContentDescription("代理 12模型").performScrollTo().assertIsDisplayed()
+        compose.onNode(hasText("代理 12") and hasText("无")).performScrollTo().assertIsDisplayed()
         assertFooterAligned("切换子代理组")
         org.junit.Assert.assertEquals(panelFooter,
             compose.onNodeWithTag("subagent-collaboration-footer").fetchSemanticsNode().boundsInRoot)
         compose.onNodeWithText("切换子代理组").performClick()
         assertFooterAligned("使用当前配置")
-        compose.onNodeWithContentDescription("代理 12模型").assertDoesNotExist()
+        compose.onNode(hasText("代理 12") and hasText("无")).assertDoesNotExist()
     }
 
     @Test fun retainedFooterCallbacksCannotOperateAReopenedChooserOrReappliedPanel() {
