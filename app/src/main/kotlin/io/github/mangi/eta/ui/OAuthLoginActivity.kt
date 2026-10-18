@@ -1,7 +1,6 @@
 package io.github.mangi.eta.ui
 
 import android.annotation.SuppressLint
-import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -15,13 +14,15 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.model.oauth.OAuthCallback
 import java.lang.ref.WeakReference
 import kotlinx.coroutines.CompletableDeferred
 
 @SuppressLint("SetJavaScriptEnabled")
-class OAuthLoginActivity : Activity() {
+class OAuthLoginActivity : ComponentActivity() {
     private var webView: WebView? = null
     private var finished = false
 
@@ -97,6 +98,18 @@ class OAuthLoginActivity : Activity() {
         }
         root.addView(web, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         setContentView(root)
+        // API 36+ 手势返回不再回调 onBackPressed()，改用 OnBackPressedDispatcher（保留原语义：
+        // WebView 可回退则回退页面，否则按「用户取消 OAuth」失败收尾）。
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                val view = webView
+                if (view != null && view.canGoBack()) {
+                    view.goBack()
+                    return
+                }
+                fail(IllegalStateException(getString(R.string.provider_oauth_cancelled)))
+            }
+        })
         web.loadUrl(url)
     }
 
@@ -122,16 +135,6 @@ class OAuthLoginActivity : Activity() {
         pending?.completeExceptionally(error)
         pending = null
         finish()
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        val view = webView
-        if (view != null && view.canGoBack()) {
-            view.goBack()
-            return
-        }
-        fail(IllegalStateException(getString(R.string.provider_oauth_cancelled)))
     }
 
     override fun onDestroy() {
