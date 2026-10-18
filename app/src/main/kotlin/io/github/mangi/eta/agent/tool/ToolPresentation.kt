@@ -17,6 +17,7 @@ import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.ChatBubble
 import androidx.compose.material.icons.rounded.Computer
+import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Contacts
 import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.ContentPasteGo
@@ -237,6 +238,10 @@ internal object ToolPresentation {
         "eta_get_settings" -> Icons.Rounded.Tune
         "eta_set_settings" -> Icons.Rounded.ManageAccounts
         "eta_manage_models" -> Icons.Rounded.SmartToy
+        "skills_list", "skills_list_curated" -> Icons.AutoMirrored.Rounded.MenuBook
+        "skills_read", "skills_read_resource" -> Icons.Rounded.Description
+        "skills_inspect_github" -> Icons.Rounded.Code
+        "skills_install_from_github" -> Icons.Rounded.Download
         else -> if (toolId.startsWith("mcp_")) Icons.Rounded.Extension else FallbackIcon
     }
 
