@@ -1251,7 +1251,7 @@
   <string name="model_expand_provider">展開 %1$s</string>
   <string name="context_no_previous_usage">沒有上下文用量資料</string>
   <string name="context_no_model_limit">目前的模型未提供上下文上限</string>
-  <string name="context_window_send_blocked">上下文已達 99%，請開啟自動壓縮或新開對話</string>
+  <string name="context_window_send_blocked" formatted="false">上下文已達 99%，請開啟自動壓縮或新開對話</string>
   <string name="context_usage_description">上下文用量：%1$s</string>
   <string name="memory_budget_summary">每輪最多注入 %1$s 個字元，詳細內容由模型視需要讀取</string>
   <string name="memory_over_limit">已超過 1 MiB 上限，請刪減內容</string>
@@ -1907,7 +1907,7 @@
   <string name="pv_save_reference">儲存參考音色</string>
   <string name="pv_sample_hint">預覽文字</string>
   <string name="pv_provider_unavailable">供應商無法使用</string>
-  <string name="pv_voice_meta">%1$s · %2$s 秒 · 參考錄音已儲存</string>
+  <string name="pv_voice_meta">%1$s · %2$.1f 秒 · 參考錄音已儲存</string>
   <string name="pv_generating_preview">正在生成預覽……</string>
   <string name="pv_enable_model_first">請先啟用 MiMo 朗讀模型</string>
   <string name="pv_set_as_read_aloud">將「%1$s」設為朗讀音色</string>

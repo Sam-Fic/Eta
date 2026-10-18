@@ -28,6 +28,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -157,7 +158,7 @@ fun BrowserHistorySheet(
                                             },
                                             trailingContent = {
                                                 Text(
-                                                    text = SimpleDateFormat("HH:mm", Locale.getDefault())
+                                                    text = SimpleDateFormat("HH:mm", LocalConfiguration.current.locales[0])
                                                         .format(Date(entry.timestamp)),
                                                     style = MaterialTheme.typography.labelSmall,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -1230,7 +1230,7 @@
   <string name="model_expand_provider">Expand %1$s</string>
   <string name="context_no_previous_usage">No conversation context yet</string>
   <string name="context_no_model_limit">The current model does not provide a context limit</string>
-  <string name="context_window_send_blocked">Context is 99% full. Enable auto-compress or start a new conversation</string>
+  <string name="context_window_send_blocked" formatted="false">Context is 99% full. Enable auto-compress or start a new conversation</string>
   <string name="context_usage_description">Context usage: %1$s</string>
   <string name="memory_budget_summary">Inject up to %1$s characters per turn. The model reads detailed content as needed</string>
   <string name="memory_over_limit">Over the 1 MiB limit. Remove some content</string>
@@ -1733,7 +1733,7 @@
   <string name="pv_save_reference">Save reference voice</string>
   <string name="pv_sample_hint">Preview text</string>
   <string name="pv_provider_unavailable">Provider unavailable</string>
-  <string name="pv_voice_meta">%1$s · %2$s s · Reference recording saved</string>
+  <string name="pv_voice_meta">%1$s · %2$.1f s · Reference recording saved</string>
   <string name="pv_generating_preview">Generating preview…</string>
   <string name="pv_enable_model_first">Enable a MiMo read-aloud model first</string>
   <string name="pv_set_as_read_aloud">Set “%1$s” as the read-aloud voice</string>

@@ -38,6 +38,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -791,7 +792,7 @@ private fun ChatHeatmap(conversationsPerDay: Map<LocalDate, Int>) {
                                 text = if (labelDate.monthValue == 1) {
                                     labelDate.year.toString()
                                 } else {
-                                    labelDate.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())
+                                    labelDate.month.getDisplayName(TextStyle.SHORT, LocalConfiguration.current.locales[0])
                                 },
                                 modifier = Modifier.wrapContentWidth(unbounded = true),
                                 fontSize = 9.sp,
