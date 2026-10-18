@@ -116,6 +116,13 @@ android {
     lint {
         abortOnError = true
         checkReleaseBuilds = false
+        // versionCode 采用 yyyyMMdd+当日序号方案（见 defaultConfig），数值天然接近 int 上限；
+        // 方案上限约到 2030 年，届时需整体迁移递增序号方案，现在每次发版都满足单调递增。
+        disable += "HighAppVersionCode"
+        // LocalContextGetResourceValueCall：本检查假定「Activity 不随配置变化重建」。
+        // 主 Activity 未声明 locale/configChanges，语言切换必然重建并重新组合；且命中
+        // 的 96 处均在事件回调/协程内读取文案而非组合期渲染，无实际过期风险。
+        disable += "LocalContextGetResourceValueCall"
     }
 
     testOptions {
