@@ -232,7 +232,7 @@ private class TransparencyBaseline {
     init {
         val bytes = File(requireNotNull(System.getProperty("eta.compose.semantics.original"))).readBytes()
         val hash = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it.toInt() and 255) }
-        require(hash == "5ebbd3d09bdb44d8681fc2287191a60930905bdea363fa2787318800c8260375")
+        require(hash == "2a4e13582e201f7d52d20c6b268ecd3a90545d516ea57dba843e9662cdbf7340")
         val classes = mutableMapOf<String, ByteArray>()
         ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
             while (true) {

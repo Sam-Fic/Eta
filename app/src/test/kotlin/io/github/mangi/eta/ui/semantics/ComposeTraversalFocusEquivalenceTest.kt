@@ -42,7 +42,7 @@ class ComposeTraversalFocusEquivalenceTest {
     private val runtime by lazy { Class.forName(target) }
     private val official by lazy {
         val file = File(requireNotNull(System.getProperty("eta.compose.semantics.original")))
-        assertEquals("5ebbd3d09bdb44d8681fc2287191a60930905bdea363fa2787318800c8260375",
+        assertEquals("2a4e13582e201f7d52d20c6b268ecd3a90545d516ea57dba843e9662cdbf7340",
             MessageDigest.getInstance("SHA-256").digest(file.readBytes()).joinToString("") { "%02x".format(it) })
         val classes = mutableMapOf<String, ByteArray>()
         ZipInputStream(ByteArrayInputStream(file.readBytes())).use { z ->
@@ -80,13 +80,13 @@ class ComposeTraversalFocusEquivalenceTest {
         }
     }
     private fun map(root: SemanticsNode, included: Set<String>): MutableIntObjectMap<Any> {
-        val adjusted = Class.forName("androidx.compose.ui.semantics.SemanticsNodeWithAdjustedBounds")
-        val ctor = adjusted.getConstructor(SemanticsNode::class.java, IntRect::class.java)
+        val adjusted = Class.forName("androidx.compose.ui.semantics.AdjustedSemanticsNode")
+        val ctor = adjusted.getConstructor(SemanticsNode::class.java, IntRect::class.java, Boolean::class.javaPrimitiveType)
         val result = MutableIntObjectMap<Any>()
-        result[-1] = ctor.newInstance(root, IntRect(0, 0, 300, 200))
+        result[-1] = ctor.newInstance(root, IntRect(0, 0, 300, 200), false)
         fun visit(n: SemanticsNode) {
             if (n.config.getOrElse(SemanticsProperties.TestTag) { "" } in included)
-                result[n.id] = ctor.newInstance(n, IntRect(0, 0, 300, 200))
+                result[n.id] = ctor.newInstance(n, IntRect(0, 0, 300, 200), false)
             n.children.forEach(::visit)
         }
         root.children.forEach(::visit)
@@ -151,17 +151,21 @@ class ComposeTraversalFocusEquivalenceTest {
         }
     }
 
-    @Test fun absentNodeDoesNotEvaluateFocusabilityButPresentNodeKeepsOfficialPredicate() {
+    @Test fun presentNodeKeepsOfficialFocusabilityPredicateAndOldBridgeIsGone() {
         compose.setContent { Node("fixture") { Node("plain") } }
         val root = compose.onNodeWithTag("fixture", useUnmergedTree = true).fetchSemanticsNode()
         compose.runOnIdle {
             val n = root.children.single()
-            val bridge = runtime.declaredMethods.single { it.name == "eta\$visibleScreenReaderFocusable" }.apply { isAccessible = true }
-            val focus = official.declaredMethods.single { it.name == "isScreenReaderFocusable" }.apply { isAccessible = true }
+            val runtimeFocus = runtime.declaredMethods.single { it.name == "isScreenReaderFocusable" }.apply { isAccessible = true }
+            val officialFocus = official.declaredMethods.single { it.name == "isScreenReaderFocusable" }.apply { isAccessible = true }
             val resources = RuntimeEnvironment.getApplication().resources
-            assertEquals(true, focus.invoke(null, n, resources))
-            assertEquals(false, bridge.invoke(null, map(root, emptySet()), resources, n))
-            assertEquals(focus.invoke(null, n, resources), bridge.invoke(null, map(root, setOf("plain")), resources, n))
+            for (z in listOf(false, true)) {
+                assertEquals("official and patched must agree on focusability",
+                    officialFocus.invoke(null, n, resources, z), runtimeFocus.invoke(null, n, resources, z))
+            }
+            assertEquals(true, runtimeFocus.invoke(null, n, resources, false))
+            // Upstream 1.13.0-alpha01 ships the containsKey guard itself; the old eta bridge must be gone.
+            assertTrue("old eta bridge must not exist", runtime.declaredMethods.none { it.name == "eta\$visibleScreenReaderFocusable" })
         }
     }
 }
