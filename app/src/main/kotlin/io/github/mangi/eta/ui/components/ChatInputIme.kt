@@ -251,7 +251,7 @@ internal fun ChatInputLongPressSlot(
             .then(
                 if (enabled && onLongPress != null) {
                     Modifier.pointerInput(Unit) {
-                        detectChatInputLongPress { latestOnLongPress?.invoke() }
+                        detectChatInputLongPress { TouchHaptics.longPress(view); latestOnLongPress?.invoke() }
                     }
                 } else {
                     Modifier
