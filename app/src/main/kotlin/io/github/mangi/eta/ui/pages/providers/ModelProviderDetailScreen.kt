@@ -405,55 +405,54 @@ private fun ProviderConfigTab(
                 title = stringResource(R.string.ui_connection_configuration_7d057b),
             ) {
                 item {
-                    ProviderSegmentBody {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            ProviderField(
-                                value = draft.name,
-                                onValueChange = { onDraftChange(draft.copy(name = it)) },
-                                label = stringResource(R.string.ui_name_1be7ae),
+                    // 文本输入自带描边圆角，不再在其下垫一层分段容器底板。
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        ProviderField(
+                            value = draft.name,
+                            onValueChange = { onDraftChange(draft.copy(name = it)) },
+                            label = stringResource(R.string.ui_name_1be7ae),
+                        )
+                        ProviderField(
+                            value = draft.baseUrl,
+                            onValueChange = { onDraftChange(draft.copy(baseUrl = it)) },
+                            label = "Base URL",
+                            modifier = Modifier.padding(top = 12.dp),
+                        )
+                        if (ProviderAuthMode.isOAuth(draft.authMode)) {
+                            ProviderOAuthLoginRow(
+                                providerId = provider.id,
+                                signedIn = draft.apiKey.isNotBlank(),
+                                enabled = !isWorking,
+                                onToken = { token -> onDraftChange(draft.copy(apiKey = token)) },
+                                onBusy = { localBusy = it },
+                                onStatus = { status = it },
                             )
+                        } else {
                             ProviderField(
-                                value = draft.baseUrl,
-                                onValueChange = { onDraftChange(draft.copy(baseUrl = it)) },
-                                label = "Base URL",
+                                value = draft.apiKey,
+                                onValueChange = { onDraftChange(draft.copy(apiKey = it)) },
+                                label = "API Key",
+                                modifier = Modifier.padding(top = 12.dp),
+                                visualTransformation = if (apiKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                trailingIcon = {
+                                    ProviderIconAction(
+                                        icon = if (apiKeyVisible) Icons.Rounded.Visibility else Icons.Rounded.VisibilityOff,
+                                        contentDescription = if (apiKeyVisible) context.getString(R.string.page_hide_bb0e7e) else context.getString(R.string.page_show_71b677),
+                                        onClick = {
+                                            TouchHaptics.click(view)
+                                            apiKeyVisible = !apiKeyVisible
+                                        },
+                                    )
+                                },
+                            )
+                        }
+                        if (provider is AnthropicProviderSetting) {
+                            ProviderField(
+                                value = draft.anthropicVersion,
+                                onValueChange = { onDraftChange(draft.copy(anthropicVersion = it)) },
+                                label = "anthropic-version",
                                 modifier = Modifier.padding(top = 12.dp),
                             )
-                            if (ProviderAuthMode.isOAuth(draft.authMode)) {
-                                ProviderOAuthLoginRow(
-                                    providerId = provider.id,
-                                    signedIn = draft.apiKey.isNotBlank(),
-                                    enabled = !isWorking,
-                                    onToken = { token -> onDraftChange(draft.copy(apiKey = token)) },
-                                    onBusy = { localBusy = it },
-                                    onStatus = { status = it },
-                                )
-                            } else {
-                                ProviderField(
-                                    value = draft.apiKey,
-                                    onValueChange = { onDraftChange(draft.copy(apiKey = it)) },
-                                    label = "API Key",
-                                    modifier = Modifier.padding(top = 12.dp),
-                                    visualTransformation = if (apiKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                                    trailingIcon = {
-                                        ProviderIconAction(
-                                            icon = if (apiKeyVisible) Icons.Rounded.Visibility else Icons.Rounded.VisibilityOff,
-                                            contentDescription = if (apiKeyVisible) context.getString(R.string.page_hide_bb0e7e) else context.getString(R.string.page_show_71b677),
-                                            onClick = {
-                                                TouchHaptics.click(view)
-                                                apiKeyVisible = !apiKeyVisible
-                                            },
-                                        )
-                                    },
-                                )
-                            }
-                            if (provider is AnthropicProviderSetting) {
-                                ProviderField(
-                                    value = draft.anthropicVersion,
-                                    onValueChange = { onDraftChange(draft.copy(anthropicVersion = it)) },
-                                    label = "anthropic-version",
-                                    modifier = Modifier.padding(top = 12.dp),
-                                )
-                            }
                         }
                     }
                 }
