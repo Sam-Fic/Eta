@@ -129,9 +129,15 @@ class AgentAppStateGptSpeedMemoryTest {
                 mapOf("a-one" to 30L, "a-two" to 20L, "b-one" to 10L))
         }
         val restarted = f.newApp()
-        assertEquals(f.a.id, restarted.homeState.modelId)
+        // 启动水合已改为离开主线程异步（见 AgentAppState.init 注释），测试 scope 被取消；
+        // 按下方 b-one 同款「手动水合」路径驱动：providers → conversationState → selectConversation。
+        val hydrated = runBlocking { AgentConversationStore.loadSuspending(f.context, selectedOnly = true) }
+        set(restarted, "conversationsById", hydrated.conversationsById)
         call(restarted, "updateSelectionProviders", listOf(f.p, f.q))
         call(restarted, "refreshBoundModelPicker")
+        call(restarted, "conversationState", "a-one")
+        restarted.selectConversation("a-one")
+        assertEquals(f.a.id, restarted.homeState.modelId)
         assertEquals(GptSpeedMode.ULTRA_FAST, restarted.homeState.gptSpeedMode)
         // Hydrate the unloaded preview through the real Room-backed state loader (no startup job).
         call(restarted, "conversationState", "b-one")
@@ -231,5 +237,8 @@ class AgentAppStateGptSpeedMemoryTest {
                 .apply { isAccessible = true }.invoke(target, *args)
         private fun get(target: Any, name: String): Any? =
             target.javaClass.getDeclaredField(name).apply { isAccessible = true }.get(target)
+        private fun set(target: Any, name: String, value: Any?) {
+            target.javaClass.getDeclaredField(name).apply { isAccessible = true }.set(target, value)
+        }
     }
 }
