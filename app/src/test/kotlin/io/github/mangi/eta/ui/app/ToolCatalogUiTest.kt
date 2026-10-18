@@ -1,6 +1,7 @@
 package io.github.mangi.eta.ui.app
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AccountTree
 import androidx.compose.material.icons.rounded.Build
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Language
@@ -61,7 +62,8 @@ class ToolCatalogUiTest {
             assertEquals(icon, ToolPresentation.icon(it))
             assertNotEquals(ToolPresentation.icon("memory_get"), ToolPresentation.icon(it))
         }
-        assertEquals("SubAgents", icon.name)
+        // SubAgents 已有意改为官方 AccountTree 别名（见 ui/icons/SubAgents.kt 文档注释）。
+        assertEquals(Icons.Rounded.AccountTree, icon)
     }
 
     @Test

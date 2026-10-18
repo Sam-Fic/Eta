@@ -26,7 +26,7 @@ class AgentSelfSettingsToolCatalogTest {
                 .getJSONArray("enum")
                 .stringValues(),
         )
-        assertEquals(listOf("action"), manage.requiredNames())
+        assertEquals(listOf("action"), manage.parameters().requiredNames())
         assertEquals(
             listOf("chat", "tts", "voice", "compress"),
             manage.properties().getJSONObject("target").getJSONArray("enum").stringValues(),
@@ -37,7 +37,8 @@ class AgentSelfSettingsToolCatalogTest {
     @Test
     fun readingSettingsTakesNoArguments() {
         val read = catalog().function(AgentSelfSettingsToolCatalog.GET_SETTINGS)
-        assertEquals(emptyList<String>(), read.parameters().optJSONArray("required")?.stringValues())
+        // 生产侧对无参工具不输出 required 键，缺失与空列表语义相同。
+        assertEquals(emptyList<String>(), read.parameters().optJSONArray("required")?.stringValues().orEmpty())
         assertTrue(read.properties().length() == 0)
         assertTrue(read.getString("description").contains(AgentSelfSettingsToolCatalog.MANAGE_MODELS))
     }
@@ -46,11 +47,11 @@ class AgentSelfSettingsToolCatalogTest {
     fun changingSettingsRequiresKeyAndValuePairsAndIsBounded() {
         val write = catalog().function(AgentSelfSettingsToolCatalog.SET_SETTINGS)
         val properties = write.properties()
-        assertEquals(listOf("settings"), write.requiredNames())
+        assertEquals(listOf("settings"), write.parameters().requiredNames())
         val items = properties.getJSONObject("settings").getJSONObject("items")
         assertEquals(listOf("key", "value"), items.optJSONArray("required")?.stringValues())
         assertEquals(24, properties.getJSONObject("settings").getInt("maxItems"))
-        assertTrue(items.getJSONObject("value").getString("description").contains("on"))
+        assertTrue(items.getJSONObject("properties").getJSONObject("value").getString("description").contains("on"))
         assertTrue(write.getString("description").contains("next reply"))
     }
 
@@ -66,7 +67,7 @@ class AgentSelfSettingsToolCatalogTest {
             "string",
             properties.getJSONObject("models").getJSONObject("items").getString("type"),
         )
-        assertTrue(properties.getJSONObject("provider").getString("description").contains("id or the displayed name"))
+        assertTrue(properties.getJSONObject("provider").getString("description").contains("id or displayed name"))
     }
 
     @Test
