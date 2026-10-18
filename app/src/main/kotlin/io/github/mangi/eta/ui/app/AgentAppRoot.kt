@@ -1,5 +1,6 @@
 package io.github.mangi.eta.ui.app
 
+import android.annotation.SuppressLint
 import androidx.compose.runtime.CompositionLocalProvider
 import io.github.mangi.eta.ui.components.StreamingMarkdownCache
 import io.github.mangi.eta.ui.components.LocalStreamingMarkdownStates
@@ -127,6 +128,7 @@ import kotlinx.coroutines.ensureActive
  * Agent App 根组件：持有本地导航栈，并把 Screen actions 交给 [AgentAppState]。
  */
 @Composable
+@SuppressLint("RestrictedApi") // navController.currentBackStack：无公开的完整返回栈 Flow 替代，仅 collectAsState 观察
 fun AgentAppRoot(
     assistantConversationKey: String? = null,
     inboundShareUris: List<String> = emptyList(),

@@ -1,5 +1,6 @@
 package io.github.mangi.eta.ui.navigation
 
+import android.annotation.SuppressLint
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
 import androidx.navigation.toRoute
@@ -104,6 +105,9 @@ class AgentNavigator(
         }
     }
 
+    // NavController.currentBackStack 是 RestrictedApi：导航库没有公开「观察完整返回栈」的
+    // Flow 替代，这里只读取快照做路由定位，抑制并记录理由。
+    @SuppressLint("RestrictedApi")
     fun replace(route: AppRoute) {
         val entries = navController.currentBackStack.value
         val existing = entries.indexOfFirst { it.toAppRoute() == route }
@@ -153,5 +157,6 @@ class AgentNavigator(
     fun current(): AppRoute? = routes().lastOrNull()
 
     /** 返回栈里的路由（不含导航图条目）。 */
+    @SuppressLint("RestrictedApi")
     private fun routes(): List<AppRoute> = navController.currentBackStack.value.mapNotNull { it.toAppRoute() }
 }

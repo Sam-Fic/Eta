@@ -158,7 +158,8 @@ fun EtaExtendedFab(
     SmallExtendedFloatingActionButton(
         expanded = expanded,
         onClick = onClick,
-        icon = { Icon(imageVector = icon, contentDescription = null) },
+        // 折叠态文字隐藏后图标必须仍有标签；展开态由 text 播报，避免重复。
+        icon = { Icon(imageVector = icon, contentDescription = if (expanded) null else text) },
         text = { Text(text = text) },
         modifier = modifier,
     )
