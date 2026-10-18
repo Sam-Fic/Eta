@@ -1749,7 +1749,7 @@ private fun ChatMarkdownDocument(
                     (preparedBlock == null || preparedBlock.cacheKey.referenceSource == null)
                 // Freeze used to remount MarkdownElement and complete in-block reveal
                 // via onDetach. Keep that catch-up without discarding the renderer.
-                remember(freeze) {
+                LaunchedEffect(freeze) {
                     if (freeze) {
                         revealCoordinator?.completeAttachedRecordsIn(node.startOffset, node.endOffset)
                     }
