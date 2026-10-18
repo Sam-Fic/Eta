@@ -43,6 +43,8 @@ class ConversationTurnNavigationButtonTest {
         originalTouch = Prefs.isEnabled(Prefs.Keys.HAPTIC_TOUCH_FEEDBACK)
         Prefs.putBoolean(Prefs.Keys.HAPTIC_TOUCH_FEEDBACK, true)
         view = RecordingView(context)
+        // Compose 1.13 ripple walks LocalView up to the nearest ViewGroup; attach a parent.
+        android.widget.FrameLayout(context).addView(view)
         compose.setContent {
             MaterialTheme(colorScheme = lightColorScheme()) {
                 CompositionLocalProvider(LocalView provides view, LocalHapticFeedback provides object : HapticFeedback {
