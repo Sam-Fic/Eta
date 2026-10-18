@@ -52,7 +52,8 @@ class AgentQuestionMessageLayoutTest {
         fun assertInsets() {
             val host = compose.onNodeWithTag("message-host").fetchSemanticsNode().boundsInRoot
             val card = compose.onNodeWithTag("question-card-surface").fetchSemanticsNode().boundsInRoot
-            val inset = with(compose.density) { 20.dp.toPx() }
+            // 与思考/工具卡片共用 WorkProcessCardSlice：统一 16dp 消息边距。
+            val inset = with(compose.density) { 16.dp.toPx() }
             assertEquals(inset, card.left - host.left, 0.5f)
             assertEquals(inset, host.right - card.right, 0.5f)
         }

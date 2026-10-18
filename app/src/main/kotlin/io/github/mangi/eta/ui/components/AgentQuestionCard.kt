@@ -88,7 +88,7 @@ private fun AgentQuestionCardContent(
         if (!expanded) releaseAnchor()
         expanded = !expanded
     }
-    // Reuse the steps' actual outlined shell, including its sole 20dp message gutters.
+    // Reuse the steps' actual outlined shell, including its sole 16dp message gutters.
     WorkProcessCardSlice(part = WorkProcessCardPart.Whole, modifier = modifier) {
         Column(Modifier.fillMaxWidth().testTag("question-card-surface")) {
             QuestionDisclosureHeader(

@@ -14,7 +14,8 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
-@Config(application = io.github.mangi.eta.EtaApp::class, sdk = [36])
+// 断言用的是中文文案：固定 zh-rCN locale，否则 Robolectric 默认 en 命中英文 base 字符串。
+@Config(application = io.github.mangi.eta.EtaApp::class, sdk = [36], qualifiers = "zh-rCN")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class AgentStopTaskDialogTest {
     @get:Rule val compose = createComposeRule()

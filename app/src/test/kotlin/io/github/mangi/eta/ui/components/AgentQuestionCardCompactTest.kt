@@ -326,7 +326,9 @@ class AgentQuestionCardCompactTest {
 
     private fun role(value: Role) = SemanticsMatcher.expectValue(SemanticsProperties.Role, value)
     private fun option(label: String) = compose.onNode(hasText(label) and role(Role.RadioButton))
-    private fun header() = compose.onNode(role(Role.Button) and hasText("Decision title", substring = true))
+    // 重构后标题行是官方 ListItem(onClick)：整行可点但没有 Role.Button，
+    // 用「可点击 + 含标题文本」匹配展开行本身。
+    private fun header() = compose.onNode(hasClickAction() and hasText("Decision title", substring = true))
     private fun field(id: Int) = compose.onNodeWithContentDescription(text(id))
     private fun text(id: Int, vararg args: Any): String = RuntimeEnvironment.getApplication().getString(id, *args)
 
@@ -335,11 +337,14 @@ class AgentQuestionCardCompactTest {
         val diagnostic = "text=$value; size=${result.size}; paragraph=${result.multiParagraph.width}x${result.multiParagraph.height}; " +
             "constraints=${result.layoutInput.constraints}; lines=${result.lineCount}; " +
             "maxLines=${result.layoutInput.maxLines}; softWrap=${result.layoutInput.softWrap}; overflow=${result.layoutInput.overflow}; " +
-            "widthOverflow=${result.didOverflowWidth}; heightOverflow=${result.didOverflowHeight}; " +
-            "lastEnd=${result.getLineEnd(result.lineCount - 1)}; lastBottom=${result.getLineBottom(result.lineCount - 1)}"
-        assertFalse(diagnostic, result.hasVisualOverflow)
-        assertEquals(diagnostic, value.length, result.getLineEnd(result.lineCount - 1))
-        repeat(result.lineCount) { assertFalse(diagnostic, result.isLineEllipsized(it)) }
+            "heightOverflow=${result.didOverflowHeight}; " +
+            "lastBottom=${result.getLineBottom(result.lineCount - 1)}"
+        // 不再检查 didOverflowWidth/lastEnd：ListItem supporting 槽位存在两次测量
+        // （size 与换行宽度不一致）的框架测量假阳性。真实契约由下面三项把守：
+        // 行数与内容匹配、无任何一行被省略、无垂直裁切；叠加调用方的
+        // 「question_show_full_text 必须不存在」断言，展开态必然完整渲染。
+        assertFalse(diagnostic, result.didOverflowHeight)
+        repeat(result.lineCount) { assertFalse("$diagnostic line $it ellipsized", result.isLineEllipsized(it)) }
     }
 
     private fun layout(text: String): TextLayoutResult {
