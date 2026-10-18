@@ -52,11 +52,13 @@ import io.github.mangi.eta.ui.adaptive.etaPrimary
 import io.github.mangi.eta.ui.adaptive.etaSurfaceContainerHigh
 import io.github.mangi.eta.ui.adaptive.etaTextStyle
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
@@ -343,24 +345,74 @@ internal fun PendingFileReferenceStrip(
     }
 }
 
+/** 文件 chip 的默认大圆角；发送出去后由调用方统一成用户气泡同档。 */
+private val SentFileChipCornerRadius = 12.dp
+
+/** 文件 chip 之间、以及 chip 与气泡相接的接缝角（设置页分段条目内圆角同档）。 */
+private val SentFileChipSeamCorner = 4.dp
+
+/**
+ * 文件 chip 的四角：整行当成一条横向的分段条，跟横排图片同一套规则——
+ * 最左一个 chip 的左侧（上、下）保持大圆角；中间被夹住的四角全收成接缝小圆角；
+ * 最右一个 chip 的右上角只在上面接了东西时收，右下角只在下面接了东西时收。
+ *
+ * FlowRow 会换行，这里只能按列表下标认首尾：只有末行铺满时「最右一个」才真贴在右缘，
+ * 文件多到换行且末行没铺满时这一点会不准。
+ */
+private fun sentFileChipShape(
+    index: Int,
+    count: Int,
+    largeCorner: Dp,
+    seamCorner: Dp,
+    seamTopEnd: Dp? = null,
+    seamBottomEnd: Dp? = null,
+    connectsAbove: Boolean,
+    connectsBelow: Boolean,
+): Shape {
+    val isFirst = index == 0
+    val isLast = index == count - 1
+    return RoundedCornerShape(
+        topStart = if (isFirst) largeCorner else seamCorner,
+        topEnd = if (isLast && !connectsAbove) (seamTopEnd ?: largeCorner) else seamCorner,
+        bottomEnd = if (isLast && !connectsBelow) (seamBottomEnd ?: largeCorner) else seamCorner,
+        bottomStart = if (isFirst) largeCorner else seamCorner,
+    )
+}
+
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
 internal fun SentFileReferenceFlow(
     references: List<AgentFileReference>,
     modifier: Modifier = Modifier,
+    largeCorner: Dp = SentFileChipCornerRadius,
+    seamCorner: Dp = SentFileChipSeamCorner,
+    seamTopEnd: Dp? = null,
+    seamBottomEnd: Dp? = null,
+    connectsAbove: Boolean = false,
+    connectsBelow: Boolean = false,
 ) {
     FlowRow(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        references.forEach { reference ->
+        references.forEachIndexed { index, reference ->
+            val chipShape = sentFileChipShape(
+                index = index,
+                count = references.size,
+                largeCorner = largeCorner,
+                seamCorner = seamCorner,
+                seamTopEnd = seamTopEnd,
+                seamBottomEnd = seamBottomEnd,
+                connectsAbove = connectsAbove,
+                connectsBelow = connectsBelow,
+            )
             Row(
                 modifier = Modifier
                     .height(38.dp)
                     .widthIn(max = 280.dp)
-                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
-                    .border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.45f), RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surface, chipShape)
+                    .border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.45f), chipShape)
                     .padding(horizontal = 11.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),

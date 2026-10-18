@@ -257,9 +257,13 @@ private fun chatCardShape(): Shape = MaterialTheme.shapes.medium
 private fun chatCardBorder(alpha: Float = 1f): BorderStroke =
     BorderStroke(0.5.dp, chatDividerColor(alpha))
 
-/** 媒体占位圆角（与卡片同档）。 */
-@Composable
-private fun chatMediaShape(): Shape = MaterialTheme.shapes.medium
+/** 用户消息里图片附件的圆角：四角由 [userImageCorners] 按横排位置给出。 */
+private fun chatMediaShape(corners: CornerRadii): Shape = RoundedCornerShape(
+    corners.topStart,
+    corners.topEnd,
+    corners.bottomEnd,
+    corners.bottomStart,
+)
 
 // 排版访问器（chatBodyStyle / chatSecondaryStyle / chatTertiaryStyle / chatQuaternaryStyle）
 // 已收敛到同包的 ChatTypography.kt，本文件不再私藏。
@@ -664,41 +668,76 @@ private val UserBubbleInnerCorner = 2.dp
 /** User 气泡普通角半径（附件行复用同档圆角）。 */
 private val UserBubbleCornerRadius = 24.dp
 
-/** User 气泡四角半径：外侧大圆角、接缝侧小圆角、带尾巴的角为直角。 */
-private data class UserBubbleCorners(
+/**
+ * 附件行与气泡相接的接缝角，同时也用于相邻两张图片之间：取设置页分段条目内圆角同档（4dp）。
+ * 相接的两侧同时收成这一档，大角不变。
+ */
+private val UserBubbleAttachmentSeamCorner = 4.dp
+
+/** 附件行与气泡之间、以及附件行彼此之间的接缝缝宽：取设置页分段条目间距同档（2dp）。 */
+private val UserBubbleAttachmentGap = 2.dp
+
+/** 四角半径（用户气泡与图片附件共用）。 */
+private data class CornerRadii(
     val topStart: Dp,
     val topEnd: Dp,
     val bottomEnd: Dp,
     val bottomStart: Dp,
 )
 
-private fun userBubbleCorners(position: UserBubblePosition): UserBubbleCorners = when (position) {
-    UserBubblePosition.Single -> UserBubbleCorners(
+/** User 气泡四角半径：外侧大圆角、接缝侧小圆角、带尾巴的角为直角。 */
+private fun userBubbleCorners(position: UserBubblePosition): CornerRadii = when (position) {
+    UserBubblePosition.Single -> CornerRadii(
         topStart = UserBubbleCornerRadius,
         topEnd = UserBubbleCornerRadius,
         bottomEnd = 0.dp,
         bottomStart = UserBubbleCornerRadius,
     )
 
-    UserBubblePosition.GroupFirst -> UserBubbleCorners(
+    UserBubblePosition.GroupFirst -> CornerRadii(
         topStart = UserBubbleCornerRadius,
         topEnd = UserBubbleCornerRadius,
         bottomEnd = UserBubbleInnerCorner,
         bottomStart = UserBubbleCornerRadius,
     )
 
-    UserBubblePosition.GroupMid -> UserBubbleCorners(
+    UserBubblePosition.GroupMid -> CornerRadii(
         topStart = UserBubbleCornerRadius,
         topEnd = UserBubbleInnerCorner,
         bottomEnd = UserBubbleInnerCorner,
         bottomStart = UserBubbleCornerRadius,
     )
 
-    UserBubblePosition.GroupLast -> UserBubbleCorners(
+    UserBubblePosition.GroupLast -> CornerRadii(
         topStart = UserBubbleCornerRadius,
         topEnd = UserBubbleInnerCorner,
         bottomEnd = 0.dp,
         bottomStart = UserBubbleCornerRadius,
+    )
+}
+
+/**
+ * 用户消息里横排图片的四角：整排当成一条横向的分段条。
+ *
+ * - 最左一张的左侧（上、下）保持大圆角；
+ * - 中间被夹住的图片四角全收成接缝小圆角，上边下边都收；
+ * - 最右一张的右上角是大圆角——图片行永远在附件栈最上面，上面没有东西可接，
+ *   所以这里没有 connectsAbove 这一档（文件行有，见 sentFileChipShape）；
+ *   右下角则看下面是否接着文件行 / 气泡，接着就收成接缝，没接才是大圆角。
+ */
+private fun userImageCorners(
+    index: Int,
+    count: Int,
+    connectsBelow: Boolean,
+): CornerRadii {
+    val isFirst = index == 0
+    val isLast = index == count - 1
+    val seam = UserBubbleAttachmentSeamCorner
+    return CornerRadii(
+        topStart = if (isFirst) UserBubbleCornerRadius else seam,
+        topEnd = if (isLast) UserBubbleCornerRadius else seam,
+        bottomEnd = if (isLast && !connectsBelow) UserBubbleCornerRadius else seam,
+        bottomStart = if (isFirst) UserBubbleCornerRadius else seam,
     )
 }
 
@@ -770,6 +809,11 @@ private fun UserMessageBubble(
     val hasBubbleBody = visiblePrompt.request.isNotBlank() ||
         visiblePrompt.conversations.isNotEmpty() ||
         message.isEdited
+    // 附件行（图片 / 文件行）紧贴气泡上方时，相接的右侧角一起收小，串成整条右侧接缝；
+    // 纯文字消息保持原样，附件行左侧一律保持气泡同档大圆角。
+    val joinsBubble = hasBubbleBody && (message.images.isNotEmpty() || visibleFiles.isNotEmpty())
+    // 图片行下面还接着东西（文件行或气泡）时，最右一张图的右下角也要收，接缝才连得上。
+    val imageRowConnectsBelow = visibleFiles.isNotEmpty() || hasBubbleBody
 
     Column(
         modifier = modifier
@@ -784,7 +828,7 @@ private fun UserMessageBubble(
             BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = if (hasBubbleBody) 6.dp else 0.dp),
+                    .padding(bottom = if (hasBubbleBody) UserBubbleAttachmentGap else 0.dp),
                 contentAlignment = Alignment.CenterEnd,
             ) {
                 Column(
@@ -799,10 +843,17 @@ private fun UserMessageBubble(
                                         dataUrl.ifBlank { message.fullImageSourceAt(index) },
                                         fallback = message.fullImageSourceAt(index),
                                     )
+                                    val mediaShape = chatMediaShape(
+                                        userImageCorners(
+                                            index = index,
+                                            count = message.images.size,
+                                            connectsBelow = imageRowConnectsBelow,
+                                        ),
+                                    )
                                     Box(
                                         modifier = Modifier
                                             .size(100.dp)
-                                            .clip(chatMediaShape())
+                                            .clip(mediaShape)
                                             .background(chatSurfaceContainerColor()),
                                     ) {
                                         if (bitmap != null) {
@@ -846,7 +897,13 @@ private fun UserMessageBubble(
                     if (visibleFiles.isNotEmpty()) {
                         SentFileReferenceFlow(
                             references = visibleFiles,
-                            modifier = Modifier.padding(top = if (message.images.isNotEmpty()) 8.dp else 0.dp),
+                            modifier = Modifier.padding(
+                                top = if (message.images.isNotEmpty()) UserBubbleAttachmentGap else 0.dp,
+                            ),
+                            largeCorner = UserBubbleCornerRadius,
+                            seamCorner = UserBubbleAttachmentSeamCorner,
+                            connectsAbove = message.images.isNotEmpty(),
+                            connectsBelow = joinsBubble,
                         )
                     }
                 }
@@ -861,7 +918,11 @@ private fun UserMessageBubble(
                     .then(if (isGroupTail) Modifier.clickable { actionsRevealed = !actionsRevealed } else Modifier),
                 contentAlignment = Alignment.CenterEnd,
             ) {
-                val corners = userBubbleCorners(position)
+                val corners = if (joinsBubble) {
+                    userBubbleCorners(position).copy(topEnd = UserBubbleAttachmentSeamCorner)
+                } else {
+                    userBubbleCorners(position)
+                }
                 val bubbleShape: Shape = RoundedCornerShape(
                     corners.topStart,
                     corners.topEnd,
