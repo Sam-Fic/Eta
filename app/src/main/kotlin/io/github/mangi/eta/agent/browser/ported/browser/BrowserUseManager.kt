@@ -1338,7 +1338,7 @@ class BrowserUseManager(
             val raw = withTimeoutOrNull(JS_EVALUATION_TIMEOUT_MS) { deferred.await() }
                 ?: return BrowserActionResult.error("JavaScript execution timed out (8s)")
             val json = try { JSONObject(raw) } catch (ignored: Exception) {
-            if (ignored is kotlinx.coroutines.CancellationException) throw ignored
+                if (ignored is kotlinx.coroutines.CancellationException) throw ignored
                 null
             }
             if (json != null) {
@@ -1417,9 +1417,9 @@ class BrowserUseManager(
             // can fetch human-readable payloads without forcing a byte roundtrip.
             val data: ByteArray? = json.optString("base64").takeIf { it.isNotEmpty() }?.let {
                 try { Base64.decode(it, Base64.DEFAULT) } catch (ignored: Exception) {
-            if (ignored is kotlinx.coroutines.CancellationException) throw ignored
-                null
-            }
+                    if (ignored is kotlinx.coroutines.CancellationException) throw ignored
+                    null
+                }
             } ?: json.optString("text").takeIf { it.isNotEmpty() }?.toByteArray(Charsets.UTF_8)
 
             if (data == null) {
@@ -1811,7 +1811,7 @@ class BrowserUseManager(
         return try {
             val raw = evaluateJavascript(js)
             val json = try { JSONObject(raw) } catch (ignored: Exception) {
-            if (ignored is kotlinx.coroutines.CancellationException) throw ignored
+                if (ignored is kotlinx.coroutines.CancellationException) throw ignored
                 null
             }
             if (json != null) {
@@ -1833,7 +1833,7 @@ class BrowserUseManager(
         return try {
             val raw = evaluateJavascript(js)
             val json = try { JSONObject(raw) } catch (ignored: Exception) {
-            if (ignored is kotlinx.coroutines.CancellationException) throw ignored
+                if (ignored is kotlinx.coroutines.CancellationException) throw ignored
                 null
             }
             if (json != null) {
