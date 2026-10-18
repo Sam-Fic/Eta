@@ -141,7 +141,7 @@ internal object AgentSelfSettingsToolCatalog {
                                     JSONObject()
                                         .put("type", "string")
                                         .put("maxLength", 500)
-                                        .put("description", "save_provider only: key for that endpoint. Omit it to keep the stored one, pass an empty string to clear it."),
+                                        .put("description", "save_provider only: secret key for that endpoint. Omit it to keep the stored one, pass an empty string to clear it."),
                                 )
                                 .put(
                                     "models",
