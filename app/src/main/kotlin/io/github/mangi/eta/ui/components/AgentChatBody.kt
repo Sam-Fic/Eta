@@ -130,6 +130,9 @@ import io.github.mangi.eta.ui.model.isResumeAfterCompress
 import io.github.mangi.eta.ui.model.isSteerSupplement
 import io.github.mangi.eta.ui.adaptive.EtaType
 import io.github.mangi.eta.ui.adaptive.etaTextStyle
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.sqrt
 import kotlin.random.Random
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
@@ -2685,16 +2688,78 @@ private data class SuggestionItem(
 )
 
 /**
- * 空状态「球」：形状 + 落位，尺寸与位置都是容器宽度的比例（正方形外框 = 形状正比例）。
- * [rotation] 为绕自身中心的旋转角（度），只做轻微倾斜。
+ * 空状态「球」：形状 + 在 2×2 网格里占的格子，位置是容器宽度的比例。
+ * 格子边长固定（[BLOB_CELL_SIZE]），形状按真实面积归一后在各自格子里居中。
  */
 private class ExpressiveBlobSpec(
     val shape: RoundedPolygon,
-    val size: Float,
-    val left: Float,
-    val top: Float,
-    val rotation: Float = 0f,
+    val cellLeft: Float,
+    val cellTop: Float,
 )
+
+/** 每块色块所在格子的边长（容器宽度的比例）。 */
+private const val BLOB_CELL_SIZE = 0.44f
+
+/** 格子外边距与格子之间的间隔（容器宽度的比例）；2 × 格子 + 3 × 间隔 = 1，整组正好铺满方形容器。 */
+private const val BLOB_MARGIN = 0.04f
+
+/** 每条贝塞尔边采样成的折线段数；24 段时面积与解析值的差距远小于千分之一，肉眼看不出来。 */
+private const val BLOB_CURVE_SEGMENTS = 24
+
+/**
+ * 形状轮廓的几何量：自身坐标下的真实面积，以及外框的较长边。
+ *
+ * 外框一样大并不等于看上去一样大：圆内接在外框里只占 π/4 ≈ 78.5%、四个角是空的，
+ * 而 Cookie/Pill 这类圆角形状更接近铺满；而且官方 [MaterialShapes] 都是按最长边归一化到
+ * 1×1 的，Pill / Cookie6Sided 的外框本身就不是正方形。所以「视觉等大」只能按真实面积归一。
+ *
+ * 关键前提：`Shape.createOutline` 先按 size 缩放（这里是正方形外框，两个方向同一个系数），
+ * 再把轮廓中心平移到外框中心，因此**渲染面积 = 自身面积 × size²**，与形状的外框比例无关。
+ *
+ * 形状不是矩形，面积靠把贝塞尔轮廓采样成折线后用鞋带公式算。
+ * [extent] 用于保证缩放后不越出自己的格子：渲染出的外框最长边 = extent × size。
+ */
+private class BlobGeometry(val area: Float, val extent: Float)
+
+private fun RoundedPolygon.geometry(): BlobGeometry {
+    val bounds = calculateBounds()
+    val points = sampledOutline()
+    var doubleArea = 0f
+    for (index in points.indices) {
+        val point = points[index]
+        val next = points[(index + 1) % points.size]
+        doubleArea += point.x * next.y - next.x * point.y
+    }
+    return BlobGeometry(
+        area = abs(doubleArea) / 2f,
+        extent = max(bounds[2] - bounds[0], bounds[3] - bounds[1]),
+    )
+}
+
+/**
+ * 把形状的贝塞尔轮廓采样成折线（形状空间坐标）。每条边只取 [0, 1) 的 t，
+ * 终点留给下一条边的起点，折线自然首尾相接。
+ */
+private fun RoundedPolygon.sampledOutline(): List<Offset> {
+    val points = ArrayList<Offset>(cubics.size * BLOB_CURVE_SEGMENTS)
+    cubics.forEach { cubic ->
+        repeat(BLOB_CURVE_SEGMENTS) { step ->
+            val t = step.toFloat() / BLOB_CURVE_SEGMENTS
+            val inverse = 1f - t
+            val weight0 = inverse * inverse * inverse
+            val weight1 = 3f * inverse * inverse * t
+            val weight2 = 3f * inverse * t * t
+            val weight3 = t * t * t
+            points += Offset(
+                weight0 * cubic.anchor0X + weight1 * cubic.control0X +
+                    weight2 * cubic.control1X + weight3 * cubic.anchor1X,
+                weight0 * cubic.anchor0Y + weight1 * cubic.control0Y +
+                    weight2 * cubic.control1Y + weight3 * cubic.anchor1Y,
+            )
+        }
+    }
+    return points
+}
 
 /** 建议池的能力闸门：把设备状态收敛成「这条现在能不能跑」。 */
 private fun ChatSuggestionRequirement.isSatisfied(
@@ -2713,12 +2778,16 @@ private fun ChatSuggestionRequirement.isSatisfied(
 }
 
 /**
- * M3 Expressive 空状态建议：四块抽象形状的色块像被丢进同一个容器里自然散落。
+ * M3 Expressive 空状态建议：四块抽象形状的色块排成规整的 2×2 网格。
  *
- * 形状取官方 [MaterialShapes]（Clover4Leaf / Ghostish / Bun / Pill），统一用
+ * 形状取官方 [MaterialShapes] 的 Cookie6Sided / Pill / Circle / Cookie4Sided，统一用
  * tertiaryContainer 实心色块、不描边；每块都落在正方形外框里，所以形状保持正比例，
- * 不会被拉伸或压扁。四块尺寸各不相同、落位刻意错开（不是对齐的网格），相邻外框留出
- * 间隙保证彼此没有重叠面积；几块再各自绕中心轻微旋转，读作一堆松散堆落的色块。
+ * 不会被拉伸或压扁。四块不旋转，格子外边距与格子间隔全部相等（见 BLOB_MARGIN）。
+ *
+ * 四块的「外框」一样大，但真实面积不同（圆内接只占 78.5%，且各自归一化后的外框比例也不同），
+ * 所以尺寸按真实面积归一：算出每块的面积，按 √(目标面积 / 自身面积) 缩放，使四块面积相等；
+ * 目标面积取「填充率最低」的那一块可以占的面积，于是没有一块会超出自己的格子。
+ * 形状在格子里居中，整组按数值居中放在容器里。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -2728,15 +2797,12 @@ private fun ExpressiveSuggestionBlobs(
     modifier: Modifier = Modifier,
 ) {
     val specs = listOf(
-        // 形状 / 边长 / 左边距 / 上边距 / 旋转角（度），尺寸与位置均为容器宽度的比例；
-        // 按边长从大到小排，调用方把标题最长的建议放在最前面，于是最长的那条落在最大的形状里。
-        // 落位故意错开、不排成整齐的网格：左上 Cookie6Sided、右下 Cookie4Sided、右上 Pill、左下 Circle，
-        // 相邻外框之间只留 0.02~0.08 的窄间隙（比原来更挤），旋转角也收小到 ≤6°，
-        // 保证收窄后四块正比例形状仍不会互相压到。
-        ExpressiveBlobSpec(MaterialShapes.Cookie6Sided, size = 0.48f, left = 0.00f, top = 0.00f, rotation = -5f),
-        ExpressiveBlobSpec(MaterialShapes.Cookie4Sided, size = 0.46f, left = 0.52f, top = 0.50f, rotation = 4f),
-        ExpressiveBlobSpec(MaterialShapes.Circle, size = 0.44f, left = 0.02f, top = 0.50f, rotation = 0f),
-        ExpressiveBlobSpec(MaterialShapes.Pill, size = 0.38f, left = 0.51f, top = 0.04f, rotation = 6f),
+        // 形状 / 格子左上角，位置均为容器宽度的比例；
+        // 按调用方约定，标题最长的建议放在最前面，于是最长的那条落在左上角。
+        ExpressiveBlobSpec(MaterialShapes.Cookie6Sided, cellLeft = BLOB_MARGIN, cellTop = BLOB_MARGIN),
+        ExpressiveBlobSpec(MaterialShapes.Pill, cellLeft = BLOB_MARGIN * 2 + BLOB_CELL_SIZE, cellTop = BLOB_MARGIN),
+        ExpressiveBlobSpec(MaterialShapes.Circle, cellLeft = BLOB_MARGIN, cellTop = BLOB_MARGIN * 2 + BLOB_CELL_SIZE),
+        ExpressiveBlobSpec(MaterialShapes.Cookie4Sided, cellLeft = BLOB_MARGIN * 2 + BLOB_CELL_SIZE, cellTop = BLOB_MARGIN * 2 + BLOB_CELL_SIZE),
     )
     if (suggestions.size != specs.size) {
         // 建议词数量变化时退回常规网格，避免形状与文案错位。
@@ -2757,21 +2823,33 @@ private fun ExpressiveSuggestionBlobs(
     }
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         val unit = maxWidth
+        // 面积归一：让四块渲染出来的真实面积相等。
+        // 目标面积取「有效填充率」最低的那块（area / extent²，即它在格子里最多能占多少面积），
+        // 于是那块恰好撑满格子，其余三块按 √(目标面积 / 自身面积) 缩一点，谁都不会越出格子。
+        val sizes = remember {
+            val geometries = specs.map { it.shape.geometry() }
+            val targetArea = BLOB_CELL_SIZE * BLOB_CELL_SIZE *
+                geometries.minOf { it.area / (it.extent * it.extent) }
+            geometries.map { geometry -> sqrt(targetArea / geometry.area) }
+        }
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(unit * 0.96f),
+                .height(unit),
         ) {
             specs.forEachIndexed { index, spec ->
                 val item = suggestions[index]
+                val size = sizes[index]
                 ExpressiveSuggestionBlob(
                     item = item,
                     shape = spec.shape,
                     onClick = { onSuggestionClick(item.prompt) },
                     modifier = Modifier
-                        .offset(x = unit * spec.left, y = unit * spec.top)
-                        .size(unit * spec.size)
-                        .graphicsLayer { rotationZ = spec.rotation },
+                        .offset(
+                            x = unit * (spec.cellLeft + (BLOB_CELL_SIZE - size) / 2f),
+                            y = unit * (spec.cellTop + (BLOB_CELL_SIZE - size) / 2f),
+                        )
+                        .size(unit * size),
                 )
             }
         }
