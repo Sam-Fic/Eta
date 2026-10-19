@@ -1,5 +1,7 @@
 package io.github.mangi.eta.ui.app
 
+import io.github.mangi.eta.R
+import io.github.mangi.eta.agent.runtime.localizedText
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
@@ -78,4 +80,9 @@ internal object StopSealNotices {
 
     /** Honest wording: the round's final result never arrived, so the record may be incomplete. */
     const val TIMED_OUT = "本轮最终结果未确认，已解除界面锁定；该轮记录可能不完整"
+
+    /** 生产取值走字符串资源（文案真源 R.string.stopseal_*），纯 JVM 单测无 Context 时回退上方中文基准。 */
+    fun pending(): String = localizedText(R.string.stopseal_pending, PENDING)
+
+    fun timedOut(): String = localizedText(R.string.stopseal_timed_out, TIMED_OUT)
 }

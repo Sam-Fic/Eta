@@ -2001,6 +2001,27 @@
   <string name="provider_compatible_speech_name">語音合成</string>
   <string name="provider_base_url">Base URL</string>
   <string name="speech_asr_api_key">ASR API Key</string>
+  <!-- 停止確認視窗提示 -->
+  <string name="stopseal_pending">本輪仍在停止，暫不能修改歷史或繼續發送；可切換或新建會話。</string>
+  <string name="stopseal_timed_out">本輪最終結果未確認，已解除介面鎖定；該輪記錄可能不完整</string>
+  <!-- 執行時啟動失敗 -->
+  <string name="runtime_service_start_failed">無法啟動背景執行服務，請返回 Eta 後重試</string>
+  <string name="runtime_thread_start_failed">Agent Runtime 無法啟動執行緒</string>
+  <string name="runtime_delivery_incomplete">副螢幕自動回遷/釋放未完成（%1$s）；對話已保留，不能視為交付成功。</string>
+  <string name="runtime_cleanup_unconfirmed">副螢幕清理/釋放未確認（%1$s）；已保留復原狀態，不會強制關閉或重放操作。</string>
+  <!-- 對話引用佔位 -->
+  <string name="mention_unnamed_title">未命名對話</string>
+  <string name="mention_preparing_transcript">[正在準備對話原始工具記錄]</string>
+  <!-- 子代理預設名稱 -->
+  <string name="subagent_default_name">子代理 %1$d</string>
+  <!-- GPT 速度階層、提示與無障礙描述 -->
+  <string name="gpt_speed_normal">標準</string>
+  <string name="gpt_speed_fast">快速</string>
+  <string name="gpt_speed_ultra_fast">極速</string>
+  <string name="gpt_speed_toast">已切換為%1$s速度，可能增加費用</string>
+  <string name="gpt_speed_chip_description">%1$s，目前%2$s速度，長按切換速度</string>
+  <string name="gpt_speed_long_press">切換速度</string>
+  <string name="subagent_speed_content_description">%1$s GPT 速度：%2$s，點擊切換速度</string>
   <!-- 工具軌跡摘要（AgentTraceFormatter） -->
   <string name="trace_action_prepare">準備執行</string>
   <string name="trace_action_write_file">寫入檔案</string>

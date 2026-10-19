@@ -27,8 +27,10 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.delegation.ConversationSubAgentPreferences
 import io.github.mangi.eta.agent.delegation.SubAgentProfile
+import io.github.mangi.eta.agent.runtime.localizedText
 import io.github.mangi.eta.data.model.GptSpeedMode
 import io.github.mangi.eta.data.model.ProviderSetting
 import io.github.mangi.eta.data.model.supportsGptSpeedBinding
@@ -38,9 +40,10 @@ import io.github.mangi.eta.ui.haptics.TouchHaptics
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 
-/** 速度按钮的无障碍描述：说清当前档位与“点击切换”，刻意不引入长按语义。 */
+/** 速度按钮的无障碍描述：说清当前档位与“点击切换”，刻意不引入长按语义。走资源，纯 JVM 单测回退中文。 */
 internal fun subAgentGptSpeedDescription(name: String, mode: GptSpeedMode): String =
-    "$name GPT 速度：${gptSpeedDisplayName(mode)}，点击切换速度"
+    localizedText(R.string.subagent_speed_content_description, "%1\$s GPT 速度：%2\$s，点击切换速度",
+        name, gptSpeedDisplayName(mode))
 
 /**
  * 子代理 GPT 速度按钮：仅 GPT 模型显示，单击在原位循环速度档位。

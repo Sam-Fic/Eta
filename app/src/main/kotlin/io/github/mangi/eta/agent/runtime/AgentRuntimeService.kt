@@ -37,6 +37,7 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import io.github.mangi.eta.EtaApp
+import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.accessibility.AgentAccessibilityService
 import io.github.mangi.eta.agent.device.RootAccess
 import io.github.mangi.eta.agent.media.AgentImageCodec
@@ -528,7 +529,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         if (!executionHeld && (!allowBoundFallback || AgentExecutionService.backupMaintenance)) {
             session.complete(AgentRuntimeWire.RunResult(
                 runId = request.runId, ok = false, content = "",
-                error = "无法启动后台执行服务，请返回 Eta 后重试",
+                error = getString(R.string.runtime_service_start_failed),
             )) {}
             return
         }
@@ -591,7 +592,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
             AgentChildRunControl.finish(session)
             AgentExecutionService.release(runLease.id)
             val result = AgentRuntimeWire.RunResult(
-                runId = request.runId, ok = false, content = "", error = "Agent Runtime 无法启动执行线程",
+                runId = request.runId, ok = false, content = "", error = getString(R.string.runtime_thread_start_failed),
             )
             AndroidAgentLogger.error("Agent runtime thread start failed: type=${failure.safeLogType()}")
             runCatching { persistCompletedRun(request, result) }

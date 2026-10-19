@@ -2023,6 +2023,27 @@
   <string name="provider_compatible_speech_name">Speech synthesis</string>
   <string name="provider_base_url">Base URL</string>
   <string name="speech_asr_api_key">ASR API Key</string>
+  <!-- Stop-seal notices while/after waiting for the runtime to confirm a stop -->
+  <string name="stopseal_pending">This round is still stopping; editing history and sending are paused. You can switch conversations or start a new one.</string>
+  <string name="stopseal_timed_out">The final result of this round was never confirmed; the UI is unlocked again, so this round may be incomplete</string>
+  <!-- Runtime start failures surfaced as run errors -->
+  <string name="runtime_service_start_failed">Could not start the background execution service; go back to Eta and try again</string>
+  <string name="runtime_thread_start_failed">Agent Runtime could not start the execution thread</string>
+  <string name="runtime_delivery_incomplete">Virtual display handoff/release was not completed (%1$s); the conversation was kept, so this cannot count as a successful handoff.</string>
+  <string name="runtime_cleanup_unconfirmed">Virtual display cleanup/release was not confirmed (%1$s); the recovery state was kept, and nothing will be force-closed or replayed.</string>
+  <!-- Conversation mention placeholders -->
+  <string name="mention_unnamed_title">Untitled conversation</string>
+  <string name="mention_preparing_transcript">[Preparing raw tool transcript for this conversation]</string>
+  <!-- Default sub-agent name -->
+  <string name="subagent_default_name">Sub-agent %1$d</string>
+  <!-- GPT speed labels, toast and accessibility descriptions -->
+  <string name="gpt_speed_normal">Standard</string>
+  <string name="gpt_speed_fast">Fast</string>
+  <string name="gpt_speed_ultra_fast">Ultra-fast</string>
+  <string name="gpt_speed_toast">Switched to %1$s speed; this may increase cost</string>
+  <string name="gpt_speed_chip_description">%1$s, currently %2$s speed; long-press to switch speed</string>
+  <string name="gpt_speed_long_press">Switch speed</string>
+  <string name="subagent_speed_content_description">%1$s GPT speed: %2$s, tap to switch speed</string>
   <!-- Tool trace summaries (AgentTraceFormatter) -->
   <string name="trace_action_prepare">Prepare to run</string>
   <string name="trace_action_write_file">Write file</string>

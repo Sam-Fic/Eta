@@ -1,6 +1,8 @@
 package io.github.mangi.eta.ui.components
 
 import androidx.compose.ui.graphics.Color
+import io.github.mangi.eta.R
+import io.github.mangi.eta.agent.runtime.localizedText
 import io.github.mangi.eta.data.model.GptSpeedMode
 
 /**
@@ -92,11 +94,11 @@ internal class GptSpeedAnimationGate {
     }
 }
 
-/** 档位展示名，仅用于 Toast 与无障碍描述，不代表业务状态。 */
+/** 档位展示名，仅用于 Toast 与无障碍描述，不代表业务状态。走资源，纯 JVM 单测回退中文。 */
 internal fun gptSpeedDisplayName(mode: GptSpeedMode): String = when (mode) {
-    GptSpeedMode.FAST -> "快速"
-    GptSpeedMode.ULTRA_FAST -> "极速"
-    GptSpeedMode.NORMAL -> "标准"
+    GptSpeedMode.FAST -> localizedText(R.string.gpt_speed_fast, "快速")
+    GptSpeedMode.ULTRA_FAST -> localizedText(R.string.gpt_speed_ultra_fast, "极速")
+    GptSpeedMode.NORMAL -> localizedText(R.string.gpt_speed_normal, "标准")
 }
 
 /**
@@ -104,14 +106,15 @@ internal fun gptSpeedDisplayName(mode: GptSpeedMode): String = when (mode) {
  * 只在长按切换（含首次）时弹出一次，不做常驻说明。
  */
 internal fun gptSpeedToastMessage(mode: GptSpeedMode): String =
-    "已切换为${gptSpeedDisplayName(mode)}速度，可能增加费用"
+    localizedText(R.string.gpt_speed_toast, "已切换为%1\$s速度，可能增加费用", gptSpeedDisplayName(mode))
 
 /**
  * 无障碍描述：把当前速度档位说清楚，并说明长按可切换。
  * 基础描述沿用既有“思考强度”文案，避免覆盖旧的思考强度语义。
  */
 internal fun gptSpeedChipDescription(baseDescription: String, mode: GptSpeedMode): String =
-    "$baseDescription，当前${gptSpeedDisplayName(mode)}速度，长按切换速度"
+    localizedText(R.string.gpt_speed_chip_description, "%1\$s，当前%2\$s速度，长按切换速度",
+        baseDescription, gptSpeedDisplayName(mode))
 
 /** 长按的无障碍 label，明确是切换速度而不是默认的协作设置。 */
-internal fun gptSpeedLongPressLabel(): String = "切换速度"
+internal fun gptSpeedLongPressLabel(): String = localizedText(R.string.gpt_speed_long_press, "切换速度")

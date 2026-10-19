@@ -1255,7 +1255,7 @@ internal class AgentAppState(
         // Stop settlement owns the current transcript, not navigation, metadata or model choice.
         // Those safe operations still obey the independent archive/backup maintenance lock.
         if (protectStoppingRun && stoppingRuns.keys.any { runConversationIds[it] == selectedConversationId }) {
-            Toast.makeText(appContext, StopSealNotices.PENDING, Toast.LENGTH_SHORT).show()
+            Toast.makeText(appContext, StopSealNotices.pending(), Toast.LENGTH_SHORT).show()
             return true
         }
         if (!conversationArchiveBusy && !io.github.mangi.eta.agent.runtime.AgentExecutionService.backupMaintenance) return false
@@ -4242,8 +4242,8 @@ internal class AgentAppState(
         preparingConversationMentions += mentionId
         updateCurrentConversation(homeState.copy(pendingConversationMentions = pending + PendingConversationMentionUi(
             id = mentionId, conversationId = conversationId,
-            title = conversationTitles[conversationId].orEmpty().ifBlank { "未命名会话" },
-            transcript = "[正在准备会话原始工具记录]",
+            title = conversationTitles[conversationId].orEmpty().ifBlank { appContext.getString(R.string.mention_unnamed_title) },
+            transcript = appContext.getString(R.string.mention_preparing_transcript),
         )))
         scope.launch {
             try {
@@ -4289,7 +4289,7 @@ internal class AgentAppState(
                 preparingConversationMentions -= mentionId
                 // Switching conversations must not leave a sendable "preparing" placeholder.
                 fun isUnfinished(item: PendingConversationMentionUi) =
-                    item.id == mentionId && item.transcript == "[正在准备会话原始工具记录]"
+                    item.id == mentionId && item.transcript == appContext.getString(R.string.mention_preparing_transcript)
                 conversationsById.toMap().forEach { (id, state) ->
                     if (state.pendingConversationMentions.any(::isUnfinished)) {
                         updateConversation(id, state.copy(pendingConversationMentions =
@@ -5133,16 +5133,17 @@ internal class AgentAppState(
                 // erase the retry flag that decides which stop notice the user sees.
                 if (!stoppingRuns.containsKey(runId)) return@withContext
                 AndroidAgentLogger.warn("Stop seal timed out without a terminal result for run=$runId")
+                val timedOutNotice = StopSealNotices.timedOut()
                 applyRunResult(
                     runId,
                     AgentRuntimeWire.RunResult(
                         runId = runId,
                         ok = false,
                         content = "",
-                        error = StopSealNotices.TIMED_OUT,
+                        error = timedOutNotice,
                     ),
                 )
-                Toast.makeText(appContext, StopSealNotices.TIMED_OUT, Toast.LENGTH_LONG).show()
+                Toast.makeText(appContext, timedOutNotice, Toast.LENGTH_LONG).show()
             }
         }
     }

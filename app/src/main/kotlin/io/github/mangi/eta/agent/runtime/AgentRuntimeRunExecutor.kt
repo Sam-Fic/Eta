@@ -3,6 +3,7 @@ package io.github.mangi.eta.agent.runtime
 import android.content.Context
 import io.github.mangi.eta.agent.question.AgentQuestionCodec
 import io.github.mangi.eta.agent.question.AgentQuestionCoordinator
+import io.github.mangi.eta.R
 import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.config.InteractiveModePreference
 import io.github.mangi.eta.agent.delegation.*
@@ -462,11 +463,11 @@ internal class AgentRuntimeRunExecutor(
             unownedSkillRoot?.let { root -> runCatching { SkillRuntime.releaseRunSkills(appContext, root) } }
         }
         deliveryFailure?.let { code ->
-            val message = "副屏自动回迁/释放未完成（$code）；会话已保留，不能视为交付成功。"
+            val message = appContext.getString(R.string.runtime_delivery_incomplete, code)
             result = result.copy(ok = false, content = result.content + "\n\n" + message, error = message)
         }
         cleanupFailure?.let { code ->
-            val message = "副屏清理/释放未确认（$code）；已保留恢复状态，不会强制关闭或重放操作。"
+            val message = appContext.getString(R.string.runtime_cleanup_unconfirmed, code)
             result = result.copy(ok = false, content = listOf(result.content, message).filter { it.isNotBlank() }.joinToString("\n\n"),
                 error = listOfNotNull(result.error?.takeIf { it.isNotBlank() }, message).joinToString("\n"))
         }

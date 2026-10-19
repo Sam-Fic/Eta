@@ -7,12 +7,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.delegation.ConversationSubAgentConfig
 import io.github.mangi.eta.agent.delegation.ConversationSubAgentPreferences
 import io.github.mangi.eta.agent.delegation.SubAgentConfigKey
 import io.github.mangi.eta.agent.delegation.SubAgentParallelModel
 import io.github.mangi.eta.agent.delegation.SubAgentProfile
 import io.github.mangi.eta.agent.model.ModelFeatureSelection
+import io.github.mangi.eta.agent.runtime.localizedText
 import io.github.mangi.eta.data.model.ProviderSetting
 import io.github.mangi.eta.data.model.supportsGptSpeedBinding
 import io.github.mangi.eta.data.repository.ProviderRepository
@@ -127,9 +129,11 @@ internal class ConversationSubAgentEditor(
     /** No owner, directory, pool, seed, or memory write until explicit confirmation. */
     fun newProfileDraft(): SubAgentProfile {
         val current = repository.previewSnapshot(owner)
+        // 默认名走字符串资源；纯 JVM 单测无 Context 时由 localizedText 回退中文基准。
+        fun defaultName(n: Int) = localizedText(R.string.subagent_default_name, "子代理 %1\$d", n)
         var number = current.profiles.size + 1
-        while (current.profiles.any { it.name == "子代理 $number" }) number++
-        val name = "子代理 $number"
+        while (current.profiles.any { it.name == defaultName(number) }) number++
+        val name = defaultName(number)
         return SubAgentProfile(UUID.randomUUID().toString(), name)
     }
 
