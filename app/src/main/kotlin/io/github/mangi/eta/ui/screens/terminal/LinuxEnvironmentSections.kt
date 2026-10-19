@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -189,12 +190,20 @@ internal fun LinuxEnvironmentConfiguration(
                     enabled = enabled,
                 )
             } else {
+                // 不可切换时与可切换分支同构：副标题只讲运行方式的含义，当前值同样摆在行尾。
                 EtaClickableRow(
                     title = stringResource(R.string.capability_linux_backend),
-                    summary = backend.displayName(),
+                    summary = backendSummaries[backendIndex],
                     onClick = null,
                     showChevron = false,
                     leading = { Icon(Icons.Rounded.Security, null) },
+                    endActions = {
+                        EtaText(
+                            text = backendLabels[backendIndex],
+                            style = EtaTextStyle.Body,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
                 )
             }
         }
