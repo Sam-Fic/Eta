@@ -1,5 +1,6 @@
 package io.github.mangi.eta.data.model
 
+import io.github.mangi.eta.R
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /**
@@ -42,6 +43,10 @@ internal object SpeechSynthesisModels {
     fun isDoubaoSpeechHost(baseUrl: String): Boolean =
         baseUrl.trim().toHttpUrlOrNull()?.host.equals("openspeech.bytedance.com", ignoreCase = true)
 
+    /** data 层没有 Context：资源解析失败（如纯 JVM 测试）时回退中文原文。 */
+    private fun label(resId: Int, zh: String): String =
+        runCatching { io.github.mangi.eta.agent.runtime.AgentAppContext.resolve()?.getString(resId) }.getOrNull() ?: zh
+
     fun catalogModels(provider: ProviderSetting): List<Model> {
         val host = provider.baseUrl.trim().toHttpUrlOrNull()?.host.orEmpty().lowercase()
         val source = provider.sourceType.trim().lowercase()
@@ -52,12 +57,12 @@ internal object SpeechSynthesisModels {
             )
             provider.sourceType.equals(ProviderSourceTypes.DOUBAO_SPEECH, ignoreCase = true) ||
                 isDoubaoSpeechHost(provider.baseUrl) -> listOf(
-                catalogModel("seed-tts-2.0", "豆包语音合成 2.0"),
-                catalogModel("seed-audio-1.0", "豆包音频生成 1.0"),
+                catalogModel("seed-tts-2.0", label(R.string.speech_model_doubao_tts_2, "豆包语音合成 2.0")),
+                catalogModel("seed-audio-1.0", label(R.string.speech_model_doubao_audio_1, "豆包音频生成 1.0")),
             )
             host.contains("xiaomimimo") || source == ProviderSourceTypes.MIMO -> listOf(
-                catalogModel("mimo-v2.5-tts", "小米语音 2.5"),
-                catalogModel("mimo-v2.5-tts-voiceclone", "小米语音克隆 2.5"),
+                catalogModel("mimo-v2.5-tts", label(R.string.speech_model_xiaomi_25, "小米语音 2.5")),
+                catalogModel("mimo-v2.5-tts-voiceclone", label(R.string.speech_model_xiaomi_clone_25, "小米语音克隆 2.5")),
             )
             host.contains("minimax") || source == ProviderSourceTypes.MINIMAX -> listOf(
                 catalogModel("speech-2.8-hd", "MiniMax Speech 2.8 HD"),

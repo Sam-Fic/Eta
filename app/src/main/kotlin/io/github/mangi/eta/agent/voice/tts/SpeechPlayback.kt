@@ -9,6 +9,7 @@ import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.MediaPlayer
 import androidx.core.content.ContextCompat
+import io.github.mangi.eta.R
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.data.model.SpeechSynthesisModels
@@ -230,14 +231,14 @@ internal object SpeechPlayback {
                             }
                             io.github.mangi.eta.agent.voice.doubao.PersonalVoices.load(app)
                             val voice = voiceId
-                            speechCheck(voice.isNotEmpty()) { "请先选择音色" }
+                            speechCheck(voice.isNotEmpty()) { app.getString(R.string.tts_pick_voice) }
                             val synth = CloudSpeechSynthesizer(diagnostic = diagnostic)
                             val label = when (SpeechEngineResolver.resolve(config.providerSourceType, config.baseUrl, config.model)) {
-                                SpeechEngine.DOUBAO -> "豆包语音"
-                                SpeechEngine.MIMO -> "小米语音"
+                                SpeechEngine.DOUBAO -> app.getString(R.string.tts_source_doubao)
+                                SpeechEngine.MIMO -> app.getString(R.string.tts_source_xiaomi)
                                 SpeechEngine.MINIMAX -> "MiniMax"
-                                SpeechEngine.STEP -> "阶跃语音"
-                                SpeechEngine.QWEN -> "通义语音"
+                                SpeechEngine.STEP -> app.getString(R.string.tts_source_step)
+                                SpeechEngine.QWEN -> app.getString(R.string.tts_source_qwen)
                                 SpeechEngine.GROQ -> "Groq"
                                 SpeechEngine.XAI -> "xAI"
                                 SpeechEngine.GEMINI -> "Gemini"
@@ -245,7 +246,7 @@ internal object SpeechPlayback {
                                 SpeechEngine.FISH -> "Fish Audio"
                                 SpeechEngine.COSYVOICE -> "CosyVoice"
                                 SpeechEngine.MOSS -> "MOSS-TTSD"
-                                SpeechEngine.OPENAI -> "云端 Speech"
+                                SpeechEngine.OPENAI -> app.getString(R.string.tts_source_openai)
                             }
                             supervisorScope {
                                 // At most current + next sentence buffered. Never restart from the beginning on failure.
@@ -265,8 +266,9 @@ internal object SpeechPlayback {
                     if (epoch.isCurrent(token)) mutableState.value = SpeechPlaybackState()
                 } catch (e: TimeoutCancellationException) {
                     diagnostic.mark("tts.timeout")
-                    playback.finish(SpeechOutcome.Failed("朗读等待超时，请重试或检查系统语音引擎"))
-                    if (epoch.isCurrent(token)) mutableState.value = SpeechPlaybackState(error = "朗读等待超时，请重试或检查系统语音引擎")
+                    val message = app.getString(R.string.tts_timeout_retry)
+                    playback.finish(SpeechOutcome.Failed(message))
+                    if (epoch.isCurrent(token)) mutableState.value = SpeechPlaybackState(error = message)
                 } catch (e: CancellationException) {
                     diagnostic.mark("tts.cancelled")
                     playback.finish(SpeechOutcome.Cancelled(playback.stopReason ?: "cancelled"))
@@ -277,7 +279,7 @@ internal object SpeechPlayback {
                     val message = when (e) {
                         is SpeechPlaybackFailure -> e.message
                         else -> null
-                    } ?: "朗读失败，请检查引擎、网络、模型和音色"
+                    } ?: app.getString(R.string.tts_failed_check_setup)
                     playback.finish(SpeechOutcome.Failed(message))
                     if (epoch.isCurrent(token)) mutableState.value = SpeechPlaybackState(error = message)
                 } finally {

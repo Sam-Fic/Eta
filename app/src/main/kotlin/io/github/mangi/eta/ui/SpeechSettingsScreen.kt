@@ -51,7 +51,7 @@ internal fun SpeechSettingsScreen(onBack: () -> Unit) {
                 // KernelSU `SegmentedTextField` 同款：无边框输入框嵌进分段行，
                 // 与上下相邻行共用同一容器与圆角，不再是一个孤零零的描边框。
                 EtaSegmentedTextField(
-                    label = "ASR API Key",
+                    label = stringResource(R.string.speech_asr_api_key),
                     value = config.asrKey,
                     onValueChange = { DoubaoVoiceConfig.save(context, config.copy(asrKey = it)) },
                     singleLine = true,

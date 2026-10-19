@@ -523,7 +523,7 @@ private fun VoiceSlotSync(apiKey: String, onBusy: (Boolean) -> Unit, onResult: (
                     projects = emptyList(); projectsLoaded = false; projectError = ""
                 }
                 ak = it; VoiceCatalogPreferences.save(context, it, project)
-            }, label = "Access Key ID（AK）", enabled = !working,
+            }, label = stringResource(R.string.dv_access_key_label), enabled = !working,
                 visualTransformation = PasswordVisualTransformation(), singleLine = true)
         }
         item {
@@ -531,7 +531,7 @@ private fun VoiceSlotSync(apiKey: String, onBusy: (Boolean) -> Unit, onResult: (
                 if (sk != it) { projects = emptyList(); projectsLoaded = false; projectError = "" }
                 sk = it
                 storageError = runCatching { secretStore.save(ak, it) }.fold({ "" }, { context.getString(R.string.dv_sk_save_failed) })
-            }, label = "Secret Access Key（SK）", enabled = !working,
+            }, label = stringResource(R.string.dv_secret_key_label), enabled = !working,
                 visualTransformation = PasswordVisualTransformation(), singleLine = true)
         }
     }

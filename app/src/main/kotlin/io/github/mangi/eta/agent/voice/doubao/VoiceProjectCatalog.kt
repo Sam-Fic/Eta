@@ -1,5 +1,6 @@
 package io.github.mangi.eta.agent.voice.doubao
 
+import io.github.mangi.eta.R
 import okhttp3.Request
 import org.json.JSONObject
 import java.security.MessageDigest
@@ -15,6 +16,9 @@ internal object VoiceProjectCatalog {
     data class Page(val projects: List<Project>, val count: Int, val total: Int)
     private const val HOST = "iam.volcengineapi.com"
     private const val LIMIT = 100
+    /** IAM 请求没有 Context：资源解析失败（如纯 JVM 测试）时回退中文原文。 */
+    private fun label(resId: Int, zh: String): String =
+        runCatching { io.github.mangi.eta.agent.runtime.AgentAppContext.resolve()?.getString(resId) }.getOrNull() ?: zh
     private fun hex(bytes: ByteArray) = bytes.joinToString("") { "%02x".format(it.toInt() and 255) }
     private fun hash(text: String) = hex(MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8)))
     private fun hmac(key: ByteArray, text: String): ByteArray = Mac.getInstance("HmacSHA256").run {
@@ -40,11 +44,11 @@ internal object VoiceProjectCatalog {
         val result = root.getJSONObject("Result")
         val items = result.getJSONArray("Projects")
         val total = result.getInt("Total")
-        check(total >= 0) { "项目列表总数无效" }
+        check(total >= 0) { label(R.string.pv_total_invalid, "项目列表总数无效") }
         val projects = (0 until items.length()).map { index ->
             val item = items.getJSONObject(index)
             val name = item.getString("ProjectName")
-            check(name.isNotBlank()) { "项目列表包含无效名称" }
+            check(name.isNotBlank()) { label(R.string.pv_name_invalid, "项目列表包含无效名称") }
             Project(name, item.optString("DisplayName").ifBlank { name }, item.optBoolean("HasPermission", false))
         }
         return Page(projects, items.length(), total)
@@ -56,12 +60,12 @@ internal object VoiceProjectCatalog {
             val data = fetch(offset)
             data.projects.forEach { result[it.name] = it }
             if (offset + data.count >= data.total) return result.values.toList()
-            check(data.count == LIMIT) { "项目列表未完整返回，请重试或手动填写项目名称" }
+            check(data.count == LIMIT) { label(R.string.pv_pages_incomplete, "项目列表未完整返回，请重试或手动填写项目名称") }
         }
         error("项目超过 2000 个，请手动填写项目名称")
     }
     fun list(ak: String, sk: String): List<Project> {
-        require(ak.isNotBlank() && sk.isNotBlank()) { "请先填写 AK 和 SK" }
+        require(ak.isNotBlank() && sk.isNotBlank()) { label(R.string.pv_fill_ak_sk, "请先填写 AK 和 SK") }
         return collectPages { offset ->
             DoubaoVoiceCatalog.client.newCall(signedRequest(ak, sk, offset, Instant.now())).execute().use { response ->
                 val source = response.body.source()

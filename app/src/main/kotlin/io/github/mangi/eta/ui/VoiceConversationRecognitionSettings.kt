@@ -41,7 +41,7 @@ internal fun VoiceConversationRecognitionSettings() {
         item(visible = config.conversationCloudAsr) {
             // 与上方分段行同容器：无边框输入框嵌进行内，不再突兀。
             EtaSegmentedTextField(
-                label = "ASR API Key",
+                label = stringResource(R.string.speech_asr_api_key),
                 value = config.conversationAsrKey,
                 onValueChange = { DoubaoVoiceConfig.save(context, config.copy(conversationAsrKey = it)) },
                 singleLine = true,

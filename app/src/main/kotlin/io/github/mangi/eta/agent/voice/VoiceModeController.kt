@@ -1,5 +1,6 @@
 package io.github.mangi.eta.agent.voice
 
+import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.voice.doubao.DoubaoVoiceConfig
 import kotlinx.coroutines.flow.collect
 import android.Manifest
@@ -233,10 +234,10 @@ internal class VoiceModeController(
                 val providerId = Prefs.getString(Prefs.Keys.AGENT_VOICE_DOUBAO_PROVIDER_ID)
                 val provider = ProviderRepository.providerById(providerId)
                     ?.takeIf(io.github.mangi.eta.data.model.SpeechSynthesisModels::isRealtimeVoiceProvider)
-                    ?: error("请先在语音 → 豆包实时通话中选择提供商")
-                check(DoubaoSpeech.isOpenspeech(provider.baseUrl)) { "实时通话只能使用豆包语音提供商" }
+                    ?: error(app.getString(R.string.voice_doubao_duplex_pick_provider))
+                check(DoubaoSpeech.isOpenspeech(provider.baseUrl)) { app.getString(R.string.voice_doubao_duplex_provider_only) }
                 val apiKey = provider.apiKey.trim()
-                check(apiKey.isNotBlank()) { "豆包语音提供商尚未配置 API Key" }
+                check(apiKey.isNotBlank()) { app.getString(R.string.voice_doubao_duplex_missing_key) }
                 io.github.mangi.eta.agent.voice.doubao.PersonalVoices.load(app)
                 val storedVoice = Prefs.getString(Prefs.Keys.AGENT_VOICE_DOUBAO_VOICE)
                 val personal = io.github.mangi.eta.agent.voice.doubao.PersonalVoices.selected(storedVoice, apiKey)
@@ -268,7 +269,7 @@ internal class VoiceModeController(
                 mutableState.value = VoiceModeState(
                     mode = VoiceEntryMode.DOUBAO_DUPLEX,
                     phase = VoiceModePhase.Error,
-                    error = e.message ?: "豆包实时通话失败",
+                    error = e.message ?: app.getString(R.string.voice_doubao_duplex_failed),
                 )
             } finally {
                 ownedSession?.close()

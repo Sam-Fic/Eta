@@ -98,7 +98,8 @@ internal fun ModelProviderDetailScreen(
     val provider = remember(providers, effectiveId) {
         effectiveId?.let { id -> providers.firstOrNull { it.id == id } }
     }
-    val draft = remember(newType, authMode) {
+    // context 进 remember key：语言变化时草稿名随资源语言重建。
+    val draft = remember(newType, authMode, context) {
         when (newType) {
             NewProviderType.OpenAiCompatible -> if (ProviderAuthMode.isOAuth(authMode)) {
                 CustomProviderSetting(
@@ -123,13 +124,13 @@ internal fun ModelProviderDetailScreen(
             )
             NewProviderType.DoubaoSpeech -> CustomProviderSetting(
                 id = "",
-                name = "豆包语音",
+                name = context.getString(R.string.tts_source_doubao),
                 baseUrl = "https://openspeech.bytedance.com",
                 sourceType = ProviderSourceTypes.DOUBAO_SPEECH,
                 models = SpeechSynthesisModels.catalogModels(
                     CustomProviderSetting(
                         id = "draft",
-                        name = "豆包语音",
+                        name = context.getString(R.string.tts_source_doubao),
                         baseUrl = "https://openspeech.bytedance.com",
                         sourceType = ProviderSourceTypes.DOUBAO_SPEECH,
                     ),
@@ -137,7 +138,7 @@ internal fun ModelProviderDetailScreen(
             )
             // Restore old navigation state through the ordinary provider form.
             NewProviderType.CompatibleSpeech -> CustomProviderSetting(
-                id = "", name = "语音合成", baseUrl = "",
+                id = "", name = context.getString(R.string.provider_compatible_speech_name), baseUrl = "",
             )
             null -> null
         }
@@ -415,7 +416,7 @@ private fun ProviderConfigTab(
                         ProviderField(
                             value = draft.baseUrl,
                             onValueChange = { onDraftChange(draft.copy(baseUrl = it)) },
-                            label = "Base URL",
+                            label = stringResource(R.string.provider_base_url),
                             modifier = Modifier.padding(top = 12.dp),
                         )
                         if (ProviderAuthMode.isOAuth(draft.authMode)) {
@@ -431,7 +432,7 @@ private fun ProviderConfigTab(
                             ProviderField(
                                 value = draft.apiKey,
                                 onValueChange = { onDraftChange(draft.copy(apiKey = it)) },
-                                label = "API Key",
+                                label = stringResource(R.string.provider_auth_api_key),
                                 modifier = Modifier.padding(top = 12.dp),
                                 visualTransformation = if (apiKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
                                 trailingIcon = {

@@ -1,5 +1,6 @@
 package io.github.mangi.eta.agent.voice.tts
 
+import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.model.AgentHttpClient
 import io.github.mangi.eta.agent.model.AgentModelClient
 import io.github.mangi.eta.agent.model.ProviderRequestHeaders
@@ -20,6 +21,10 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import org.json.JSONObject
 
+/** 本类没有 Context：资源解析失败（如纯 JVM 测试）时回退中文原文。 */
+private fun label(resId: Int, zh: String): String =
+    runCatching { io.github.mangi.eta.agent.runtime.AgentAppContext.resolve()?.getString(resId) }.getOrNull() ?: zh
+
 internal class CloudSpeechSynthesizer(
     private val httpClient: OkHttpClient = AgentHttpClient.modelClient.newBuilder()
         .callTimeout(90, TimeUnit.SECONDS).readTimeout(60, TimeUnit.SECONDS).build(),
@@ -33,7 +38,7 @@ internal class CloudSpeechSynthesizer(
     }
 
     suspend fun test(apiKey: String): String {
-        speechCheck(apiKey.isNotBlank()) { "请填写豆包语音 API Key" }
+        speechCheck(apiKey.isNotBlank()) { label(R.string.tts_doubao_api_key_required, "请填写豆包语音 API Key") }
         val bytes = synthesizeDoubao(
             AgentModelClient.ModelConfig(
                 baseUrl = "https://openspeech.bytedance.com",
@@ -77,7 +82,7 @@ internal class CloudSpeechSynthesizer(
         text: String,
         voice: String,
     ): ByteArray {
-        speechCheck(config.apiKey.isNotBlank()) { "请填写豆包语音 API Key" }
+        speechCheck(config.apiKey.isNotBlank()) { label(R.string.tts_doubao_api_key_required, "请填写豆包语音 API Key") }
         val personal = io.github.mangi.eta.agent.voice.doubao.PersonalVoices.selected(voice, config.apiKey)
         val create = DoubaoSpeech.usesCreate(config.model)
         speechCheck(personal == null || !create) { "个人音色需要选择 seed-tts 在线合成模型" }

@@ -1,5 +1,6 @@
 package io.github.mangi.eta.agent.voice.doubao
 
+import io.github.mangi.eta.R
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 import okhttp3.Request
@@ -59,15 +60,18 @@ internal object DoubaoVoiceCatalog {
         return "$hint\nHTTP $http · $code\n$message\n请求标识：$requestId"
     }
     data class Slot(val id: String, val name: String, val state: String, val remaining: Int)
+    /** 控制面请求没有 Context：资源解析失败（如纯 JVM 测试）时回退中文原文。 */
+    private fun label(resId: Int, zh: String): String =
+        runCatching { io.github.mangi.eta.agent.runtime.AgentAppContext.resolve()?.getString(resId) }.getOrNull() ?: zh
     fun list(ak: String, sk: String, project: String): List<Slot> {
-        require(ak.isNotBlank() && sk.isNotBlank() && project.isNotBlank()) { "请填写 AK、SK 和项目名" }
+        require(ak.isNotBlank() && sk.isNotBlank() && project.isNotBlank()) { label(R.string.dv_fill_ak_sk_project, "请填写 AK、SK 和项目名") }
         val result = linkedMapOf<String, Slot>()
         for (state in listOf("Unknown", "Training", "Success", "Active")) {
             for (page in 1..20) {
                 val body = JSONObject().put("ProjectName", project).put("State", state).put("PageNumber", page).put("PageSize", 100).toString()
                 val root = client.newCall(signedRequest(ak, sk, body, Instant.now())).execute().use { response ->
                     val source = response.body.source()
-                    check(!source.request(2L * 1024 * 1024 + 1)) { "音色列表响应过大" }
+                    check(!source.request(2L * 1024 * 1024 + 1)) { label(R.string.dv_voice_list_too_large, "音色列表响应过大") }
                     val json = runCatching { JSONObject(source.readUtf8()) }.getOrDefault(JSONObject())
                     responseError(response.code, json, listOf(ak, sk))?.let {
                         DoubaoDiagnostics.mark("catalog.rejected", it)
@@ -81,7 +85,7 @@ internal object DoubaoVoiceCatalog {
                     if (id.startsWith("S_")) result[id] = Slot(id, item.optString("Alias").ifBlank { id }, item.optString("State", state), item.optInt("AvailableTrainingTimes", -1))
                 }
                 if (page * 100 >= data.optInt("TotalCount", items.length()) || items.length() == 0) break
-                check(page < 20) { "音色超过 2000 条，请按项目缩小查询范围" }
+                check(page < 20) { label(R.string.dv_voice_list_over_2000, "音色超过 2000 条，请按项目缩小查询范围") }
             }
         }
         return result.values.toList()
