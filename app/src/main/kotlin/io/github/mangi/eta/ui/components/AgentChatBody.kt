@@ -8,6 +8,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -469,7 +470,9 @@ internal fun AgentChatBody(
                         withFrameNanos { }
                         keepBottomAnchored = true
                         val last = scrollState.layoutInfo.totalItemsCount - 1
-                        if (last >= 0) scrollState.requestScrollToItem(last)
+                        // 回到底部走平滑动画：跨项用翻页曲线赶路，可见差额用弹簧逐像素收拢，
+                        // 末尾仍由 settle 内的精修收在精确贴底，替换原来的瞬跳定位。
+                        if (last >= 0) settleListToBottom(scrollState, last)
                     }
                 },
                 onReasoningEffortChange = onReasoningEffortChange,
@@ -1247,8 +1250,8 @@ internal fun AgentConversationMessages(
                     }
             }
     }
-    val viewportRecovery = remember(scrollState) {
-        BottomFollowViewportRecovery(scrollState, ChatBottomSentinelKey)
+    val viewportRecovery = remember(scrollState, densityScale) {
+        BottomFollowViewportRecovery(scrollState, ChatBottomSentinelKey, density = densityScale)
     }
     val canOwnWorkExpansionViewport: () -> Boolean = remember(scrollState) {
         {
@@ -1282,7 +1285,9 @@ internal fun AgentConversationMessages(
             }.first { it.ready }
             if (initial.shouldPosition) {
                 StreamPerformanceDiagnostics.record("follow.initialSnap")
-                snapListToBottom(scrollState, initial.bottomItemIndex) {
+                // 初始定位同样平滑收尾：列表已按底部索引起步时差额极小，通常一记
+                // 短弹簧即收住；布局滞后导致的跨项差额走翻页动画，替代瞬跳。
+                settleListToBottom(scrollState, initial.bottomItemIndex) {
                     currentAnchor.value && !isUserScrolling &&
                         messageNavigationJob == null && currentScrollTarget == null
                 }
@@ -1366,9 +1371,10 @@ internal fun AgentConversationMessages(
             }
             if (remainingDistancePx <= 0f) continue
             val frameNanos = withFrameNanos { it }
-            previousFrameNanos?.let {
-                StreamPerformanceDiagnostics.record("follow.frameGap", frameNanos - it)
-            }
+            val frameGapSeconds = previousFrameNanos?.let { previous ->
+                StreamPerformanceDiagnostics.record("follow.frameGap", frameNanos - previous)
+                (frameNanos - previous) / 1_000_000_000f
+            } ?: 0f
             previousFrameNanos = frameNanos
             while (true) {
                 accept(bottomFollowDecisions.tryReceive().getOrNull() ?: break)
@@ -1396,14 +1402,20 @@ internal fun AgentConversationMessages(
             } else {
                 val smoothStep = motion.step(remainingDistancePx, frameNanos, densityScale)
                 val layout = scrollState.layoutInfo
-                // 绘制上提不能超过列表底部留白。先用真实滚动补掉超出缓冲的差额，
-                // 其余仍由原速度控制器平滑追赶；不能靠扩大裁剪或移走已被裁空的列表。
+                // 绘制上提不能超过列表底部留白。超出缓冲的差额按本帧追赶预算逐步补掉，
+                // 不再一帧滚完：新内容一次性长高时视口平滑追上而不是瞬跳；其余仍由原
+                // 速度控制器平滑追赶；工作展开期间仍由展开的所有权整段回收，不受预算限制。
                 // 再收成整像素，避免小数滚动和整数上提把卡片底边顶开 1 像素。
                 snapFollowScrollStep(
                     resolveBottomFollowViewportStep(
                         smoothStepPx = smoothStep,
                         measuredOverflowPx = layout.measuredTailOverflow(),
                         afterContentPaddingPx = layout.afterContentPadding,
+                        maxCatchUpPx = if (expansionOwnsViewport) {
+                            Float.MAX_VALUE
+                        } else {
+                            followCatchUpBudgetPx(frameGapSeconds, densityScale)
+                        },
                     ),
                     remainingDistancePx,
                 )
@@ -2403,6 +2415,34 @@ internal fun AnchorChatTailOnViewportChange(
                 }
             }
     }
+}
+
+/**
+ * 平滑收拢到列表底部：先按实测布局量出差额，跨项差额用与翻页一致的动画赶路，
+ * 可见范围内的像素差额用弹簧逐像素收拢，最后交给 snapListToBottom 精修到精确贴底。
+ * 发送消息回底与打开会话的初始定位共用，替代原来的整段瞬跳。
+ */
+private suspend fun settleListToBottom(
+    scrollState: LazyListState,
+    bottomItemIndex: Int,
+    canPosition: () -> Boolean = { true },
+) {
+    if (!canPosition()) return
+    val layout = scrollState.layoutInfo
+    val lastVisible = layout.visibleItemsInfo.lastOrNull()
+    val sentinelIndex = (layout.totalItemsCount - 1).coerceAtLeast(bottomItemIndex)
+    // 与精修同一套判定：哨兵不可见或还没量到时按索引赶路，量得到就按像素收拢。
+    val decision = resolveConversationBottomSnap(
+        bottomItemIndex = sentinelIndex,
+        lastVisibleIndex = lastVisible?.index,
+        lastVisibleBottom = lastVisible?.let { it.offset + it.size },
+        viewportEnd = layout.viewportEndOffset - layout.afterContentPadding,
+    )
+    when {
+        decision.requestIndex != null -> scrollState.animateToConversationTurn(decision.requestIndex)
+        decision.scrollByPx != 0 -> scrollState.animateScrollBy(decision.scrollByPx.toFloat())
+    }
+    if (canPosition()) snapListToBottom(scrollState, bottomItemIndex, canPosition)
 }
 
 private suspend fun snapListToBottom(

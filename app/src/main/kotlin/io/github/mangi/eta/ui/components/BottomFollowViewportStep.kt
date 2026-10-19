@@ -54,6 +54,11 @@ internal fun resolveWorkExpansionViewportOwnership(
  * only tops the smooth step up to the part of the measured overflow that the after-content padding
  * buffer cannot absorb. Whatever still fits inside the buffer keeps moving smoothly.
  *
+ * The forced top-up is itself capped by [maxCatchUpPx]: with the default of "unbounded" the whole
+ * deficit is repaid in a single step (the historic one-frame jump), while callers that pass a
+ * per-frame budget turn the catch-up into a smooth glide across several frames. The plain smooth
+ * step is never throttled by that cap.
+ *
  * The result never exceeds the measured overflow, so a caller that keeps its existing bounds checks
  * cannot be asked to scroll past the real deficit.
  *
@@ -67,6 +72,8 @@ internal fun resolveWorkExpansionViewportOwnership(
  *   only return the normal smooth step.
  * @param afterContentPaddingPx the padding drawn after the content, i.e. the draw buffer that can
  *   hold overflow without visible clipping. Zero or negative values contribute no budget.
+ * @param maxCatchUpPx per-frame cap for the forced compensation in px; non-positive values disable
+ *   the compensation entirely (smooth motion only), non-finite values keep it unbounded.
  * @return the distance in px to scroll this step; never negative and never larger than the measured
  *   overflow.
  */
@@ -74,13 +81,32 @@ internal fun resolveBottomFollowViewportStep(
     smoothStepPx: Float,
     measuredOverflowPx: Int?,
     afterContentPaddingPx: Int,
+    maxCatchUpPx: Float = Float.MAX_VALUE,
 ): Float {
     val smooth = max(smoothStepPx, 0f)
     val overflow = measuredOverflowPx ?: return smooth
     val distance = max(overflow, 0)
     val budget = max(afterContentPaddingPx, 0)
-    val requiredCompensation = max(distance - budget, 0)
-    return min(distance.toFloat(), max(smooth, requiredCompensation.toFloat()))
+    val requiredCompensation = max(distance - budget, 0).toFloat()
+    val catchUp = if (maxCatchUpPx.isFinite()) max(maxCatchUpPx, 0f) else Float.MAX_VALUE
+    val compensation = min(requiredCompensation, catchUp)
+    return min(distance.toFloat(), max(smooth, compensation))
+}
+
+/**
+ * 单帧追赶预算：内容一次性长高超出绘制缓冲时，强制补偿不再一帧滚完，
+ * 而是按固定速度逐帧补齐，让视口平滑追上而不是瞬跳。
+ *
+ * 帧间隔按 32ms 封顶，与 [BottomFollowMotion] 同一约定：掉帧或长时间静止后
+ * 不会把积压的时间一次性补成一大段跳动。速度随 density 缩放，与列表内其余
+ * 跟底速度保持同一量纲。
+ */
+private const val FollowCatchUpSpeedPxPerSecond = 1600f
+
+internal fun followCatchUpBudgetPx(elapsedSeconds: Float, density: Float): Float {
+    if (!density.isFinite() || density <= 0f) return 0f
+    val dt = elapsedSeconds.coerceIn(0f, 0.032f)
+    return FollowCatchUpSpeedPxPerSecond * density * dt
 }
 
 /**

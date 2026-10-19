@@ -42,6 +42,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import kotlin.math.abs
 import kotlin.math.max
+import kotlin.math.min
 
 /** No follow coroutine and no post-growth test scroll: inspect the FIRST real draw. */
 @RunWith(RobolectricTestRunner::class)
@@ -59,11 +60,14 @@ class BottomFollowFirstDrawTest {
     private var expectedCount = 22
     private lateinit var state: LazyListState
     private lateinit var scope: CoroutineScope
+    private lateinit var recovery: BottomFollowViewportRecovery
     private lateinit var baseline: Bitmap
     private var consumed = 0f
     private var actualLift = 0f
     private var callbacks = 0
     private var clicks = 0
+    /** 追赶预算按两次评估之间的流逝时间发放，这里用假时钟确定地控制每帧额度。 */
+    private var clockNanos = 0L
     private val probes = mutableMapOf<Int, Probe>()
     private val images = mutableMapOf<Int, Bitmap>()
     private data class Probe(
@@ -74,25 +78,64 @@ class BottomFollowFirstDrawTest {
     @Test fun firstDrawAndContinuousMeasureOnlyGrowthKeepWholeTail() {
         setup()
         var oldOverflow = 0
-        var oldConsumed = 0f
+        var oldConsumed = consumed
         var oldCallbacks = callbacks
         for (growth in listOf(24, 18, 3 * PAD, 24, PAD + 37, 1, 2 * PAD)) {
+            // 追赶按帧预算发放：先把挂钟推一帧，本帧额度才是确定值。
+            clockNanos += FRAME_NANOS + 1
             val p = grow(growth)
             assertTrue("fixed viewport still needs the post-layout callback", p.callbacks > oldCallbacks)
             val overflow = checkNotNull(p.overflow)
-            assertTrue("FIRST draw overflow=$overflow", overflow in 0..PAD)
-            assertEquals("actual layer must use recovered layout", overflow.toFloat(), p.lift, 0f)
+            val raw = oldOverflow + growth
+            assertTrue("FIRST draw overflow=$overflow raw=$raw", overflow in 0..raw)
+            // 首帧绘制用的就是恢复后的布局：上提量与残余超出量（封顶在绘制缓冲）一致。
+            assertEquals(
+                "actual layer must use recovered layout",
+                min(overflow, PAD).toFloat(),
+                p.lift,
+                0f,
+            )
+            // 一次评估最多按固定追赶速度前进一帧，不再一帧滚完整个差值。
+            val expected = min(CATCH_UP_PER_FRAME, max(0f, raw - PAD.toFloat()))
             val delta = p.consumed - oldConsumed
-            val expected = max(0, oldOverflow + growth - PAD)
-            assertTrue("actual delta=$delta expected=$expected", abs(delta - expected) <= 1f)
-            if (oldOverflow + growth <= PAD) assertEquals(0f, delta, 0f)
-            assertWholeTail(p, checkNotNull(images[revision]))
+            assertTrue("actual delta=$delta expected=$expected", abs(delta - expected) <= 1.5f)
+            if (raw <= PAD) assertEquals(0f, delta, 0f)
             oldOverflow = overflow
             oldConsumed = p.consumed
             oldCallbacks = p.callbacks
         }
+        // 限速后剩下的差值由后续帧逐帧补齐；补齐后残留必须落进绘制缓冲，
+        // 由绘制层上提把它收进静止线，尾部才算完整贴底。
+        settleToRest()
+        assertTrue("settled residual=${currentOverflow()}", currentOverflow() in 0..PAD)
+        assertWholeTail(compose.onNodeWithTag(ROOT).captureToImage().asAndroidBitmap())
         compose.onNodeWithTag(TAP).performTouchInput { click() }
         compose.runOnIdle { assertEquals("drawn and hit-test coordinates agree", 1, clicks) }
+    }
+
+    @Test fun catchUpBudgetBoundsEachFrameWithoutLosingTheDistance() {
+        assertEquals(25.6f, followCatchUpBudgetPx(0.016f, 1f), 0.01f)
+        // 掉帧或长时间静止后只发一帧的额度，不会一次性补成一大段跳动。
+        assertEquals(followCatchUpBudgetPx(0.032f, 1f), followCatchUpBudgetPx(5f, 1f), 0f)
+        assertEquals(0f, followCatchUpBudgetPx(0.016f, 0f), 0f)
+        // 差值远大于额度时，一帧只前进一帧的追赶距离。
+        assertEquals(
+            CATCH_UP_PER_FRAME,
+            resolveBottomFollowViewportStep(0f, 3 * PAD, PAD, maxCatchUpPx = CATCH_UP_PER_FRAME),
+            0.01f,
+        )
+        // 差值在一帧额度内时仍然收完全部绘制缓冲之外的部分。
+        assertEquals(
+            (PAD + 3 - PAD).toFloat(),
+            resolveBottomFollowViewportStep(0f, PAD + 3, PAD, maxCatchUpPx = CATCH_UP_PER_FRAME),
+            0.01f,
+        )
+        // 没有额度时不吞掉绘制缓冲以内的差值：那部分由绘制层上提负责。
+        assertEquals(
+            0f,
+            resolveBottomFollowViewportStep(0f, PAD + 5, PAD, maxCatchUpPx = 0f),
+            0f,
+        )
     }
 
     @Test fun oldPathIsNegativeControlOnFirstDraw() {
@@ -132,7 +175,9 @@ class BottomFollowFirstDrawTest {
             CompositionLocalProvider(LocalDensity provides Density(1f)) {
                 state = rememberLazyListState()
                 scope = rememberCoroutineScope()
-                val recovery = remember(state) { BottomFollowViewportRecovery(state, SENTINEL) }
+                recovery = remember(state) {
+                    BottomFollowViewportRecovery(state, SENTINEL, nowNanos = { clockNanos })
+                }
                 val held = remember { intArrayOf(0) }
                 val snapshots = List(12) { rememberGraphicsLayer() }
                 val cardShape = RoundedCornerShape(12.dp)
@@ -278,14 +323,32 @@ class BottomFollowFirstDrawTest {
         return checkNotNull(probes[revision])
     }
 
-    private fun assertWholeTail(p: Probe, image: Bitmap) {
-        val bottom = checkNotNull(p.bottom) - p.lift.toInt()
-        assertTrue("actual drawn bottom=$bottom rest=$REST", bottom in (REST - 1)..REST)
+    /** 追赶已经收尾后的绘制：尾部完整贴在静止线上且不侵入输入区。 */
+    private fun assertWholeTail(image: Bitmap) {
         for (dy in 1..32) for (x in 0 until WIDTH) {
-            assertTrue("first-draw tail mismatch x=$x dy=$dy bottom=$bottom",
-                near(image.getPixel(x, bottom - dy), baseline.getPixel(x, REST - 1 - dy)))
+            assertTrue("settled tail mismatch x=$x dy=$dy",
+                near(image.getPixel(x, REST - dy), baseline.getPixel(x, REST - 1 - dy)))
         }
         assertCleanInput(image)
+    }
+
+    /**
+     * 限速后剩余差值由后续帧逐帧补齐：每帧推一次挂钟再评估一次，直到差值落进绘制缓冲。
+     * 缓冲以内的部分由绘制层上提负责，因此收敛条件是残余不大于 [PAD]。
+     */
+    private fun settleToRest() {
+        var frames = 0
+        while (currentOverflow() > PAD) {
+            assertTrue("catch-up did not settle after $frames frames", frames++ < 400)
+            clockNanos += FRAME_NANOS + 1
+            compose.runOnIdle { consumed += recovery.recover { following.value } }
+            compose.waitForIdle()
+        }
+        assertFalse(compose.mainClock.autoAdvance)
+    }
+
+    private fun currentOverflow(): Int = compose.runOnIdle {
+        state.layoutInfo.measuredBottomFollowTailOverflow(SENTINEL) ?: 0
     }
 
     private fun assertCleanInput(image: Bitmap) {
@@ -309,6 +372,9 @@ class BottomFollowFirstDrawTest {
         const val HEIGHT = 600
         const val PAD = 142
         const val REST = HEIGHT - PAD
+        const val FRAME_NANOS = 16_666_667L
+        /** 1600px/s × 一帧，与 followCatchUpBudgetPx 的每帧额度一致。 */
+        const val CATCH_UP_PER_FRAME = 1600f * 0.016666667f
         val BG = Color.White
         val INPUT = Color(0xff30a0d0)
         val CARD = Color(0xffffd080)

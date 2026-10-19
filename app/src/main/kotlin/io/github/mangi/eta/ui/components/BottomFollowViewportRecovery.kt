@@ -13,9 +13,15 @@ import androidx.compose.foundation.lazy.LazyListState
 internal class BottomFollowViewportRecovery(
     private val state: LazyListState,
     private val sentinelKey: Any,
+    private val density: Float = 1f,
+    // 时间源可注入：追赶预算按两次评估之间的流逝时间发放，测试用假时钟才能确定地控制每帧额度。
+    private val nowNanos: () -> Long = System::nanoTime,
 ) {
     private var recovering = false
     private var workExpansion: WorkExpansion? = null
+    // 尾部追赶按帧预算限速：每次评估都推进时钟，两次评估之间的最长时间就是本帧拿到的
+    // 追赶额度（followCatchUpBudgetPx 内部再按 32ms 封顶，从 0 起算时等价于一整帧额度）。
+    private var lastTailRecoveryNanos: Long = 0L
 
     private data class WorkExpansion(
         val groupKey: Any,
@@ -107,10 +113,20 @@ internal class BottomFollowViewportRecovery(
                     resolveWorkExpansionViewportStep(expansion.anchorOffset, anchor?.offset, precedingBottom)
                 } else 0f
                 val tailStep = if (canRecover()) {
+                    // 与上次评估的流逝时间即本帧额度；从未评估过时差值是「距纪元」的巨值，
+                    // 被 32ms 封顶后等价于先给一整帧的启动额度，保证恢复器能自行起步。
+                    val now = nowNanos()
+                    val elapsedSeconds = (now - lastTailRecoveryNanos) / 1_000_000_000f
+                    lastTailRecoveryNanos = now
                     resolveBottomFollowViewportStep(
                         0f, info.measuredBottomFollowTailOverflow(sentinelKey), info.afterContentPadding,
+                        // 尾部追赶限速成平滑动画；工作展开走 expansionStep，仍整段瞬时回收。
+                        maxCatchUpPx = followCatchUpBudgetPx(elapsedSeconds, density),
                     )
-                } else 0f
+                } else {
+                    lastTailRecoveryNanos = 0L
+                    0f
+                }
                 val step = maxOf(expansionStep, tailStep)
                 if (step <= 0f || !state.canScrollForward) return consumed
                 // dispatchRawDelta bypasses scroll arbitration: recheck BOTH owners right
