@@ -58,6 +58,7 @@
 
 # JNI looks up configuration fields/classes by their upstream names.
 -keep class com.k2fsa.sherpa.ncnn.** { *; }
+-keep class com.k2fsa.sherpa.onnx.** { *; }
 
 # app_process 按字面类名启动只读探针，R8 看不到 shell 字符串里的引用。
 # 保留 CLI 入口 public static void main(String[])，以及探针会执行到的 vd 类，避免 release 裁剪或改名。

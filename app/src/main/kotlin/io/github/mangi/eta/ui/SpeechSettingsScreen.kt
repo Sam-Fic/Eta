@@ -2,36 +2,23 @@ package io.github.mangi.eta.ui
 
 import io.github.mangi.eta.agent.voice.doubao.DoubaoAsrProtocol
 import io.github.mangi.eta.agent.voice.doubao.DoubaoVoiceConfig
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.voice.offline.OfflineSpeechPack
-import io.github.mangi.eta.agent.voice.offline.SpeechModelManifest
-import io.github.mangi.eta.ui.adaptive.EtaClickableRow
-import io.github.mangi.eta.ui.adaptive.EtaDialog
-import io.github.mangi.eta.ui.adaptive.EtaDialogActions
-import io.github.mangi.eta.ui.adaptive.EtaSegmentedItemContainer
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedDropdownRow
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedTextField
 import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
-import io.github.mangi.eta.ui.adaptive.EtaText
-import io.github.mangi.eta.ui.adaptive.EtaTextStyle
 
 @Composable
 internal fun SpeechSettingsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
-    val state by OfflineSpeechPack.state.collectAsState()
     val config by DoubaoVoiceConfig.state.collectAsState()
-    var confirmDownload by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { DoubaoVoiceConfig.load(context); OfflineSpeechPack.initialize(context) }
     VoiceSettingsSectionPage(title = stringResource(R.string.speech_title), onBack = onBack) {
         voiceGroup(key = "speech_enable") {
@@ -83,53 +70,9 @@ internal fun SpeechSettingsScreen(onBack: () -> Unit) {
                 )
             }
         }
-        voiceGroup(key = "speech_pack") {
-            item {
-                EtaClickableRow(
-                    title = stringResource(
-                        when {
-                            state.downloading -> R.string.speech_cancel_download
-                            state.ready -> R.string.speech_pack_ready
-                            else -> R.string.speech_download
-                        },
-                    ),
-                    summary = stringResource(
-                        when {
-                            state.checking -> R.string.speech_checking
-                            state.error -> R.string.speech_download_failed
-                            else -> R.string.speech_pack_summary
-                        },
-                    ),
-                    enabled = !state.checking && !state.ready,
-                    onClick = {
-                        if (state.downloading) OfflineSpeechPack.cancelDownload() else confirmDownload = true
-                    },
-                )
-            }
-            item(visible = state.downloading) {
-                EtaSegmentedItemContainer {
-                    val progress = (state.downloadedBytes.toFloat() / SpeechModelManifest.totalBytes).coerceIn(0f, 1f)
-                    Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
-                        LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
-                        EtaText("${(progress * 100).toInt()}%", style = EtaTextStyle.Footnote,
-                            modifier = Modifier.padding(top = 8.dp))
-                    }
-                }
-            }
+        // 模型/来源/下载三行由共用组件提供，与「对话识别」页保持同一份实现。
+        item(key = "speech_pack") {
+            OfflineSpeechPackColumn(modifier = Modifier.padding(VoiceGroupInsets))
         }
-    }
-    EtaDialog(
-        show = confirmDownload,
-        title = stringResource(R.string.speech_download),
-        onDismissRequest = { confirmDownload = false },
-    ) {
-        EtaText(stringResource(R.string.speech_download_confirm), style = EtaTextStyle.Secondary)
-        EtaDialogActions(
-            confirmText = stringResource(R.string.speech_download),
-            cancelText = stringResource(R.string.action_cancel),
-            modifier = Modifier.padding(top = 16.dp),
-            onCancel = { confirmDownload = false },
-            onConfirm = { confirmDownload = false; OfflineSpeechPack.download(context) },
-        )
     }
 }

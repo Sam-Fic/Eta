@@ -51,13 +51,33 @@ class SpeechInputTest {
         val draft = SpeechDraft("原文", 1, 1)
         assertEquals("原文", draft.expectedText)
     }
-    @Test fun manifestIsBoundedPinnedAndContainsOnlyExpectedFiles() {
-        val entries = SpeechModelManifest.assets
-        assertEquals(7, entries.size)
-        assertEquals(7, entries.map { it.name }.toSet().size)
-        assertTrue(entries.all { it.bytes > 0 && it.sha256.matches(Regex("[0-9a-f]{64}")) })
-        assertTrue(entries.none { it.name.contains('/') || it.name.contains("..") })
-        assertTrue(SpeechModelManifest.BASE_URL.contains(SpeechModelManifest.REVISION))
-        assertTrue(SpeechModelManifest.totalBytes in 140_000_000..145_000_000)
+    @Test fun catalogIsBoundedPinnedAndContainsOnlyExpectedFiles() {
+        assertTrue(SpeechModelCatalog.models.size >= 2)
+        // 每个模型的 id 唯一，且 id 直接作为本机存储目录名，不能出现路径穿越。
+        assertEquals(SpeechModelCatalog.models.size, SpeechModelCatalog.models.map { it.id }.toSet().size)
+        assertTrue(SpeechModelCatalog.models.all { it.id.matches(Regex("[a-z0-9-]+")) })
+        for (model in SpeechModelCatalog.models) {
+            assertTrue(model.assets.isNotEmpty())
+            // 每个资产名唯一、不含路径分隔符，且长度与哈希均已钉住。
+            assertEquals(model.assets.size, model.assets.map { it.name }.toSet().size)
+            assertTrue(model.assets.none { it.name.contains('/') || it.name.contains("..") })
+            assertTrue(model.assets.all { it.bytes > 0 })
+            // 权重文件必须有哈希；仅上游未公布哈希的文本文件允许为空（退化为仅校验长度）。
+            assertTrue(model.assets.all { it.sha256?.matches(Regex("[0-9a-f]{64}")) ?: it.name.endsWith(".txt") })
+            assertTrue(model.totalBytes > 0)
+            // 下载源必须带固定 revision（ModelScope 镜像按内容哈希校验，同样钉住文件哈希）。
+            assertTrue(model.sources.isNotEmpty())
+            assertTrue(model.sources.all { it.baseUrl.startsWith("https://") && it.baseUrl.endsWith("/") })
+            assertTrue(model.sources.all { it.baseUrl.contains(model.revision) || it.id == SpeechModelCatalog.SourceId.MODEL_SCOPE })
+            assertEquals(model.sources.size, model.sources.map { it.id }.toSet().size)
+        }
+        // 默认模型必须能按未知 id 回退，偏好损坏也不能让启动失败。
+        assertEquals(SpeechModelCatalog.defaultModel, SpeechModelCatalog.model(null))
+        assertEquals(SpeechModelCatalog.defaultModel, SpeechModelCatalog.model("does-not-exist"))
+        // 两个引擎族都要有模型，否则第二个运行库等于白打包。
+        assertEquals(
+            SpeechModelCatalog.Engine.entries.toSet(),
+            SpeechModelCatalog.models.map { it.engine }.toSet(),
+        )
     }
 }

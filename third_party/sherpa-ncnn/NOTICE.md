@@ -8,11 +8,13 @@
   `scripts/prepare-speech-runtime.py`. Only explicit ABI/library entries are copied;
   Gradle downloads/validates these during builds. JNI names/config fields are kept by R8.
   ARM64 LOAD segments have 16-KiB alignment. CPU decoding only; no GPU selection.
-- Model: upstream csukuangfj/sherpa-ncnn-streaming-zipformer-bilingual-zh-en-2023-02-13,
-  Hugging Face revision 05945efc40afe4b572542f01104ca5c413a9f6e1. Immutable URL, lengths
-  and SHA-256 hashes recorded in SpeechModelManifest. Weights are NOT in git or APK.
-  Weight licensing is not declared by upstream metadata; the engine Apache license does
-  not grant model rights. The download confirmation discloses this limitation.
+- Models: the streaming Zipformer bilingual zh-en 2023-02-13 pack (Hugging Face revision
+  05945efc40afe4b572542f01104ca5c413a9f6e1) plus the sherpa-onnx models documented in
+  `third_party/sherpa-onnx/NOTICE.md`. Immutable URLs, lengths and SHA-256 hashes are
+  recorded in SpeechModelCatalog; the user picks model and download source in settings.
+  Weights are NOT in git or APK. Weight licensing is not declared by upstream metadata;
+  the engine Apache license does not grant model rights. The download confirmation
+  discloses this limitation.
 - No Operit application source or Silero VAD is included. The implementation uses
   sherpa-ncnn's own endpoint detector (1.2 s trailing silence after decoded speech).
 - User opt-in only. Speech pack is verified in private no-backup storage; microphone
