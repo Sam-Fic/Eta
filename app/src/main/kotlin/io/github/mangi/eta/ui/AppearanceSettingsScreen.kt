@@ -220,7 +220,6 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
             onSetMorphBeforeResponse = { enabled ->
                 update { current -> current.copy(morphLoadingBeforeResponseOnly = enabled) }
             },
-            onSetSwipeDismiss = { enabled -> update { current -> current.copy(swipeDismissEnabled = enabled) } },
             onSetPredictiveBack = { enabled -> update { current -> current.copy(predictiveBackEnabled = enabled) } },
         )
     }
@@ -231,6 +230,17 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
         title = stringResource(R.string.appearance_interface_scale_dialog_title),
         summary = stringResource(R.string.appearance_interface_scale_dialog_summary),
         onDismissRequest = { showScaleDialog = false },
+        actions = {
+            EtaDialogActions(
+                confirmText = stringResource(R.string.action_confirm),
+                confirmEnabled = parsedScale != null && parsedScale in 80..110,
+                onCancel = { showScaleDialog = false },
+                onConfirm = {
+                    parsedScale?.let { commitScale(it.toFloat()) }
+                    showScaleDialog = false
+                },
+            )
+        },
     ) {
         Column {
             EtaTextField(
@@ -240,16 +250,6 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-            )
-            EtaDialogActions(
-                confirmText = stringResource(R.string.action_confirm),
-                confirmEnabled = parsedScale != null && parsedScale in 80..110,
-                onCancel = { showScaleDialog = false },
-                onConfirm = {
-                    parsedScale?.let { commitScale(it.toFloat()) }
-                    showScaleDialog = false
-                },
-                modifier = Modifier.padding(top = 16.dp),
             )
         }
     }
@@ -284,7 +284,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.appearanceMaterial3Co
     onSetTimestamps: (Boolean) -> Unit,
     onSetMorphLoading: (Boolean) -> Unit,
     onSetMorphBeforeResponse: (Boolean) -> Unit,
-    onSetSwipeDismiss: (Boolean) -> Unit,
     onSetPredictiveBack: (Boolean) -> Unit,
 ) {
     // ① 主题预览卡（按候选配色实时渲染缩略屏幕）
@@ -482,14 +481,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.appearanceMaterial3Co
                     summary = stringResource(R.string.appearance_message_timestamps_summary),
                     checked = appearance.messageTimestampsEnabled,
                     onCheckedChange = onSetTimestamps,
-                )
-            }
-            item {
-                EtaSwitchRow(
-                    title = stringResource(R.string.appearance_swipe_dismiss),
-                    summary = stringResource(R.string.appearance_swipe_dismiss_summary),
-                    checked = appearance.swipeDismissEnabled,
-                    onCheckedChange = onSetSwipeDismiss,
                 )
             }
             item {

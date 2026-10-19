@@ -15,7 +15,6 @@ class AppearanceSettingsTest {
         assertTrue(settings.monetEnabled)
         assertTrue(settings.blurEnabled)
         assertEquals(AppearanceTopBarBlurStyle.GAUSSIAN, settings.topBarBlurStyle)
-        assertTrue(settings.swipeDismissEnabled)
         assertEquals(false, settings.predictiveBackEnabled)
         assertEquals(DEFAULT_INTERFACE_SCALE, settings.interfaceScale)
     }

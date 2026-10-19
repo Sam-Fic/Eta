@@ -85,12 +85,17 @@ internal class ChatNavigationActivityTracker(
 /**
  * NavHost 的转场与导航活跃采样。转场几何沿用原来的默认值：新页从侧边整屏推入，
  * 被盖住的页只做四分之一屏的视差并淡到 0.9。
+ *
+ * 预测性返回手势期间由 NavHost 逐帧 seek 转场进度，默认几何是 scaleOut(0.7f)，看起来是页面往内缩；
+ * 这里让预测态直接复用 [popEnterTransition]/[popExitTransition] 的几何，手势拖动即右平移，提交后无跳变。
  */
 internal class ChatNavigationActivityTransition(
     val enterTransition: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition,
     val exitTransition: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition,
     val popEnterTransition: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition,
     val popExitTransition: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition,
+    val predictivePopEnterTransition: AnimatedContentTransitionScope<NavBackStackEntry>.(Int) -> EnterTransition,
+    val predictivePopExitTransition: AnimatedContentTransitionScope<NavBackStackEntry>.(Int) -> ExitTransition,
     private val tracker: ChatNavigationActivityTracker,
 ) {
     constructor(rtl: Boolean, tracker: ChatNavigationActivityTracker) : this(
@@ -116,6 +121,19 @@ internal class ChatNavigationActivityTransition(
             )
         },
         popExitTransition = {
+            slideOutHorizontally(animationSpec = tween(NAVIGATION_TRANSITION_DURATION_MS)) { fullWidth ->
+                if (rtl) -fullWidth else fullWidth
+            }
+        },
+        predictivePopEnterTransition = { _ ->
+            slideInHorizontally(animationSpec = tween(NAVIGATION_TRANSITION_DURATION_MS)) { fullWidth ->
+                if (rtl) fullWidth / 4 else -fullWidth / 4
+            } + fadeIn(
+                animationSpec = tween(NAVIGATION_TRANSITION_DURATION_MS),
+                initialAlpha = 0.9f,
+            )
+        },
+        predictivePopExitTransition = { _ ->
             slideOutHorizontally(animationSpec = tween(NAVIGATION_TRANSITION_DURATION_MS)) { fullWidth ->
                 if (rtl) -fullWidth else fullWidth
             }

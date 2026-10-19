@@ -44,8 +44,6 @@ internal object SettingsDataStore {
     private val APPEARANCE_PURE_BLACK_ENABLED = booleanPreferencesKey("appearance_pure_black_enabled")
     private val APPEARANCE_BLUR_ENABLED = booleanPreferencesKey("appearance_blur_enabled")
     private val APPEARANCE_TOP_BAR_BLUR_STYLE = stringPreferencesKey("appearance_top_bar_blur_style")
-    private val APPEARANCE_SWIPE_DISMISS_ENABLED =
-        booleanPreferencesKey("appearance_swipe_dismiss_enabled")
     private val APPEARANCE_PREDICTIVE_BACK_ENABLED =
         booleanPreferencesKey("appearance_predictive_back_enabled")
     private val APPEARANCE_INTERFACE_SCALE = floatPreferencesKey("appearance_interface_scale")
@@ -570,7 +568,6 @@ internal object SettingsDataStore {
             topBarBlurStyle = AppearanceTopBarBlurStyle.fromPersistedValue(
                 this[APPEARANCE_TOP_BAR_BLUR_STYLE],
             ),
-            swipeDismissEnabled = this[APPEARANCE_SWIPE_DISMISS_ENABLED] ?: true,
             predictiveBackEnabled = this[APPEARANCE_PREDICTIVE_BACK_ENABLED] ?: false,
             interfaceScale = this[APPEARANCE_INTERFACE_SCALE] ?: 1f,
             morphLoadingIndicator = this[APPEARANCE_MORPH_LOADING_INDICATOR] ?: true,
@@ -589,7 +586,6 @@ internal object SettingsDataStore {
         this[APPEARANCE_PURE_BLACK_ENABLED] = settings.pureBlackEnabled
         this[APPEARANCE_BLUR_ENABLED] = settings.blurEnabled
         this[APPEARANCE_TOP_BAR_BLUR_STYLE] = settings.topBarBlurStyle.persistedValue
-        this[APPEARANCE_SWIPE_DISMISS_ENABLED] = settings.swipeDismissEnabled
         this[APPEARANCE_PREDICTIVE_BACK_ENABLED] = settings.predictiveBackEnabled
         this[APPEARANCE_INTERFACE_SCALE] = settings.interfaceScale
         this[APPEARANCE_MORPH_LOADING_INDICATOR] = settings.morphLoadingIndicator

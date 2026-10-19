@@ -15,7 +15,6 @@ data class AppearanceSettings(
     val pureBlackEnabled: Boolean = false,
     val blurEnabled: Boolean = true,
     val topBarBlurStyle: AppearanceTopBarBlurStyle = AppearanceTopBarBlurStyle.GAUSSIAN,
-    val swipeDismissEnabled: Boolean = true,
     val predictiveBackEnabled: Boolean = false,
     val interfaceScale: Float = DEFAULT_INTERFACE_SCALE,
     val morphLoadingIndicator: Boolean = true,
