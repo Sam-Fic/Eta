@@ -87,7 +87,6 @@
   <string name="action_launch_kimi_web">啟動 Kimi Web</string>
   <string name="action_sub_agent_status">子代理狀態</string>
   <string name="sub_agent_status_empty">這個工作階段還沒有子代理</string>
-  <string name="sub_agent_status_close">關閉</string>
   <string name="route_chat">對話</string>
   <string name="route_browser">Agent 瀏覽器</string>
   <string name="route_tools">工具</string>
@@ -212,6 +211,10 @@
   <string name="route_provider_details">Provider 詳細資料</string>
   <string name="route_new_provider">新增供應商</string>
   <string name="settings_general">一般</string>
+  <string name="settings_tool_capabilities">Agent 工具能力</string>
+  <string name="settings_runtime_environment">執行環境</string>
+  <string name="settings_system_takeover">系統接管</string>
+  <string name="settings_system_takeover_summary">預設助理、電源鍵目標、廠商助理相容（小布／小愛）、Gemini 與一圈即搜</string>
   <string name="app_press_back_again_to_exit">再按一次返回即可離開應用</string>
   <string name="settings_diagnostics">診斷</string>
   <string name="settings_file_logging">記錄診斷日誌</string>
@@ -273,8 +276,6 @@
   <string name="appearance_blur_style_progressive">漸進</string>
   <string name="appearance_blur_style_gaussian_summary">頂部列整體均勻模糊</string>
   <string name="appearance_blur_style_progressive_summary">頂部漸強模糊</string>
-  <string name="appearance_swipe_dismiss">橫移返回手勢</string>
-  <string name="appearance_swipe_dismiss_summary">在頁面任意位置橫移即可返回上一頁</string>
   <string name="appearance_predictive_back">預測性返回手勢</string>
   <string name="appearance_predictive_back_summary">啟用預測性返回動畫效果</string>
   <string name="appearance_interface_scale">介面縮放</string>
@@ -592,6 +593,8 @@
   <string name="tool_eta_get_settings">讀取 Eta 設定</string>
   <string name="tool_eta_set_settings">修改 Eta 設定</string>
   <string name="tool_eta_manage_models">配置 Eta 模型</string>
+  <string name="tool_eta_manage_subagents">配置 Eta 子代理</string>
+  <string name="tool_eta_manage_history">配置 Eta 歷史會話</string>
   <string name="state_eta_itself">Eta 自身</string>
   <string name="tool_ui_eta_get_settings">讀取 Eta 設定</string>
   <string name="tool_ui_eta_get_settings_summary">查看 Eta 自己的全部開關與目前值。</string>
@@ -599,6 +602,10 @@
   <string name="tool_ui_eta_set_settings_summary">修改 Eta 自己的開關，例如開啟語音播報。</string>
   <string name="tool_ui_eta_manage_models">配置 Eta 模型</string>
   <string name="tool_ui_eta_manage_models_summary">切換、新增或刪除 Eta 自己使用的模型與供應商。</string>
+  <string name="tool_ui_eta_manage_subagents">配置 Eta 子代理</string>
+  <string name="tool_ui_eta_manage_subagents_summary">建立、修改並套用 Eta 自己使用的子代理群組。</string>
+  <string name="tool_ui_eta_manage_history">配置 Eta 歷史會話</string>
+  <string name="tool_ui_eta_manage_history_summary">建立分類資料夾，並重新命名、移動、置頂或刪除 Eta 儲存的對話。</string>
   <string name="settings_self_settings_tools">應用自身配置工具</string>
   <string name="settings_self_settings_tools_summary">允許模型讀取並修改 Eta 自身的設定、模型與供應商。</string>
   <string name="tool_status_running">執行中</string>
@@ -1679,7 +1686,6 @@
   <string name="ast_body">主回覆已結束，未完成的子代理已請求暫停。保留暫停可稍後查詢並繼續；停止也會保留現有結果。返回或關閉預設保持暫停。</string>
   <string name="ast_stop">停止子代理</string>
   <string name="ast_pause">暫停子代理</string>
-  <string name="spa_sheet_desc">子代理群組操作面板</string>
   <string name="spa_rename_group">重新命名群組</string>
   <string name="spa_delete_group">刪除群組</string>
   <string name="spn_group_name">群組名稱</string>

@@ -85,8 +85,8 @@ class ConversationMemoryContractTest(unittest.TestCase):
         state = (SRC / "ui/app/AgentAppState.kt").read_text()
         block = state[state.index("suspend fun searchHistory("):state.index("private fun currentConversationSearchScope()")]
         self.assertLess(block.index("val titles = conversationTitles"), block.index("runInterruptible(Dispatchers.IO)"))
-        dialog = (SRC / "ui/app/SearchHistoryDialog.kt").read_text()
-        self.assertIn("onSearch: suspend (String)", dialog)
+        page = (SRC / "ui/screens/chat/MessageSearchScreen.kt").read_text()
+        self.assertIn("onSearch: suspend (String)", page)
 
 if __name__ == "__main__":
     unittest.main()

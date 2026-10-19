@@ -253,6 +253,7 @@ internal fun TerminalEntryScreen(
     terminalStore: UserTerminalStore,
     consoleStore: ConsoleStore,
     onOpenEnvironment: () -> Unit,
+    onOpenDaemonTasks: () -> Unit,
 ) {
     val consoleState by consoleStore.uiState.collectAsState()
     var consoleMode by rememberSaveable { mutableStateOf(false) }
@@ -267,10 +268,12 @@ internal fun TerminalEntryScreen(
             terminalStore = terminalStore,
             onExitConsole = { consoleMode = false },
             onOpenEnvironment = onOpenEnvironment,
+            onOpenDaemonTasks = onOpenDaemonTasks,
         )
         else -> UserTerminalScreen(
             store = terminalStore,
             onOpenEnvironment = onOpenEnvironment,
+            onOpenDaemonTasks = onOpenDaemonTasks,
             onOpenConsole = if (consoleState.ptySupported == true) {
                 { consoleMode = true }
             } else {
@@ -290,10 +293,9 @@ internal fun ConsoleScreen(
     terminalStore: UserTerminalStore,
     onExitConsole: () -> Unit,
     onOpenEnvironment: () -> Unit,
+    onOpenDaemonTasks: () -> Unit,
 ) {
     val state by store.uiState.collectAsState()
-    val terminalState by terminalStore.uiState.collectAsState()
-    var showTasks by remember { mutableStateOf(false) }
     var showSessions by remember { mutableStateOf(false) }
     var ctrlActive by remember { mutableStateOf(false) }
     var fieldValue by remember { mutableStateOf(TextFieldValue("")) }
@@ -312,7 +314,7 @@ internal fun ConsoleScreen(
             onSwitchEnvironment = store::switchEnvironment,
             onOpenTasks = {
                 terminalStore.refreshDaemonTasks()
-                showTasks = true
+                onOpenDaemonTasks()
             },
             onOpenSessions = { showSessions = true },
             onExitConsole = onExitConsole,
@@ -343,15 +345,6 @@ internal fun ConsoleScreen(
             ctrlActive = ctrlActive,
             onCtrl = { ctrlActive = !ctrlActive },
             onKey = { store.write(it) },
-        )
-    }
-
-    if (showTasks) {
-        DaemonTasksDialog(
-            tasks = terminalState.daemonTasks,
-            onDismiss = { showTasks = false },
-            onStop = terminalStore::stopDaemonTask,
-            onLoadLogs = terminalStore::daemonLogs,
         )
     }
 

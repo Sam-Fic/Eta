@@ -40,16 +40,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
-import io.github.mangi.eta.agent.delegation.SubAgentContextStats
 import io.github.mangi.eta.config.InteractiveModePreference
 import io.github.mangi.eta.ui.CompressConversationDialog
 import io.github.mangi.eta.ui.components.EtaDropdownMenu
 import io.github.mangi.eta.ui.components.rememberEtaMenuState
 import io.github.mangi.eta.ui.components.rememberInteractiveModeEnabled
 import io.github.mangi.eta.ui.haptics.TouchHaptics
-import io.github.mangi.eta.ui.model.ConversationTokenUsageUi
-import io.github.mangi.eta.ui.model.MessageSearchHit
-
 
 private val TopBarMenuIconSize = 24.dp
 private val CompactMenuItemModifier = Modifier.height(40.dp)
@@ -79,10 +75,9 @@ internal fun TopBarOverflowMenu(
         modelId: String?,
         onFinished: (Boolean) -> Unit,
     ) -> Unit = { _, _, done -> done(false) },
-    onSearchHistory: suspend (String) -> List<MessageSearchHit> = { emptyList() },
-    onOpenHistoryHit: (MessageSearchHit) -> Unit = {},
-    tokenUsage: ConversationTokenUsageUi = ConversationTokenUsageUi(),
-    subAgentStatuses: List<SubAgentContextStats> = emptyList(),
+    onOpenSearchHistory: () -> Unit = {},
+    onOpenTokenUsage: () -> Unit = {},
+    onOpenSubAgentStatus: () -> Unit = {},
     canDeleteCurrentConversation: Boolean = false,
     onDeleteCurrentConversation: () -> Unit = {},
 ) {
@@ -123,10 +118,9 @@ internal fun TopBarOverflowMenu(
                 isCompressingContext = isCompressingContext,
                 onToggleAutoCompress = onToggleAutoCompress,
                 onCompressConversation = onCompressConversation,
-                onSearchHistory = onSearchHistory,
-                onOpenHistoryHit = onOpenHistoryHit,
-                tokenUsage = tokenUsage,
-                subAgentStatuses = subAgentStatuses,
+                onOpenSearchHistory = onOpenSearchHistory,
+                onOpenTokenUsage = onOpenTokenUsage,
+                onOpenSubAgentStatus = onOpenSubAgentStatus,
                 canDeleteCurrentConversation = canDeleteCurrentConversation,
                 onDeleteCurrentConversation = onDeleteCurrentConversation,
             )
@@ -158,10 +152,9 @@ internal fun TopBarMenuItems(
         modelId: String?,
         onFinished: (Boolean) -> Unit,
     ) -> Unit = { _, _, done -> done(false) },
-    onSearchHistory: suspend (String) -> List<MessageSearchHit> = { emptyList() },
-    onOpenHistoryHit: (MessageSearchHit) -> Unit = {},
-    tokenUsage: ConversationTokenUsageUi = ConversationTokenUsageUi(),
-    subAgentStatuses: List<SubAgentContextStats> = emptyList(),
+    onOpenSearchHistory: () -> Unit = {},
+    onOpenTokenUsage: () -> Unit = {},
+    onOpenSubAgentStatus: () -> Unit = {},
     canDeleteCurrentConversation: Boolean = false,
     onDeleteCurrentConversation: () -> Unit = {},
 ) {
@@ -169,9 +162,6 @@ internal fun TopBarMenuItems(
     val interactiveModeEnabled by rememberInteractiveModeEnabled(interactiveModePreference)
     val view = LocalView.current
     var showCompressDialog by remember { mutableStateOf(false) }
-    var showSearchDialog by remember { mutableStateOf(false) }
-    var showTokenUsageDialog by remember { mutableStateOf(false) }
-    var showSubAgentStatusDialog by remember { mutableStateOf(false) }
 
     DropdownMenuItem(
         modifier = CompactMenuItemModifier,
@@ -184,7 +174,7 @@ internal fun TopBarMenuItems(
                 modifier = Modifier.size(TopBarMenuIconSize),
             )
         },
-        onClick = { TouchHaptics.click(view); dismiss(); showSearchDialog = true },
+        onClick = { TouchHaptics.click(view); dismiss(); onOpenSearchHistory() },
     )
     // 语音设置快捷入口：识别 / 朗读 / 语音对话都在一页，顶栏一步直达，不必翻设置列表。
     DropdownMenuItem(
@@ -278,7 +268,7 @@ internal fun TopBarMenuItems(
                 modifier = Modifier.size(TopBarMenuIconSize),
             )
         },
-        onClick = { TouchHaptics.click(view); dismiss(); showSubAgentStatusDialog = true },
+        onClick = { TouchHaptics.click(view); dismiss(); onOpenSubAgentStatus() },
     )
     DropdownMenuItem(
         modifier = CompactMenuItemModifier,
@@ -305,7 +295,7 @@ internal fun TopBarMenuItems(
                 modifier = Modifier.size(TopBarMenuIconSize),
             )
         },
-        onClick = { TouchHaptics.click(view); dismiss(); showTokenUsageDialog = true },
+        onClick = { TouchHaptics.click(view); dismiss(); onOpenTokenUsage() },
     )
     DropdownMenuItem(
         modifier = CompactMenuItemModifier,
@@ -386,28 +376,11 @@ internal fun TopBarMenuItems(
         )
     }
 
-    ConversationTokenUsageDialog(
-        show = showTokenUsageDialog,
-        usage = tokenUsage,
-        onDismiss = { showTokenUsageDialog = false },
-    )
-    SubAgentStatusDialog(
-        show = showSubAgentStatusDialog,
-        agents = subAgentStatuses,
-        onDismiss = { showSubAgentStatusDialog = false },
-    )
     CompressConversationDialog(
         show = showCompressDialog,
         isCompressing = isCompressingContext,
         onDismiss = { showCompressDialog = false },
         onConfirm = onCompressConversation,
-    )
-    SearchHistoryDialog(
-        show = showSearchDialog,
-        onDismiss = { showSearchDialog = false },
-        onSearch = onSearchHistory,
-        onOpenHit = onOpenHistoryHit,
-        showConversationTitle = false,
     )
 }
 

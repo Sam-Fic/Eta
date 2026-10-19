@@ -30,12 +30,14 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -58,7 +60,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -80,6 +81,8 @@ import androidx.compose.ui.platform.LocalView
 import io.github.mangi.eta.agent.terminal.TerminalEnvironment
 import io.github.mangi.eta.agent.terminal.label
 import io.github.mangi.eta.agent.terminal.isLinux
+import io.github.mangi.eta.ui.adaptive.EtaConnectedGroupRow
+import io.github.mangi.eta.ui.adaptive.EtaConnectedIconAction
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 import io.github.mangi.eta.ui.app.TerminalBlockUi
@@ -99,11 +102,11 @@ private val TerminalQuickCommands = listOf("ls", "pwd", "df -h", "free -h", "ps 
 internal fun UserTerminalScreen(
     store: UserTerminalStore,
     onOpenEnvironment: () -> Unit,
+    onOpenDaemonTasks: () -> Unit,
     onOpenConsole: (() -> Unit)? = null,
 ) {
     val state by store.uiState.collectAsState()
     var input by remember { mutableStateOf("") }
-    var showTasks by remember { mutableStateOf(false) }
     var showSessions by remember { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
     // 官方 SnackbarHost：复制 / 停止 / 切换环境等操作反馈（原来这些动作是完全静默的）。
@@ -169,7 +172,16 @@ internal fun UserTerminalScreen(
                     .padding(bottom = 12.dp),
             )
         }
-        if (!showLinuxGuide) {
+        if (showLinuxGuide) {
+            // 引导态仍保留环境切换：已切到未安装的 Linux 时，用户必须能切回 Android，
+            // 否则会困在引导页（引导页本身没有任何环境入口）。
+            EnvironmentSwitchBar(
+                environment = state.environment,
+                linuxEnvironment = state.linuxEnvironment,
+                onSwitchEnvironment = store::switchEnvironment,
+                onMessage = showMessage,
+            )
+        } else {
             TerminalBottomBar(
                 state = state,
                 input = input,
@@ -177,7 +189,7 @@ internal fun UserTerminalScreen(
                 onStop = store::stop,
                 onOpenTasks = {
                     store.refreshDaemonTasks()
-                    showTasks = true
+                    onOpenDaemonTasks()
                 },
                 onOpenSessions = { showSessions = true },
                 onOpenConsole = onOpenConsole,
@@ -186,15 +198,6 @@ internal fun UserTerminalScreen(
                 onMessage = showMessage,
             )
         }
-    }
-
-    if (showTasks) {
-        DaemonTasksDialog(
-            tasks = state.daemonTasks,
-            onDismiss = { showTasks = false },
-            onStop = store::stopDaemonTask,
-            onLoadLogs = store::daemonLogs,
-        )
     }
 
     if (showSessions) {
@@ -216,6 +219,59 @@ internal fun UserTerminalScreen(
             onNew = store::newSession,
         )
     }
+}
+
+/**
+ * 引导态底栏：只放环境切换，让用户能从「已切到但未安装的 Linux」切回 Android。
+ * 与 [TerminalBottomBar] 用同一颗 [Surface]（tonalElevation）保持海拔一致。
+ */
+@Composable
+private fun EnvironmentSwitchBar(
+    environment: TerminalEnvironment,
+    linuxEnvironment: TerminalEnvironment,
+    onSwitchEnvironment: (TerminalEnvironment) -> Unit,
+    onMessage: (String) -> Unit,
+) {
+    Surface(tonalElevation = 3.dp) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp)
+                .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TerminalEnvironmentSelector(
+                environment = environment,
+                linuxEnvironment = linuxEnvironment,
+                onSwitchEnvironment = onSwitchEnvironment,
+                onMessage = onMessage,
+            )
+        }
+    }
+}
+
+/** 环境切换控件：Android / Linux 分段选择，切换后给出反馈文案（引导态与底栏共用）。 */
+@Composable
+private fun TerminalEnvironmentSelector(
+    environment: TerminalEnvironment,
+    linuxEnvironment: TerminalEnvironment,
+    onSwitchEnvironment: (TerminalEnvironment) -> Unit,
+    onMessage: (String) -> Unit,
+) {
+    // stringResource 是 @Composable，进不了 onSelect 回调；两条切换文案在组合期备好。
+    val androidSwitchedMessage =
+        stringResource(R.string.terminal_env_switched, TerminalEnvironment.ANDROID.label())
+    val linuxSwitchedMessage =
+        stringResource(R.string.terminal_env_switched, linuxEnvironment.label())
+    TerminalEnvironmentTabs(
+        labels = listOf("Android", linuxEnvironment.label()),
+        selectedIndex = if (environment == TerminalEnvironment.ANDROID) 0 else 1,
+        onSelect = { index ->
+            val target = if (index == 0) TerminalEnvironment.ANDROID else linuxEnvironment
+            onSwitchEnvironment(target)
+            onMessage(if (index == 0) androidSwitchedMessage else linuxSwitchedMessage)
+        },
+    )
 }
 
 @Composable
@@ -261,7 +317,8 @@ private fun BlockList(
  *
  * - 右滑 = 复用命令（填入输入框），左滑 = 复制命令；`confirmValueChange` 返回 false，
  *   动作做完条目自动回弹——命令块由 store 持有，不能被真滑掉。
- * - 长按弹出官方 [ModalBottomSheet] 动作面板（复制命令 / 复制输出 / 复用命令）。
+ * - 长按弹出官方 [DropdownMenu] 动作菜单（复制命令 / 复制输出 / 复用命令），
+ *   锚定在命令块本身，不使用底部 Bottom Sheet。
  * - 失败态不再手绘色条：退出码用官方 `Surface` 状态标签（errorContainer）呈现。
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -299,76 +356,76 @@ private fun CommandBlock(
         modifier = Modifier.fillMaxWidth(),
         backgroundContent = { SwipeActionBackground(direction = dismissState.dismissDirection) },
     ) {
-        EtaSegmentedColumn(modifier = Modifier.fillMaxWidth()) {
-            item(key = block.id) {
-                // 点击只承担官方涟漪（终端块没有“按下就去哪”的语义），
-                // 长按打开动作面板；官方 SegmentedListItem 自带按压形变与选中态配色。
-                EtaSegmentedRow(
-                    onClick = {},
-                    onLongClick = { showActions = true },
-                ) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        TerminalMonoText(text = blockHeader(block))
-                        if (block.output.isNotEmpty()) {
-                            // 原始输出含 ANSI 序列；整段重解析保证流式截断的序列在下一次到达后恢复。
-                            val parsedOutput = remember(block.output) {
-                                ansiToAnnotatedString(block.output)
-                            }
-                            TerminalMonoText(
-                                text = parsedOutput,
-                                color = terminalMutedForeground(),
-                                modifier = Modifier.padding(top = 4.dp),
-                            )
-                        }
-                        if (block.running) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(top = 6.dp),
-                            ) {
-                                TerminalBusyIndicator(size = 14.dp)
+        Box(modifier = Modifier.fillMaxWidth()) {
+            EtaSegmentedColumn(modifier = Modifier.fillMaxWidth()) {
+                item(key = block.id) {
+                    // 点击只承担官方涟漪（终端块没有“按下就去哪”的语义），
+                    // 长按打开官方 [DropdownMenu] 动作菜单；官方 SegmentedListItem 自带按压形变与选中态配色。
+                    EtaSegmentedRow(
+                        onClick = {},
+                        onLongClick = { showActions = true },
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            TerminalMonoText(text = blockHeader(block))
+                            if (block.output.isNotEmpty()) {
+                                // 原始输出含 ANSI 序列；整段重解析保证流式截断的序列在下一次到达后恢复。
+                                val parsedOutput = remember(block.output) {
+                                    ansiToAnnotatedString(block.output)
+                                }
                                 TerminalMonoText(
-                                    text = AnnotatedString(stringResource(R.string.terminal_running)),
+                                    text = parsedOutput,
                                     color = terminalMutedForeground(),
-                                    modifier = Modifier.padding(start = 8.dp),
+                                    modifier = Modifier.padding(top = 4.dp),
                                 )
                             }
-                        }
-                        if (failed) {
-                            // 退出码：官方 Surface 做状态标签（errorContainer + shapes.extraSmall）。
-                            Surface(
-                                color = MaterialTheme.colorScheme.errorContainer,
-                                contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                                shape = MaterialTheme.shapes.extraSmall,
-                                modifier = Modifier.padding(top = 6.dp),
-                            ) {
+                            if (block.running) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(top = 6.dp),
+                                ) {
+                                    TerminalBusyIndicator(size = 14.dp)
+                                    TerminalMonoText(
+                                        text = AnnotatedString(stringResource(R.string.terminal_running)),
+                                        color = terminalMutedForeground(),
+                                        modifier = Modifier.padding(start = 8.dp),
+                                    )
+                                }
+                            }
+                            if (failed) {
+                                // 退出码：官方 Surface 做状态标签（errorContainer + shapes.extraSmall）。
+                                Surface(
+                                    color = MaterialTheme.colorScheme.errorContainer,
+                                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                                    shape = MaterialTheme.shapes.extraSmall,
+                                    modifier = Modifier.padding(top = 6.dp),
+                                ) {
+                                    TerminalMonoText(
+                                        text = AnnotatedString(
+                                            stringResource(R.string.terminal_exit_code, exitCode),
+                                        ),
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    )
+                                }
+                            }
+                            if (block.truncated) {
                                 TerminalMonoText(
-                                    text = AnnotatedString(
-                                        stringResource(R.string.terminal_exit_code, exitCode),
-                                    ),
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    text = AnnotatedString(stringResource(R.string.terminal_output_truncated)),
+                                    color = terminalMutedForeground(),
+                                    modifier = Modifier.padding(top = 4.dp),
                                 )
                             }
-                        }
-                        if (block.truncated) {
-                            TerminalMonoText(
-                                text = AnnotatedString(stringResource(R.string.terminal_output_truncated)),
-                                color = terminalMutedForeground(),
-                                modifier = Modifier.padding(top = 4.dp),
-                            )
                         }
                     }
                 }
             }
+            BlockActionMenu(
+                expanded = showActions,
+                block = block,
+                onDismiss = { showActions = false },
+                onReinput = onReinput,
+                onMessage = onMessage,
+            )
         }
-    }
-    if (showActions) {
-        BlockActionSheet(
-            block = block,
-            clipboard = clipboard,
-            onDismiss = { showActions = false },
-            onReinput = onReinput,
-            onMessage = onMessage,
-        )
     }
 }
 
@@ -435,36 +492,44 @@ private fun blockHeader(block: TerminalBlockUi): AnnotatedString {
 }
 
 /**
- * 命令块动作面板。
+ * 命令块动作菜单。
  *
- * M3E：官方 [ModalBottomSheet]（自带官方 DragHandle、容器色与手势）+
- * 官方 [ListItem] 行；比长按 [androidx.compose.material3.DropdownMenu] 更贴合手机拇指操作。
+ * M3E：官方 [DropdownMenu] 锚定在所挂的 Box（命令块）展开；条目用官方 [DropdownMenuItem]
+ * + `MenuDefaults.itemShape` 分段形状，行高 / 字阶 / 颜色全用官方默认值。
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun BlockActionSheet(
+private fun BlockActionMenu(
+    expanded: Boolean,
     block: TerminalBlockUi,
-    clipboard: ClipboardManager,
     onDismiss: () -> Unit,
     onReinput: (String) -> Unit,
     onMessage: (String) -> Unit,
 ) {
     val view = LocalView.current
+    val clipboard = LocalClipboardManager.current
     val copiedCommandMessage = stringResource(R.string.terminal_copied_command)
     val copiedOutputMessage = stringResource(R.string.terminal_copied_output)
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        BlockActionRow(
+    val itemCount = 3
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismiss,
+    ) {
+        BlockActionItem(
             icon = Icons.Rounded.ContentCopy,
             text = stringResource(R.string.terminal_copy_command),
+            shapeIndex = 0,
+            itemCount = itemCount,
         ) {
             TouchHaptics.click(view)
             clipboard.setText(AnnotatedString(block.command))
             onMessage(copiedCommandMessage)
             onDismiss()
         }
-        BlockActionRow(
+        BlockActionItem(
             icon = Icons.Rounded.Description,
             text = stringResource(R.string.terminal_copy_output),
+            shapeIndex = 1,
+            itemCount = itemCount,
             enabled = block.output.isNotEmpty(),
         ) {
             TouchHaptics.click(view)
@@ -472,9 +537,11 @@ private fun BlockActionSheet(
             onMessage(copiedOutputMessage)
             onDismiss()
         }
-        BlockActionRow(
+        BlockActionItem(
             icon = Icons.Rounded.Refresh,
             text = stringResource(R.string.terminal_reinput),
+            shapeIndex = 2,
+            itemCount = itemCount,
         ) {
             TouchHaptics.click(view)
             onReinput(block.command)
@@ -483,22 +550,28 @@ private fun BlockActionSheet(
     }
 }
 
-/** 动作面板行：官方 [ListItem]（自带涟漪、禁用态与 56dp 行高），图标用官方 leading 槽位。 */
+/** 动作菜单行：官方 [DropdownMenuItem]（自带涟漪、禁用态），图标用官方 leading 槽位。 */
 @Composable
-private fun BlockActionRow(
+private fun BlockActionItem(
     icon: ImageVector,
     text: String,
+    shapeIndex: Int,
+    itemCount: Int,
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
-    ListItem(
+    DropdownMenuItem(
         onClick = onClick,
         enabled = enabled,
-        modifier = Modifier.fillMaxWidth(),
-        leadingContent = {
-            Icon(imageVector = icon, contentDescription = null)
+        text = { M3Text(text) },
+        shape = MenuDefaults.itemShape(index = shapeIndex, count = itemCount).shape,
+        leadingIcon = {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(MenuDefaults.LeadingIconSize),
+            )
         },
-        content = { M3Text(text) },
     )
 }
 
@@ -556,11 +629,6 @@ private fun TerminalBottomBar(
     // 官方 Badge 数据源：运行中的后台任务数（原状态对这些完全静默）。
     val runningTaskCount = state.daemonTasks.count { it.running }
     val stoppedMessage = stringResource(R.string.terminal_stopped)
-    // stringResource 是 @Composable，进不了 onSelect 回调；两条切换文案在组合期备好。
-    val androidSwitchedMessage =
-        stringResource(R.string.terminal_env_switched, TerminalEnvironment.ANDROID.label())
-    val linuxSwitchedMessage =
-        stringResource(R.string.terminal_env_switched, state.linuxEnvironment.label())
     Surface(tonalElevation = 3.dp) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(
@@ -570,15 +638,11 @@ private fun TerminalBottomBar(
                     .padding(top = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TerminalEnvironmentTabs(
-                    labels = listOf("Android", state.linuxEnvironment.label()),
-                    selectedIndex = if (state.environment == TerminalEnvironment.ANDROID) 0 else 1,
-                    onSelect = { index ->
-                        val target =
-                            if (index == 0) TerminalEnvironment.ANDROID else state.linuxEnvironment
-                        onSwitchEnvironment(target)
-                        onMessage(if (index == 0) androidSwitchedMessage else linuxSwitchedMessage)
-                    },
+                TerminalEnvironmentSelector(
+                    environment = state.environment,
+                    linuxEnvironment = state.linuxEnvironment,
+                    onSwitchEnvironment = onSwitchEnvironment,
+                    onMessage = onMessage,
                 )
                 Spacer(modifier = Modifier.weight(1f))
                 if (state.running) {
@@ -614,39 +678,77 @@ private fun TerminalBottomBar(
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
                     )
                 }
-                // 会话 / 后台任务：官方 BadgedBox 徽标数量，任务徽标只在有运行中任务时出现。
-                BadgedBox(
-                    badge = {
-                        if (state.sessions.isNotEmpty()) {
-                            Badge { M3Text("${state.sessions.size}") }
+                // 会话 / 后台任务（+ 控制台）：M3E 官方连体图标按钮组（对话历史侧边栏底部
+                // 工具行同款）。EtaConnectedGroupRow 出官方连体间距，EtaConnectedIconAction 按
+                // 首/中/末位取 ButtonGroupDefaults 连体形状；徽标仍走官方 BadgedBox。
+                val sessionsDescription = stringResource(R.string.terminal_sessions)
+                val tasksDescription = stringResource(R.string.terminal_daemon_tasks)
+                val consoleDescription = stringResource(R.string.terminal_console_mode)
+                val actionCount = 2 + if (onOpenConsole != null) 1 else 0
+                EtaConnectedGroupRow {
+                    BadgedBox(
+                        badge = {
+                            if (state.sessions.isNotEmpty()) {
+                                Badge { M3Text("${state.sessions.size}") }
+                            }
+                        },
+                    ) {
+                        EtaConnectedIconAction(
+                            onClick = {
+                                TouchHaptics.click(view)
+                                onOpenSessions()
+                            },
+                            enabled = true,
+                            index = 0,
+                            count = actionCount,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Layers,
+                                contentDescription = sessionsDescription,
+                                modifier = Modifier.size(IconButtonDefaults.extraSmallIconSize),
+                            )
                         }
-                    },
-                ) {
-                    TerminalIconButton(
-                        icon = Icons.Rounded.Layers,
-                        contentDescription = stringResource(R.string.terminal_sessions),
-                        onClick = onOpenSessions,
-                    )
-                }
-                BadgedBox(
-                    badge = {
-                        if (runningTaskCount > 0) {
-                            Badge { M3Text("$runningTaskCount") }
+                    }
+                    BadgedBox(
+                        badge = {
+                            if (runningTaskCount > 0) {
+                                Badge { M3Text("$runningTaskCount") }
+                            }
+                        },
+                    ) {
+                        EtaConnectedIconAction(
+                            onClick = {
+                                TouchHaptics.click(view)
+                                onOpenTasks()
+                            },
+                            enabled = true,
+                            index = 1,
+                            count = actionCount,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Insights,
+                                contentDescription = tasksDescription,
+                                modifier = Modifier.size(IconButtonDefaults.extraSmallIconSize),
+                            )
                         }
-                    },
-                ) {
-                    TerminalIconButton(
-                        icon = Icons.Rounded.Insights,
-                        contentDescription = stringResource(R.string.terminal_daemon_tasks),
-                        onClick = onOpenTasks,
-                    )
-                }
-                if (onOpenConsole != null) {
-                    TerminalIconButton(
-                        icon = Icons.Rounded.Terminal,
-                        contentDescription = stringResource(R.string.terminal_console_mode),
-                        onClick = onOpenConsole,
-                    )
+                    }
+                    if (onOpenConsole != null) {
+                        EtaConnectedIconAction(
+                            onClick = {
+                                TouchHaptics.click(view)
+                                onOpenConsole()
+                            },
+                            enabled = true,
+                            index = 2,
+                            count = actionCount,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Terminal,
+                                contentDescription = consoleDescription,
+                                modifier = Modifier.size(IconButtonDefaults.extraSmallIconSize),
+                            )
+                        }
+                    }
                 }
             }
             // 快捷命令：官方 AssistChip 一行，仅在输入为空时出现，点击填入输入框（不直接执行）。
@@ -698,7 +800,7 @@ private fun InputRow(
     )
     val sendDescription = stringResource(R.string.terminal_send)
     val view = LocalView.current
-    // 官方 OutlinedTextField + 官方 FilledIconButton（发送）；不覆盖形状、配色与容器尺寸。
+    // 官方 OutlinedTextField + 官方 IconButton（发送）；发送键不加容器底板，仅保留箭头图标。
     OutlinedTextField(
         value = input,
         onValueChange = onInputChange,
@@ -717,7 +819,7 @@ private fun InputRow(
             )
         },
         trailingIcon = {
-            FilledIconButton(
+            IconButton(
                 onClick = {
                     TouchHaptics.click(view)
                     onSubmit()
@@ -727,6 +829,7 @@ private fun InputRow(
                 Icon(
                     imageVector = Icons.Rounded.ArrowUpward,
                     contentDescription = sendDescription,
+                    tint = if (canSend) terminalAccentColor() else terminalMutedForeground(),
                 )
             }
         },

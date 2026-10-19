@@ -45,6 +45,9 @@ sealed interface AppRoute {
     data object SettingsSearch : AppRoute
 
     @Serializable
+    data object SystemTakeover : AppRoute
+
+    @Serializable
     data object About : AppRoute
 
     @Serializable
@@ -133,6 +136,20 @@ sealed interface AppRoute {
 
     @Serializable
     data object ManageChats : AppRoute
+
+    /** [conversationScoped] 为 true 时只检索当前会话（首页顶栏入口），否则跨全部会话。 */
+    @Serializable
+    data class MessageSearch(val conversationScoped: Boolean = false) : AppRoute
+
+    @Serializable
+    data object ConversationTokenUsage : AppRoute
+
+    @Serializable
+    data object SubAgentStatus : AppRoute
+
+    /** 守护任务列表页；终端块视图与控制台视图共用。 */
+    @Serializable
+    data object TerminalDaemonTasks : AppRoute
 }
 
 @Serializable

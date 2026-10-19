@@ -1,14 +1,10 @@
 package io.github.mangi.eta.ui.screens.terminal
-import io.github.mangi.eta.R
-import io.github.mangi.eta.ui.haptics.TouchHaptics
-import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.res.stringResource
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -25,41 +21,51 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.terminal.TerminalEnvironment
-import io.github.mangi.eta.ui.adaptive.EtaDialog
+import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
 import io.github.mangi.eta.ui.app.DaemonTaskUi
+import io.github.mangi.eta.ui.haptics.TouchHaptics
 import kotlinx.coroutines.launch
 
-/** 守护任务列表面板；终端块视图与控制台视图共用。 */
+/**
+ * 守护任务列表页；终端块视图与控制台视图共用入口跳转到这里。
+ *
+ * 数据由路由页实时投影（终端会话仍在常驻运行），所以停在页面上任务状态也会继续变化。
+ */
 @Composable
-internal fun DaemonTasksDialog(
+internal fun DaemonTasksScreen(
     tasks: List<DaemonTaskUi>,
-    onDismiss: () -> Unit,
+    onBack: () -> Unit,
     onStop: (String) -> Unit,
     onLoadLogs: suspend (String) -> String,
 ) {
-    EtaDialog(
-        show = true,
+    EtaScaffoldPage(
         title = stringResource(R.string.terminal_daemon_tasks),
-        onDismissRequest = onDismiss,
+        onBack = onBack,
     ) {
         if (tasks.isEmpty()) {
-            TerminalBodyText(
-                text = stringResource(R.string.terminal_daemon_empty),
-                color = terminalMutedForeground(),
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 24.dp),
-            )
+            item(key = "empty") {
+                TerminalBodyText(
+                    text = stringResource(R.string.terminal_daemon_empty),
+                    color = terminalMutedForeground(),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 24.dp),
+                )
+            }
         } else {
-            LazyColumn(modifier = Modifier.heightIn(max = 360.dp)) {
-                items(items = tasks, key = { it.id }) { task ->
+            items(items = tasks, key = { it.id }) { task ->
+                // 行与它展开的日志面板同属一个条目，展开时不会把后续行挤散。
+                Column(modifier = Modifier.fillMaxWidth()) {
                     DaemonTaskRow(task = task, onStop = onStop, onLoadLogs = onLoadLogs)
                 }
             }

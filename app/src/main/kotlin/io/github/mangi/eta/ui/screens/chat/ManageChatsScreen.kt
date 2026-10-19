@@ -49,13 +49,11 @@ import io.github.mangi.eta.ui.adaptive.EtaSegmentedItem
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 import io.github.mangi.eta.ui.adaptive.EtaText
 import io.github.mangi.eta.ui.adaptive.EtaTextStyle
-import io.github.mangi.eta.ui.app.SearchHistoryDialog
 import io.github.mangi.eta.ui.components.streamDiagnosticDraw
 import io.github.mangi.eta.ui.components.streamDiagnosticMeasure
 import io.github.mangi.eta.ui.components.streamDiagnosticPlacement
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.model.ConversationSummaryUi
-import io.github.mangi.eta.ui.model.MessageSearchHit
 
 /** 管理页列表顺序。已有会话保持原位；新会话按当前列表里的相对顺序插到最前。置顶变化才整表重排。 */
 internal fun stableManageChatOrder(
@@ -78,15 +76,13 @@ internal fun ManageChatsScreen(
     onTogglePin: (String) -> Unit,
     onDeleteConversation: (ConversationSummaryUi) -> Unit,
     onDeleteAll: () -> Unit,
-    onSearchHistory: suspend (String) -> List<MessageSearchHit> = { emptyList() },
-    onOpenHistoryHit: (MessageSearchHit) -> Unit = {},
+    onOpenSearchHistory: () -> Unit = {},
 ) {
     var showDeleteAll by remember { mutableStateOf(false) }
     // 单条删除不再走左滑手势：尾部删除按钮先记下目标，弹官方对话框二次确认。
     var pendingDelete by remember { mutableStateOf<ConversationSummaryUi?>(null) }
     // 对话框存活期间父级回调可能重建，确认时始终取最新的一份。
     val currentOnDelete by rememberUpdatedState(onDeleteConversation)
-    var showSearchHistory by remember { mutableStateOf(false) }
     // 多个会话同时在跑时，更新时间会不断把它们换到前面。管理页按打开时的顺序钉住，
     // 只在原地刷新标题和状态，行尾的置顶 / 删除按钮才点得中。新出现的会话插到最前，
     // 关掉页面再打开才重排。
@@ -118,7 +114,7 @@ internal fun ManageChatsScreen(
             TopBarIconButton(
                 icon = Icons.Rounded.Search,
                 contentDescription = stringResource(R.string.action_search_history),
-                onClick = { showSearchHistory = true },
+                onClick = { onOpenSearchHistory() },
             )
             TopBarIconButton(
                 icon = Icons.Rounded.Delete,
@@ -163,32 +159,24 @@ internal fun ManageChatsScreen(
         }
     }
 
-    SearchHistoryDialog(
-        show = showSearchHistory,
-        onDismiss = { showSearchHistory = false },
-        onSearch = onSearchHistory,
-        onOpenHit = { hit ->
-            showSearchHistory = false
-            onOpenHistoryHit(hit)
-        },
-    )
-
     if (showDeleteAll) {
         EtaDialog(
             show = true,
             title = stringResource(R.string.history_page_delete_all_title),
             summary = stringResource(R.string.history_page_delete_all_message),
             onDismissRequest = { showDeleteAll = false },
+            actions = {
+                EtaDialogActions(
+                    confirmText = stringResource(R.string.action_delete),
+                    destructive = true,
+                    onCancel = { showDeleteAll = false },
+                    onConfirm = {
+                        onDeleteAll()
+                        showDeleteAll = false
+                    },
+                )
+            },
         ) {
-            EtaDialogActions(
-                confirmText = stringResource(R.string.action_delete),
-                destructive = true,
-                onCancel = { showDeleteAll = false },
-                onConfirm = {
-                    onDeleteAll()
-                    showDeleteAll = false
-                },
-            )
         }
     }
 
@@ -199,16 +187,18 @@ internal fun ManageChatsScreen(
             title = stringResource(R.string.conversation_delete_title),
             summary = stringResource(R.string.conversation_delete_message),
             onDismissRequest = { pendingDelete = null },
+            actions = {
+                EtaDialogActions(
+                    confirmText = stringResource(R.string.action_delete),
+                    destructive = true,
+                    onCancel = { pendingDelete = null },
+                    onConfirm = {
+                        currentOnDelete(conversation)
+                        pendingDelete = null
+                    },
+                )
+            },
         ) {
-            EtaDialogActions(
-                confirmText = stringResource(R.string.action_delete),
-                destructive = true,
-                onCancel = { pendingDelete = null },
-                onConfirm = {
-                    currentOnDelete(conversation)
-                    pendingDelete = null
-                },
-            )
         }
     }
 }

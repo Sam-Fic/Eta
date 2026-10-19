@@ -1,0 +1,89 @@
+package io.github.mangi.eta.ui.screens.chat
+
+import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.adaptive.EtaClickableRow
+import io.github.mangi.eta.ui.adaptive.EtaGroupHorizontalPadding
+import io.github.mangi.eta.ui.adaptive.EtaSearchPage
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedGap
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedGroupSpacing
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedItem
+import io.github.mangi.eta.ui.components.ListEmptyState
+import io.github.mangi.eta.ui.model.MessageSearchHit
+
+/** 查询历史分域键：消息搜索历史独立存储。 */
+private const val HISTORY_KEY = "messages"
+
+/**
+ * 独立搜索页：从顶栏溢出菜单「搜索记录」跳入，整页即搜索。
+ *
+ * 顶栏是「返回钮 + 透明底搜索框 + 清除按钮」（官方 [EtaSearchPage]），进入即自动聚焦弹键盘；
+ * 未输入时有查询记录、无记录才显示官方 Empty state，不复制宿主页内容。检索是挂起调用
+ * （会话可能尚未装载，需回落到存档扫描），所以结果由本页自己持有：零尺寸的副作用条目
+ * 按搜索词重启检索，结果回来后触发列表重建；点按命中行即跳到对应消息并退出本页。
+ */
+@Composable
+internal fun MessageSearchScreen(
+    onSearch: suspend (String) -> List<MessageSearchHit>,
+    onOpenHit: (MessageSearchHit) -> Unit,
+    onBack: () -> Unit,
+    showConversationTitle: Boolean = false,
+) {
+    var searchedQuery by remember { mutableStateOf("") }
+    var results by remember { mutableStateOf<List<MessageSearchHit>>(emptyList()) }
+
+    EtaSearchPage(
+        searchPlaceholder = stringResource(R.string.search_history_hint),
+        onBack = onBack,
+        historyKey = HISTORY_KEY,
+    ) { query ->
+        // LazyListScope 不是 Composable 作用域：异步检索挂在零尺寸条目上，随搜索词重启。
+        item(key = "message_search_effect") {
+            LaunchedEffect(query) {
+                searchedQuery = query
+                results = onSearch(query)
+            }
+        }
+        // 结果尚未对齐当前搜索词时不画列表，避免上一轮的命中短暂残留。
+        if (searchedQuery == query) {
+            if (results.isEmpty()) {
+                item(key = "message_search_empty") {
+                    ListEmptyState(title = stringResource(R.string.search_history_no_results))
+                }
+            } else {
+                results.forEachIndexed { index, hit ->
+                    item(key = "${hit.conversationId}:${hit.messageId}") {
+                        EtaSegmentedItem(index = index, count = results.size) {
+                            EtaClickableRow(
+                                title = hit.snippet,
+                                summary = if (showConversationTitle) {
+                                    "${hit.conversationTitle} · ${hit.roleLabel}"
+                                } else {
+                                    hit.roleLabel
+                                },
+                                onClick = { onOpenHit(hit) },
+                                modifier = Modifier.padding(
+                                    start = EtaGroupHorizontalPadding,
+                                    end = EtaGroupHorizontalPadding,
+                                    bottom = if (index == results.lastIndex) {
+                                        EtaSegmentedGroupSpacing
+                                    } else {
+                                        EtaSegmentedGap
+                                    },
+                                ),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

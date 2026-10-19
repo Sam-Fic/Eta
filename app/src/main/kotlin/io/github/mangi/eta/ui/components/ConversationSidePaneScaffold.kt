@@ -5,7 +5,6 @@ import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.exponentialDecay
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -79,6 +78,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconButtonShapes
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Surface as M3Surface
@@ -89,6 +89,7 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -250,20 +251,9 @@ fun ConversationSidePaneScaffold(
     val currentOnDismiss by rememberUpdatedState(onDismiss)
     var drawerBlocksIme by remember { mutableStateOf(visible) }
 
-    fun launchAfterDrawerClosed(action: () -> Unit) {
-        drawerScope.launch {
-            if (drawerState.targetValue != DrawerValue.Closed ||
-                drawerState.currentValue != DrawerValue.Closed
-            ) {
-                drawerState.snapTo(DrawerValue.Closed)
-            }
-            action()
-        }
-    }
-
     // 选中会话即收起侧栏回到聊天主页，与「新建对话」/历史搜索命中的行为一致。
-    // 走后缀动画而不是 launchAfterDrawerClosed 的 snapTo：和手滑关闭同一条缓动，
-    // 观感一致；这里不涉及导航入栈，不会出现底部按钮切页那种整页重组卡顿。
+    // 走后缀动画而不是瞬时合上：和手滑关闭同一条缓动，观感一致。
+    // 这里不涉及导航入栈，不会出现底部按钮切页那种整页重组卡顿。
     val selectConversationAndClosePane: (String) -> Unit = { conversationId ->
         onConversationSelected(conversationId)
         drawerScope.launch {
@@ -283,7 +273,7 @@ fun ConversationSidePaneScaffold(
         val target = if (visible) DrawerValue.Open else DrawerValue.Closed
         if (drawerState.targetValue == target) return@LaunchedEffect
         if (!visible && drawerState.currentValue == DrawerValue.Open) {
-            // 从底部按钮切页：抽屉是完全打开的，瞬时合上再让新页入场。
+            // 程序化收起（新建对话、返回键等）：抽屉是完全打开的，瞬时合上。
             // 手势收回时 currentValue 会先变成 Closed，这里不会走到。
             drawerState.snapTo(target)
             return@LaunchedEffect
@@ -311,6 +301,13 @@ fun ConversationSidePaneScaffold(
 
     LaunchedEffect(visible) {
         drawerBlocksIme = visible
+    }
+
+    // 侧栏宿主页（首页）被导航盖住、整页移出组合后，复位调用方持有的「展开」标记。
+    // 转场期间必须保持展开：此时侧栏是首页仅有的可见表面，若提前合上会露出聊天主页
+    // 造成闪动；等首页真正移出组合再复位，回首页时侧栏仍从收起态开始。
+    DisposableEffect(Unit) {
+        onDispose { currentOnDismiss() }
     }
 
     LaunchedEffect(drawerState, visible, focusManager, keyboard, view) {
@@ -386,20 +383,20 @@ fun ConversationSidePaneScaffold(
                     onNewConversation = onNewConversation,
                     onConversationTogglePin = onConversationTogglePin,
                     onConversationExport = onConversationExport,
-                    onOpenManageChats = { launchAfterDrawerClosed(onOpenManageChats) },
+                    onOpenManageChats = onOpenManageChats,
                     onSelectFolder = onSelectFolder,
                     onCreateFolder = onCreateFolder,
                     onRenameFolder = onRenameFolder,
                     onDeleteFolder = onDeleteFolder,
                     selectedAssistantId = selectedAssistantId,
                     onSelectAssistant = onSelectAssistant,
-                    onEditAssistant = { id -> launchAfterDrawerClosed { onEditAssistant(id) } },
-                    onOpenAssistants = { launchAfterDrawerClosed(onOpenAssistants) },
-                    onOpenSettings = { launchAfterDrawerClosed(onOpenSettings) },
-                    onOpenModelProviders = { launchAfterDrawerClosed(onOpenModelProviders) },
-                    onOpenUsageStats = { launchAfterDrawerClosed(onOpenUsageStats) },
-                    onOpenSkills = { launchAfterDrawerClosed(onOpenSkills) },
-                    onOpenPermissions = { launchAfterDrawerClosed(onOpenPermissions) },
+                    onEditAssistant = onEditAssistant,
+                    onOpenAssistants = onOpenAssistants,
+                    onOpenSettings = onOpenSettings,
+                    onOpenModelProviders = onOpenModelProviders,
+                    onOpenUsageStats = onOpenUsageStats,
+                    onOpenSkills = onOpenSkills,
+                    onOpenPermissions = onOpenPermissions,
                     modifier = Modifier.fillMaxHeight(),
                 )
             },
@@ -497,6 +494,14 @@ private fun FolderNameDialog(
         show = true,
         title = title,
         onDismissRequest = onDismiss,
+        actions = {
+            EtaDialogActions(
+                confirmText = stringResource(R.string.action_save),
+                confirmEnabled = name.isNotBlank(),
+                onCancel = onDismiss,
+                onConfirm = { onConfirm(name) },
+            )
+        },
     ) {
         Column {
             EtaTextField(
@@ -514,13 +519,6 @@ private fun FolderNameDialog(
                         if (name.isNotBlank()) onConfirm(name)
                     },
                 ),
-            )
-            EtaDialogActions(
-                confirmText = stringResource(R.string.action_save),
-                confirmEnabled = name.isNotBlank(),
-                onCancel = onDismiss,
-                onConfirm = { onConfirm(name) },
-                modifier = Modifier.padding(top = 16.dp),
             )
         }
     }
@@ -812,16 +810,18 @@ private fun Material3ConversationPane(
             title = stringResource(R.string.drawer_delete_folder_title),
             summary = stringResource(R.string.drawer_delete_folder_message),
             onDismissRequest = { folderToDelete = null },
+            actions = {
+                EtaDialogActions(
+                    confirmText = stringResource(R.string.action_delete),
+                    destructive = true,
+                    onCancel = { folderToDelete = null },
+                    onConfirm = {
+                        onDeleteFolder(folder.id)
+                        folderToDelete = null
+                    },
+                )
+            },
         ) {
-            EtaDialogActions(
-                confirmText = stringResource(R.string.action_delete),
-                destructive = true,
-                onCancel = { folderToDelete = null },
-                onConfirm = {
-                    onDeleteFolder(folder.id)
-                    folderToDelete = null
-                },
-            )
         }
     }
 }
@@ -1176,6 +1176,7 @@ private fun Material3EmptyConversations(isSearching: Boolean) {
  * 由列表 contentPadding 收尾）；行首不加 radio 图标。
  * 长按菜单仍用官方 `DropdownMenu` / `DropdownMenuItem`。
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun Material3ConversationRow(
     conversation: ConversationSummaryUi,
@@ -1222,23 +1223,22 @@ private fun Material3ConversationRow(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(DrawerMetrics.ActiveDotGap),
                         ) {
-                            if (conversation.isActiveRun || conversation.hasCompletionMarker) {
+                            if (conversation.isActiveRun) {
+                                // M3E LoadingIndicator（morph 变形）：行尾运行态标记，
+                                // 与工具行、AgentStatusCard 的运行态同一套 loading 语言。
+                                LoadingIndicator(
+                                    modifier = Modifier.size(IconButtonDefaults.extraSmallIconSize),
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            } else if (conversation.hasCompletionMarker) {
                                 Box(
                                     modifier = Modifier
                                         .size(DrawerMetrics.ActiveDotSize)
                                         .clip(CircleShape)
-                                        .then(
-                                            if (conversation.isActiveRun) {
-                                                Modifier.background(
-                                                    MaterialTheme.colorScheme.primary,
-                                                )
-                                            } else {
-                                                Modifier.border(
-                                                    width = 1.dp,
-                                                    color = MaterialTheme.colorScheme.primary,
-                                                    shape = CircleShape,
-                                                )
-                                            },
+                                        .border(
+                                            width = 1.dp,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            shape = CircleShape,
                                         ),
                                 )
                             }

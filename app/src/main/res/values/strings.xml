@@ -51,7 +51,6 @@
   <string name="action_launch_kimi_web">Launch Kimi Web</string>
   <string name="action_sub_agent_status">Sub-agent status</string>
   <string name="sub_agent_status_empty">This conversation has no sub-agents</string>
-  <string name="sub_agent_status_close">Close</string>
   <string name="route_chat">Chat</string>
   <string name="route_browser">Agent browser</string>
   <string name="route_tools">Tools</string>
@@ -176,6 +175,10 @@
   <string name="route_provider_details">Provider details</string>
   <string name="route_new_provider">New provider</string>
   <string name="settings_general">General</string>
+  <string name="settings_tool_capabilities">Agent tool capabilities</string>
+  <string name="settings_runtime_environment">Runtime environment</string>
+  <string name="settings_system_takeover">System takeover</string>
+  <string name="settings_system_takeover_summary">Default assistant, power-key target, OEM assistant compatibility (Xiaobu/Xiaoai), Gemini and circle to search</string>
   <string name="app_press_back_again_to_exit">Press back again to exit</string>
   <string name="settings_diagnostics">Diagnostics</string>
   <string name="settings_file_logging">Record diagnostic logs</string>
@@ -237,8 +240,6 @@
   <string name="appearance_blur_style_progressive">Progressive</string>
   <string name="appearance_blur_style_gaussian_summary">Apply uniform blur across the top bar</string>
   <string name="appearance_blur_style_progressive_summary">Increase blur progressively toward the top</string>
-  <string name="appearance_swipe_dismiss">Swipe back gesture</string>
-  <string name="appearance_swipe_dismiss_summary">Swipe horizontally anywhere on a page to return</string>
   <string name="appearance_predictive_back">Predictive back gesture</string>
   <string name="appearance_predictive_back_summary">Enable predictive back animations</string>
   <string name="appearance_interface_scale">Interface scale</string>
@@ -572,6 +573,8 @@
   <string name="tool_eta_get_settings">Read Eta settings</string>
   <string name="tool_eta_set_settings">Change Eta settings</string>
   <string name="tool_eta_manage_models">Configure Eta models</string>
+  <string name="tool_eta_manage_subagents">Manage Eta sub-agents</string>
+  <string name="tool_eta_manage_history">Manage Eta chat history</string>
   <string name="state_eta_itself">Eta itself</string>
   <string name="tool_ui_eta_get_settings">Read Eta settings</string>
   <string name="tool_ui_eta_get_settings_summary">Read every switch of Eta itself together with its current value.</string>
@@ -579,6 +582,10 @@
   <string name="tool_ui_eta_set_settings_summary">Change switches of Eta itself, for example turning on read-aloud.</string>
   <string name="tool_ui_eta_manage_models">Configure Eta models</string>
   <string name="tool_ui_eta_manage_models_summary">Switch, add or remove the models and providers Eta itself uses.</string>
+  <string name="tool_ui_eta_manage_subagents">Manage Eta sub-agents</string>
+  <string name="tool_ui_eta_manage_subagents_summary">Create, edit and apply the sub-agent groups Eta itself uses.</string>
+  <string name="tool_ui_eta_manage_history">Manage Eta chat history</string>
+  <string name="tool_ui_eta_manage_history_summary">Create folders and rename, move, pin or delete the conversations Eta stores.</string>
   <string name="settings_self_settings_tools">Eta self-configuration tools</string>
   <string name="settings_self_settings_tools_summary">Let the model read and change Eta\'s own settings, models and providers.</string>
   <string name="tool_status_running">Running</string>
@@ -1914,7 +1921,6 @@
   <string name="ast_body">The main reply has ended; unfinished sub-agents were asked to pause. Keeping them paused lets you check and continue later; stopping also keeps existing results. Backing out or closing keeps them paused by default.</string>
   <string name="ast_stop">Stop sub-agents</string>
   <string name="ast_pause">Pause sub-agents</string>
-  <string name="spa_sheet_desc">Sub-agent group actions</string>
   <string name="spa_rename_group">Rename group</string>
   <string name="spa_delete_group">Delete group</string>
   <string name="spn_group_name">Group name</string>

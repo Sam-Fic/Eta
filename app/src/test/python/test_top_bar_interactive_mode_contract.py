@@ -66,7 +66,7 @@ class TopBarInteractiveModeContractTest(unittest.TestCase):
     def setUpClass(cls):
         cls.menu = read("ui/app/TopBarOverflowMenu.kt")
         popup = cls.menu.index("EtaDropdownMenu(")
-        cls.content = cls.menu[popup:cls.menu.index("ConversationTokenUsageDialog(", popup)]
+        cls.content = cls.menu[popup:cls.menu.index("CompressConversationDialog(", popup)]
         cls.entries = []
         cls.sequence = []
         for match in re.finditer(r"\b(DropdownMenuItem|MenuSectionDivider)\(", cls.content):
@@ -220,8 +220,8 @@ class TopBarInteractiveModeContractTest(unittest.TestCase):
                      "canStopKimiWeb", "onStopKimiWeb", "onRefreshKimiWeb", "onOpenBrowser",
                      "onOpenWorkspace", "onOpenVoiceSettings",
                      "autoCompressEnabled", "isCompressingContext",
-                     "onToggleAutoCompress", "onCompressConversation", "onSearchHistory",
-                     "onOpenHistoryHit", "tokenUsage", "subAgentStatuses",
+                     "onToggleAutoCompress", "onCompressConversation", "onOpenSearchHistory",
+                     "onOpenTokenUsage", "onOpenSubAgentStatus",
                      "canDeleteCurrentConversation", "onDeleteCurrentConversation"):
             with self.subTest(parameter=name):
                 self.assertRegex(declaration, r"\b" + name + r"\s*:")

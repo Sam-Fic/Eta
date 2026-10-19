@@ -23,6 +23,9 @@ import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Info
@@ -100,7 +103,10 @@ import io.github.mangi.eta.ui.screens.assistants.AssistantsScreen
 import io.github.mangi.eta.ui.screens.backup.DataBackupScreen
 import io.github.mangi.eta.ui.screens.browser.AgentBrowserScreen
 import io.github.mangi.eta.ui.screens.chat.AgentChatScreen
+import io.github.mangi.eta.ui.screens.chat.ConversationTokenUsageScreen
 import io.github.mangi.eta.ui.screens.chat.ManageChatsScreen
+import io.github.mangi.eta.ui.screens.chat.MessageSearchScreen
+import io.github.mangi.eta.ui.screens.chat.SubAgentStatusScreen
 import io.github.mangi.eta.ui.screens.enhance.SystemEnhanceScreen
 import io.github.mangi.eta.ui.screens.home.AgentHomeScreen
 import io.github.mangi.eta.ui.screens.mcp.McpServerDetailScreen
@@ -109,6 +115,7 @@ import io.github.mangi.eta.ui.screens.memory.AgentMemoryScreen
 import io.github.mangi.eta.ui.screens.permissions.PermissionHealthScreen
 import io.github.mangi.eta.ui.screens.skills.AgentSkillsScreen
 import io.github.mangi.eta.ui.screens.stats.UsageStatsScreen
+import io.github.mangi.eta.ui.screens.terminal.DaemonTasksScreen
 import io.github.mangi.eta.ui.screens.terminal.LinuxEnvironmentScreen
 import io.github.mangi.eta.ui.screens.terminal.LinuxFilesScreen
 import io.github.mangi.eta.ui.screens.terminal.SharedFoldersScreen
@@ -373,8 +380,8 @@ fun AgentAppRoot(
     }
 
     fun pushFromDrawer(route: AppRoute) {
-        // 先收起抽屉再入栈：抽屉和页面一起转场时底部按钮会顿一下。
-        conversationPaneOpen = false
+        // 保持侧栏展开直接入栈：让侧栏作为首页的可见表面随首页一起退场。
+        // 若先收起侧栏，会在目标页入场前露出一段聊天主页，看起来就是闪一下。
         pushRoute(route)
     }
 
@@ -479,15 +486,9 @@ fun AgentAppRoot(
                     onFinished,
                 )
             },
-            onSearchHistory = { query ->
-                agentState.searchHistory(query, currentConversationOnly = true)
-            },
-            onOpenHistoryHit = { hit ->
-                conversationPaneOpen = false
-                agentState.openHistorySearchHit(hit)
-            },
-            tokenUsage = cumulativeUsage,
-            subAgentStatuses = shellHomeState.childStatusRoster,
+            onOpenSearchHistory = { pushRoute(AppRoute.MessageSearch(conversationScoped = true)) },
+            onOpenTokenUsage = { pushRoute(AppRoute.ConversationTokenUsage) },
+            onOpenSubAgentStatus = { pushRoute(AppRoute.SubAgentStatus) },
             selectedProviderId = agentState.modelPickerState.selectedModel?.providerId,
             onSelectConversation = { conversationId -> selectConversation(conversationId) },
             onConversationRename = { conversation ->
@@ -584,6 +585,8 @@ fun AgentAppRoot(
         exitTransition = navigationTransition.exitTransition,
         popEnterTransition = navigationTransition.popEnterTransition,
         popExitTransition = navigationTransition.popExitTransition,
+        predictivePopEnterTransition = navigationTransition.predictivePopEnterTransition,
+        predictivePopExitTransition = navigationTransition.predictivePopExitTransition,
     ) {
             composable<AppRoute.Home> {
                 RoutedShell(route = AppRoute.Home, underlapTopBar = true) {
@@ -735,8 +738,21 @@ fun AgentAppRoot(
                         terminalStore = appViewModel.terminalStore,
                         consoleStore = appViewModel.consoleStore,
                         onOpenEnvironment = { pushRoute(AppRoute.LinuxEnvironment) },
+                        onOpenDaemonTasks = { pushRoute(AppRoute.TerminalDaemonTasks) },
                     )
                 }
+            }
+            composable<AppRoute.TerminalDaemonTasks> {
+                val terminalStore = appViewModel.terminalStore
+                val terminalState by terminalStore.uiState.collectAsState()
+                // 终端会话常驻运行：进页面先刷新一次，之后随终端状态继续更新。
+                LaunchedEffect(Unit) { terminalStore.refreshDaemonTasks() }
+                DaemonTasksScreen(
+                    tasks = terminalState.daemonTasks,
+                    onBack = ::popRoute,
+                    onStop = terminalStore::stopDaemonTask,
+                    onLoadLogs = terminalStore::daemonLogs,
+                )
             }
             composable<AppRoute.Haptics> {
                 HapticsSettingsScreen(onBack = ::popRoute)
@@ -925,11 +941,40 @@ fun AgentAppRoot(
                         agentState.deleteConversation(conversation.id)
                     },
                     onDeleteAll = { agentState.deleteAllConversations() },
-                    onSearchHistory = { query -> agentState.searchHistory(query) },
-                    onOpenHistoryHit = { hit ->
+                    onOpenSearchHistory = { pushRoute(AppRoute.MessageSearch()) },
+                )
+            }
+            composable<AppRoute.MessageSearch> { entry ->
+                val route = entry.toRoute<AppRoute.MessageSearch>()
+                MessageSearchScreen(
+                    onSearch = { query ->
+                        agentState.searchHistory(
+                            query,
+                            currentConversationOnly = route.conversationScoped,
+                        )
+                    },
+                    onOpenHit = { hit ->
+                        conversationPaneOpen = false
                         agentState.openHistorySearchHit(hit)
                         popRoute()
                     },
+                    onBack = ::popRoute,
+                    // 跨会话检索时命中行要标出所属会话，会话内检索则省掉这层噪音。
+                    showConversationTitle = !route.conversationScoped,
+                )
+            }
+            composable<AppRoute.ConversationTokenUsage> {
+                // 与旧弹窗同源：用量取当前会话的实时投影，页面留在栈上也会随对话继续变化。
+                ConversationTokenUsageScreen(
+                    usage = cumulativeUsage,
+                    onBack = ::popRoute,
+                )
+            }
+            composable<AppRoute.SubAgentStatus> {
+                // 与旧弹窗同源：取当前会话的实时子助手名册。
+                SubAgentStatusScreen(
+                    agents = shellHomeState.childStatusRoster,
+                    onBack = ::popRoute,
                 )
             }
             composable<AppRoute.Settings> {
@@ -943,6 +988,13 @@ fun AgentAppRoot(
             }
             composable<AppRoute.SettingsSearch> {
                 io.github.mangi.eta.ui.SettingsSearchScreen(
+                    context = context,
+                    onNavigate = { route -> pushRoute(route) },
+                    onBack = ::popRoute,
+                )
+            }
+            composable<AppRoute.SystemTakeover> {
+                io.github.mangi.eta.ui.SystemTakeoverSettingsScreen(
                     context = context,
                     onNavigate = { route -> pushRoute(route) },
                     onBack = ::popRoute,
@@ -1137,15 +1189,7 @@ fun AgentAppRoot(
             title = stringResource(R.string.conversation_rename_title),
             onDismissRequest = { conversationRenameTarget = null },
             icon = Icons.Rounded.Info,
-        ) {
-            Column {
-                io.github.mangi.eta.ui.adaptive.EtaTextField(
-                    value = renameInput,
-                    onValueChange = { renameInput = it },
-                    label = stringResource(R.string.conversation_rename_hint),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+            actions = {
                 EtaDialogActions(
                     confirmText = stringResource(R.string.action_save),
                     confirmEnabled = renameInput.isNotBlank(),
@@ -1154,7 +1198,16 @@ fun AgentAppRoot(
                         agentState.renameConversation(conversation.id, renameInput)
                         conversationRenameTarget = null
                     },
-                    modifier = Modifier.padding(top = 16.dp),
+                )
+            },
+        ) {
+            Column {
+                io.github.mangi.eta.ui.adaptive.EtaTextField(
+                    value = renameInput,
+                    onValueChange = { renameInput = it },
+                    label = stringResource(R.string.conversation_rename_hint),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         }
@@ -1180,20 +1233,22 @@ fun AgentAppRoot(
                 conversationExportConfirmation = false
                 conversationExportId = null
             },
+            actions = {
+                EtaDialogActions(
+                    confirmText = stringResource(R.string.conversation_export_choose_location),
+                    onCancel = {
+                        conversationExportConfirmation = false
+                        conversationExportId = null
+                    },
+                    onConfirm = {
+                        conversationExportConfirmation = false
+                        val stamp = SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())
+                        val title = conversationExportTitle.replace(Regex("""[\\/:*?"<>|]"""), "_").take(40)
+                        conversationExportLauncher.launch("Eta-$title-$stamp.zip")
+                    },
+                )
+            },
         ) {
-            EtaDialogActions(
-                confirmText = stringResource(R.string.conversation_export_choose_location),
-                onCancel = {
-                    conversationExportConfirmation = false
-                    conversationExportId = null
-                },
-                onConfirm = {
-                    conversationExportConfirmation = false
-                    val stamp = SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())
-                    val title = conversationExportTitle.replace(Regex("""[\\/:*?"<>|]"""), "_").take(40)
-                    conversationExportLauncher.launch("Eta-$title-$stamp.zip")
-                },
-            )
         }
     }
 
@@ -1203,16 +1258,18 @@ fun AgentAppRoot(
             title = stringResource(R.string.conversation_delete_title),
             summary = stringResource(R.string.conversation_delete_message),
             onDismissRequest = { conversationDeleteTarget = null },
+            actions = {
+                EtaDialogActions(
+                    confirmText = stringResource(R.string.action_delete),
+                    destructive = true,
+                    onCancel = { conversationDeleteTarget = null },
+                    onConfirm = {
+                        agentState.deleteConversation(conversation.id)
+                        conversationDeleteTarget = null
+                    },
+                )
+            },
         ) {
-            EtaDialogActions(
-                confirmText = stringResource(R.string.action_delete),
-                destructive = true,
-                onCancel = { conversationDeleteTarget = null },
-                onConfirm = {
-                    agentState.deleteConversation(conversation.id)
-                    conversationDeleteTarget = null
-                },
-            )
         }
     }
 
@@ -1221,28 +1278,37 @@ fun AgentAppRoot(
             show = true,
             title = stringResource(R.string.drawer_move_to_folder),
             onDismissRequest = { conversationMoveTarget = null },
-        ) {
-            Column {
-                val folders = agentState.conversationPaneState.folders
-                MoveFolderOption(
-                    label = stringResource(R.string.drawer_chats_chip),
-                    selected = conversation.folderId.isNullOrBlank(),
-                    onClick = {
-                        agentState.moveConversationToFolder(conversation.id, null)
-                        conversationMoveTarget = null
-                    },
-                )
-                folders.forEach { folder ->
+            actions = {
+                // 分组可能很多：按弹窗列表约定给 360dp 上限并允许滚动，
+                // 避免移出 text 槽后失去高度约束被弹窗裁切。
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 360.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    val folders = agentState.conversationPaneState.folders
                     MoveFolderOption(
-                        label = folder.name,
-                        selected = conversation.folderId == folder.id,
+                        label = stringResource(R.string.drawer_chats_chip),
+                        selected = conversation.folderId.isNullOrBlank(),
                         onClick = {
-                            agentState.moveConversationToFolder(conversation.id, folder.id)
+                            agentState.moveConversationToFolder(conversation.id, null)
                             conversationMoveTarget = null
                         },
                     )
+                    folders.forEach { folder ->
+                        MoveFolderOption(
+                            label = folder.name,
+                            selected = conversation.folderId == folder.id,
+                            onClick = {
+                                agentState.moveConversationToFolder(conversation.id, folder.id)
+                                conversationMoveTarget = null
+                            },
+                        )
+                    }
                 }
-            }
+            },
+        ) {
         }
     }
 
@@ -1260,16 +1326,18 @@ fun AgentAppRoot(
                 )
             },
             onDismissRequest = { messageDeleteTarget = null },
+            actions = {
+                EtaDialogActions(
+                    confirmText = stringResource(R.string.action_delete),
+                    destructive = true,
+                    onCancel = { messageDeleteTarget = null },
+                    onConfirm = {
+                        agentState.deleteMessageTurn(target.messageId)
+                        messageDeleteTarget = null
+                    },
+                )
+            },
         ) {
-            EtaDialogActions(
-                confirmText = stringResource(R.string.action_delete),
-                destructive = true,
-                onCancel = { messageDeleteTarget = null },
-                onConfirm = {
-                    agentState.deleteMessageTurn(target.messageId)
-                    messageDeleteTarget = null
-                },
-            )
         }
     }
 
@@ -1293,16 +1361,18 @@ fun AgentAppRoot(
                 )
             },
             onDismissRequest = { messageRegenerateTarget = null },
+            actions = {
+                EtaDialogActions(
+                    confirmText = stringResource(R.string.action_regenerate),
+                    destructive = true,
+                    onCancel = { messageRegenerateTarget = null },
+                    onConfirm = {
+                        agentState.regenerateMessage(target.messageId)
+                        messageRegenerateTarget = null
+                    },
+                )
+            },
         ) {
-            EtaDialogActions(
-                confirmText = stringResource(R.string.action_regenerate),
-                destructive = true,
-                onCancel = { messageRegenerateTarget = null },
-                onConfirm = {
-                    agentState.regenerateMessage(target.messageId)
-                    messageRegenerateTarget = null
-                },
-            )
         }
     }
     } // task controls overlay

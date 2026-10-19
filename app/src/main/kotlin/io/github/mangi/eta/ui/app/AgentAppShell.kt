@@ -44,9 +44,6 @@ import io.github.mangi.eta.ui.components.TopBarBackdrop
 import io.github.mangi.eta.ui.components.captureForTopBar
 import io.github.mangi.eta.ui.components.rememberTopBarBackdrop
 import io.github.mangi.eta.ui.model.ConversationPaneUiState
-import io.github.mangi.eta.agent.delegation.SubAgentContextStats
-import io.github.mangi.eta.ui.model.ConversationTokenUsageUi
-import io.github.mangi.eta.ui.model.MessageSearchHit
 import io.github.mangi.eta.ui.model.ConversationSummaryUi
 import io.github.mangi.eta.ui.navigation.AppRoute
 import io.github.mangi.eta.ui.adaptive.EtaTopBarBackButton
@@ -98,10 +95,9 @@ internal fun AgentAppShell(
         modelId: String?,
         onFinished: (Boolean) -> Unit,
     ) -> Unit = { _, _, done -> done(false) },
-    onSearchHistory: suspend (String) -> List<MessageSearchHit> = { emptyList() },
-    onOpenHistoryHit: (MessageSearchHit) -> Unit = {},
-    tokenUsage: ConversationTokenUsageUi = ConversationTokenUsageUi(),
-    subAgentStatuses: List<SubAgentContextStats> = emptyList(),
+    onOpenSearchHistory: () -> Unit = {},
+    onOpenTokenUsage: () -> Unit = {},
+    onOpenSubAgentStatus: () -> Unit = {},
     selectedProviderId: String? = null,
     onSelectConversation: (String) -> Unit,
     onConversationRename: (ConversationSummaryUi) -> Unit,
@@ -207,10 +203,9 @@ internal fun AgentAppShell(
                             isCompressingContext = isCompressingContext,
                             onToggleAutoCompress = onToggleAutoCompress,
                             onCompressConversation = onCompressConversation,
-                            onSearchHistory = onSearchHistory,
-                            onOpenHistoryHit = onOpenHistoryHit,
-                            tokenUsage = tokenUsage,
-                            subAgentStatuses = subAgentStatuses,
+                            onOpenSearchHistory = onOpenSearchHistory,
+                            onOpenTokenUsage = onOpenTokenUsage,
+                            onOpenSubAgentStatus = onOpenSubAgentStatus,
                             canDeleteCurrentConversation = currentDeletableConversation != null,
                             onDeleteCurrentConversation = {
                                 currentDeletableConversation?.let(onConversationDelete)
@@ -298,10 +293,9 @@ private fun AgentTopBar(
         modelId: String?,
         onFinished: (Boolean) -> Unit,
     ) -> Unit = { _, _, done -> done(false) },
-    onSearchHistory: suspend (String) -> List<MessageSearchHit> = { emptyList() },
-    onOpenHistoryHit: (MessageSearchHit) -> Unit = {},
-    tokenUsage: ConversationTokenUsageUi = ConversationTokenUsageUi(),
-    subAgentStatuses: List<SubAgentContextStats> = emptyList(),
+    onOpenSearchHistory: () -> Unit = {},
+    onOpenTokenUsage: () -> Unit = {},
+    onOpenSubAgentStatus: () -> Unit = {},
     canDeleteCurrentConversation: Boolean = false,
     onDeleteCurrentConversation: () -> Unit = {},
     selectedProviderId: String? = null,
@@ -364,10 +358,9 @@ private fun AgentTopBar(
                 isCompressingContext = isCompressingContext,
                 onToggleAutoCompress = onToggleAutoCompress,
                 onCompressConversation = onCompressConversation,
-                onSearchHistory = onSearchHistory,
-                onOpenHistoryHit = onOpenHistoryHit,
-                tokenUsage = tokenUsage,
-                subAgentStatuses = subAgentStatuses,
+                onOpenSearchHistory = onOpenSearchHistory,
+                onOpenTokenUsage = onOpenTokenUsage,
+                onOpenSubAgentStatus = onOpenSubAgentStatus,
                 canDeleteCurrentConversation = canDeleteCurrentConversation,
                 onDeleteCurrentConversation = onDeleteCurrentConversation,
             )
@@ -402,10 +395,9 @@ private fun AgentTopBar(
             isCompressingContext = isCompressingContext,
             onToggleAutoCompress = onToggleAutoCompress,
             onCompressConversation = onCompressConversation,
-            onSearchHistory = onSearchHistory,
-            onOpenHistoryHit = onOpenHistoryHit,
-            tokenUsage = tokenUsage,
-            subAgentStatuses = subAgentStatuses,
+            onOpenSearchHistory = onOpenSearchHistory,
+            onOpenTokenUsage = onOpenTokenUsage,
+            onOpenSubAgentStatus = onOpenSubAgentStatus,
             canDeleteCurrentConversation = canDeleteCurrentConversation,
             onDeleteCurrentConversation = onDeleteCurrentConversation,
         )
@@ -436,6 +428,7 @@ private fun titleForRoute(route: AppRoute?, currentConversationTitle: String? = 
     is AppRoute.Chat -> stringResource(R.string.route_chat)
     is AppRoute.Browser -> stringResource(R.string.route_browser)
     is AppRoute.Terminal -> stringResource(R.string.route_terminal)
+    is AppRoute.TerminalDaemonTasks -> stringResource(R.string.terminal_daemon_tasks)
     is AppRoute.Tools -> stringResource(R.string.route_tools)
     is AppRoute.AgentTaskPreference -> stringResource(R.string.agent_task_surface_title)
     is AppRoute.VirtualDisplayRecovery -> stringResource(R.string.vd_recovery_title)
@@ -445,6 +438,7 @@ private fun titleForRoute(route: AppRoute?, currentConversationTitle: String? = 
     is AppRoute.SystemEnhance -> stringResource(R.string.route_system_enhancements)
     is AppRoute.Settings -> stringResource(R.string.route_settings)
     is AppRoute.SettingsSearch -> stringResource(R.string.settings_search_hint)
+    is AppRoute.SystemTakeover -> stringResource(R.string.ui_system_assistant_takes_over_f46043)
     is AppRoute.About -> stringResource(R.string.ui_about_bed172)
     is AppRoute.VoiceSettings -> stringResource(R.string.voice_title)
     is AppRoute.SpeechSettings -> stringResource(R.string.speech_title)
@@ -471,6 +465,9 @@ private fun titleForRoute(route: AppRoute?, currentConversationTitle: String? = 
     is AppRoute.ContextCompression -> stringResource(R.string.route_context_compression)
     is AppRoute.UsageStats -> stringResource(R.string.stats_page_title)
     is AppRoute.ManageChats -> stringResource(R.string.history_page_title)
+    is AppRoute.MessageSearch -> stringResource(R.string.search_history_hint)
+    is AppRoute.ConversationTokenUsage -> stringResource(R.string.action_token_usage)
+    is AppRoute.SubAgentStatus -> stringResource(R.string.action_sub_agent_status)
     is AppRoute.Assistants -> stringResource(R.string.assistant_list_title)
     is AppRoute.AssistantSearch -> stringResource(R.string.assistant_search)
     is AppRoute.AssistantEdit -> stringResource(R.string.assistant_edit_title)

@@ -40,7 +40,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
-import io.github.mangi.eta.agent.delegation.SubAgentContextStats
 import io.github.mangi.eta.ui.adaptive.EtaButtonStyle
 import io.github.mangi.eta.ui.adaptive.EtaConnectedGroupRow
 import io.github.mangi.eta.ui.adaptive.EtaIconButton
@@ -48,8 +47,6 @@ import io.github.mangi.eta.ui.adaptive.EtaIconSize
 import io.github.mangi.eta.ui.adaptive.etaLabelStyle
 import io.github.mangi.eta.ui.components.ChatInputNonFocusableIconButton
 import io.github.mangi.eta.ui.haptics.TouchHaptics
-import io.github.mangi.eta.ui.model.ConversationTokenUsageUi
-import io.github.mangi.eta.ui.model.MessageSearchHit
 
 /**
  * 首页顶栏（Material 3 Expressive）。
@@ -79,10 +76,9 @@ internal fun Material3HomeTopBar(
         modelId: String?,
         onFinished: (Boolean) -> Unit,
     ) -> Unit,
-    onSearchHistory: suspend (String) -> List<MessageSearchHit>,
-    onOpenHistoryHit: (MessageSearchHit) -> Unit,
-    tokenUsage: ConversationTokenUsageUi,
-    subAgentStatuses: List<SubAgentContextStats>,
+    onOpenSearchHistory: () -> Unit,
+    onOpenTokenUsage: () -> Unit,
+    onOpenSubAgentStatus: () -> Unit,
     canDeleteCurrentConversation: Boolean = false,
     onDeleteCurrentConversation: () -> Unit = {},
 ) {
@@ -189,10 +185,9 @@ internal fun Material3HomeTopBar(
                             isCompressingContext = isCompressingContext,
                             onToggleAutoCompress = onToggleAutoCompress,
                             onCompressConversation = onCompressConversation,
-                            onSearchHistory = onSearchHistory,
-                            onOpenHistoryHit = onOpenHistoryHit,
-                            tokenUsage = tokenUsage,
-                            subAgentStatuses = subAgentStatuses,
+                            onOpenSearchHistory = onOpenSearchHistory,
+                            onOpenTokenUsage = onOpenTokenUsage,
+                            onOpenSubAgentStatus = onOpenSubAgentStatus,
                             canDeleteCurrentConversation = canDeleteCurrentConversation,
                             onDeleteCurrentConversation = onDeleteCurrentConversation,
                         )

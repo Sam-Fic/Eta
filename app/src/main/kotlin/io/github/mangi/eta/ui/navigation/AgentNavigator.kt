@@ -30,6 +30,7 @@ private val appRouteTypes: List<KClass<out AppRoute>> = listOf(
     AppRoute.SystemEnhance::class,
     AppRoute.Settings::class,
     AppRoute.SettingsSearch::class,
+    AppRoute.SystemTakeover::class,
     AppRoute.About::class,
     AppRoute.SpeechSettings::class,
     AppRoute.TtsSettings::class,
@@ -59,6 +60,10 @@ private val appRouteTypes: List<KClass<out AppRoute>> = listOf(
     AppRoute.AssistantEdit::class,
     AppRoute.UsageStats::class,
     AppRoute.ManageChats::class,
+    AppRoute.MessageSearch::class,
+    AppRoute.ConversationTokenUsage::class,
+    AppRoute.SubAgentStatus::class,
+    AppRoute.TerminalDaemonTasks::class,
 )
 
 /** 模式串（destination.route）→ 路由类型；导航目标是复用的，所以只需解析一次。 */
