@@ -5,11 +5,13 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.layout.Measurable
@@ -210,7 +212,8 @@ internal class SmoothTextRevealCoordinator {
 
     suspend fun runFrameClock() {
         while (currentCoroutineContext().isActive) {
-            val active = if (animationsHeld) null else firstPendingRecord()
+            // 显现在推进，或已显现的字素还在淡入，都需要继续跑帧。
+            val active = if (animationsHeld) null else firstPendingRecord() ?: firstAnimatingRecord()
             if (active == null) {
                 updateDrainedState()
                 wakeups.receive()
@@ -221,7 +224,7 @@ internal class SmoothTextRevealCoordinator {
             var previousFrameNanos = withFrameNanos { it }
             while (currentCoroutineContext().isActive) {
                 if (animationsHeld) break
-                val record = firstPendingRecord() ?: break
+                val record = firstPendingRecord() ?: firstAnimatingRecord() ?: break
                 val frameNanos = withFrameNanos { it }
                 if (animationsHeld) break
                 StreamPerformanceDiagnostics.record("reveal.frameGap", frameNanos - previousFrameNanos)
@@ -229,24 +232,37 @@ internal class SmoothTextRevealCoordinator {
                     .coerceIn(0f, MAX_FRAME_DELTA_SECONDS)
                 previousFrameNanos = frameNanos
 
-                StreamPerformanceDiagnostics.measure("reveal.step") {
-                    val totalBacklog = records.values.sumOf { candidate ->
-                        max(0.0, (candidate.targetCount - candidate.progress).toDouble())
-                    }.toFloat()
-                    StreamPerformanceDiagnostics.record("reveal.backlog", value = totalBacklog.toLong())
-                    val previous = record.progress
-                    record.progress = advanceSmoothReveal(
-                        current = record.progress,
-                        target = record.targetCount,
-                        elapsedSeconds = elapsedSeconds,
-                        totalBacklog = totalBacklog,
-                    )
-                    val delta = record.progress - previous
-                    if (delta > 0f) onRevealAdvanced?.invoke(delta)
-                    if (record.progress > 0f && record.key !in startedState.value) {
-                        startedState.value = startedState.value + record.key
+                // 淡入窗按真实帧时刻变老：已经追平、只剩渐变的字素靠这里收尾。
+                records.values.forEach { candidate ->
+                    if (candidate.advanceFade(frameNanos)) candidate.node?.onRevealDataChanged()
+                }
+
+                if (record.progress < record.targetCount) {
+                    StreamPerformanceDiagnostics.measure("reveal.step") {
+                        val totalBacklog = records.values.sumOf { candidate ->
+                            max(0.0, (candidate.targetCount - candidate.progress).toDouble())
+                        }.toFloat()
+                        StreamPerformanceDiagnostics.record("reveal.backlog", value = totalBacklog.toLong())
+                        val previous = record.progress
+                        record.progress = advanceSmoothReveal(
+                            current = record.progress,
+                            target = record.targetCount,
+                            elapsedSeconds = elapsedSeconds,
+                            totalBacklog = totalBacklog,
+                        )
+                        val delta = record.progress - previous
+                        if (delta > 0f) {
+                            onRevealAdvanced?.invoke(delta)
+                            // 本帧新跨过完整显现线的字素带上同一时刻与淡入时长，
+                            // 由帧时钟按真实经过时间驱动渐变与上浮。
+                            record.fadeDurationNanos = revealFadeDurationNanos(smoothRevealSpeed(totalBacklog))
+                            record.noteRevealedGlyphs(frameNanos)
+                        }
+                        if (record.progress > 0f && record.key !in startedState.value) {
+                            startedState.value = startedState.value + record.key
+                        }
+                        record.node?.onRevealDataChanged()
                     }
-                    record.node?.onRevealDataChanged()
                 }
             }
         }
@@ -268,6 +284,7 @@ internal class SmoothTextRevealCoordinator {
                 // 流式文本只追加不修改，但行内语法闭合（**粗体**、`code`、链接折叠等）会让
                 // 渲染文本丢掉标记字符而变短或错位。此时进度只能保持单调前进：一旦回退，
                 // 已显现的文字会消失并重新打字，表现为输出反复闪烁。
+                val appended = text.startsWith(record.text)
                 record.boundaries = updateGraphemeBoundaries(
                     previousText = record.text,
                     previousBoundaries = record.boundaries,
@@ -276,6 +293,8 @@ internal class SmoothTextRevealCoordinator {
                 record.text = text
                 record.targetCount = record.boundaries.lastIndex.toFloat()
                 record.progress = record.progress.coerceAtMost(record.targetCount)
+                // 非追加重写会让字素下标错位，旧的淡入时间戳必须作废。
+                if (!appended) record.clearFade()
             }
             if (record.layoutResult !== layoutResult) {
                 record.layoutResult = layoutResult
@@ -289,6 +308,8 @@ internal class SmoothTextRevealCoordinator {
 
     private fun completeRecord(record: RevealRecord) {
         record.progress = record.targetCount
+        // 追平后不再有渐入，绘制回到纯裁剪路径，避免残留半透明或上浮的字素。
+        record.clearFade()
         if (record.targetCount > 0f && record.key !in startedState.value) {
             startedState.value = startedState.value + record.key
         }
@@ -309,6 +330,15 @@ internal class SmoothTextRevealCoordinator {
         val cursor = pendingCursor
         if (cursor == null || key < cursor) pendingCursor = key
     }
+
+    /**
+     * 已经追平、只剩字素淡入的块：推进线不再需要它，但帧时钟必须继续跑到
+     * 最后一个字素的渐变结束。
+     */
+    private fun firstAnimatingRecord(): RevealRecord? =
+        records.values.firstOrNull { record ->
+            record.fadeAppearNanos.isNotEmpty() && record.node != null && record.layoutResult != null
+        }
 
     private fun updateDrainedState() {
         drainedState.value = records.values.none { record -> record.progress < record.targetCount }
@@ -464,9 +494,14 @@ internal class SmoothTextRevealNode(
         }
         val contentScope = this
         val targetCount = snapshot.boundaries.lastIndex
-        if (targetCount <= 0 || snapshot.progress >= targetCount) {
+        if (targetCount <= 0 || (snapshot.progress >= targetCount && !snapshot.liveFade)) {
             releaseSettledLayer()
             drawDiagnosticContent()
+            return
+        }
+        if (snapshot.liveFade) {
+            // 淡入窗内的字素按各自出现时刻画，窗外（更早显现）的部分继续走裁剪路径。
+            drawFadingWindow(snapshot)
             return
         }
 
@@ -638,6 +673,83 @@ internal class SmoothTextRevealNode(
         cachedFullPath = null
         cachedNextPath = null
     }
+
+    /**
+     * 淡入窗的绘制：窗口起点之前的文字仍按行层/光标裁剪画成不透明，
+     * 窗内的字素逐个按出现时刻给出不透明度与上浮位移。
+     */
+    private fun ContentDrawScope.drawFadingWindow(snapshot: RevealDrawSnapshot) {
+        val layout = snapshot.layoutResult
+        val textLength = layout.layoutInput.text.length
+        val boundaries = snapshot.boundaries
+        val startIndex = snapshot.fadeGlyphIndex.coerceIn(0, boundaries.lastIndex)
+        val windowStart = boundaries[startIndex].coerceIn(0, textLength)
+        val windowStartLine = if (textLength > 0 && layout.lineCount > 0) {
+            layout.getLineForOffset(windowStart.coerceAtMost(textLength - 1))
+        } else 0
+        // 窗口所在行之前的完整行同样可以整层复用；行内窗口之前的部分走光标裁剪。
+        val opaqueBottom = if (windowStartLine > 0) layout.getLineBottom(windowStartLine - 1) else 0f
+        if (opaqueBottom > 0f) {
+            drawSettledLines(layout, windowStartLine, opaqueBottom)
+        }
+        val cursor = layout.getHorizontalPosition(windowStart, usePrimaryDirection = true).coerceAtLeast(0f)
+        if (cursor > 0f) {
+            val contentScope = this
+            clipRect(
+                top = layout.getLineTop(windowStartLine),
+                right = cursor,
+                bottom = layout.getLineBottom(windowStartLine),
+            ) { contentScope.drawDiagnosticContent() }
+        }
+        drawFadingGlyphs(snapshot)
+    }
+
+    /** 窗口内的字素：越新出现的越透明、越靠下，随年龄一起淡入并升到最终位置。 */
+    private fun ContentDrawScope.drawFadingGlyphs(snapshot: RevealDrawSnapshot) {
+        val layout = snapshot.layoutResult
+        val textLength = layout.layoutInput.text.length
+        val boundaries = snapshot.boundaries
+        val startIndex = snapshot.fadeGlyphIndex.coerceIn(0, boundaries.lastIndex)
+        val endIndex = (startIndex + snapshot.fadeSize).coerceIn(startIndex, boundaries.lastIndex)
+        val contentScope = this
+        for (index in startIndex until endIndex) {
+            // 正在打的那一个字素只显现进度允许的比例，不能一次画满。
+            val coverage = (snapshot.progress - index).coerceIn(0f, 1f)
+            val alpha = snapshot.fadeAlpha(index) * coverage
+            if (alpha <= 0.001f) continue
+            val start = boundaries[index].coerceIn(0, textLength)
+            val end = boundaries[index + 1].coerceIn(start, textLength)
+            if (end <= start) continue
+            val path = layout.getPathForRange(start, end)
+            val bounds = path.getBounds()
+            if (bounds.width <= 0f || bounds.height <= 0f) continue
+            val line = layout.getLineForOffset(start.coerceAtMost((textLength - 1).coerceAtLeast(0)))
+            val lineHeight = (layout.getLineBottom(line) - layout.getLineTop(line)).coerceAtLeast(0f)
+            val rise = (1f - alpha) * FADE_RISE_LINE_FRACTION * lineHeight
+            val layerTop = (bounds.top - rise).coerceAtLeast(0f)
+            val layerBottom = (bounds.bottom + rise).coerceAtMost(size.height)
+            if (layerBottom <= layerTop) continue
+            alphaPaint.alpha = alpha
+            StreamPerformanceDiagnostics.measure("reveal.saveLayer") {
+                contentScope.drawContext.canvas.saveLayer(
+                    Rect(
+                        left = bounds.left.coerceAtLeast(0f),
+                        top = layerTop,
+                        right = bounds.right.coerceAtMost(size.width),
+                        bottom = layerBottom,
+                    ),
+                    alphaPaint,
+                )
+            }
+            try {
+                translate(top = rise) {
+                    clipPath(path) { contentScope.drawDiagnosticContent() }
+                }
+            } finally {
+                contentScope.drawContext.canvas.restore()
+            }
+        }
+    }
 }
 
 internal class RevealDrawSnapshot(
@@ -649,6 +761,27 @@ internal class RevealDrawSnapshot(
         get() = record.boundaries
     val progress: Float
         get() = record.progress
+    /** 还有字素处在淡入窗内；为假时绘制完全走原来的纯裁剪路径。 */
+    val liveFade: Boolean
+        get() = record.fadeAppearNanos.isNotEmpty()
+    val fadeGlyphIndex: Int
+        get() = record.fadeGlyphIndex
+    val fadeSize: Int
+        get() = record.fadeAppearNanos.size
+
+    /**
+     * 淡入窗内第 [glyphIndex] 个字素的不透明度：从头索引开始按真实帧时刻老化到 1，
+     * 再用 smoothstep 收出平缓的头尾。窗外的字素一律视为已经完全显现。
+     */
+    fun fadeAlpha(glyphIndex: Int): Float {
+        val duration = record.fadeDurationNanos
+        val queueIndex = glyphIndex - record.fadeGlyphIndex
+        if (duration <= 0L || queueIndex < 0 || queueIndex >= record.fadeAppearNanos.size) return 1f
+        val ageNanos = record.lastFrameNanos - record.fadeAppearNanos[queueIndex]
+        if (ageNanos <= 0L) return 0f
+        val fraction = (ageNanos.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
+        return fraction * fraction * (3f - 2f * fraction)
+    }
 }
 
 internal class RevealRecord(
@@ -662,6 +795,55 @@ internal class RevealRecord(
     var boundaries: IntArray = intArrayOf(0)
     var progress: Float = 0f
     var targetCount: Float = 0f
+    /** 淡入窗的起写字素下标；窗外（更早显现）的字素一律不透明。 */
+    var fadeGlyphIndex: Int = 0
+    /** 单次淡入的时长，随当前显现速度推得；0 表示不做淡入。 */
+    var fadeDurationNanos: Long = 0L
+    /** 最近一帧的时刻，绘制阶段用它给窗口内的字素算年龄。 */
+    var lastFrameNanos: Long = 0L
+    /** 淡入窗内每个字素的出现时刻，与 [fadeGlyphIndex] 连续对应。 */
+    val fadeAppearNanos = ArrayDeque<Long>()
+
+    /** 丢弃淡入窗：追平目标、文本重写或进度被压短时，旧时刻已经不再对应任何字素。 */
+    fun clearFade() {
+        fadeAppearNanos.clear()
+        fadeGlyphIndex = floor(progress).toInt().coerceAtLeast(0)
+    }
+
+    /**
+     * 为本帧新显现的字素登记出现时刻。同一帧显现的字素共用同一时刻；
+     * 帧间只更新普通字段，不写 Compose State。
+     */
+    fun noteRevealedGlyphs(now: Long) {
+        lastFrameNanos = now
+        val highest = floor(progress).toInt().coerceAtMost(targetCount.toInt() - 1)
+        var index = fadeGlyphIndex + fadeAppearNanos.size
+        while (index <= highest) {
+            fadeAppearNanos.addLast(now)
+            index += 1
+        }
+    }
+
+    /**
+     * 按真实帧时刻让淡入窗变老：到时的字素出队并把窗口前移。
+     * 窗口非空即返回 true，让帧时钟一直跑到最后一个字素淡完。
+     */
+    fun advanceFade(now: Long): Boolean {
+        if (fadeAppearNanos.isEmpty()) return false
+        lastFrameNanos = now
+        val duration = fadeDurationNanos
+        if (duration <= 0L) {
+            // 速度为 0 之类的退化情形必须一次清空，否则窗口永远变不老。
+            fadeGlyphIndex += fadeAppearNanos.size
+            fadeAppearNanos.clear()
+            return true
+        }
+        while (fadeAppearNanos.isNotEmpty() && now - fadeAppearNanos.first() >= duration) {
+            fadeAppearNanos.removeFirst()
+            fadeGlyphIndex += 1
+        }
+        return true
+    }
 }
 
 private fun SmoothTextRevealState.visibleHeightPx(): Int {
@@ -782,6 +964,14 @@ internal fun smoothRevealSpeed(totalBacklog: Float): Float =
     max(BASE_REVEAL_GRAPHEMES_PER_SECOND, totalBacklog / TARGET_CATCH_UP_SECONDS)
         .coerceAtMost(MAX_REVEAL_GRAPHEMES_PER_SECOND)
 
+/**
+ * 单个字素的淡入时长：按当前显现速度折算出约 [MAX_REVEAL_FADE_GRAPHEMES] 个字素的间隔，
+ * 并封顶 [MAX_REVEAL_FADE_SECONDS]，让飞快追赶时窗口也不会拖长。
+ */
+internal fun revealFadeDurationNanos(speed: Float): Long =
+    ((MAX_REVEAL_FADE_GRAPHEMES / speed.coerceAtLeast(1f))
+        .coerceAtMost(MAX_REVEAL_FADE_SECONDS) * NANOS_PER_SECOND).toLong()
+
 internal fun advanceSmoothReveal(
     current: Float,
     target: Float,
@@ -800,6 +990,11 @@ private const val MAX_FRAME_DELTA_SECONDS = 0.05f
 private const val BASE_REVEAL_GRAPHEMES_PER_SECOND = 36f
 private const val MAX_REVEAL_GRAPHEMES_PER_SECOND = 240f
 private const val TARGET_CATCH_UP_SECONDS = 0.20f
+/** 淡入窗覆盖的字素数，用来把显现速度折算成单个字素的淡入时长。 */
+private const val MAX_REVEAL_FADE_GRAPHEMES = 6f
+private const val MAX_REVEAL_FADE_SECONDS = 0.16f
+/** 字素刚出现时相对最终位置的下沉比例（按行高衡量）。 */
+private const val FADE_RISE_LINE_FRACTION = 0.12f
 
 /** Layout changes and progress corrections require rebuilding; forward batches do not. */
 internal fun canAppendRevealPath(sameLayout: Boolean, cachedCount: Int, nextCount: Int): Boolean =

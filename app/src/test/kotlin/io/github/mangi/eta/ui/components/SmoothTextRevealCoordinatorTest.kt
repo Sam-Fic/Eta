@@ -9,6 +9,7 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.sp
+import kotlin.math.floor
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
@@ -338,6 +339,53 @@ class SmoothTextRevealCoordinatorTest {
         } finally {
             job.cancelAndJoin()
         }
+    }
+
+    @Test
+    fun revealedGraphemesKeepATimeStampedFadeWindowUntilItAgesOut() = runBlocking {
+        val coordinator = SmoothTextRevealCoordinator()
+        val key = RevealBlockKey(0)
+        attach(coordinator, key, "abcdefghij")
+        val clock = TestFrameClock()
+        val job = launch(clock, start = CoroutineStart.UNDISPATCHED) { coordinator.runFrameClock() }
+        try {
+            clock.send(0L)
+            clock.send(50_000_000L)
+            yield()
+
+            val revealing = coordinator.drawSnapshot(key)!!
+            assertTrue(revealing.progress > 0f)
+            assertTrue(revealing.liveFade)
+            // 窗口起点就是已经完整显现的字素数，末端包含正在打的那一个字素。
+            assertEquals(
+                (floor(revealing.progress).toInt() + 1).coerceAtMost(revealing.boundaries.lastIndex),
+                revealing.fadeGlyphIndex + revealing.fadeSize,
+            )
+            // 同一帧出现的字素共用起始时刻，绘制时还没有任何不透明度。
+            assertTrue(revealing.fadeAlpha(revealing.fadeGlyphIndex) < 1f)
+
+            // 继续渲染：追平目标后窗内字素逐个到期出队，渐变走完再停钟。
+            repeat(40) { clock.send((it + 2) * 50_000_000L) }
+            yield()
+            val settled = coordinator.drawSnapshot(key)!!
+            assertEquals(settled.boundaries.lastIndex.toFloat(), settled.progress, 0f)
+            assertFalse(settled.liveFade)
+            assertTrue(coordinator.drained.value)
+        } finally {
+            job.cancelAndJoin()
+        }
+    }
+
+    @Test
+    fun fadeDurationTracksRevealSpeedAndStaysBounded() {
+        // 静止速度下按六个字素的间隔折算，并封顶在 0.16 秒。
+        assertTrue(revealFadeDurationNanos(36f) in 159_000_000L..161_000_000L)
+        assertTrue(revealFadeDurationNanos(0f) in 159_000_000L..161_000_000L)
+        // 追赶很快时窗口跟着缩短，不会拖出一长串半透明文字。
+        assertTrue(revealFadeDurationNanos(240f) in 24_000_000L..26_000_000L)
+        // 速度越快，窗口越短。
+        assertTrue(revealFadeDurationNanos(240f) < revealFadeDurationNanos(60f))
+        assertTrue(revealFadeDurationNanos(60f) < revealFadeDurationNanos(36f))
     }
 
     private fun attach(
