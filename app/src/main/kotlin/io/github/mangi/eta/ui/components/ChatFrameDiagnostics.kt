@@ -37,8 +37,8 @@ private fun diagnosticBlockTypeForOutput(type: String?): String = when (type) {
 }
 
 internal fun diagnosticComponentType(raw: String): String = when (raw) {
-    "agent", "model_features", "context_extensions", "general", "tools", "haptics", "assistant_takeover",
-    "oem_assistant_compatibility", "gemini", "circle_to_search", "diagnostics", "permissions", "about" -> raw
+    "agent", "model_features", "context_extensions", "general", "tools", "runtime", "system_takeover",
+    "diagnostics", "permissions" -> raw
     else -> "unknown"
 }
 

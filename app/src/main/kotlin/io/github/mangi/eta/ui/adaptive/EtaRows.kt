@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
@@ -214,7 +215,16 @@ fun EtaSegmentedDropdownRow(
         EtaSegmentedRow(
             onClick = rowClick,
             enabled = enabled,
-            leadingContent = icon?.let { { Icon(it, title) } },
+            // 前导图标对齐 PreferenceIcon：24dp + 尾部 8dp，保证标题起点与其它设置行一致。
+            leadingContent = icon?.let {
+                {
+                    Icon(
+                        imageVector = it,
+                        contentDescription = null,
+                        modifier = Modifier.padding(end = 8.dp).size(24.dp),
+                    )
+                }
+            },
             supportingContent = summary?.let { { Text(it) } },
             trailingContent = {
                 Text(

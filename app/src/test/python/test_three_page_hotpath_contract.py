@@ -36,8 +36,16 @@ class ThreePageHotpathContract(unittest.TestCase):
         for name in ('overlay', 'accessibility', 'protection', 'assistant'):
             for phase in ('initial', 'resume'):
                 label = f'"settings.permission.{name}.{phase}"'
-                self.assertIn(label, s)
                 self.assertIn(label, labels)
+        # 主页权限分组只保留「强制无障碍」开关的状态读取。
+        for phase in ('initial', 'resume'):
+            self.assertIn(f'"settings.permission.protection.{phase}"', s)
+        self.assertNotIn('settings.permission.overlay', s)
+        self.assertNotIn('settings.permission.accessibility', s)
+        # 悬浮窗/无障碍状态改由权限页呈现；助手活跃状态随四个 hook 分组迁到系统接管子页。
+        takeover = (MAIN / 'ui/SystemTakeoverSettingsScreen.kt').read_text()
+        for phase in ('initial', 'resume'):
+            self.assertIn(f'"settings.permission.assistant.{phase}"', takeover)
 
     def test_manage_batch_keeps_latest_row_delete_callback(self):
         s = (MAIN / 'ui/screens/chat/ManageChatsScreen.kt').read_text()

@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
-import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -36,6 +35,7 @@ import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.PowerSettingsNew
 import androidx.compose.material.icons.rounded.RecordVoiceOver
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.RemoveRedEye
@@ -48,12 +48,11 @@ import androidx.compose.foundation.layout.padding
 /** 查询历史分域键：设置搜索历史独立存储。 */
 private const val HISTORY_KEY = "settings"
 
-/** 设置搜索动作：子页面路由，或系统设置意图（悬浮窗 / 无障碍 / 默认助手）。 */
+/** 设置搜索动作：子页面路由，或系统设置意图（悬浮窗 / 无障碍）。 */
 private sealed interface SettingsSearchAction {
     data class Route(val route: AppRoute) : SettingsSearchAction
     data object OverlayPermission : SettingsSearchAction
     data object AccessibilitySettings : SettingsSearchAction
-    data object DefaultAssistant : SettingsSearchAction
 }
 
 /**
@@ -122,8 +121,6 @@ internal fun SettingsSearchScreen(
                                         openOverlayPermissionSettings(context)
                                     SettingsSearchAction.AccessibilitySettings ->
                                         openAccessibilitySettings(context)
-                                    SettingsSearchAction.DefaultAssistant ->
-                                        openDefaultAssistantSettings(context)
                                 }
                             },
                             modifier = Modifier.padding(
@@ -150,11 +147,10 @@ private fun settingsSearchEntries(taskBackendInstalled: Boolean?): List<Settings
     val groupModelFeatures = stringResource(R.string.settings_model_features)
     val groupContextExtensions = stringResource(R.string.settings_context_extensions)
     val groupGeneral = stringResource(R.string.settings_general)
-    val groupTools = stringResource(R.string.ui_tool_a72ef1)
-    val groupHaptics = stringResource(R.string.haptics_title)
-    val groupAssistantTakeover = stringResource(R.string.ui_system_assistant_takes_over_f46043)
+    val groupToolCapabilities = stringResource(R.string.settings_tool_capabilities)
+    val groupRuntimeEnvironment = stringResource(R.string.settings_runtime_environment)
+    val groupSystemTakeover = stringResource(R.string.settings_system_takeover)
     val groupPermissions = stringResource(R.string.ui_permissions_560165)
-    val groupAbout = stringResource(R.string.ui_about_bed172)
     return buildList {
         // ── LLM 提供商 ──────────────────────────────────────────
         add(
@@ -184,15 +180,6 @@ private fun settingsSearchEntries(taskBackendInstalled: Boolean?): List<Settings
                 icon = Icons.Rounded.RemoveRedEye,
                 group = groupModelFeatures,
                 action = SettingsSearchAction.Route(AppRoute.AuxiliaryVision),
-            ),
-        )
-        add(
-            SettingsSearchEntry(
-                title = stringResource(R.string.settings_subagent_title),
-                summary = null,
-                icon = SubAgents,
-                group = groupModelFeatures,
-                action = SettingsSearchAction.Route(AppRoute.SubAgents),
             ),
         )
         add(
@@ -242,6 +229,15 @@ private fun settingsSearchEntries(taskBackendInstalled: Boolean?): List<Settings
                 action = SettingsSearchAction.Route(AppRoute.McpServers),
             ),
         )
+        add(
+            SettingsSearchEntry(
+                title = stringResource(R.string.settings_subagent_title),
+                summary = null,
+                icon = SubAgents,
+                group = groupContextExtensions,
+                action = SettingsSearchAction.Route(AppRoute.SubAgents),
+            ),
+        )
 
         // ── 通用 ────────────────────────────────────────────────
         add(
@@ -280,14 +276,32 @@ private fun settingsSearchEntries(taskBackendInstalled: Boolean?): List<Settings
                 action = SettingsSearchAction.Route(AppRoute.DataBackup),
             ),
         )
+        add(
+            SettingsSearchEntry(
+                title = stringResource(R.string.haptics_list),
+                summary = stringResource(R.string.haptics_entry_summary),
+                icon = Icons.Rounded.Vibration,
+                group = groupGeneral,
+                action = SettingsSearchAction.Route(AppRoute.Haptics),
+            ),
+        )
+        add(
+            SettingsSearchEntry(
+                title = stringResource(R.string.ui_about_bed172),
+                summary = null,
+                icon = Icons.Rounded.Info,
+                group = groupGeneral,
+                action = SettingsSearchAction.Route(AppRoute.About),
+            ),
+        )
 
-        // ── 工具 ────────────────────────────────────────────────
+        // ── Agent 工具能力 ──────────────────────────────────────
         add(
             SettingsSearchEntry(
                 title = stringResource(R.string.settings_tools_list),
                 summary = null,
                 icon = Icons.Rounded.Dashboard,
-                group = groupTools,
+                group = groupToolCapabilities,
                 action = SettingsSearchAction.Route(AppRoute.Tools),
             ),
         )
@@ -297,17 +311,19 @@ private fun settingsSearchEntries(taskBackendInstalled: Boolean?): List<Settings
                     title = stringResource(R.string.agent_task_surface_title),
                     summary = null,
                     icon = Icons.Rounded.Layers,
-                    group = groupTools,
+                    group = groupToolCapabilities,
                     action = SettingsSearchAction.Route(AppRoute.AgentTaskPreference),
                 ),
             )
         }
+
+        // ── 运行环境 ────────────────────────────────────────────
         add(
             SettingsSearchEntry(
                 title = stringResource(R.string.ui_linux_tool_environment_314d22),
                 summary = null,
                 icon = Icons.Rounded.Inventory2,
-                group = groupTools,
+                group = groupRuntimeEnvironment,
                 action = SettingsSearchAction.Route(AppRoute.LinuxEnvironment),
             ),
         )
@@ -316,30 +332,20 @@ private fun settingsSearchEntries(taskBackendInstalled: Boolean?): List<Settings
                 title = stringResource(R.string.capability_workspace),
                 summary = stringResource(R.string.capability_workspace_summary),
                 icon = Icons.Rounded.Folder,
-                group = groupTools,
+                group = groupRuntimeEnvironment,
                 action = SettingsSearchAction.Route(AppRoute.Workspace),
             ),
         )
 
-        // ── 触感 ────────────────────────────────────────────────
-        add(
-            SettingsSearchEntry(
-                title = stringResource(R.string.haptics_list),
-                summary = stringResource(R.string.haptics_entry_summary),
-                icon = Icons.Rounded.Vibration,
-                group = groupHaptics,
-                action = SettingsSearchAction.Route(AppRoute.Haptics),
-            ),
-        )
-
         // ── 系统助手接管 ────────────────────────────────────────
+        // 主页只剩子页入口：摘要里带上原四个分组的关键词，Gemini / 厂商兼容 / 一圈即搜 仍可搜到。
         add(
             SettingsSearchEntry(
-                title = stringResource(R.string.ui_eta_system_assistant_003e9b),
-                summary = null,
-                icon = Icons.Rounded.AutoAwesome,
-                group = groupAssistantTakeover,
-                action = SettingsSearchAction.DefaultAssistant,
+                title = stringResource(R.string.ui_system_assistant_takes_over_f46043),
+                summary = stringResource(R.string.settings_system_takeover_summary),
+                icon = Icons.Rounded.PowerSettingsNew,
+                group = groupSystemTakeover,
+                action = SettingsSearchAction.Route(AppRoute.SystemTakeover),
             ),
         )
 
@@ -380,17 +386,6 @@ private fun settingsSearchEntries(taskBackendInstalled: Boolean?): List<Settings
                 action = SettingsSearchAction.AccessibilitySettings,
             ),
         )
-
-        // ── 关于 ────────────────────────────────────────────────
-        add(
-            SettingsSearchEntry(
-                title = stringResource(R.string.ui_about_bed172),
-                summary = null,
-                icon = Icons.Rounded.Info,
-                group = groupAbout,
-                action = SettingsSearchAction.Route(AppRoute.About),
-            ),
-        )
     }
 }
 
@@ -410,18 +405,5 @@ private fun openOverlayPermissionSettings(context: Context) {
 private fun openAccessibilitySettings(context: Context) {
     runCatching {
         context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-    }
-}
-
-private fun openDefaultAssistantSettings(context: Context) {
-    val failed = runCatching {
-        context.startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS))
-    }.isFailure
-    if (failed) {
-        Toast.makeText(
-            context,
-            context.getString(R.string.settings_open_assistant_failed),
-            Toast.LENGTH_SHORT,
-        ).show()
     }
 }

@@ -25,8 +25,9 @@ GitHub Actions workflow, never local Gradle on the phone.
 - `frameMainMessage` prints numeric dispatch wall time, coverage and thread CPU
   delta retained at the anomaly callback. Wall-minus-CPU includes scheduler and
   other effects; it does not identify blocking, GC or binder by itself.
-- Settings cards additionally use `settings.section.measure/draw` and 13 fixed
-  section identities, supplementing root/DataStore timing without changing actions.
+- Settings cards additionally use `settings.section.measure/draw` and 9 fixed
+  section identities on the settings home page, supplementing root/DataStore timing
+  without changing actions.
 
 ## Bounded retention
 

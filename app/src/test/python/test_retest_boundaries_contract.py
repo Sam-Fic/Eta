@@ -18,7 +18,7 @@ class RetestBoundariesContract(unittest.TestCase):
         self.assertIn('mutableStateOf(initialPreferences.initialValueForUi())', settings)
         self.assertNotIn('initialServiceAndPrefs', settings)
         self.assertIn('prefs = initialPreferences.resolve(service)', settings)
-        listener = settings.split('val listener = object : EtaApp.ServiceStateListener', 1)[1].split('val powerAssistantTargets', 1)[0]
+        listener = settings.split('val listener = object : EtaApp.ServiceStateListener', 1)[1].split('WithoutPressRipple {', 1)[0]
         chain = ['initialPreferences.resolve(service)', 'enhancementHistory.captureConnected(connected)', 'Prefs.reconcileAgentPreferences(service)', 'RuntimeConfigRepository.ensureDefaults(service)', 'EtaApp.addServiceStateListener(listener, notifyImmediately = true)', 'EtaApp.removeServiceStateListener(listener)']
         self.assertEqual(sorted(listener.index(x) for x in chain), [listener.index(x) for x in chain])
 

@@ -147,7 +147,7 @@ BOOLEANS |= {"firstDraw", "partial", "partialAtCutoff", "evidenceIncomplete", "a
 ENUMS.update({
     "rowType": {"unknown", "user", "agent", "thinking", "tool", "message", "work-header", "work-tool", "work-thinking", "work-summary"},
     "blockType": {"unknown", "paragraph", "heading", "list", "quote", "code", "table", "html", "image", "rule", "other"},
-    "component": {"unknown", "agent", "model_features", "context_extensions", "general", "tools", "haptics", "assistant_takeover", "oem_assistant_compatibility", "gemini", "circle_to_search", "diagnostics", "permissions", "about"},
+    "component": {"unknown", "agent", "model_features", "context_extensions", "general", "tools", "runtime", "system_takeover", "diagnostics", "permissions"},
     "renderIdentity": {"anonymousSessionLocalNotEventCausality"}, "sourcePage": PAGES,
     "observerPhase": {"Enter", "Finish", "Protect", "Snapshot", "Output", "CallbackLag"},
     "scope": {"sessionCumulative"}, "completion": {"appendAndFlush"}, "privacyGate": {"honored"},

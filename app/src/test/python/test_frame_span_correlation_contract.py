@@ -128,7 +128,8 @@ class FrameSpanCorrelationContract(unittest.TestCase):
         settings = (UI / 'SettingsScreen.kt').read_text()
         helpers = (UI / 'components/ChatFrameDiagnostics.kt').read_text()
         calls = re.findall(r'\.settingsSectionDiagnostics\("([a-z_]+)"\)', settings)
-        self.assertEqual(len(calls), 13)
+        # 四个 hook 分组合并进系统接管子页后，主页只剩 9 个分组边界标签。
+        self.assertEqual(len(calls), 9)
         allowed = body(helpers, 'diagnosticComponentType')
         for section in calls:
             self.assertIn('"' + section + '"', allowed)

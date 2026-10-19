@@ -1,11 +1,7 @@
 package io.github.mangi.eta.ui
 
-import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
 import android.content.SharedPreferences
-import android.provider.Settings
-import android.service.voice.VoiceInteractionService
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -13,7 +9,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AccessibilityNew
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.AccountTree
 import androidx.compose.material.icons.rounded.SmartToy
@@ -21,7 +16,6 @@ import androidx.compose.material.icons.rounded.RemoveRedEye
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.BugReport
-import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Dashboard
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Description
@@ -29,30 +23,23 @@ import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.GppMaybe
 import androidx.compose.material.icons.rounded.HealthAndSafety
-import androidx.compose.material.icons.rounded.Hearing
-import androidx.compose.material.icons.rounded.Inventory
 import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Layers
-import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Compress
 import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.RecordVoiceOver
-import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PowerSettingsNew
 import androidx.compose.material.icons.rounded.Psychology
 import io.github.mangi.eta.ui.icons.SubAgents
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Security
-import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Smartphone
-import androidx.compose.material.icons.rounded.SwipeUp
 import androidx.compose.material.icons.rounded.Terminal
-import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material.icons.rounded.VerifiedUser
@@ -75,19 +62,13 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.accessibility.AccessibilityProtectionClient
-import io.github.mangi.eta.agent.accessibility.AgentAccessibilityService
-import io.github.mangi.eta.agent.voice.EtaVoiceInteractionService
 import io.github.mangi.eta.config.PowerAssistantTarget
 import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.core.AppFileLogger
 import io.github.mangi.eta.data.datastore.SettingsDataStore
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
-import io.github.mangi.eta.systemizer.GoogleAppSystemizerInstaller
-import io.github.mangi.eta.systemizer.RootManager
-import io.github.mangi.eta.systemizer.SystemizerInstallResult
 import io.github.mangi.eta.ui.app.EnhancementSettingsHistory
-import io.github.mangi.eta.ui.app.rememberDeviceCapabilities
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaClickableRow
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
@@ -109,7 +90,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import io.github.mangi.eta.ui.components.LanguagePreference
 import io.github.mangi.eta.ui.components.SwitchPreference
-import io.github.mangi.eta.ui.components.WindowSpinnerPreference
 import androidx.compose.material3.Text as M3Text
 import io.github.mangi.eta.ui.adaptive.EtaGroupHorizontalPadding
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedGap
@@ -145,12 +125,8 @@ internal fun SettingsScreen(
     }
     val coroutineScope = rememberCoroutineScope()
     val taskBackendInstalled = rememberTaskBackendInstalled()
-    val capabilities = rememberDeviceCapabilities()
     val enhancementHistory = remember(context.applicationContext) { EnhancementSettingsHistory(context) }
     var hasConnectedFramework by remember { mutableStateOf(enhancementHistory.hasConnected) }
-    var hasUsedSystemizer by remember { mutableStateOf(enhancementHistory.hasUsedSystemizer) }
-    var showSystemizerDialog by remember { mutableStateOf(false) }
-    var installingSystemizer by remember { mutableStateOf(false) }
     val appSettings by remember { SettingsDataStore.settingsFlow() }.collectAsState(
         initial = io.github.mangi.eta.data.model.Settings(),
     )
@@ -190,35 +166,17 @@ internal fun SettingsScreen(
         }
     }
 
-    // 悬浮窗权限状态：授权后从系统设置返回时（ON_RESUME）刷新。
-    var overlayGranted by remember {
-        mutableStateOf(StreamPerformanceDiagnostics.measure("settings.permission.overlay.initial") { android.provider.Settings.canDrawOverlays(context) })
-    }
-    var accessibilityGranted by remember {
-        mutableStateOf(StreamPerformanceDiagnostics.measure("settings.permission.accessibility.initial") { isAgentAccessibilityEnabled(context) })
-    }
+    // 强制无障碍开关状态：从系统设置返回时（ON_RESUME）刷新。
     var accessibilityProtectionEnabled by remember {
         mutableStateOf(StreamPerformanceDiagnostics.measure("settings.permission.protection.initial") { AccessibilityProtectionClient.isEnabled(context) })
     }
     var accessibilityProtectionPending by remember { mutableStateOf(false) }
-    var etaAssistantActive by remember { mutableStateOf(StreamPerformanceDiagnostics.measure("settings.permission.assistant.initial") { isEtaAssistantActive(context) }) }
-    val openAssistantSettings: () -> Unit = {
-        val failed = runCatching {
-            context.startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS))
-        }.isFailure
-        if (failed) {
-            Toast.makeText(context, context.getString(R.string.settings_open_assistant_failed), Toast.LENGTH_SHORT).show()
-        }
-    }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                overlayGranted = StreamPerformanceDiagnostics.measure("settings.permission.overlay.resume") { android.provider.Settings.canDrawOverlays(context) }
-                accessibilityGranted = StreamPerformanceDiagnostics.measure("settings.permission.accessibility.resume") { isAgentAccessibilityEnabled(context) }
                 accessibilityProtectionEnabled =
                     StreamPerformanceDiagnostics.measure("settings.permission.protection.resume") { AccessibilityProtectionClient.isEnabled(context) }
-                etaAssistantActive = StreamPerformanceDiagnostics.measure("settings.permission.assistant.resume") { isEtaAssistantActive(context) }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -236,21 +194,6 @@ internal fun SettingsScreen(
     }
     var prefs by remember { mutableStateOf(initialPreferences.initialValueForUi()) }
     val agentPrefs = remember { Prefs.localAgentPreferences() }
-    var powerAssistantTarget by remember(prefs) {
-        mutableStateOf(prefs?.let(Prefs::powerAssistantTarget) ?: enhancementHistory.powerTarget())
-    }
-    DisposableEffect(prefs) {
-        val targetPrefs = prefs ?: return@DisposableEffect onDispose {}
-        val listener = SharedPreferences.OnSharedPreferenceChangeListener { changedPrefs, key ->
-            if (key == Prefs.Keys.POWER_KEY_ASSISTANT_TARGET ||
-                key == Prefs.Keys.POWER_KEY_TAKEOVER
-            ) {
-                powerAssistantTarget = Prefs.powerAssistantTarget(changedPrefs)
-            }
-        }
-        targetPrefs.registerOnSharedPreferenceChangeListener(listener)
-        onDispose { targetPrefs.unregisterOnSharedPreferenceChangeListener(listener) }
-    }
     DisposableEffect(Unit) {
         // Only the immediate notification may reuse the successful initial read.
         // A failed initial read retries, and every subsequent service event refreshes.
@@ -279,10 +222,6 @@ internal fun SettingsScreen(
             EtaApp.addServiceStateListener(listener, notifyImmediately = true)
         }
         onDispose { EtaApp.removeServiceStateListener(listener) }
-    }
-    val powerAssistantTargets = PowerAssistantTarget.entries
-    val powerAssistantItems = powerAssistantTargets.map { target ->
-        target.displayName(context)
     }
 
     WithoutPressRipple {
@@ -314,16 +253,6 @@ internal fun SettingsScreen(
                         onNavigate(AppRoute.ModelProviders)
                     }
                 }
-
-                row {
-                    SwitchPref(
-                        context = context,
-                        prefs = agentPrefs,
-                        title = stringResource(R.string.ui_deep_thinking_enabled_by_default_c032d6),
-                        key = Prefs.Keys.AGENT_THINKING_ENABLED,
-                        icon = Icons.Rounded.Psychology,
-                    )
-                }
             }
 
             settingsGroup(
@@ -351,12 +280,6 @@ internal fun SettingsScreen(
                 }
 
                 row {
-                    EtaClickableRow(title = stringResource(R.string.settings_subagent_title),
-                        leading = { PreferenceIcon(icon = SubAgents) },
-                        onClick = { onNavigate(AppRoute.SubAgents) })
-                }
-
-                row {
                     EtaClickableRow(
                         title = stringResource(R.string.title_model_title),
                         leading = { PreferenceIcon(icon = Icons.Rounded.AutoAwesome) },
@@ -369,6 +292,16 @@ internal fun SettingsScreen(
                         title = stringResource(R.string.error_reconnect_title),
                         leading = { PreferenceIcon(icon = Icons.Rounded.Refresh) },
                         onClick = { onNavigate(AppRoute.ErrorReconnectSettings) },
+                    )
+                }
+
+                row {
+                    SwitchPref(
+                        context = context,
+                        prefs = agentPrefs,
+                        title = stringResource(R.string.ui_deep_thinking_enabled_by_default_c032d6),
+                        key = Prefs.Keys.AGENT_THINKING_ENABLED,
+                        icon = Icons.Rounded.Psychology,
                     )
                 }
             }
@@ -412,6 +345,12 @@ internal fun SettingsScreen(
                         },
                         onClick = { onNavigate(AppRoute.McpServers) },
                     )
+                }
+
+                row {
+                    EtaClickableRow(title = stringResource(R.string.settings_subagent_title),
+                        leading = { PreferenceIcon(icon = SubAgents) },
+                        onClick = { onNavigate(AppRoute.SubAgents) })
                 }
             }
 
@@ -467,11 +406,32 @@ internal fun SettingsScreen(
                         onClick = { onNavigate(AppRoute.DataBackup) },
                     )
                 }
+
+                row {
+                    EtaClickableRow(
+                        title = stringResource(R.string.haptics_list),
+                        summary = stringResource(R.string.haptics_entry_summary),
+                        leading = { PreferenceIcon(Icons.Rounded.Vibration) },
+                        onClick = { onNavigate(AppRoute.Haptics) },
+                    )
+                }
+
+                row {
+                    EtaClickableRow(
+                        title = stringResource(R.string.ui_about_bed172),
+                        leading = {
+                            PreferenceIcon(
+                                icon = Icons.Rounded.Info,
+                            )
+                        },
+                        onClick = { onNavigate(AppRoute.About) },
+                    )
+                }
             }
 
-            // ── 工具 ───────────────────────────────────────────────────
+            // ── Agent 工具能力 ──────────────────────────────────────────
             settingsGroup(
-                title = { stringResource(R.string.ui_tool_a72ef1) },
+                title = { stringResource(R.string.settings_tool_capabilities) },
                 sectionModifier = Modifier.settingsSectionDiagnostics("tools"),
             ) {
                 row {
@@ -552,7 +512,13 @@ internal fun SettingsScreen(
                         icon = Icons.Rounded.Tune,
                     )
                 }
+            }
 
+            // ── 运行环境 ────────────────────────────────────────────────
+            settingsGroup(
+                title = { stringResource(R.string.settings_runtime_environment) },
+                sectionModifier = Modifier.settingsSectionDiagnostics("runtime"),
+            ) {
                 row {
                     EtaClickableRow(
                         title = stringResource(R.string.ui_linux_tool_environment_314d22),
@@ -575,209 +541,18 @@ internal fun SettingsScreen(
                 }
             }
 
-            settingsGroup(
-                title = { stringResource(R.string.haptics_title) },
-                sectionModifier = Modifier.settingsSectionDiagnostics("haptics"),
-            ) {
-                row {
-                    EtaClickableRow(
-                        title = stringResource(R.string.haptics_list),
-                        summary = stringResource(R.string.haptics_entry_summary),
-                        leading = { PreferenceIcon(Icons.Rounded.Vibration) },
-                        onClick = { onNavigate(AppRoute.Haptics) },
-                    )
-                }
-            }
-
             // ── 系统助手接管 ──────────────────────────────────────────────
             settingsGroup(
-                title = { stringResource(R.string.ui_system_assistant_takes_over_f46043) },
-                sectionModifier = Modifier.settingsSectionDiagnostics("assistant_takeover"),
+                title = { stringResource(R.string.settings_system_takeover) },
+                sectionModifier = Modifier.settingsSectionDiagnostics("system_takeover"),
             ) {
                 row {
                     EtaClickableRow(
-                        title = stringResource(R.string.ui_eta_system_assistant_003e9b),
-                        summary = stringResource(
-                            if (etaAssistantActive) {
-                                R.string.settings_default_assistant_active
-                            } else {
-                                R.string.settings_select_default_assistant
-                            },
-                        ),
-                        leading = {
-                            PreferenceIcon(
-                                icon = Icons.Rounded.AutoAwesome,
-                            )
-                        },
-                        onClick = openAssistantSettings,
+                        title = stringResource(R.string.ui_system_assistant_takes_over_f46043),
+                        summary = stringResource(R.string.settings_system_takeover_summary),
+                        leading = { PreferenceIcon(Icons.Rounded.PowerSettingsNew) },
+                        onClick = { onNavigate(AppRoute.SystemTakeover) },
                     )
-                }
-
-                if (prefs != null || hasConnectedFramework) {
-                    row {
-                        WindowSpinnerPreference(
-                            title = stringResource(R.string.ui_long_press_the_power_button_1958d0),
-                            items = powerAssistantItems,
-                            selectedIndex = powerAssistantTargets.indexOf(powerAssistantTarget),
-                            onSelectedIndexChange = { index ->
-                                val target = powerAssistantTargets.getOrNull(index)
-                                ?: return@WindowSpinnerPreference
-                                val targetPrefs = prefs ?: return@WindowSpinnerPreference
-                                if (putStringSync(
-                                        prefs = targetPrefs,
-                                        key = Prefs.Keys.POWER_KEY_ASSISTANT_TARGET,
-                                        value = target.persistedValue,
-                                    )
-                                ) {
-                                    powerAssistantTarget = target
-                                    enhancementHistory.recordCommittedTarget(target)
-                                } else {
-                                    Toast.makeText(
-                                        context.applicationContext,
-                                        context.getString(R.string.settings_write_failed),
-                                        Toast.LENGTH_SHORT,
-                                    ).show()
-                                }
-                            },
-                            startAction = {
-                                PreferenceIcon(
-                                    icon = Icons.Rounded.PowerSettingsNew,
-                                    enabled = prefs != null,
-                                )
-                            },
-                            enabled = prefs != null,
-                        )
-                    }
-
-                    row {
-                        SwitchPref(
-                            context = context,
-                            prefs = prefs,
-                            title = stringResource(R.string.ui_automatically_set_default_assistant_f86963),
-                            summary = stringResource(R.string.ui_valid_only_for_gemini_and_eta_d5b63d),
-                            key = Prefs.Keys.ASSISTANT_AUTO_CONFIG,
-                            icon = Icons.Rounded.Settings,
-                        )
-                    }
-                }
-            }
-
-            if (prefs != null || hasConnectedFramework) {
-                // ── 厂商助手兼容入口 ──────────────────────────────────────────
-                settingsGroup(
-                    title = { stringResource(R.string.ui_xiaobu_xiaoai_compatible_entrance_ae918a) },
-                    sectionModifier = Modifier.settingsSectionDiagnostics("oem_assistant_compatibility"),
-                ) {
-                    row {
-                        SwitchPref(
-                            context = context,
-                            prefs = prefs,
-                            title = stringResource(R.string.ui_enable_vendor_assistant_custom_models_c8e465),
-                            key = Prefs.Keys.AGENT_CUSTOM_MODEL,
-                            icon = Icons.Rounded.Memory,
-                        )
-                    }
-
-                    row {
-                        SwitchPref(
-                            context = context,
-                            prefs = prefs,
-                            title = stringResource(R.string.ui_only_take_over_with_agent_prefix_d17556),
-                            key = Prefs.Keys.AGENT_REQUIRE_PREFIX,
-                            icon = Icons.Rounded.Code,
-                        )
-                    }
-                }
-            }
-
-            if (prefs != null || hasConnectedFramework || capabilities.root.isGranted || hasUsedSystemizer) {
-                // ── Gemini ─────────────────────────────────────────────────
-                settingsGroup(
-                    title = { "Gemini" },
-                    sectionModifier = Modifier.settingsSectionDiagnostics("gemini"),
-                ) {
-                    if (prefs != null || hasConnectedFramework) {
-                        row {
-                            SwitchPref(
-                                context = context,
-                                prefs = prefs,
-                                title = stringResource(R.string.ui_maintain_hey_google_detection_after_screen_rest_9d6877),
-                                key = Prefs.Keys.HOTWORD_SELF_HEAL,
-                                icon = Icons.Rounded.Hearing,
-                            )
-                        }
-
-                        row {
-                            SwitchPref(
-                                context = context,
-                                prefs = prefs,
-                                title = stringResource(R.string.ui_lock_screen_evokes_automatic_voice_input_1cde18),
-                                key = Prefs.Keys.LOCKSCREEN_VOICE_COMMAND,
-                                icon = Icons.Rounded.Lock,
-                            )
-                        }
-
-                        row {
-                            SwitchPref(
-                                context = context,
-                                prefs = prefs,
-                                title = stringResource(R.string.ui_bright_screen_evokes_automatic_voice_input_4358fe),
-                                key = Prefs.Keys.SCREEN_ON_VOICE_COMMAND,
-                                icon = Icons.Rounded.Mic,
-                            )
-                        }
-                    }
-
-                    if (capabilities.root.isGranted || hasUsedSystemizer) {
-                        row {
-                            EtaClickableRow(
-                                title = stringResource(R.string.ui_convert_google_apps_to_system_apps_0f6d89),
-                                leading = {
-                                    PreferenceIcon(
-                                        icon = Icons.Rounded.Inventory,
-                                    )
-                                },
-                                summary = if (capabilities.root.isGranted) null else stringResource(R.string.capability_root_required),
-                                enabled = !installingSystemizer,
-                                holdDownState = showSystemizerDialog,
-                                onClick = {
-                                    if (!capabilities.root.isGranted) {
-                                        onNavigate(AppRoute.SystemEnhance)
-                                    } else if (!installingSystemizer) {
-                                        showSystemizerDialog = true
-                                    }
-                                },
-                            )
-                        }
-                    }
-                }
-            }
-
-            if (prefs != null || hasConnectedFramework) {
-                // ── 一圈即搜 ────────────────────────────────────────────────
-                settingsGroup(
-                    title = { stringResource(R.string.ui_search_in_one_turn_179584) },
-                    sectionModifier = Modifier.settingsSectionDiagnostics("circle_to_search"),
-                ) {
-                    row {
-                        SwitchPref(
-                            context = context,
-                            prefs = prefs,
-                            title = stringResource(R.string.ui_long_press_on_the_gesture_bar_triggers_a_circle_to_s_b80117),
-                            key = Prefs.Keys.GESTURE_BAR_CIRCLE_TO_SEARCH,
-                            icon = Icons.Rounded.SwipeUp,
-                        )
-                    }
-
-                    row {
-                        SwitchPref(
-                            context = context,
-                            prefs = prefs,
-                            title = stringResource(R.string.ui_long_press_with_two_fingers_to_trigger_a_circle_sear_ab597a),
-                            key = Prefs.Keys.DOUBLE_FINGER_CIRCLE_TO_SEARCH,
-                            icon = Icons.Rounded.TouchApp,
-                        )
-                    }
                 }
             }
 
@@ -873,64 +648,6 @@ internal fun SettingsScreen(
                     )
                 }
 
-                row {
-                    EtaClickableRow(
-                        title = stringResource(R.string.ui_floating_window_permissions_076b77),
-                        leading = {
-                            PreferenceIcon(
-                                icon = Icons.Rounded.Layers,
-                            )
-                        },
-                        endActions = {
-                            SettingsStatusText(
-                                text = stringResource(
-                                    if (overlayGranted) R.string.status_authorized else R.string.status_unauthorized,
-                                ),
-                                error = !overlayGranted,
-                            )
-                        },
-                        onClick = {
-                            if (!overlayGranted) {
-                                runCatching {
-                                    context.startActivity(
-                                        android.content.Intent(
-                                            android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                            android.net.Uri.parse("package:${context.packageName}"),
-                                        ),
-                                    )
-                                }
-                            }
-                        },
-                    )
-                }
-
-                row {
-                    EtaClickableRow(
-                        title = stringResource(R.string.ui_accessibility_enhancement_tools_8fd257),
-                        leading = {
-                            PreferenceIcon(
-                                icon = Icons.Rounded.AccessibilityNew,
-                            )
-                        },
-                        endActions = {
-                            val enabled = accessibilityGranted || AgentAccessibilityService.isAvailable()
-                            SettingsStatusText(
-                                text = stringResource(
-                                    if (enabled) R.string.status_enabled else R.string.status_disabled,
-                                ),
-                                emphasized = !enabled,
-                            )
-                        },
-                        onClick = {
-                            runCatching {
-                                context.startActivity(
-                                    android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS),
-                                )
-                            }
-                        },
-                    )
-                }
-
                 if (prefs != null || hasConnectedFramework) {
                     row {
                         SwitchPreference(
@@ -947,7 +664,6 @@ internal fun SettingsScreen(
                                 ) { result ->
                                     accessibilityProtectionPending = false
                                     accessibilityProtectionEnabled = result.enabled
-                                    accessibilityGranted = isAgentAccessibilityEnabled(context)
                                     val failureMessage = when (result.status) {
                                         AccessibilityProtectionClient.ControlStatus.APPLIED -> null
                                         AccessibilityProtectionClient.ControlStatus.UNAVAILABLE ->
@@ -975,24 +691,6 @@ internal fun SettingsScreen(
                     }
                 }
             }
-
-            // ── 关于 ────────────────────────────────────────────────────
-            settingsGroup(
-                title = { stringResource(R.string.ui_about_bed172) },
-                sectionModifier = Modifier.settingsSectionDiagnostics("about"),
-            ) {
-                row {
-                    EtaClickableRow(
-                        title = stringResource(R.string.ui_about_bed172),
-                        leading = {
-                            PreferenceIcon(
-                                icon = Icons.Rounded.Info,
-                            )
-                        },
-                        onClick = { onNavigate(AppRoute.About) },
-                    )
-                }
-            }
         }
     }
 
@@ -1004,87 +702,56 @@ internal fun SettingsScreen(
                 onDismissRequest = {
                     if (!clearingLogs) showClearLogsDialog = false
                 },
-            ) {
-                EtaDialogActions(
-                    confirmText = if (clearingLogs) {
-                        stringResource(R.string.settings_export_logs_working)
-                    } else {
-                        stringResource(R.string.settings_clear_logs)
-                    },
-                    destructive = true,
-                    cancelEnabled = !clearingLogs,
-                    confirmEnabled = !clearingLogs,
-                    onCancel = { showClearLogsDialog = false },
-                    onConfirm = {
-                        if (clearingLogs) return@EtaDialogActions
-                        clearingLogs = true
-                        coroutineScope.launch {
-                            try {
-                                withContext(Dispatchers.IO) {
-                                    AppFileLogger.clear()
-                                    io.github.mangi.eta.agent.voice.doubao.DoubaoDiagnostics.clear()
+                actions = {
+                    EtaDialogActions(
+                        confirmText = if (clearingLogs) {
+                            stringResource(R.string.settings_export_logs_working)
+                        } else {
+                            stringResource(R.string.settings_clear_logs)
+                        },
+                        destructive = true,
+                        cancelEnabled = !clearingLogs,
+                        confirmEnabled = !clearingLogs,
+                        onCancel = { showClearLogsDialog = false },
+                        onConfirm = {
+                            if (clearingLogs) return@EtaDialogActions
+                            clearingLogs = true
+                            coroutineScope.launch {
+                                try {
+                                    withContext(Dispatchers.IO) {
+                                        AppFileLogger.clear()
+                                        io.github.mangi.eta.agent.voice.doubao.DoubaoDiagnostics.clear()
+                                    }
+                                    Toast.makeText(
+                                        context.applicationContext,
+                                        context.getString(R.string.settings_clear_logs_done),
+                                        Toast.LENGTH_SHORT,
+                                    ).show()
+                                    showClearLogsDialog = false
+                                } catch (throwable: Throwable) {
+                                    if (throwable is CancellationException) throw throwable
+                                    Toast.makeText(
+                                        context.applicationContext,
+                                        throwable.message?.takeIf { it.isNotBlank() }
+                                            ?: context.getString(R.string.settings_export_logs_failed),
+                                        Toast.LENGTH_SHORT,
+                                    ).show()
+                                } finally {
+                                    clearingLogs = false
                                 }
-                                Toast.makeText(
-                                    context.applicationContext,
-                                    context.getString(R.string.settings_clear_logs_done),
-                                    Toast.LENGTH_SHORT,
-                                ).show()
-                                showClearLogsDialog = false
-                            } catch (throwable: Throwable) {
-                                if (throwable is CancellationException) throw throwable
-                                Toast.makeText(
-                                    context.applicationContext,
-                                    throwable.message?.takeIf { it.isNotBlank() }
-                                        ?: context.getString(R.string.settings_export_logs_failed),
-                                    Toast.LENGTH_SHORT,
-                                ).show()
-                            } finally {
-                                clearingLogs = false
                             }
-                        }
-                    },
-                )
+                        },
+                    )
+                },
+            ) {
             }
         }
-
-        SystemizerConfirmDialog(
-            show = showSystemizerDialog,
-            installing = installingSystemizer,
-            onDismissRequest = {
-                if (!installingSystemizer) {
-                    showSystemizerDialog = false
-                }
-            },
-            onConfirm = {
-                if (installingSystemizer) return@SystemizerConfirmDialog
-                if (!capabilities.root.isGranted) {
-                    showSystemizerDialog = false
-                    onNavigate(AppRoute.SystemEnhance)
-                    return@SystemizerConfirmDialog
-                }
-                enhancementHistory.recordSystemizerUse()
-                hasUsedSystemizer = true
-                showSystemizerDialog = false
-                installingSystemizer = true
-                coroutineScope.launch {
-                    val result = withContext(Dispatchers.IO) {
-                        GoogleAppSystemizerInstaller(context.applicationContext).install()
-                    }
-                    installingSystemizer = false
-                    Toast.makeText(
-                        context.applicationContext,
-                        result.toToastMessage(context),
-                        Toast.LENGTH_LONG,
-                    ).show()
-                }
-            },
-        )
 }
 
 // ── 逐行懒加载的设置分组 ─────────────────────────────────────────────────────
 
 /** [settingsGroup] 的行作用域：注册进来的每一行都会成为独立的一条 LazyColumn item。 */
-private class SettingsGroupRows {
+internal class SettingsGroupRows {
     internal val rows = mutableListOf<@Composable () -> Unit>()
 
     /** 注册一行。不需要显示的行不要调用本方法，组内 index/count 会自动跳过它。 */
@@ -1105,9 +772,9 @@ private class SettingsGroupRows {
  *
  * 间距沿用分段列表令牌：组标题下 8dp、行间 2dp、组末 13dp、左右页边距 16dp；
  * `sectionModifier` 由调用方传入（`Modifier.settingsSectionDiagnostics("…")`），逐行采集
- * settings.section 边界，保持帧诊断契约要求的 13 个字面量标签。
+ * settings.section 边界，保持帧诊断契约要求的 9 个字面量标签。
  */
-private fun LazyListScope.settingsGroup(
+internal fun LazyListScope.settingsGroup(
     title: @Composable () -> String,
     sectionModifier: Modifier,
     content: SettingsGroupRows.() -> Unit,
@@ -1143,35 +810,6 @@ private fun LazyListScope.settingsGroup(
     }
 }
 
-// ── 系统化确认对话框 ─────────────────────────────────────────────────────────
-
-@Composable
-private fun SystemizerConfirmDialog(
-    show: Boolean,
-    installing: Boolean,
-    onDismissRequest: () -> Unit,
-    onConfirm: () -> Unit,
-) {
-    EtaDialog(
-        show = show,
-        title = stringResource(R.string.ui_convert_google_apps_to_system_apps_0f6d89),
-        summary = stringResource(R.string.ui_system_applications_have_voice_wake_up_permissions_f_0190f2),
-        onDismissRequest = onDismissRequest,
-    ) {
-        EtaDialogActions(
-            confirmText = if (installing) {
-                stringResource(R.string.status_processing)
-            } else {
-                stringResource(R.string.action_confirm)
-            },
-            cancelEnabled = !installing,
-            confirmEnabled = !installing,
-            onCancel = onDismissRequest,
-            onConfirm = onConfirm,
-        )
-    }
-}
-
 // ── 带图标的布尔开关 ─────────────────────────────────────────────────────────
 
 /**
@@ -1181,7 +819,7 @@ private fun SystemizerConfirmDialog(
  * Runtime 开关始终使用 App 本地配置。
  */
 @Composable
-private fun SwitchPref(
+internal fun SwitchPref(
     context: Context,
     prefs: SharedPreferences?,
     title: String,
@@ -1254,67 +892,29 @@ internal fun SettingsStatusText(text: String, error: Boolean = false, emphasized
     )
 }
 
-private fun putBooleanSync(
+internal fun putBooleanSync(
     prefs: SharedPreferences,
     key: String,
     value: Boolean
 ): Boolean =
     runCatching { prefs.edit().putBoolean(key, value).commit() }.getOrDefault(false)
 
-private fun putStringSync(
+internal fun putStringSync(
     prefs: SharedPreferences,
     key: String,
     value: String
 ): Boolean =
     runCatching { prefs.edit().putString(key, value).commit() }.getOrDefault(false)
 
-private fun PowerAssistantTarget.displayName(context: Context): String =
+internal fun PowerAssistantTarget.displayName(context: Context): String =
     when (this) {
         PowerAssistantTarget.OEM -> context.getString(R.string.power_assistant_system_default)
         PowerAssistantTarget.GEMINI -> "Gemini"
         PowerAssistantTarget.ETA -> "Eta"
     }
 
-private fun isAgentAccessibilityEnabled(context: Context): Boolean {
-    val expected = ComponentName(
-        context,
-        AgentAccessibilityService::class.java
-    ).flattenToString()
-    val enabledServices = android.provider.Settings.Secure.getString(
-        context.contentResolver,
-        android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-    ).orEmpty()
-    return enabledServices.split(':').any { it.equals(expected, ignoreCase = true) }
-}
-
 private fun defaultDiagnosticLogFileName(context: Context): String =
     context.getString(R.string.settings_diag_log_file_name, SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date()))
-
-private fun isEtaAssistantActive(context: Context): Boolean =
-    VoiceInteractionService.isActiveService(
-        context,
-        ComponentName(context, EtaVoiceInteractionService::class.java),
-    )
-
-private fun SystemizerInstallResult.toToastMessage(context: Context): String =
-    when (this) {
-        SystemizerInstallResult.AlreadySystemized -> context.getString(R.string.systemizer_already_system)
-        SystemizerInstallResult.GoogleAppMissing -> context.getString(R.string.systemizer_google_missing)
-        SystemizerInstallResult.UnsupportedRootManager -> context.getString(R.string.systemizer_root_manager_missing)
-        SystemizerInstallResult.KernelSuMetamoduleMissing -> context.getString(R.string.systemizer_metamodule_missing)
-        is SystemizerInstallResult.RootPermissionUnavailable -> when (rootManager) {
-            RootManager.KERNEL_SU -> context.getString(R.string.systemizer_grant_kernelsu)
-            RootManager.MAGISK -> context.getString(R.string.systemizer_grant_magisk)
-            RootManager.UNSUPPORTED -> context.getString(R.string.systemizer_root_denied)
-        }
-        is SystemizerInstallResult.InstalledRebootRequired -> context.getString(R.string.systemizer_installed)
-        is SystemizerInstallResult.Failed -> commandOutput
-            .lineSequence()
-            .map { it.trim() }
-            .lastOrNull { it.isNotEmpty() }
-            ?.let { "$message：$it" }
-            ?: message
-    }
 
 @Composable
 private fun SettingsProviderEntry(
