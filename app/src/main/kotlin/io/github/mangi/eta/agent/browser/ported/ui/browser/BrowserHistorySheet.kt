@@ -184,16 +184,18 @@ fun BrowserHistorySheet(
             title = stringResource(R.string.om_browser_history_clear_dialog_title),
             summary = stringResource(R.string.om_browser_history_clear_dialog_message),
             onDismissRequest = { showClearConfirm = false },
+            actions = {
+                EtaDialogActions(
+                    confirmText = stringResource(R.string.om_browser_history_clear),
+                    destructive = true,
+                    onCancel = { showClearConfirm = false },
+                    onConfirm = {
+                        historyStore.clear()
+                        showClearConfirm = false
+                    },
+                )
+            },
         ) {
-            EtaDialogActions(
-                confirmText = stringResource(R.string.om_browser_history_clear),
-                destructive = true,
-                onCancel = { showClearConfirm = false },
-                onConfirm = {
-                    historyStore.clear()
-                    showClearConfirm = false
-                },
-            )
         }
     }
 }

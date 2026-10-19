@@ -109,7 +109,12 @@ val LocalEtaSegmentedRowBare = staticCompositionLocalOf { false }
 @Composable
 internal fun etaSegmentedRowColors(selectedContainerColor: Color? = null): ListItemColors {
     if (LocalEtaSegmentedRowBare.current) {
-        return ListItemDefaults.segmentedColors(containerColor = Color.Transparent)
+        // 禁用态同样交出底色：容器在启用/禁用两种状态下都要保持表面连续，
+        // 否则禁用行会用令牌色在容器上叠出一块异色。
+        return ListItemDefaults.segmentedColors(
+            containerColor = Color.Transparent,
+            disabledContainerColor = Color.Transparent,
+        )
     }
     return ListItemDefaults.segmentedColors(
         containerColor = MaterialTheme.colorScheme.surfaceBright,
@@ -224,15 +229,17 @@ fun EtaSegmentedColumn(
             }
         }
 
-        val firstVisible = entries.indexOfFirst { it.visible }
-        val lastVisible = entries.indexOfLast { it.visible }
+        val firstSurface = entries.indexOfFirst { it.visible && it.surface }
+        val lastSurface = entries.indexOfLast { it.visible && it.surface }
 
         Layout(
             content = {
                 entries.forEachIndexed { index, entry ->
                     key(entry.key ?: index) {
-                        val isFirst = if (firstVisible == -1) index == 0 else index == firstVisible
-                        val isLast = if (lastVisible == -1) index == entries.lastIndex else index == lastVisible
+                        val isFirst = entry.surface &&
+                            (if (firstSurface == -1) index == 0 else index == firstSurface)
+                        val isLast = entry.surface &&
+                            (if (lastSurface == -1) index == entries.lastIndex else index == lastSurface)
 
                         val topRadius by animateDpAsState(
                             if (isFirst) SegmentedOuterRadius else SegmentedInnerRadius,
@@ -298,16 +305,30 @@ fun EtaSegmentedColumn(
 
 /** [EtaSegmentedColumn] 的 DSL 作用域。 */
 class EtaSegmentedScope {
-    internal data class Entry(val key: Any?, val visible: Boolean, val content: @Composable () -> Unit)
+    internal data class Entry(
+        val key: Any?,
+        val visible: Boolean,
+        val surface: Boolean,
+        val content: @Composable () -> Unit,
+    )
 
     internal val items = mutableListOf<Entry>()
 
     /**
      * 注册一个条目。[visible] 为 false 时条目不渲染，但仍占据形状计算的位置——
      * 与 KernelSU 的 SegmentedColumn 行为一致：隐藏条目两侧的可见条目自动接管首/末圆角。
+     *
+     * [surface] 标记该条目是否为分段卡片：只有卡片才参与首/末外圆角（16dp）的计算。
+     * 说明文字、Apply 按钮行、预设 chips 等不绘制卡片底色的内容传 `false`，
+     * 否则它们会顶替真正末项的位置、把内圆角（4dp）留给最后一张卡片。
      */
-    fun item(key: Any? = null, visible: Boolean = true, content: @Composable () -> Unit) {
-        items.add(Entry(key ?: items.size, visible, content))
+    fun item(
+        key: Any? = null,
+        visible: Boolean = true,
+        surface: Boolean = true,
+        content: @Composable () -> Unit,
+    ) {
+        items.add(Entry(key ?: items.size, visible, surface, content))
     }
 }
 

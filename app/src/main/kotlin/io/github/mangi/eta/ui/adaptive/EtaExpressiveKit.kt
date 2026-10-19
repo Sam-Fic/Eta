@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonGroupDefaults
+import androidx.compose.material3.ButtonShapes
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -41,14 +42,26 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.graphics.shapes.CornerRounding
+import androidx.graphics.shapes.Morph
+import androidx.graphics.shapes.RoundedPolygon
+import androidx.graphics.shapes.rectangle
 
 /**
  * Material 3 Expressive 基础组件套件。
@@ -242,6 +255,157 @@ fun EtaConnectedIconAction(
             content = content,
         )
     }
+}
+
+/**
+ * 相连按钮组里的位置：决定官方 `ButtonGroupDefaults` 哪一侧保持完全圆角。
+ */
+enum class EtaConnectedPosition { Single, Leading, Middle, Trailing }
+
+/** 按组内下标 / 总数归位；`count <= 1` 时退化为官方单按钮的全圆角形状。 */
+fun etaConnectedPosition(index: Int, count: Int): EtaConnectedPosition = when {
+    count <= 1 -> EtaConnectedPosition.Single
+    index <= 0 -> EtaConnectedPosition.Leading
+    index >= count - 1 -> EtaConnectedPosition.Trailing
+    else -> EtaConnectedPosition.Middle
+}
+
+/**
+ * 官方相连按钮组形状（静止 + 按压），全部取自 `ButtonGroupDefaults`：
+ * 外侧 `CornerFull`、内侧 8dp，按压时内圆角收到 4dp。
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun etaConnectedButtonShapes(position: EtaConnectedPosition): ButtonShapes = when (position) {
+    EtaConnectedPosition.Single -> ButtonDefaults.shapes()
+    EtaConnectedPosition.Leading -> ButtonDefaults.shapes(
+        shape = ButtonGroupDefaults.connectedLeadingButtonShape,
+        pressedShape = ButtonGroupDefaults.connectedLeadingButtonPressShape,
+    )
+    EtaConnectedPosition.Middle -> ButtonDefaults.shapes(
+        shape = ButtonGroupDefaults.connectedMiddleButtonShapes().shape,
+        pressedShape = ButtonGroupDefaults.connectedMiddleButtonPressShape,
+    )
+    EtaConnectedPosition.Trailing -> ButtonDefaults.shapes(
+        shape = ButtonGroupDefaults.connectedTrailingButtonShape,
+        pressedShape = ButtonGroupDefaults.connectedTrailingButtonPressShape,
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Morph 形状（M3E 形状渐变）
+// ---------------------------------------------------------------------------
+
+/** 相连按钮组内侧圆角的官方档位（`ShapeTokens.CornerValueSmall` = 8dp）。 */
+val EtaConnectedInnerCornerRadius: Dp = 8.dp
+
+/** 相连按钮组按压时内侧圆角的官方档位（`ShapeTokens.CornerValueExtraSmall` = 4dp）。 */
+val EtaConnectedPressedInnerCornerRadius: Dp = 4.dp
+
+/**
+ * 单位坐标空间：`1f` = 按钮高度。全圆角档取半高（等价官方 `CornerFull` =
+ * `RoundedCornerShape(percent = 50)`），在单位空间里就是 0.5。
+ */
+private const val EtaHalfHeight = 0.5f
+
+/**
+ * 「未选中连体形状 ↔ 选中胶囊 ↔ 按压形状」之间的 Morph 形状（M3E 形状渐变），
+ * 由选中与按压两个独立进度驱动。
+ *
+ * 顶点以「按钮高度 = 1」为单位构造（`y ∈ [-0.5, 0.5]`、`x = ±宽高比 / 2`，圆心在原点），
+ * 绘制时按布局高度等比缩放并居中：因此圆角在两个方向上都是精确的 dp 圆角，不会像
+ * `MaterialShapes` 那样被按 (宽, 高) 非均匀缩放。两端形状的顶点数、顺序、宽高比完全一致
+ * （只差每组圆角半径），[Morph] 因此只在圆角之间插值，中途不会出现形状跳变。
+ *
+ * 按压沿用官方语义，只收**内侧**圆角：官方 `ButtonGroupDefaults.connected*PressShape` 即
+ * 「外侧仍 `CornerFull`、内侧取 `PressedInnerCornerCornerSize`（4dp）」——未选中端内侧
+ * 8dp → 4dp、选中端全圆角 → 4dp；结构性全圆的边（首位的左、末位的右）一直保持全圆角。
+ * 两个进度互不干扰，可任意叠加（按下时同时切换选中也不会跳变）。
+ *
+ * @param selectionProgress 0 = 未选中（连体形状）、1 = 选中（全圆角胶囊）。
+ * @param pressProgress 0 = 未按压、1 = 完全按下（内侧圆角收到 4dp，即官方按压形状）。
+ * @param position 组内位置：靠外一侧（首位的左、末位的右）结构上保持全圆角，内侧按进度取值。
+ * @param innerCornerRadius 连体形状的内侧圆角，默认官方 8dp。
+ * @param pressedInnerCornerRadius 按压时的内侧圆角，默认官方 4dp。
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+class EtaMorphChipShape(
+    private val selectionProgress: Float,
+    private val pressProgress: Float,
+    private val position: EtaConnectedPosition,
+    private val innerCornerRadius: Dp = EtaConnectedInnerCornerRadius,
+    private val pressedInnerCornerRadius: Dp = EtaConnectedPressedInnerCornerRadius,
+) : Shape {
+
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
+        if (size.width <= 0f || size.height <= 0f) {
+            return Outline.Rectangle(Rect(Offset.Zero, size))
+        }
+        val aspect = size.width / size.height
+        val innerBase = with(density) { innerCornerRadius.toPx() } / size.height
+        val innerPressed = with(density) { pressedInnerCornerRadius.toPx() } / size.height
+        // 未选中端按压：8dp → 4dp；选中端按压：全圆角 → 4dp。
+        val connectedInner = innerBase + (innerPressed - innerBase) * pressProgress
+        val pillInner = EtaHalfHeight + (innerPressed - EtaHalfHeight) * pressProgress
+        val fullStart = position == EtaConnectedPosition.Single || position == EtaConnectedPosition.Leading
+        val fullEnd = position == EtaConnectedPosition.Single || position == EtaConnectedPosition.Trailing
+        val connected = etaConnectedPolygon(
+            aspect = aspect,
+            startRadius = if (fullStart) EtaHalfHeight else connectedInner,
+            endRadius = if (fullEnd) EtaHalfHeight else connectedInner,
+        )
+        val pill = etaConnectedPolygon(
+            aspect = aspect,
+            startRadius = if (fullStart) EtaHalfHeight else pillInner,
+            endRadius = if (fullEnd) EtaHalfHeight else pillInner,
+        )
+
+        // 单位空间 → 布局空间：按高度等比缩放 + 居中（圆角在两轴同倍，保持正圆）。
+        val scale = size.height
+        val centerX = size.width / 2f
+        val centerY = size.height / 2f
+        val path = Path()
+        var started = false
+        Morph(connected, pill).forEachCubic(selectionProgress) { cubic ->
+            val ax0 = centerX + cubic.anchor0X * scale
+            val ay0 = centerY + cubic.anchor0Y * scale
+            if (started) path.lineTo(ax0, ay0) else path.moveTo(ax0, ay0)
+            started = true
+            path.cubicTo(
+                centerX + cubic.control0X * scale,
+                centerY + cubic.control0Y * scale,
+                centerX + cubic.control1X * scale,
+                centerY + cubic.control1Y * scale,
+                centerX + cubic.anchor1X * scale,
+                centerY + cubic.anchor1Y * scale,
+            )
+        }
+        path.close()
+        return Outline.Generic(path)
+    }
+}
+
+/**
+ * 单位空间里的标签多边形：宽 [aspect] × 高 1、圆心在原点，左侧圆角取 [startRadius]、
+ * 右侧取 [endRadius]（`0.5` = 全圆角，即半高）。
+ *
+ * 顶点顺序沿用官方 `RoundedPolygon.rectangle` 的固定顺序「右下 → 左下 → 左上 → 右上」，
+ * 因此逐个顶点的圆角列表为 `[右, 左, 左, 右]`。
+ */
+private fun etaConnectedPolygon(
+    aspect: Float,
+    startRadius: Float,
+    endRadius: Float,
+): RoundedPolygon {
+    val end = CornerRounding(endRadius, 0f)
+    val start = CornerRounding(startRadius, 0f)
+    return RoundedPolygon.rectangle(
+        width = aspect,
+        height = 1f,
+        perVertexRounding = listOf(end, start, start, end),
+        centerX = 0f,
+        centerY = 0f,
+    )
 }
 
 // ---------------------------------------------------------------------------

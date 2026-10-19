@@ -200,7 +200,7 @@ fun BrowserSettingsSheet(
                             singleLine = false,
                         )
                     }
-                    item(key = "custom_ua_apply") {
+                    item(key = "custom_ua_apply", surface = false) {
                         SettingsApplyRow(
                             onClick = {
                                 TouchHaptics.click(view)
@@ -286,7 +286,7 @@ fun BrowserSettingsSheet(
                             modifier = Modifier.bringIntoViewOnFocus(),
                         )
                     }
-                    item(key = "viewport_apply") {
+                    item(key = "viewport_apply", surface = false) {
                         SettingsApplyRow(
                             onClick = {
                                 TouchHaptics.click(view)
@@ -309,14 +309,14 @@ fun BrowserSettingsSheet(
                     // UA mismatch banner — same 768px breakpoint as iOS.
                     // 文案已在上方组合作用域解析（uaMismatchText）。
                     if (uaMismatchText != null) {
-                        item(key = "viewport_warning") {
+                        item(key = "viewport_warning", surface = false) {
                             UaMismatchBanner(
                                 message = uaMismatchText,
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                             )
                         }
                     }
-                    item(key = "viewport_presets") {
+                    item(key = "viewport_presets", surface = false) {
                         ViewportPresetRow(
                             widthText = viewportWidthText,
                             heightText = viewportHeightText,
@@ -332,7 +332,7 @@ fun BrowserSettingsSheet(
                         )
                     }
                 }
-                item(key = "viewport_summary") {
+                item(key = "viewport_summary", surface = false) {
                     val (resW, resH) = tabPool.resolvedViewportSize()
                     Text(
                         text = if (isCustomViewportActive) {
@@ -360,7 +360,7 @@ fun BrowserSettingsSheet(
                 title = stringResource(R.string.om_browser_settings_idle_timeout),
                 modifier = groupPadding,
             ) {
-                item(key = "idle_desc") {
+                item(key = "idle_desc", surface = false) {
                     Text(
                         text = stringResource(R.string.om_browser_settings_idle_timeout_desc) + " " +
                             "(default ${BrowserTabPool.DEFAULT_IDLE_TIMEOUT_MINUTES}, range " +
@@ -383,7 +383,7 @@ fun BrowserSettingsSheet(
                         modifier = Modifier.bringIntoViewOnFocus(),
                     )
                 }
-                item(key = "idle_apply") {
+                item(key = "idle_apply", surface = false) {
                     SettingsApplyRow(
                         onClick = {
                             TouchHaptics.click(view)
@@ -413,7 +413,7 @@ fun BrowserSettingsSheet(
                     }
                 }
                 if (domains.isEmpty()) {
-                    item(key = "cookies_empty") {
+                    item(key = "cookies_empty", surface = false) {
                         Text(
                             text = when {
                                 cookieFilterText.isNotBlank() -> stringResource(
@@ -459,7 +459,7 @@ fun BrowserSettingsSheet(
                         }
                     }
                 }
-                item(key = "cookies_clear_all") {
+                item(key = "cookies_clear_all", surface = false) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -493,18 +493,20 @@ fun BrowserSettingsSheet(
             title = stringResource(R.string.om_browser_settings_clear_all_dialog_title),
             summary = stringResource(R.string.om_browser_settings_clear_all_dialog_message),
             onDismissRequest = { showClearConfirm = false },
+            actions = {
+                EtaDialogActions(
+                    confirmText = stringResource(R.string.om_browser_settings_clear),
+                    destructive = true,
+                    confirmEnabled = hasCookies,
+                    onCancel = { showClearConfirm = false },
+                    onConfirm = {
+                        CookieManager.getInstance().removeAllCookies(null)
+                        WebStorage.getInstance().deleteAllData()
+                        showClearConfirm = false
+                    },
+                )
+            },
         ) {
-            EtaDialogActions(
-                confirmText = stringResource(R.string.om_browser_settings_clear),
-                destructive = true,
-                confirmEnabled = hasCookies,
-                onCancel = { showClearConfirm = false },
-                onConfirm = {
-                    CookieManager.getInstance().removeAllCookies(null)
-                    WebStorage.getInstance().deleteAllData()
-                    showClearConfirm = false
-                },
-            )
         }
     }
 }

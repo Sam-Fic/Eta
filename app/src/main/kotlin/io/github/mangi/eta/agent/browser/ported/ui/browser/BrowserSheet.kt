@@ -3,26 +3,31 @@
 // Local/private integration; see third_party/openminis-browser/NOTICE.md.
 package io.github.mangi.eta.agent.browser.ported.ui.browser
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -41,23 +46,28 @@ import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberBottomSheetState
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -67,7 +77,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -78,6 +90,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -89,6 +102,9 @@ import io.github.mangi.eta.agent.browser.ported.browser.UserAgentProfile
 import io.github.mangi.eta.ui.adaptive.EtaButtonStyle
 import io.github.mangi.eta.ui.adaptive.EtaIconButton
 import io.github.mangi.eta.ui.adaptive.EtaIconSize
+import io.github.mangi.eta.ui.adaptive.EtaMorphChipShape
+import io.github.mangi.eta.ui.adaptive.etaConnectedButtonShapes
+import io.github.mangi.eta.ui.adaptive.etaConnectedPosition
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import kotlinx.coroutines.launch
 
@@ -97,6 +113,15 @@ private const val BrowserSheetHeightFraction = 0.9f
 
 /** 与 [BrowserTabPool] 的最大标签数一致（面板里「+」的禁用条件）。 */
 private const val MAX_TABS = 3
+
+/** 标签按钮的内容内边距：左 12dp 给标题留呼吸，右 4dp 让关闭钮贴近胶囊边缘。 */
+private val TabChipContentPadding = PaddingValues(start = 12.dp, end = 4.dp)
+
+/** 标签关闭钮的触控尺寸（圆形涟漪）。 */
+private val TabCloseTouchSize = 32.dp
+
+/** 标签关闭钮的图标尺寸。 */
+private val TabCloseIconSize = 16.dp
 
 /**
  * 浏览器各子面板共用的页头：官方 [TopAppBar]（左侧关闭 + 右侧动作槽）。
@@ -176,7 +201,7 @@ internal fun BrowserSheetEmptyState(
  * 浏览器面板（M3 Expressive 重设计版）。
  *
  * 全部使用官方标准组件：官方 [ModalBottomSheet] 作外壳、[TopAppBar] 作页头、
- * [PrimaryScrollableTabRow] + [Tab] 作标签栏、[OutlinedTextField] 作地址栏、
+ * [Button] / [FilledTonalButton] 组成的官方相连按钮组作标签栏、[OutlinedTextField] 作地址栏、
  * [IconButton]（项目 M3E 套件 [EtaIconButton]）作底部工具栏。
  * 颜色一律走 `MaterialTheme.colorScheme` 角色，不写死色值。
  */
@@ -210,8 +235,6 @@ fun BrowserSheet(
     var showDownloads by remember { mutableStateOf(false) }
     val downloadEntries by tabPool.downloads.collectAsState()
     val activeDownload by tabPool.activeDownload.collectAsState()
-
-    val tabScrollState = rememberScrollState()
 
     // Mirror iOS onAppear: ensure at least one tab exists when the sheet opens.
     // Callers should also call `ensureTabForUI()` before flipping the sheet
@@ -270,59 +293,40 @@ fun BrowserSheet(
                     }
                 },
             )
-            // 标签栏：官方 PrimaryScrollableTabRow + Tab；「+」是行尾一个纯图标 Tab，
-            // 满 3 个时自动禁用，不再需要单独的计数文本。
-            PrimaryScrollableTabRow(
-                // 空列表时下标为 -1 会让指示器越界，先收敛到 0（无标签时也没有可见标签）。
-                selectedTabIndex = tabs.indexOfFirst { it.id == selectedTabId }.coerceAtLeast(0),
-                scrollState = tabScrollState,
-                modifier = Modifier.fillMaxWidth(),
+            // 标签栏：相连按钮组（与侧边抽屉「新建对话 / 管理聊天」同款按钮组）——
+            // 每个标签自绘形状，选中时用 M3E Morph 在「连体形状」与「全圆角胶囊」之间渐变、
+            // 按压时按官方 Button 的按压形状收内侧圆角，容器色同步 secondaryContainer → primary；
+            // 行尾「+」是同一组里的末位官方 FilledTonalButton，满 MAX_TABS 时自动禁用。
+            // 标签按 1f 权重等分整行，少量标签不再挤在左侧留白。
+            val tabGroupCount = tabs.size + 1
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
             ) {
-                tabs.forEach { tab ->
+                tabs.forEachIndexed { index, tab ->
                     val title = tab.manager.pageTitle.collectAsState().value
                     val domain = tab.manager.currentURL.collectAsState().value
                         .let { url -> try { java.net.URI(url).host } catch (_: Exception) { null } }
-                    Tab(
+                    BrowserTabChip(
+                        label = title.ifEmpty { domain ?: "Tab ${tab.id}" },
+                        index = index,
+                        count = tabGroupCount,
                         selected = tab.id == selectedTabId,
-                        onClick = { tabPool.selectTab(tab.id) },
                         enabled = !isAgentBusy,
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 4.dp),
-                        ) {
-                            Text(
-                                text = title.ifEmpty { domain ?: "Tab ${tab.id}" },
-                                style = MaterialTheme.typography.titleSmall,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            if (!isAgentBusy) {
-                                Spacer(modifier = Modifier.width(4.dp))
-                                IconButton(
-                                    onClick = { scope.launch { tabPool.closeTabFromUI(tab.id) } },
-                                    modifier = Modifier.size(20.dp),
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Close,
-                                        contentDescription = stringResource(R.string.om_browser_close_tab),
-                                        modifier = Modifier.size(14.dp),
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-                Tab(
-                    selected = false,
-                    onClick = { scope.launch { tabPool.newTabFromUI() } },
-                    enabled = tabs.size < MAX_TABS && !isAgentBusy,
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Add,
-                        contentDescription = stringResource(R.string.om_browser_new_tab),
+                        onSelect = { tabPool.selectTab(tab.id) },
+                        onClose = { scope.launch { tabPool.closeTabFromUI(tab.id) } },
+                        modifier = Modifier.weight(1f),
                     )
                 }
+                BrowserNewTabButton(
+                    index = tabGroupCount - 1,
+                    count = tabGroupCount,
+                    enabled = tabs.size < MAX_TABS && !isAgentBusy,
+                    onClick = { scope.launch { tabPool.newTabFromUI() } },
+                )
             }
 
             // 地址栏：官方 OutlinedTextField（占位符 / 前导图标 / 加载时尾部停止钮）。
@@ -476,6 +480,152 @@ fun BrowserSheet(
         BrowserSettingsSheet(
             tabPool = tabPool,
             onDismiss = { showSettings = false },
+        )
+    }
+}
+
+/**
+ * 标签栏里的单个标签：自绘 Morph 形状（未选中连体形状 ↔ 选中胶囊 ↔ 按压形状）的文字标签。
+ *
+ * 形状几何由 [EtaMorphChipShape] 提供（外侧全圆角、内侧取官方相连按钮组的 8dp）；
+ * 选中态用 `MaterialTheme.motionScheme.defaultSpatialSpec` 在两端形状之间渐变（M3E Morph 形状动效），
+ * 按压时用 `fastSpatialSpec` 收内侧圆角到官方按压档 4dp（即官方 Button 的按压形状）。
+ * 容器 / 内容色按官方档位同步渐变（未选中 secondaryContainer → 选中 primary，禁用取官方禁用档位）。
+ * 内容排版、关闭钮与触觉反馈与改造前一致。
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun BrowserTabChip(
+    label: String,
+    index: Int,
+    count: Int,
+    selected: Boolean,
+    enabled: Boolean,
+    onSelect: () -> Unit,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val view = LocalView.current
+    val motionScheme = MaterialTheme.motionScheme
+    val position = etaConnectedPosition(index, count)
+    val selectionProgress by animateFloatAsState(
+        targetValue = if (selected) 1f else 0f,
+        animationSpec = motionScheme.defaultSpatialSpec<Float>(),
+        label = "BrowserTabSelection",
+    )
+    // 未选中 = 官方 FilledTonalButton 档（secondaryContainer）、选中 = 官方 Button 档（primary），
+    // 禁用档位两者相同，故禁用时不再区分选中态。
+    val tonalColors = ButtonDefaults.filledTonalButtonColors()
+    val filledColors = ButtonDefaults.buttonColors()
+    val containerColor by animateColorAsState(
+        targetValue = when {
+            !enabled -> tonalColors.disabledContainerColor
+            selected -> filledColors.containerColor
+            else -> tonalColors.containerColor
+        },
+        animationSpec = motionScheme.defaultEffectsSpec<Color>(),
+        label = "BrowserTabContainerColor",
+    )
+    val contentColor by animateColorAsState(
+        targetValue = when {
+            !enabled -> tonalColors.disabledContentColor
+            selected -> filledColors.contentColor
+            else -> tonalColors.contentColor
+        },
+        animationSpec = motionScheme.defaultEffectsSpec<Color>(),
+        label = "BrowserTabContentColor",
+    )
+    val interactionSource = remember { MutableInteractionSource() }
+    // 按压沿用官方 Button 的按压形状（内侧圆角收到 4dp），用官方「快速」空间规格跟手。
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val pressProgress by animateFloatAsState(
+        targetValue = if (isPressed) 1f else 0f,
+        animationSpec = motionScheme.fastSpatialSpec<Float>(),
+        label = "BrowserTabPress",
+    )
+    CompositionLocalProvider(LocalContentColor provides contentColor) {
+        Row(
+            modifier = modifier
+                .heightIn(min = ButtonDefaults.MinHeight)
+                .clip(
+                    EtaMorphChipShape(
+                        selectionProgress = selectionProgress,
+                        pressProgress = pressProgress,
+                        position = position,
+                    ),
+                )
+                .background(containerColor)
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = ripple(),
+                    enabled = enabled,
+                    role = Role.Tab,
+                    onClick = {
+                        TouchHaptics.click(view)
+                        onSelect()
+                    },
+                )
+                .padding(TabChipContentPadding),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            // 关闭钮：32dp 圆形触控 + 官方 16dp 叉号，颜色随上方 contentColor
+            // （primary / secondaryContainer 上各自的对照色），不用再单独指定色值。
+            if (enabled) {
+                Box(
+                    modifier = Modifier
+                        .size(TabCloseTouchSize)
+                        .clip(CircleShape)
+                        .clickable {
+                            TouchHaptics.click(view)
+                            onClose()
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Close,
+                        contentDescription = stringResource(R.string.om_browser_close_tab),
+                        modifier = Modifier.size(TabCloseIconSize),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 标签组末位的「新建标签」按钮：与标签同一相连按钮组、同高（[ButtonDefaults.MinHeight]）的方形按钮，
+ * 满 [MAX_TABS] 时自动禁用。
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun BrowserNewTabButton(
+    index: Int,
+    count: Int,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    val view = LocalView.current
+    FilledTonalButton(
+        onClick = {
+            TouchHaptics.click(view)
+            onClick()
+        },
+        shapes = etaConnectedButtonShapes(etaConnectedPosition(index, count)),
+        modifier = Modifier.size(ButtonDefaults.MinHeight),
+        enabled = enabled,
+        contentPadding = PaddingValues(0.dp),
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.Add,
+            contentDescription = stringResource(R.string.om_browser_new_tab),
+            modifier = Modifier.size(ButtonDefaults.IconSize),
         )
     }
 }
