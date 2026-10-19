@@ -35,7 +35,6 @@ import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedItemContainer
-import io.github.mangi.eta.ui.adaptive.EtaSegmentedTextField
 import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
 import io.github.mangi.eta.ui.components.AssistantAvatar
 import io.github.mangi.eta.ui.components.rememberAssistantAvatarBitmap
@@ -45,6 +44,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.TextButton as M3TextButton
 import androidx.compose.material3.Text as M3Text
@@ -340,7 +340,7 @@ internal fun AssistantEditScreen(
 /**
  * 助手表单输入框。
  *
- * 走项目内 KernelSU 式 [EtaSegmentedTextField]（无边框输入框嵌进分段行）。
+ * 走官方 [OutlinedTextField]：自带描边圆角与浮动标签，直接落在页面背景上。
  */
 @Composable
 private fun AssistantField(
@@ -356,11 +356,23 @@ private fun AssistantField(
     isError: Boolean = false,
     supportingContent: (@Composable () -> Unit)? = null,
 ) {
-    EtaSegmentedTextField(
-        modifier = modifier.fillMaxWidth(),
-        label = if (useLabelAsPlaceholder) "" else label,
+    // 空标签不占位：多行正文框（Personality prompt）直接以描边框呈现。
+    val floatingLabel: (@Composable () -> Unit)? = if (useLabelAsPlaceholder || label.isEmpty()) {
+        null
+    } else {
+        { M3Text(text = label) }
+    }
+    val placeholderText: (@Composable () -> Unit)? = if (useLabelAsPlaceholder) {
+        { M3Text(text = label) }
+    } else {
+        null
+    }
+    OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
+        modifier = modifier.fillMaxWidth(),
+        label = floatingLabel,
+        placeholder = placeholderText,
         singleLine = singleLine,
         minLines = minLines,
         maxLines = maxLines,
@@ -369,13 +381,8 @@ private fun AssistantField(
         } else {
             MaterialTheme.typography.bodyLarge
         },
-        placeholder = if (useLabelAsPlaceholder) {
-            { M3Text(text = label) }
-        } else {
-            null
-        },
         isError = isError,
-        supportingContent = supportingContent,
+        supportingText = supportingContent,
     )
 }
 
