@@ -69,7 +69,6 @@ import io.github.mangi.eta.ui.components.ListEmptyState
 import io.github.mangi.eta.ui.components.LocalConversationSubAgentEditor
 import io.github.mangi.eta.ui.components.SubAgentDropdownMenu
 import io.github.mangi.eta.ui.components.SubAgentEditorState
-import io.github.mangi.eta.ui.components.SubAgentPresetActionsSheet
 import io.github.mangi.eta.ui.components.SubAgentPresetDirectoryStatus
 import io.github.mangi.eta.ui.components.SubAgentPresetNameDialog
 import io.github.mangi.eta.ui.components.SubAgentProfileConfigDialog
@@ -120,7 +119,6 @@ internal fun SubAgentSettingsScreen(
     var add by remember { mutableStateOf(false) }
     var rename by remember { mutableStateOf<SubAgentPreset?>(null) }
     var delete by remember { mutableStateOf<SubAgentPreset?>(null) }
-    var actionsPreset by remember { mutableStateOf<SubAgentPreset?>(null) }
     var name by remember { mutableStateOf("") }
     val view = LocalView.current
     val context = LocalContext.current
@@ -172,6 +170,8 @@ internal fun SubAgentSettingsScreen(
                     ) {
                         directory.entries.forEach { preset ->
                             item(key = preset.id) {
+                                var groupMenuExpanded by remember(preset.id) { mutableStateOf(false) }
+                                LaunchedEffect(editable) { if (!editable) groupMenuExpanded = false }
                                 EtaSegmentedRow(
                                     // 保留原卡片行的可访问名，TalkBack 与 UI 测试都依赖它区分同名分组。
                                     modifier = Modifier.semantics {
@@ -199,13 +199,34 @@ internal fun SubAgentSettingsScreen(
                                     },
                                     trailingContent = {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            IconButton(
-                                                enabled = editable,
-                                                modifier = Modifier.size(IconButtonDefaults.mediumContainerSize()),
-                                                onClick = {
-                                                    if (editable) { TouchHaptics.click(view); actionsPreset = preset }
-                                                },
-                                            ) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.sas_group_more_for, preset.name)) }
+                                            // 溢出操作走就地弹出菜单，与详情页子代理标题行保持一致，不再拉起底部面板。
+                                            Box {
+                                                IconButton(
+                                                    enabled = editable,
+                                                    modifier = Modifier.size(IconButtonDefaults.mediumContainerSize()),
+                                                    onClick = {
+                                                        if (editable) { TouchHaptics.click(view); groupMenuExpanded = true }
+                                                    },
+                                                ) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.sas_group_more_for, preset.name)) }
+                                                if (editable) SubAgentDropdownMenu(groupMenuExpanded, { groupMenuExpanded = false }) {
+                                                    DropdownMenuItem(
+                                                        text = { Text(stringResource(R.string.spa_rename_group)) },
+                                                        leadingIcon = { Icon(Icons.Rounded.Edit, null) },
+                                                        onClick = {
+                                                            groupMenuExpanded = false
+                                                            if (editable) { name = preset.name; rename = preset }
+                                                        },
+                                                    )
+                                                    DropdownMenuItem(
+                                                        text = { Text(stringResource(R.string.spa_delete_group), color = MaterialTheme.colorScheme.error) },
+                                                        leadingIcon = { Icon(Icons.Rounded.DeleteOutline, null, tint = MaterialTheme.colorScheme.error) },
+                                                        onClick = {
+                                                            groupMenuExpanded = false
+                                                            if (editable) delete = preset
+                                                        },
+                                                    )
+                                                }
+                                            }
                                             Icon(
                                                 imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                                                 contentDescription = null,
@@ -220,16 +241,6 @@ internal fun SubAgentSettingsScreen(
                         }
                     }
                 }
-            }
-            actionsPreset?.takeIf { editable }?.let { preset ->
-                SubAgentPresetActionsSheet(preset, onDismiss = { actionsPreset = null },
-                    onRename = {
-                        if (editable) { name = preset.name; rename = preset }
-                        actionsPreset = null
-                    }, onDelete = {
-                        if (editable) delete = preset
-                        actionsPreset = null
-                    })
             }
             if (add || rename != null) SubAgentPresetNameDialog(
                 title = if (add) stringResource(R.string.sas_add_group) else stringResource(R.string.sas_rename_group),

@@ -59,15 +59,13 @@ class SubAgentPresetSettingsTest {
 
     @Test
     @Config(qualifiers = "zh-rCN-w320dp-h480dp")
-    fun presetMoreOpensBottomActionsOnSmallScreenWithoutEditingOrCopyAction() {
+    fun presetMoreOpensActionMenuOnSmallScreenWithoutEditingOrCopyAction() {
         val fixture = SubAgentUiFixture(enabled = false)
         val group = fixture.createPreset("一个较长的子代理组名称用于窄屏面板")
         val before = fixture.snapshot()
         compose.setSubAgentContent(fixture) { SubAgentSettingsScreen({}, { fixture.repository }) }
         compose.onNodeWithContentDescription("${group.name} 组操作").performScrollTo()
             .assertHeightIsAtLeast(48.dp).performClick()
-        compose.onNodeWithContentDescription("子代理组操作面板").assertIsDisplayed()
-            .assertWidthIsAtLeast(280.dp)
         val rename = compose.onNodeWithText("重命名组").assertIsDisplayed().assertHasClickAction()
         val delete = compose.onNodeWithText("删除组").assertIsDisplayed().assertHasClickAction()
         val renameBounds = rename.fetchSemanticsNode().boundsInRoot
@@ -81,12 +79,12 @@ class SubAgentPresetSettingsTest {
             assertEquals(group.config, fixture.repository.snapshot(SubAgentConfigKey.Preset(group.id)))
         }
         rename.performClick()
-        compose.onNodeWithContentDescription("子代理组操作面板").assertDoesNotExist()
+        compose.onNodeWithText("重命名组").assertDoesNotExist()
         compose.onNodeWithContentDescription("组名称").assertIsDisplayed()
         compose.onNodeWithText("取消").performClick()
         compose.onNodeWithContentDescription("${group.name} 组操作").performScrollTo().performClick()
         compose.onNodeWithText("删除组").performClick()
-        compose.onNodeWithContentDescription("子代理组操作面板").assertDoesNotExist()
+        compose.onNodeWithText("删除组").assertDoesNotExist()
         compose.onNodeWithText("删除子代理组？").assertIsDisplayed()
         compose.onNodeWithText("取消").performClick()
         compose.runOnIdle {

@@ -113,30 +113,16 @@ class SubAgentPresetUiContractTest(unittest.TestCase):
             self.assertIn(needle, panel)
         self.assertNotIn('SubAgentProfileRow(profile, providers, enabled = canChange)', panel)
 
-    def test_catalog_actions_use_existing_bottom_sheet_and_do_not_replace_profile_config(self):
+    def test_catalog_actions_use_anchored_menu_and_do_not_replace_profile_config(self):
         settings = self.source('ui/SubAgentSettingsScreen.kt')
         shell, detail = settings.split('private fun SubAgentPresetDetail(', 1)
-        for needle in ('actionsPreset = preset', 'SubAgentPresetActionsSheet(preset',
+        # 组溢出操作改走就地弹出菜单：与详情页子代理标题行同一套 DropdownMenu，不再拉起底部面板。
+        for needle in ('SubAgentDropdownMenu(', 'DropdownMenuItem(',
                        'name = preset.name; rename = preset', 'if (editable) delete = preset',
                        'repository.renamePreset(', 'repository.removePreset(', 'AlertDialog(onDismissRequest = { delete = null }'):
             self.assertIn(needle, shell)
-        self.assertNotIn('SubAgentDropdownMenu(', shell)
-        self.assertNotIn('DropdownMenuItem(', shell)
-        sheet = self.source('ui/components/SubAgentPresetActionsSheet.kt')
-        for needle in ('ModalBottomSheet(', 'rememberBottomSheetState(',
-                       'enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)',
-                       'Icons.Rounded.AccountTree', 'Text(preset.name, style = MaterialTheme.typography.titleLarge)',
-                       'HorizontalDivider(',
-                       'SubAgentPresetActionRow(stringResource(R.string.spa_rename_group), Icons.Rounded.Edit, MaterialTheme.colorScheme.onSurface, onRename)',
-                       'SubAgentPresetActionRow(stringResource(R.string.spa_delete_group), Icons.Rounded.DeleteOutline, MaterialTheme.colorScheme.error, onDelete)',
-                       'verticalScroll(rememberScrollState())',
-                       'TouchHaptics.click(view)'):
-            self.assertIn(needle, sheet)
-        # 形状、圆角、拖拽把手、行高与命中区交给官方 ModalBottomSheet / 可交互 ListItem 默认值。
-        for gone in ('RoundedCornerShape(', 'indication = null', 'heightIn('):
-            self.assertNotIn(gone, sheet)
-        for forbidden in ('OverlayDialog(', '复制', 'repository.', 'height(', 'requiredHeight('):
-            self.assertNotIn(forbidden, sheet)
+        for gone in ('actionsPreset', 'SubAgentPresetActionsSheet', 'ModalBottomSheet('):
+            self.assertNotIn(gone, shell)
         self.assertIn('SubAgentProfileConfigDialog(session, editor, providers', detail)
         row = self.source('ui/components/SubAgentProfileRow.kt')
         for needle in ('Icon(Icons.Rounded.MoreVert, stringResource(R.string.spr_config_for, profile.name)',
@@ -192,9 +178,9 @@ class SubAgentPresetUiContractTest(unittest.TestCase):
         # 该测试断言中文资源字符串，需固定中文 locale，否则 Robolectric 默认 en-rUS 会让
         # stringResource 解析成英文而断言失败。
         for needle in ('@Config(qualifiers = "zh-rCN-w320dp-h480dp")',
-                       'presetMoreOpensBottomActionsOnSmallScreenWithoutEditingOrCopyAction',
+                       'presetMoreOpensActionMenuOnSmallScreenWithoutEditingOrCopyAction',
                        'presetDetailHidesGlobalSwitchesAndProfileEditsPreserveAutomaticDelegation',
-                       '子代理组操作面板', 'assertFalse("removing the switch must not replace the stored enabled value", saved.enabled)'):
+                       '重命名组', 'assertFalse("removing the switch must not replace the stored enabled value", saved.enabled)'):
             self.assertIn(needle, settings)
 
     def test_back_is_gated_by_actual_route_and_presets_cannot_run(self):

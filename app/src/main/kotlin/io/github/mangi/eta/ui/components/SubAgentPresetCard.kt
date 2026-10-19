@@ -117,9 +117,18 @@ internal fun SubAgentPresetCard(
                 // actionLabel 由调用方拼装（含组名），不在这里做 removeSuffix 之类的字符串裁剪。
                 modifier = Modifier.weight(1f).semantics { contentDescription = actionLabel },
                 enabled = enabled,
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                // 卡片容器是 primaryContainer，正文/图标必须取配对的 onPrimaryContainer；
+                // 不覆盖时 ListItemDefaults 会退回 onSurface / onSurfaceVariant，落在填充卡上对比度不足。
+                colors = ListItemDefaults.colors(
+                    containerColor = Color.Transparent,
+                    headlineColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    supportingColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    leadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    trailingIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ),
                 leadingContent = {
-                    Icon(Icons.Rounded.AccountTree, null, tint = MaterialTheme.colorScheme.primary)
+                    // 不写死 tint：跟随 ListItemDefaults 的 leadingIconColor（onPrimaryContainer）。
+                    Icon(Icons.Rounded.AccountTree, null)
                 },
                 trailingContent = {
                     Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null)
@@ -130,7 +139,9 @@ internal fun SubAgentPresetCard(
                         Text(stringResource(R.string.spc_profiles_summary, preset.config.profiles.size,
                             stringResource(if (preset.config.enabled) R.string.spc_auto_on else R.string.spc_auto_off)),
                             style = MaterialTheme.typography.bodyMedium)
-                        if (selected) Text(stringResource(R.string.spc_current_in_use), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        // 「正在使用」同样落在 primaryContainer 上，取 onPrimaryContainer 而不是 primary
+                        // （primary 在自家 primaryContainer 容器上对比度不足）。
+                        if (selected) Text(stringResource(R.string.spc_current_in_use), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
                     }
                 },
             )
