@@ -29,7 +29,7 @@ private const val HISTORY_KEY = "assistants"
  *
  * 顶栏是「返回钮 + 透明底搜索框 + 清除按钮」（官方 [EtaSearchPage]），进入即自动聚焦
  * 弹键盘；列表与主页共用 [assistantItems]，按搜索词实时过滤。交互语义与主页一致：
- * 浏览态点行进编辑页；选择态（picker）选中后直接返回。
+ * 点行即选中该助手；编辑只收在行尾三点菜单里。
  */
 @Composable
 internal fun AssistantSearchScreen(
@@ -46,24 +46,19 @@ internal fun AssistantSearchScreen(
     val activeId = selectedAssistantId ?: repositoryActiveId
     var deleteProfile by remember { mutableStateOf<AssistantProfile?>(null) }
 
-    // 与主页 openProfile 同一套语义：浏览态进编辑页；选择态选中助手后返回。
+    // 与主页 openProfile 同一套语义：点行即选中助手；编辑只收在行尾三点菜单里。
     val openProfile: (AssistantProfile) -> Unit = { profile ->
-        if (picker) {
-            if (onSelectAssistant != null) {
-                onSelectAssistant(profile.id)
-                onBack()
-            } else {
-                scope.launch {
-                    withContext(Dispatchers.IO) {
-                        AssistantRepository.select(profile.id)
-                        RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
-                    }
-                    onBack()
+        if (onSelectAssistant != null) {
+            onSelectAssistant(profile.id)
+        } else {
+            scope.launch {
+                withContext(Dispatchers.IO) {
+                    AssistantRepository.select(profile.id)
+                    RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
                 }
             }
-        } else {
-            onNavigate(AppRoute.AssistantEdit(profile.id))
         }
+        if (picker) onBack()
     }
 
     EtaSearchPage(

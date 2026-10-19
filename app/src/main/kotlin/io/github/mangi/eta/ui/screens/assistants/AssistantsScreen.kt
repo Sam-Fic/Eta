@@ -49,24 +49,20 @@ internal fun AssistantsScreen(
     var deleteProfile by remember { mutableStateOf<AssistantProfile?>(null) }
     val listState = rememberLazyListState()
 
-    // 浏览态进编辑页；选择态（picker）选中助手后返回。
+    // 点行即选中该助手（浏览态与选择态一致）；编辑只收在行尾三点菜单里，不再由行点击进入编辑页。
+    // 选择态（picker）选中后返回；浏览态停留在本页，以便直接看到对勾位置更新。
     val openProfile: (AssistantProfile) -> Unit = { profile ->
-        if (picker) {
-            if (onSelectAssistant != null) {
-                onSelectAssistant(profile.id)
-                onBack()
-            } else {
-                scope.launch {
-                    withContext(Dispatchers.IO) {
-                        AssistantRepository.select(profile.id)
-                        RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
-                    }
-                    onBack()
+        if (onSelectAssistant != null) {
+            onSelectAssistant(profile.id)
+        } else {
+            scope.launch {
+                withContext(Dispatchers.IO) {
+                    AssistantRepository.select(profile.id)
+                    RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
                 }
             }
-        } else {
-            onNavigate(AppRoute.AssistantEdit(profile.id))
         }
+        if (picker) onBack()
     }
 
     EtaScaffoldPage(
