@@ -22,7 +22,8 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [36])
+// 轨迹摘要文案已资源化，断言按简中资源钉住，避免 CI 英文 locale 下解析成英文。
+@Config(sdk = [36], qualifiers = "zh-rCN")
 class AgentRuntimeWireTest {
     private fun emptyHistoryDescriptor(): android.os.ParcelFileDescriptor {
         val pipe = android.os.ParcelFileDescriptor.createPipe()

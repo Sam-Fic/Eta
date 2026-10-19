@@ -1972,4 +1972,224 @@
   <string name="spr_resolution_generic">實際支援取決於端點對應。</string>
   <string name="spr_thinking_desc">%1$s · 僅影響此代理</string>
   <string name="spr_thinking_endpoint">；等級跟隨端點的明確對應，不代表代理風格或可見推理</string>
+  <!-- 工具軌跡摘要（AgentTraceFormatter） -->
+  <string name="trace_action_prepare">準備執行</string>
+  <string name="trace_action_write_file">寫入檔案</string>
+  <string name="trace_action_read_file">讀取檔案</string>
+  <string name="trace_action_list_directory">列出目錄</string>
+  <string name="trace_action_input_text">輸入文字</string>
+  <string name="trace_action_replace_text">取代文字</string>
+  <string name="trace_action_paste_text">貼上文字</string>
+  <string name="trace_action_clear_text">清除文字</string>
+  <string name="trace_action_get_clipboard">讀取剪貼簿</string>
+  <string name="trace_action_search_apps">搜尋應用程式</string>
+  <string name="trace_action_launch_app">開啟應用程式</string>
+  <string name="trace_action_context">讀取目前上下文</string>
+  <string name="trace_action_tap">點按螢幕</string>
+  <string name="trace_action_long_press">長按螢幕</string>
+  <string name="trace_action_tap_area">點按區域</string>
+  <string name="trace_action_tap_element">點按元素</string>
+  <string name="trace_action_long_press_element">長按元素</string>
+  <string name="trace_action_swipe">滑動螢幕</string>
+  <string name="trace_action_scroll">捲動螢幕</string>
+  <string name="trace_action_scroll_element">捲動元素</string>
+  <string name="trace_action_wait_text">等待文字出現</string>
+  <string name="trace_action_wait_package">等待應用程式就緒</string>
+  <string name="trace_action_panel">開啟系統面板</string>
+  <string name="trace_action_read_image">查看圖片或影片</string>
+  <string name="trace_action_delegate">委派子代理任務</string>
+  <string name="trace_action_workspace">管理任務工作區</string>
+  <string name="trace_action_task_result">查詢子代理結果</string>
+  <string name="trace_action_continue_task">繼續子代理任務</string>
+  <string name="trace_action_cancel_task">取消子代理任務</string>
+  <string name="trace_action_skills_list">查看技能清單</string>
+  <string name="trace_action_skills_read">讀取技能</string>
+  <string name="trace_action_skills_resource">讀取技能資源</string>
+  <string name="trace_action_skills_curated">瀏覽精選技能</string>
+  <string name="trace_action_skills_inspect">查看技能詳情</string>
+  <string name="trace_action_skills_install">安裝技能</string>
+  <string name="trace_action_exec">執行指令</string>
+  <string name="trace_action_terminal">終端機</string>
+  <string name="trace_action_background">背景</string>
+  <string name="trace_action_key">按鍵</string>
+  <string name="trace_action_wait">等待</string>
+  <string name="trace_action_observe">觀察螢幕</string>
+  <string name="trace_action_with_screenshot">含截圖</string>
+  <string name="trace_action_with_ui_tree">含介面樹</string>
+  <string name="trace_action_browser">瀏覽器操作</string>
+  <string name="trace_action_external">交給外部應用程式</string>
+
+  <string name="trace_memory_search">檢索記憶</string>
+  <string name="trace_memory_read">讀取記憶</string>
+  <string name="trace_memory_replace">取代片段</string>
+  <string name="trace_memory_append">追加</string>
+  <string name="trace_memory_clear">清空</string>
+  <string name="trace_memory_update">更新記憶</string>
+  <string name="trace_memory_read_done">已讀取記憶</string>
+  <string name="trace_memory_updated_done">已更新記憶</string>
+
+  <string name="trace_result_done">完成</string>
+  <string name="trace_result_browser_done">瀏覽器操作完成</string>
+  <string name="trace_result_opened">已開啟</string>
+  <string name="trace_result_exec_done">執行完成</string>
+  <string name="trace_failed">失敗</string>
+  <string name="trace_failed_timeout">失敗 · 執行逾時</string>
+  <string name="trace_failed_exit_code">失敗 · 退出碼 %d</string>
+  <string name="trace_stderr_warning">警告 · stderr\n%1$s</string>
+
+  <string name="trace_apps_none">未找到符合的應用程式</string>
+  <string name="trace_app_name_separator">、</string>
+  <string name="trace_app_names_suffix">%1$s 等</string>
+
+  <string name="trace_subagent_tasks">子代理任務</string>
+  <string name="trace_subagent_none">暫無子代理任務</string>
+  <string name="trace_subagent_none_page">本頁無子代理任務</string>
+  <string name="trace_subagent_unknown">未取得子代理狀態</string>
+  <string name="trace_subagent_awaiting">子代理逾時 · 等待主代理繼續或取消</string>
+  <string name="trace_subagent_queued">子代理已提交 · 排隊中</string>
+  <string name="trace_subagent_running">子代理執行中</string>
+  <string name="trace_subagent_completed">子代理已返回 · 等待主代理審核</string>
+  <string name="trace_subagent_cancelled">子代理已取消</string>
+  <string name="trace_subagent_timed_out">子代理逾時 · 主代理接手</string>
+  <string name="trace_subagent_failed">子代理失敗 · 主代理接手</string>
+
+  <string name="trace_status_awaiting">逾時待主代理決定</string>
+  <string name="trace_status_queued">排隊中</string>
+  <string name="trace_status_running">執行中</string>
+  <string name="trace_status_completed">已完成</string>
+  <string name="trace_status_cancelled">已取消</string>
+  <string name="trace_status_timed_out">已逾時</string>
+  <string name="trace_status_missing">未提供狀態</string>
+
+  <string name="trace_args_chars">%1$s · %2$d 字元</string>
+  <string name="trace_approx_count">約 %1$s</string>
+  <string name="trace_chars_wan">%1$s 萬字</string>
+  <string name="trace_browser_title">《%1$s》</string>
+  <string name="trace_browser_truncated">已截斷</string>
+
+  <string name="trace_dir_up">向上</string>
+  <string name="trace_dir_down">向下</string>
+  <string name="trace_dir_left">向左</string>
+  <string name="trace_dir_right">向右</string>
+
+  <string name="trace_key_back">返回</string>
+  <string name="trace_key_home">主畫面</string>
+  <string name="trace_key_recents">最近任務</string>
+  <string name="trace_key_notifications">通知列</string>
+  <string name="trace_key_quick_settings">快速設定</string>
+  <string name="trace_key_power">電源</string>
+  <string name="trace_key_volume_up">音量加</string>
+  <string name="trace_key_volume_down">音量減</string>
+  <string name="trace_key_mute">靜音</string>
+
+  <string name="trace_term_open">建立會話</string>
+  <string name="trace_term_open_exec">單次執行</string>
+  <string name="trace_term_read_async">讀取背景輸出</string>
+  <string name="trace_term_close">關閉終端機</string>
+  <string name="trace_term_daemon_start">啟動背景任務</string>
+  <string name="trace_term_daemon_list">背景任務清單</string>
+  <string name="trace_term_daemon_logs">查看背景任務日誌</string>
+  <string name="trace_term_daemon_stop">停止背景任務</string>
+  <string name="trace_term_fallback">終端機操作</string>
+
+  <string name="trace_browser_open">開啟網頁</string>
+  <string name="trace_browser_readable">擷取內文</string>
+  <string name="trace_browser_text">讀取文字</string>
+  <string name="trace_browser_find">尋找元素</string>
+  <string name="trace_browser_click">點擊網頁</string>
+  <string name="trace_browser_type">輸入內容</string>
+  <string name="trace_browser_scroll">捲動網頁</string>
+  <string name="trace_browser_screenshot">網頁截圖</string>
+  <string name="trace_browser_page_info">查看網頁資訊</string>
+  <string name="trace_browser_back">網頁後退</string>
+  <string name="trace_browser_forward">網頁前進</string>
+  <string name="trace_browser_reload">重新整理網頁</string>
+  <string name="trace_browser_wait_selector">等待網頁元素</string>
+
+  <string name="trace_browser_done_readable">已擷取內文</string>
+  <string name="trace_browser_done_text">已讀取文字</string>
+  <string name="trace_browser_done_found">已找到元素</string>
+  <string name="trace_browser_done_click">已點擊網頁</string>
+  <string name="trace_browser_done_type">已輸入內容</string>
+  <string name="trace_browser_done_scroll">已捲動網頁</string>
+  <string name="trace_browser_done_screenshot">已截圖</string>
+  <string name="trace_browser_done_page_info">已讀取頁面資訊</string>
+  <string name="trace_browser_done_back">已後退</string>
+  <string name="trace_browser_done_forward">已前進</string>
+  <string name="trace_browser_done_reload">已重新整理</string>
+  <string name="trace_browser_done_wait_selector">已等到目標元素</string>
+
+  <plurals name="trace_lines">
+  <item quantity="other">%d 行</item>
+  </plurals>
+  <plurals name="trace_bytes">
+  <item quantity="other">%d 位元組</item>
+  </plurals>
+  <plurals name="trace_chars">
+  <item quantity="other">%d 字</item>
+  </plurals>
+  <plurals name="trace_elements">
+  <item quantity="other">%d 個元素</item>
+  </plurals>
+  <plurals name="trace_candidates">
+  <item quantity="other">%d 個候選</item>
+  </plurals>
+  <plurals name="trace_images">
+  <item quantity="other">%d 張圖片</item>
+  </plurals>
+  <plurals name="trace_apps_found">
+  <item quantity="other">已找到 %d 個應用程式</item>
+  </plurals>
+  <plurals name="trace_apps_found_generic">
+  <item quantity="other">找到 %d 個應用程式</item>
+  </plurals>
+  <plurals name="trace_wait_seconds">
+  <item quantity="other">%1$s 秒</item>
+  </plurals>
+  <plurals name="trace_wait_ms">
+  <item quantity="other">%1$d 毫秒</item>
+  </plurals>
+
+  <string name="trace_dev_set_alarm">設定鬧鐘</string>
+  <string name="trace_dev_set_timer">設定計時器</string>
+  <string name="trace_dev_device_status">查看裝置狀態</string>
+  <string name="trace_dev_network_info">查看網路資訊</string>
+  <string name="trace_dev_top_memory_apps">查看記憶體佔用排行</string>
+  <string name="trace_dev_top_storage_apps">查看儲存空間佔用排行</string>
+  <string name="trace_dev_media_control">控制媒體播放</string>
+  <string name="trace_dev_set_volume">調整音量</string>
+  <string name="trace_dev_get_setting">讀取系統設定</string>
+  <string name="trace_dev_wifi_credentials">讀取 Wi-Fi 密碼</string>
+  <string name="trace_dev_recent_notifications">讀取最近通知</string>
+  <string name="trace_dev_search_notification_history">搜尋通知歷史</string>
+  <string name="trace_dev_recent_app_activity">查看應用程式活動</string>
+  <string name="trace_dev_app_usage_summary">查看應用程式使用統計</string>
+  <string name="trace_dev_get_current_location">取得目前位置</string>
+  <string name="trace_dev_get_device_environment">查看裝置環境</string>
+  <string name="trace_dev_list_alarms">查看鬧鐘清單</string>
+  <string name="trace_dev_list_active_timers">查看計時器</string>
+  <string name="trace_dev_search_clipboard_history">搜尋剪貼簿歷史</string>
+  <string name="trace_dev_get_health_summary">查看健康摘要</string>
+  <string name="trace_dev_read_sms_code">讀取簡訊驗證碼</string>
+  <string name="trace_dev_get_logcat">讀取系統日誌</string>
+  <string name="trace_dev_search_media">搜尋媒體檔案</string>
+  <string name="trace_dev_search_audio">搜尋音訊</string>
+  <string name="trace_dev_search_recordings">搜尋錄音</string>
+  <string name="trace_dev_search_files">搜尋檔案</string>
+  <string name="trace_dev_search_calendar_events">搜尋日程</string>
+  <string name="trace_dev_search_contacts">搜尋聯絡人</string>
+  <string name="trace_dev_search_call_history">搜尋通話記錄</string>
+  <string name="trace_dev_search_messages">搜尋簡訊</string>
+  <string name="trace_dev_search_downloads">搜尋下載內容</string>
+  <string name="trace_dev_search_coloros_notes">搜尋便箋</string>
+  <string name="trace_dev_search_coloros_recordings">搜尋錄音機</string>
+  <string name="trace_dev_search_recording_summaries">搜尋錄音摘要</string>
+  <string name="trace_dev_search_coloros_memories">搜尋小布記憶</string>
+  <string name="trace_dev_search_saved_places">搜尋收藏地點</string>
+  <string name="trace_dev_search_personal_orders">搜尋個人訂單</string>
+  <string name="trace_dev_search_qq_chat_images">搜尋 QQ 聊天圖片</string>
+  <string name="trace_dev_search_wechat_chat_images">搜尋微信聊天圖片</string>
+  <string name="trace_dev_set_setting">修改系統設定</string>
+  <string name="trace_dev_set_device_state">修改裝置狀態</string>
+  <string name="trace_dev_app_state_control">管理應用程式狀態</string>
 </resources>

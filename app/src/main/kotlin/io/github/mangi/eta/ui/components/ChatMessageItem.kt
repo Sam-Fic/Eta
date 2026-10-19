@@ -3240,11 +3240,12 @@ private fun ToolActivityInline(
     }
     // 失败原因直接显示在折叠行，不必展开卡片；剥离去重「失败」前缀与日志用的 code= 尾巴
     val failureSubtitle = if (message.status == ToolActivityStatusUi.Failed) {
+        val failedLabel = stringResource(R.string.trace_failed)
         message.resultSummary
             ?.lineSequence()?.firstOrNull()
-            ?.removePrefix("失败 · ")
+            ?.removePrefix("$failedLabel · ")
             ?.substringBefore(" · code=")
-            ?.takeIf { it.isNotBlank() && it != "失败" }
+            ?.takeIf { it.isNotBlank() && it != failedLabel }
     } else {
         null
     }

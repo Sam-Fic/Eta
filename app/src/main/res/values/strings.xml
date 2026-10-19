@@ -1994,4 +1994,234 @@
   <string name="appst_export_partial_suffix">The target file may be incomplete. Delete it and retry.</string>
   <string name="appst_export_empty_suffix">Nothing was written to the backup; an empty file created by the picker may still remain.</string>
   <string name="appst_export_in_progress">A conversation export is already running. Wait for it to finish.</string>
+  <!-- Tool trace summaries (AgentTraceFormatter) -->
+  <string name="trace_action_prepare">Prepare to run</string>
+  <string name="trace_action_write_file">Write file</string>
+  <string name="trace_action_read_file">Read file</string>
+  <string name="trace_action_list_directory">List directory</string>
+  <string name="trace_action_input_text">Enter text</string>
+  <string name="trace_action_replace_text">Replace text</string>
+  <string name="trace_action_paste_text">Paste text</string>
+  <string name="trace_action_clear_text">Clear text</string>
+  <string name="trace_action_get_clipboard">Read clipboard</string>
+  <string name="trace_action_search_apps">Search apps</string>
+  <string name="trace_action_launch_app">Launch app</string>
+  <string name="trace_action_context">Read current context</string>
+  <string name="trace_action_tap">Tap screen</string>
+  <string name="trace_action_long_press">Long-press screen</string>
+  <string name="trace_action_tap_area">Tap area</string>
+  <string name="trace_action_tap_element">Tap element</string>
+  <string name="trace_action_long_press_element">Long-press element</string>
+  <string name="trace_action_swipe">Swipe screen</string>
+  <string name="trace_action_scroll">Scroll screen</string>
+  <string name="trace_action_scroll_element">Scroll element</string>
+  <string name="trace_action_wait_text">Wait for text</string>
+  <string name="trace_action_wait_package">Wait for app</string>
+  <string name="trace_action_panel">Open system panel</string>
+  <string name="trace_action_read_image">View image or video</string>
+  <string name="trace_action_delegate">Delegate sub-agent task</string>
+  <string name="trace_action_workspace">Manage task workspace</string>
+  <string name="trace_action_task_result">Get sub-agent result</string>
+  <string name="trace_action_continue_task">Continue sub-agent task</string>
+  <string name="trace_action_cancel_task">Cancel sub-agent task</string>
+  <string name="trace_action_skills_list">List skills</string>
+  <string name="trace_action_skills_read">Read skill</string>
+  <string name="trace_action_skills_resource">Read skill resource</string>
+  <string name="trace_action_skills_curated">Browse curated skills</string>
+  <string name="trace_action_skills_inspect">Inspect skill details</string>
+  <string name="trace_action_skills_install">Install skill</string>
+  <string name="trace_action_exec">Run command</string>
+  <string name="trace_action_terminal">Terminal</string>
+  <string name="trace_action_background">Background</string>
+  <string name="trace_action_key">Press key</string>
+  <string name="trace_action_wait">Wait</string>
+  <string name="trace_action_observe">Observe screen</string>
+  <string name="trace_action_with_screenshot">with screenshot</string>
+  <string name="trace_action_with_ui_tree">with UI tree</string>
+  <string name="trace_action_browser">Browser action</string>
+  <string name="trace_action_external">Open with app</string>
+
+  <string name="trace_memory_search">Search memory</string>
+  <string name="trace_memory_read">Read memory</string>
+  <string name="trace_memory_replace">Replace range</string>
+  <string name="trace_memory_append">Append</string>
+  <string name="trace_memory_clear">Clear</string>
+  <string name="trace_memory_update">Update memory</string>
+  <string name="trace_memory_read_done">Memory read</string>
+  <string name="trace_memory_updated_done">Memory updated</string>
+
+  <string name="trace_result_done">Done</string>
+  <string name="trace_result_browser_done">Browser action completed</string>
+  <string name="trace_result_opened">Opened</string>
+  <string name="trace_result_exec_done">Command finished</string>
+  <string name="trace_failed">Failed</string>
+  <string name="trace_failed_timeout">Failed · execution timed out</string>
+  <string name="trace_failed_exit_code">Failed · exit code %d</string>
+  <string name="trace_stderr_warning">Warning · stderr\n%1$s</string>
+
+  <string name="trace_apps_none">No matching apps found</string>
+  <string name="trace_app_name_separator">", "</string>
+  <string name="trace_app_names_suffix">%1$s etc.</string>
+
+  <string name="trace_subagent_tasks">Sub-agent tasks</string>
+  <string name="trace_subagent_none">No sub-agent tasks yet</string>
+  <string name="trace_subagent_none_page">No sub-agent tasks on this page</string>
+  <string name="trace_subagent_unknown">Sub-agent status unavailable</string>
+  <string name="trace_subagent_awaiting">Sub-agent timed out · awaiting main agent to continue or cancel</string>
+  <string name="trace_subagent_queued">Sub-agent submitted · queued</string>
+  <string name="trace_subagent_running">Sub-agent running</string>
+  <string name="trace_subagent_completed">Sub-agent returned · awaiting main agent review</string>
+  <string name="trace_subagent_cancelled">Sub-agent cancelled</string>
+  <string name="trace_subagent_timed_out">Sub-agent timed out · main agent takes over</string>
+  <string name="trace_subagent_failed">Sub-agent failed · main agent takes over</string>
+
+  <string name="trace_status_awaiting">Timed out, awaiting main agent</string>
+  <string name="trace_status_queued">Queued</string>
+  <string name="trace_status_running">Running</string>
+  <string name="trace_status_completed">Completed</string>
+  <string name="trace_status_cancelled">Cancelled</string>
+  <string name="trace_status_timed_out">Timed out</string>
+  <string name="trace_status_missing">No status</string>
+
+  <string name="trace_args_chars">%1$s · %2$d characters</string>
+  <string name="trace_approx_count">about %1$s</string>
+  <string name="trace_chars_wan">%2$sk characters</string>
+  <string name="trace_browser_title">“%1$s”</string>
+  <string name="trace_browser_truncated">Truncated</string>
+
+  <string name="trace_dir_up">Up</string>
+  <string name="trace_dir_down">Down</string>
+  <string name="trace_dir_left">Left</string>
+  <string name="trace_dir_right">Right</string>
+
+  <string name="trace_key_back">Back</string>
+  <string name="trace_key_home">Home</string>
+  <string name="trace_key_recents">Recent apps</string>
+  <string name="trace_key_notifications">Notifications</string>
+  <string name="trace_key_quick_settings">Quick settings</string>
+  <string name="trace_key_power">Power</string>
+  <string name="trace_key_volume_up">Volume up</string>
+  <string name="trace_key_volume_down">Volume down</string>
+  <string name="trace_key_mute">Mute</string>
+
+  <string name="trace_term_open">Create session</string>
+  <string name="trace_term_open_exec">One-shot run</string>
+  <string name="trace_term_read_async">Read background output</string>
+  <string name="trace_term_close">Close terminal</string>
+  <string name="trace_term_daemon_start">Start background task</string>
+  <string name="trace_term_daemon_list">Background task list</string>
+  <string name="trace_term_daemon_logs">View background task logs</string>
+  <string name="trace_term_daemon_stop">Stop background task</string>
+  <string name="trace_term_fallback">Terminal action</string>
+
+  <string name="trace_browser_open">Open page</string>
+  <string name="trace_browser_readable">Extract readable content</string>
+  <string name="trace_browser_text">Read text</string>
+  <string name="trace_browser_find">Find elements</string>
+  <string name="trace_browser_click">Click on page</string>
+  <string name="trace_browser_type">Enter content</string>
+  <string name="trace_browser_scroll">Scroll page</string>
+  <string name="trace_browser_screenshot">Page screenshot</string>
+  <string name="trace_browser_page_info">View page info</string>
+  <string name="trace_browser_back">Go back</string>
+  <string name="trace_browser_forward">Go forward</string>
+  <string name="trace_browser_reload">Reload page</string>
+  <string name="trace_browser_wait_selector">Wait for page element</string>
+
+  <string name="trace_browser_done_readable">Readable content extracted</string>
+  <string name="trace_browser_done_text">Text read</string>
+  <string name="trace_browser_done_found">Elements found</string>
+  <string name="trace_browser_done_click">Clicked on page</string>
+  <string name="trace_browser_done_type">Content entered</string>
+  <string name="trace_browser_done_scroll">Page scrolled</string>
+  <string name="trace_browser_done_screenshot">Screenshot taken</string>
+  <string name="trace_browser_done_page_info">Page info read</string>
+  <string name="trace_browser_done_back">Went back</string>
+  <string name="trace_browser_done_forward">Went forward</string>
+  <string name="trace_browser_done_reload">Reloaded</string>
+  <string name="trace_browser_done_wait_selector">Target element appeared</string>
+
+  <plurals name="trace_lines">
+  <item quantity="one">%d line</item>
+  <item quantity="other">%d lines</item>
+  </plurals>
+  <plurals name="trace_bytes">
+  <item quantity="one">%d byte</item>
+  <item quantity="other">%d bytes</item>
+  </plurals>
+  <plurals name="trace_chars">
+  <item quantity="one">%d character</item>
+  <item quantity="other">%d characters</item>
+  </plurals>
+  <plurals name="trace_elements">
+  <item quantity="one">%d element</item>
+  <item quantity="other">%d elements</item>
+  </plurals>
+  <plurals name="trace_candidates">
+  <item quantity="one">%d candidate</item>
+  <item quantity="other">%d candidates</item>
+  </plurals>
+  <plurals name="trace_images">
+  <item quantity="one">%d image</item>
+  <item quantity="other">%d images</item>
+  </plurals>
+  <plurals name="trace_apps_found">
+  <item quantity="one">Found %d app</item>
+  <item quantity="other">Found %d apps</item>
+  </plurals>
+  <plurals name="trace_apps_found_generic">
+  <item quantity="one">Found %d app</item>
+  <item quantity="other">Found %d apps</item>
+  </plurals>
+  <plurals name="trace_wait_seconds">
+  <item quantity="one">%1$s second</item>
+  <item quantity="other">%1$s seconds</item>
+  </plurals>
+  <plurals name="trace_wait_ms">
+  <item quantity="one">%1$d millisecond</item>
+  <item quantity="other">%1$d milliseconds</item>
+  </plurals>
+
+  <string name="trace_dev_set_alarm">Set alarm</string>
+  <string name="trace_dev_set_timer">Set timer</string>
+  <string name="trace_dev_device_status">View device status</string>
+  <string name="trace_dev_network_info">View network info</string>
+  <string name="trace_dev_top_memory_apps">View memory usage</string>
+  <string name="trace_dev_top_storage_apps">View storage usage</string>
+  <string name="trace_dev_media_control">Control media playback</string>
+  <string name="trace_dev_set_volume">Adjust volume</string>
+  <string name="trace_dev_get_setting">Read system setting</string>
+  <string name="trace_dev_wifi_credentials">Read Wi-Fi password</string>
+  <string name="trace_dev_recent_notifications">Read recent notifications</string>
+  <string name="trace_dev_search_notification_history">Search notification history</string>
+  <string name="trace_dev_recent_app_activity">View app activity</string>
+  <string name="trace_dev_app_usage_summary">View app usage stats</string>
+  <string name="trace_dev_get_current_location">Get current location</string>
+  <string name="trace_dev_get_device_environment">View device environment</string>
+  <string name="trace_dev_list_alarms">List alarms</string>
+  <string name="trace_dev_list_active_timers">List active timers</string>
+  <string name="trace_dev_search_clipboard_history">Search clipboard history</string>
+  <string name="trace_dev_get_health_summary">View health summary</string>
+  <string name="trace_dev_read_sms_code">Read verification code</string>
+  <string name="trace_dev_get_logcat">Read system logs</string>
+  <string name="trace_dev_search_media">Search media files</string>
+  <string name="trace_dev_search_audio">Search audio</string>
+  <string name="trace_dev_search_recordings">Search recordings</string>
+  <string name="trace_dev_search_files">Search files</string>
+  <string name="trace_dev_search_calendar_events">Search calendar events</string>
+  <string name="trace_dev_search_contacts">Search contacts</string>
+  <string name="trace_dev_search_call_history">Search call history</string>
+  <string name="trace_dev_search_messages">Search messages</string>
+  <string name="trace_dev_search_downloads">Search downloads</string>
+  <string name="trace_dev_search_coloros_notes">Search notes</string>
+  <string name="trace_dev_search_coloros_recordings">Search voice recorder</string>
+  <string name="trace_dev_search_recording_summaries">Search recording summaries</string>
+  <string name="trace_dev_search_coloros_memories">Search Xiaobu memories</string>
+  <string name="trace_dev_search_saved_places">Search saved places</string>
+  <string name="trace_dev_search_personal_orders">Search personal orders</string>
+  <string name="trace_dev_search_qq_chat_images">Search QQ chat images</string>
+  <string name="trace_dev_search_wechat_chat_images">Search WeChat chat images</string>
+  <string name="trace_dev_set_setting">Change system setting</string>
+  <string name="trace_dev_set_device_state">Change device state</string>
+  <string name="trace_dev_app_state_control">Manage app state</string>
 </resources>
