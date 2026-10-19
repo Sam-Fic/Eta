@@ -26,6 +26,8 @@ import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.delegation.ConversationSubAgentPreferences
 import io.github.mangi.eta.data.repository.ProviderRepository
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedItemContainer
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 
 /** A popup entry belongs to one real configuration owner (including the unique draft key).
@@ -163,31 +165,43 @@ internal fun ConversationCollaborationDialog(
                                     SubAgentEditorState.Loading -> Text(stringResource(R.string.ccd_loading))
                                     else -> Unit
                                 }
-                                (panelConfig ?: current).appliedPresetName?.let {
-                                    Text(stringResource(R.string.ccd_applied_prefix, it), style = MaterialTheme.typography.bodyMedium)
-                                }
-                                // 官方 ListItem 承载整行点击与无障碍开关语义，官方 Switch 只负责呈现状态。
-                                ListItem(
-                                    supportingContent = { Text(stringResource(R.string.ccd_auto_assign)) },
-                                    trailingContent = {
-                                        Switch(checked = panelConfig?.enabled ?: current.enabled, enabled = panelEnabled, onCheckedChange = null)
+                                // M3E：与「子代理组」兄弟页面同一套分段列表——组标题（titleSmallEmphasized + primary）
+                                // 承载「已应用：X」，条目走 EtaSegmentedColumn 的外圆内方形状与 2dp 缝隙，
+                                // 不再用裸行叠分割线。
+                                EtaSegmentedColumn(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    title = (panelConfig ?: current).appliedPresetName?.let {
+                                        stringResource(R.string.ccd_applied_prefix, it)
                                     },
-                                    modifier = Modifier.toggleable(
-                                        value = panelConfig?.enabled ?: current.enabled, enabled = panelEnabled, role = Role.Switch,
-                                        onValueChange = {
-                                            if (panelEnabled && panelEditor.enabled) { TouchHaptics.click(view); panelEditor.setEnabled(it) }
-                                        },
-                                    ),
                                 ) {
-                                    Text(stringResource(R.string.ccd_auto_delegation))
-                                }
-                                HorizontalDivider(Modifier.padding(top = 12.dp))
-                                (panelConfig ?: current).profiles.forEach { profile ->
-                                    key(panelEditor, profile.id) {
-                                        SubAgentProfileRow(profile, providers, enabled = panelEnabled,
-                                            draftAllowed = latestOwnerMatches() && !latestTaskRunning && !latestChoosing,
-                                            draftRetry = { editor.retry(); panelEditor.retry() })
-                                        HorizontalDivider()
+                                    // 自动委派：官方 ListItem 承载整行点击与无障碍开关语义，官方 Switch 只负责呈现状态。
+                                    item(key = "auto-delegation") {
+                                        EtaSegmentedItemContainer {
+                                            ListItem(
+                                                leadingContent = { Icon(Icons.Rounded.Hub, null) },
+                                                supportingContent = { Text(stringResource(R.string.ccd_auto_assign)) },
+                                                trailingContent = {
+                                                    Switch(checked = panelConfig?.enabled ?: current.enabled, enabled = panelEnabled, onCheckedChange = null)
+                                                },
+                                                modifier = Modifier.toggleable(
+                                                    value = panelConfig?.enabled ?: current.enabled, enabled = panelEnabled, role = Role.Switch,
+                                                    onValueChange = {
+                                                        if (panelEnabled && panelEditor.enabled) { TouchHaptics.click(view); panelEditor.setEnabled(it) }
+                                                    },
+                                                ),
+                                            ) {
+                                                Text(stringResource(R.string.ccd_auto_delegation))
+                                            }
+                                        }
+                                    }
+                                    (panelConfig ?: current).profiles.forEach { profile ->
+                                        item(key = profile.id) {
+                                            EtaSegmentedItemContainer {
+                                                SubAgentProfileRow(profile, providers, enabled = panelEnabled,
+                                                    draftAllowed = latestOwnerMatches() && !latestTaskRunning && !latestChoosing,
+                                                    draftRetry = { editor.retry(); panelEditor.retry() })
+                                            }
+                                        }
                                     }
                                 }
                                 Row(Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 4.dp),

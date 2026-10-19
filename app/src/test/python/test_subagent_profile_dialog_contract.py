@@ -26,11 +26,12 @@ class SubAgentProfileDialogContractTest(unittest.TestCase):
         for required in ('providers.singleOrNull { it.id == draft.providerId && it.isEnabled }',
                          'speedProvider?.models?.singleOrNull { it.id == draft.modelId && it.isEnabled }',
                          'val canEditSpeed = boundConfig != null && supportsGptSpeedBinding(speedProvider, speedModel)',
-                         'if (canEditSpeed) SubAgentSettingRow(stringResource(R.string.sap_gpt_speed)',
+                         'if (canEditSpeed) item(key = "speed")',
+                         'SubAgentDraftSettingRow(stringResource(R.string.sap_gpt_speed)',
                          'gptSpeedDisplayName(draft.gptSpeedForModel())'):
             self.assertIn(required, text)
-        edit = text.split('if (canEditSpeed) SubAgentSettingRow(', 1)[1].split('SubAgentSettingRow(stringResource(R.string.sap_role)', 1)[0]
-        for required in ('interact {', 'session.edit { profile ->',
+        edit = text.split('if (canEditSpeed) item(key = "speed")', 1)[1].split('SubAgentDraftSettingRow(stringResource(R.string.sap_role)', 1)[0]
+        for required in ('session.edit { profile ->',
                          'profile.providerId != draft.providerId', 'profile.modelId != draft.modelId',
                          'profile.role != draft.role',
                          'profile.copy(gptSpeedByModel = profile.gptSpeedByModel +',
@@ -45,7 +46,7 @@ class SubAgentProfileDialogContractTest(unittest.TestCase):
         self.assertIn('val dismiss = { session.dismiss(); latestDismiss() }', text)
         self.assertIn('val userDismiss = { if (!session.submitting) dismiss() }', text)
         self.assertIn('onDismissRequest = userDismiss', text)
-        self.assertIn('SubAgentDraftDialogActions(ready, !session.submitting, userDismiss, onConfirm =', text)
+        self.assertIn('EtaDialogActions(', text)
         saved = text.split('if (result is ConversationSubAgentPreferences.WriteResult.Saved &&', 1)[1].split('else if', 1)[0]
         self.assertIn('session.isCurrent(latestEditor, latestEnabled)', saved)
         self.assertIn('dismiss()', saved)
@@ -76,15 +77,10 @@ class SubAgentProfileDialogContractTest(unittest.TestCase):
             self.assertIn(required, submission)
         self.assertLess(submission.index('val capturedDraft'), submission.index('scope.launch'))
         self.assertLess(submission.index('WriteResult.Saved'), submission.index('TouchHaptics.click(view)'))
-        actions = text.split('private fun SubAgentDraftDialogActions(', 1)[1]
-        self.assertIn('Arrangement.spacedBy(8.dp)', actions)
-        self.assertEqual(actions.count('Modifier.weight(1f)'), 2)
-        # 官方 TextButton（左）+ Button（右）的默认配色，不再自定义 textButtonColorsPrimary()。
-        self.assertIn('TextButton(', actions)
-        self.assertIn('Button(', actions)
-        self.assertNotIn('textButtonColorsPrimary', actions)
-        self.assertNotIn('colors =', actions)
-        self.assertIn('onClick = onConfirm', actions)  # no eager confirmation haptic
+        # 动作区改走兄弟弹窗统一的 EtaDialogActions（右对齐文字按钮；轻触反馈由组件自身提供）。
+        self.assertIn('EtaDialogActions(', text)
+        self.assertIn('onConfirm = {', text)
+        self.assertNotIn('textButtonColorsPrimary', text)
 
     def test_parallel_uses_owner_actual_or_pending_confirmed_memory_and_api_pool(self):
         text = self.source('ui/components/SubAgentProfileConfigDialog.kt')
@@ -128,7 +124,7 @@ class SubAgentProfileDialogContractTest(unittest.TestCase):
         self.assertNotIn('OverlayDialog(', text)
         self.assertNotIn('renderInRootScaffold', text)
         for required in ('profileDialogScrollableBody().verticalScroll(',
-                         'SubAgentDraftDialogActions(ready',
+                         'EtaDialogActions(',
                          'CompositionLocalProvider(LocalRippleConfiguration provides etaRippleConfiguration())',
                          'WithoutPressRipple'):
             self.assertIn(required, text)
