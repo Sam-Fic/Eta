@@ -139,42 +139,7 @@ internal fun McpServersScreen(
         show = showAdd,
         title = stringResource(R.string.mcp_add_server),
         onDismissRequest = { if (!working) showAdd = false },
-    ) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 520.dp)
-                .verticalScroll(rememberScrollState()),
-        ) {
-            McpTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = stringResource(R.string.mcp_server_name),
-                enabled = !working,
-            )
-            McpTextField(
-                value = url,
-                onValueChange = { url = it },
-                label = stringResource(R.string.mcp_server_url),
-                enabled = !working,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-            )
-            McpTextField(
-                value = token,
-                onValueChange = { token = it },
-                label = stringResource(R.string.mcp_bearer_optional),
-                enabled = !working,
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            )
-            error?.let {
-                M3Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
+        actions = {
             EtaDialogActions(
                 confirmText = if (working) {
                     stringResource(R.string.mcp_connecting)
@@ -228,6 +193,43 @@ internal fun McpServersScreen(
                     }
                 },
             )
+        },
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 520.dp)
+                .verticalScroll(rememberScrollState()),
+        ) {
+            McpTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = stringResource(R.string.mcp_server_name),
+                enabled = !working,
+            )
+            McpTextField(
+                value = url,
+                onValueChange = { url = it },
+                label = stringResource(R.string.mcp_server_url),
+                enabled = !working,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+            )
+            McpTextField(
+                value = token,
+                onValueChange = { token = it },
+                label = stringResource(R.string.mcp_bearer_optional),
+                enabled = !working,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            )
+            error?.let {
+                M3Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
         }
     }
 }
@@ -377,18 +379,20 @@ internal fun McpServerDetailScreen(
             title = stringResource(R.string.mcp_enable_risky_tool),
             summary = stringResource(R.string.mcp_enable_risky_tool_summary, tool.name, server?.name.orEmpty()),
             onDismissRequest = { pendingRiskyTool = null },
+            actions = {
+                EtaDialogActions(
+                    confirmText = stringResource(R.string.mcp_enable_tool),
+                    destructive = true,
+                    onCancel = { pendingRiskyTool = null },
+                    onConfirm = {
+                        scope.launch(Dispatchers.IO) {
+                            McpServerRepository.setToolEnabled(serverId, tool.name, true)
+                        }
+                        pendingRiskyTool = null
+                    },
+                )
+            },
         ) {
-            EtaDialogActions(
-                confirmText = stringResource(R.string.mcp_enable_tool),
-                destructive = true,
-                onCancel = { pendingRiskyTool = null },
-                onConfirm = {
-                    scope.launch(Dispatchers.IO) {
-                        McpServerRepository.setToolEnabled(serverId, tool.name, true)
-                    }
-                    pendingRiskyTool = null
-                },
-            )
         }
     }
 
@@ -397,15 +401,7 @@ internal fun McpServerDetailScreen(
         title = stringResource(R.string.mcp_update_token),
         summary = stringResource(R.string.mcp_update_token_summary),
         onDismissRequest = { showToken = false },
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            McpTextField(
-                value = token,
-                onValueChange = { token = it },
-                label = stringResource(R.string.mcp_bearer_token),
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            )
+        actions = {
             EtaDialogActions(
                 confirmText = stringResource(R.string.action_save),
                 onCancel = { showToken = false },
@@ -428,6 +424,16 @@ internal fun McpServerDetailScreen(
                     }
                 },
             )
+        },
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            McpTextField(
+                value = token,
+                onValueChange = { token = it },
+                label = stringResource(R.string.mcp_bearer_token),
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            )
         }
     }
 
@@ -436,18 +442,20 @@ internal fun McpServerDetailScreen(
         title = stringResource(R.string.mcp_delete_server),
         summary = stringResource(R.string.mcp_delete_confirm, server?.name.orEmpty()),
         onDismissRequest = { showDelete = false },
+        actions = {
+            EtaDialogActions(
+                confirmText = stringResource(R.string.ui_delete_3755f5),
+                destructive = true,
+                onCancel = { showDelete = false },
+                onConfirm = {
+                    scope.launch {
+                        withContext(Dispatchers.IO) { McpServerRepository.delete(serverId) }
+                        onBack()
+                    }
+                },
+            )
+        },
     ) {
-        EtaDialogActions(
-            confirmText = stringResource(R.string.ui_delete_3755f5),
-            destructive = true,
-            onCancel = { showDelete = false },
-            onConfirm = {
-                scope.launch {
-                    withContext(Dispatchers.IO) { McpServerRepository.delete(serverId) }
-                    onBack()
-                }
-            },
-        )
     }
 }
 

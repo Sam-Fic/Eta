@@ -262,15 +262,17 @@ internal fun ModelProviderListScreen(
             title = dialogTitle,
             summary = dialogSummary,
             onDismissRequest = onDismissBatch,
+            actions = {
+                EtaDialogActions(
+                    confirmText = confirmLabel,
+                    cancelEnabled = !isDeleting,
+                    confirmEnabled = !isDeleting && selectedProviderIds.isNotEmpty(),
+                    destructive = true,
+                    onCancel = onCancelBatch,
+                    onConfirm = onConfirmBatch,
+                )
+            },
         ) {
-            EtaDialogActions(
-                confirmText = confirmLabel,
-                cancelEnabled = !isDeleting,
-                confirmEnabled = !isDeleting && selectedProviderIds.isNotEmpty(),
-                destructive = true,
-                onCancel = onCancelBatch,
-                onConfirm = onConfirmBatch,
-            )
         }
     }
 }

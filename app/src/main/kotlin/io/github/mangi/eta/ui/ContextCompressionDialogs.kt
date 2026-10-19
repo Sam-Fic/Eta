@@ -273,6 +273,29 @@ internal fun CompressConversationDialog(
         title = stringResource(R.string.action_compress_conversation),
         modifier = Modifier.offset(y = dialogImeOffset),
         onDismissRequest = onDismiss,
+        actions = {
+            EtaDialogActions(
+                confirmText = stringResource(R.string.compress_conversation_confirm),
+                cancelText = stringResource(R.string.action_cancel),
+                confirmEnabled = !isCompressing && !isLoadingModels,
+                cancelEnabled = !isCompressing,
+                modifier = Modifier
+                    .alpha(if (isCompressing) 0.42f else 1f),
+                onCancel = onDismiss,
+                onConfirm = {
+                    if (isCompressing) return@EtaDialogActions
+                    focusManager.clearFocus()
+                    keyboard?.hide()
+                    Prefs.putString(Prefs.Keys.AGENT_MANUAL_COMPRESS_ENDPOINT_MODE, endpointMode)
+                    onConfirm(
+                        selectedModel?.providerId.takeIf { customModelEnabled },
+                        selectedModel?.id.takeIf { customModelEnabled },
+                    ) { ok ->
+                        if (ok) onDismiss()
+                    }
+                },
+            )
+        },
     ) {
         val scrollState = rememberScrollState()
         val dialogFocus = remember { FocusRequester() }
@@ -385,29 +408,6 @@ internal fun CompressConversationDialog(
                     )
                 }
             }
-
-            EtaDialogActions(
-                confirmText = stringResource(R.string.compress_conversation_confirm),
-                cancelText = stringResource(R.string.action_cancel),
-                confirmEnabled = !isCompressing && !isLoadingModels,
-                cancelEnabled = !isCompressing,
-                modifier = Modifier
-                    .padding(top = 16.dp)
-                    .alpha(if (isCompressing) 0.42f else 1f),
-                onCancel = onDismiss,
-                onConfirm = {
-                    if (isCompressing) return@EtaDialogActions
-                    focusManager.clearFocus()
-                    keyboard?.hide()
-                    Prefs.putString(Prefs.Keys.AGENT_MANUAL_COMPRESS_ENDPOINT_MODE, endpointMode)
-                    onConfirm(
-                        selectedModel?.providerId.takeIf { customModelEnabled },
-                        selectedModel?.id.takeIf { customModelEnabled },
-                    ) { ok ->
-                        if (ok) onDismiss()
-                    }
-                },
-            )
         }
     }
 
@@ -458,14 +458,16 @@ internal fun CompressModelMissingWindowDialog(
         title = stringResource(R.string.compress_model_missing_window_title),
         summary = stringResource(R.string.compress_model_missing_window_summary),
         onDismissRequest = onDismiss,
+        actions = {
+            // 官方文字按钮：形状、行高与配色均取官方默认值。
+            M3TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(text = stringResource(R.string.ui_knew_cb63c6))
+            }
+        },
     ) {
-        // 官方文字按钮：形状、行高与配色均取官方默认值。
-        M3TextButton(
-            onClick = onDismiss,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(text = stringResource(R.string.ui_knew_cb63c6))
-        }
     }
 }
 
@@ -488,6 +490,19 @@ internal fun CompressModelPickerDialog(
         show = show,
         title = title ?: stringResource(R.string.ui_compress_model_title),
         onDismissRequest = onDismiss,
+        actions = {
+            EtaDialogActions(
+                confirmText = stringResource(R.string.action_confirm),
+                cancelText = stringResource(R.string.action_cancel),
+                confirmEnabled = hasPending,
+                onCancel = onDismiss,
+                onConfirm = {
+                    val providerId = pendingProviderId
+                    val modelId = pendingModelId
+                    if (providerId != null && modelId != null) onModelSelected(providerId, modelId)
+                },
+            )
+        },
     ) {
         Column(
             modifier = Modifier
@@ -539,18 +554,6 @@ internal fun CompressModelPickerDialog(
                     }
                 }
             }
-            EtaDialogActions(
-                confirmText = stringResource(R.string.action_confirm),
-                cancelText = stringResource(R.string.action_cancel),
-                confirmEnabled = hasPending,
-                modifier = Modifier.padding(top = 16.dp),
-                onCancel = onDismiss,
-                onConfirm = {
-                    val providerId = pendingProviderId
-                    val modelId = pendingModelId
-                    if (providerId != null && modelId != null) onModelSelected(providerId, modelId)
-                },
-            )
         }
     }
 }

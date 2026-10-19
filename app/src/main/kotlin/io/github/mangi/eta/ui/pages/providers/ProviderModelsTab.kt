@@ -564,15 +564,17 @@ internal fun ProviderModelsTab(
             title = dialogTitle,
             summary = dialogSummary,
             onDismissRequest = onDismissDelete,
+            actions = {
+                EtaDialogActions(
+                    confirmText = confirmLabel,
+                    cancelEnabled = !isMutatingModel,
+                    confirmEnabled = !isMutatingModel,
+                    destructive = true,
+                    onCancel = onCancelDelete,
+                    onConfirm = onConfirmDelete,
+                )
+            },
         ) {
-            EtaDialogActions(
-                confirmText = confirmLabel,
-                cancelEnabled = !isMutatingModel,
-                confirmEnabled = !isMutatingModel,
-                destructive = true,
-                onCancel = onCancelDelete,
-                onConfirm = onConfirmDelete,
-            )
         }
     }
 
@@ -657,15 +659,17 @@ internal fun ProviderModelsTab(
             title = dialogTitle,
             summary = dialogSummary,
             onDismissRequest = onDismissBatch,
+            actions = {
+                EtaDialogActions(
+                    confirmText = confirmLabel,
+                    cancelEnabled = !isMutatingModel,
+                    confirmEnabled = !isMutatingModel,
+                    destructive = true,
+                    onCancel = onCancelBatch,
+                    onConfirm = onConfirmBatch,
+                )
+            },
         ) {
-            EtaDialogActions(
-                confirmText = confirmLabel,
-                cancelEnabled = !isMutatingModel,
-                confirmEnabled = !isMutatingModel,
-                destructive = true,
-                onCancel = onCancelBatch,
-                onConfirm = onConfirmBatch,
-            )
         }
     }
 }
@@ -927,6 +931,18 @@ private fun ModelEditDialog(
         show = true,
         title = if (isNew) context.getString(R.string.page_add_model_532a64) else context.getString(R.string.page_edit_model_29e31e),
         onDismissRequest = { if (!isSaving) onDismiss() },
+        actions = {
+            EtaDialogActions(
+                confirmText = if (isSaving) context.getString(R.string.page_saving_d70d42) else context.getString(R.string.page_save_fadf24),
+                confirmEnabled = !isSaving &&
+                    displayName.isNotBlank() &&
+                    modelId.isNotBlank() &&
+                    contextError == null,
+                cancelEnabled = !isSaving,
+                onCancel = onDismiss,
+                onConfirm = { onSubmit(updated()) },
+            )
+        },
     ) {
         Column {
             Column(
@@ -1062,17 +1078,6 @@ private fun ModelEditDialog(
                 }
             }
         }
-        EtaDialogActions(
-            confirmText = if (isSaving) context.getString(R.string.page_saving_d70d42) else context.getString(R.string.page_save_fadf24),
-            confirmEnabled = !isSaving &&
-                displayName.isNotBlank() &&
-                modelId.isNotBlank() &&
-                contextError == null,
-            cancelEnabled = !isSaving,
-            onCancel = onDismiss,
-            onConfirm = { onSubmit(updated()) },
-            modifier = Modifier.padding(top = 16.dp),
-        )
     }
 }
 
@@ -1124,6 +1129,14 @@ private fun RemoteModelPickDialog(
         show = true,
         title = stringResource(R.string.provider_remote_pick_title),
         onDismissRequest = onDismiss,
+        actions = {
+            EtaDialogActions(
+                confirmText = stringResource(R.string.provider_remote_add),
+                confirmEnabled = selectedKeys.isNotEmpty(),
+                onCancel = onDismiss,
+                onConfirm = { onConfirm(models.filter { keyOf(it) in selectedKeys }) },
+            )
+        },
     ) {
         Column {
             LazyColumn(
@@ -1220,13 +1233,6 @@ private fun RemoteModelPickDialog(
                     }
                 }
             }
-            EtaDialogActions(
-                confirmText = stringResource(R.string.provider_remote_add),
-                confirmEnabled = selectedKeys.isNotEmpty(),
-                onCancel = onDismiss,
-                onConfirm = { onConfirm(models.filter { keyOf(it) in selectedKeys }) },
-                modifier = Modifier.padding(top = 16.dp),
-            )
         }
     }
 }

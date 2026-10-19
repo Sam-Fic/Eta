@@ -30,6 +30,15 @@ internal fun SubAgentPresetNameDialog(
         show = true,
         title = title,
         onDismissRequest = onDismiss,
+        actions = {
+            EtaDialogActions(
+                confirmText = stringResource(R.string.action_save),
+                cancelText = stringResource(R.string.action_cancel),
+                confirmEnabled = saveEnabled,
+                onCancel = onDismiss,
+                onConfirm = onSave,
+            )
+        },
     ) {
         Column(Modifier.fillMaxWidth()) {
             EtaFormTextField(
@@ -37,13 +46,6 @@ internal fun SubAgentPresetNameDialog(
                 onValueChange = { onNameChange(it.take(80)) },
                 hint = fieldHint,
                 singleLine = true,
-            )
-            EtaDialogActions(
-                confirmText = stringResource(R.string.action_save),
-                cancelText = stringResource(R.string.action_cancel),
-                confirmEnabled = saveEnabled,
-                onCancel = onDismiss,
-                onConfirm = onSave,
             )
         }
     }

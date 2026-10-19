@@ -145,6 +145,7 @@ import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider as M3Slider
 import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton as M3TextButton
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberSliderState
 import androidx.compose.material3.Text as M3Text
@@ -728,6 +729,11 @@ internal fun ThinkingEffortPickerDialog(
         show = show,
         title = stringResource(R.string.reasoning_picker_title),
         onDismissRequest = onDismiss,
+        actions = {
+            M3TextButton(onClick = onDismiss) {
+                M3Text(text = stringResource(R.string.action_close))
+            }
+        },
     ) {
         M3ThinkingEffortPickerBody(
             description = description,

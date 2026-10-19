@@ -58,6 +58,8 @@ import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedGroupSpacing
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedItemContainer
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
+import io.github.mangi.eta.ui.adaptive.EtaText
+import io.github.mangi.eta.ui.adaptive.EtaTextStyle
 import io.github.mangi.eta.ui.adaptive.rememberFabExpandedState
 import io.github.mangi.eta.ui.app.WorkspaceEntry
 import io.github.mangi.eta.ui.app.WorkspaceFileStore
@@ -273,53 +275,55 @@ internal fun WorkspaceScreen(onBack: () -> Unit) {
                 target.name,
             ),
             onDismissRequest = { if (!busy) pendingDelete = null },
-        ) {
-            EtaDialogActions(
-                confirmText = stringResource(R.string.action_delete),
-                destructive = true,
-                confirmEnabled = !busy,
-                onCancel = { if (!busy) pendingDelete = null },
-                onConfirm = {
-                    if (busy) return@EtaDialogActions
-                    val deleting = target
-                    pendingDelete = null
-                    scope.launch {
-                        busy = true
-                        try {
-                            val deleted = if (linuxReady) {
-                                val result = withContext(Dispatchers.IO) {
-                                    LinuxFileExplorer.delete(
-                                        shellSupervisor,
-                                        rootfsDir,
-                                        guestWorkspacePath(deleting.path),
-                                        distribution.terminalEnvironment,
-                                        SharedFolderMounts.current(),
-                                    )
-                                }
-                                if (result == LinuxFileExplorer.DeleteResult.Success) true
-                                else {
+            actions = {
+                EtaDialogActions(
+                    confirmText = stringResource(R.string.action_delete),
+                    destructive = true,
+                    confirmEnabled = !busy,
+                    onCancel = { if (!busy) pendingDelete = null },
+                    onConfirm = {
+                        if (busy) return@EtaDialogActions
+                        val deleting = target
+                        pendingDelete = null
+                        scope.launch {
+                            busy = true
+                            try {
+                                val deleted = if (linuxReady) {
+                                    val result = withContext(Dispatchers.IO) {
+                                        LinuxFileExplorer.delete(
+                                            shellSupervisor,
+                                            rootfsDir,
+                                            guestWorkspacePath(deleting.path),
+                                            distribution.terminalEnvironment,
+                                            SharedFolderMounts.current(),
+                                        )
+                                    }
+                                    if (result == LinuxFileExplorer.DeleteResult.Success) true
+                                    else {
+                                        store.delete(deleting.path)
+                                        true
+                                    }
+                                } else {
                                     store.delete(deleting.path)
                                     true
                                 }
-                            } else {
-                                store.delete(deleting.path)
-                                true
+                                message = context.getString(
+                                    if (deleted) R.string.capability_workspace_deleted
+                                    else R.string.capability_workspace_failed,
+                                )
+                                revision++
+                            } catch (cancelled: CancellationException) {
+                                throw cancelled
+                            } catch (_: Exception) {
+                                message = context.getString(R.string.capability_workspace_failed)
+                            } finally {
+                                busy = false
                             }
-                            message = context.getString(
-                                if (deleted) R.string.capability_workspace_deleted
-                                else R.string.capability_workspace_failed,
-                            )
-                            revision++
-                        } catch (cancelled: CancellationException) {
-                            throw cancelled
-                        } catch (_: Exception) {
-                            message = context.getString(R.string.capability_workspace_failed)
-                        } finally {
-                            busy = false
                         }
-                    }
-                },
-            )
+                    },
+                )
+            },
+        ) {
         }
     }
 }
@@ -389,12 +393,24 @@ private fun LazyListScope.materialWorkspaceItems(
             item(key = "m3-public-access") {
                 EtaClickableRow(
                     title = stringResource(R.string.capability_workspace_public),
-                    summary = stringResource(
-                        if (publicAccess) R.string.capability_workspace_public_granted
-                        else R.string.capability_workspace_public_summary,
-                    ),
+                    summary = stringResource(R.string.capability_workspace_public_summary),
                     onClick = onRequestPublicAccess,
                     showChevron = true,
+                    endActions = {
+                        // 授权状态以行尾文字直白呈现，不再藏进摘要文案。
+                        EtaText(
+                            text = stringResource(
+                                if (publicAccess) R.string.status_authorized
+                                else R.string.status_unauthorized,
+                            ),
+                            style = EtaTextStyle.Body,
+                            color = if (publicAccess) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.error
+                            },
+                        )
+                    },
                     leading = {
                         Icon(
                             // 状态用图标表达：已授权为解锁并取 primary，未授权为加锁取弱化色。

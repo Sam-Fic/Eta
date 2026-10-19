@@ -55,39 +55,41 @@ internal fun FileEntryActionsDialog(
         show = true,
         title = target.name,
         onDismissRequest = { if (enabled) onDismiss() },
+        actions = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // 官方按钮：形状、行高与配色全部使用官方默认值。
+                if (target.canExport) {
+                    OutlinedButton(
+                        onClick = onExport,
+                        enabled = enabled,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        M3Text(text = stringResource(R.string.linux_files_export))
+                    }
+                }
+                if (target.canDelete) {
+                    Button(
+                        onClick = onDelete,
+                        enabled = enabled,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = M3ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError,
+                        ),
+                    ) {
+                        M3Text(text = stringResource(R.string.action_delete))
+                    }
+                }
+                M3TextButton(
+                    onClick = onDismiss,
+                    enabled = enabled,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    M3Text(text = stringResource(R.string.action_cancel))
+                }
+            }
+        },
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            // 官方按钮：形状、行高与配色全部使用官方默认值。
-            if (target.canExport) {
-                OutlinedButton(
-                    onClick = onExport,
-                    enabled = enabled,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    M3Text(text = stringResource(R.string.linux_files_export))
-                }
-            }
-            if (target.canDelete) {
-                Button(
-                    onClick = onDelete,
-                    enabled = enabled,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = M3ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError,
-                    ),
-                ) {
-                    M3Text(text = stringResource(R.string.action_delete))
-                }
-            }
-            M3TextButton(
-                onClick = onDismiss,
-                enabled = enabled,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                M3Text(text = stringResource(R.string.action_cancel))
-            }
-        }
     }
 }
 

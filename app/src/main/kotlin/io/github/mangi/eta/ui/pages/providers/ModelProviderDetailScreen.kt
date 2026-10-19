@@ -724,15 +724,17 @@ private fun ProviderConfigTab(
             title = dialogTitle,
             summary = dialogSummary,
             onDismissRequest = onDismissDelete,
+            actions = {
+                EtaDialogActions(
+                    confirmText = confirmLabel,
+                    cancelEnabled = !isWorking,
+                    confirmEnabled = !isWorking,
+                    destructive = true,
+                    onCancel = onCancelDelete,
+                    onConfirm = onConfirmDelete,
+                )
+            },
         ) {
-            EtaDialogActions(
-                confirmText = confirmLabel,
-                cancelEnabled = !isWorking,
-                confirmEnabled = !isWorking,
-                destructive = true,
-                onCancel = onCancelDelete,
-                onConfirm = onConfirmDelete,
-            )
         }
     }
 
@@ -776,14 +778,16 @@ private fun ProviderConfigTab(
             title = dialogTitle,
             summary = dialogSummary,
             onDismissRequest = onDismissReset,
+            actions = {
+                EtaDialogActions(
+                    confirmText = confirmLabel,
+                    cancelEnabled = !isWorking,
+                    confirmEnabled = !isWorking,
+                    onCancel = onCancelReset,
+                    onConfirm = onConfirmReset,
+                )
+            },
         ) {
-            EtaDialogActions(
-                confirmText = confirmLabel,
-                cancelEnabled = !isWorking,
-                confirmEnabled = !isWorking,
-                onCancel = onCancelReset,
-                onConfirm = onConfirmReset,
-            )
         }
     }
 }

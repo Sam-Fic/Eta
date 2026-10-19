@@ -23,7 +23,11 @@ import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 
 /**
- * 自适应弹窗。内容由调用方提供（通常是输入框 + [EtaDialogActions]）。
+ * 自适应弹窗。正文由调用方提供，动作行经 [actions] 走 AlertDialog 的官方 buttons 槽。
+ *
+ * 动作行必须放 buttons 槽而非 text 槽：text 槽自带 `AlertDialogDefaults.textPadding`
+ * 的 24dp 底部内边距，叠加上容器的 24dp 后会让按钮下方留白翻倍；buttons 槽只有容器的
+ * 24dp 内边距，这才是官方留白。
  */
 @Composable
 fun EtaDialog(
@@ -33,7 +37,8 @@ fun EtaDialog(
     modifier: Modifier = Modifier,
     summary: String? = null,
     icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
-    content: @Composable () -> Unit,
+    actions: (@Composable () -> Unit)? = null,
+    content: @Composable () -> Unit = {},
 ) {
     if (!show) return
     AlertDialog(
@@ -62,7 +67,8 @@ fun EtaDialog(
             }
         },
         shape = MaterialTheme.shapes.extraLarge,
-        confirmButton = {},
+        // 官方 buttons 槽：位置与内边距全部交给 AlertDialog，调用方无需再自绘 Row。
+        confirmButton = { actions?.invoke() },
     )
 }
 

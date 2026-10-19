@@ -33,19 +33,7 @@ internal fun ContextBudgetPromptDialog(
         title = stringResource(R.string.context_budget_title),
         summary = stringResource(R.string.context_budget_body),
         onDismissRequest = onDismiss,
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            if (reason.isNotBlank()) {
-                ContextBudgetReasonCard(reason = reason.trim())
-            }
-            M3Text(
-                text = stringResource(R.string.context_budget_hint),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        actions = {
             ContextBudgetChoices(
                 onCompact = {
                     TouchHaptics.click(view)
@@ -59,6 +47,20 @@ internal fun ContextBudgetPromptDialog(
                     TouchHaptics.click(view)
                     onStop()
                 },
+            )
+        },
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            if (reason.isNotBlank()) {
+                ContextBudgetReasonCard(reason = reason.trim())
+            }
+            M3Text(
+                text = stringResource(R.string.context_budget_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }

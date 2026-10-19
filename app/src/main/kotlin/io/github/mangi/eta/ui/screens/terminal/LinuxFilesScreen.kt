@@ -281,14 +281,16 @@ internal fun LinuxFilesScreen(
                 target.name,
             ),
             onDismissRequest = { if (!busy) pendingDelete = null },
+            actions = {
+                EtaDialogActions(
+                    confirmText = stringResource(R.string.action_delete),
+                    destructive = true,
+                    confirmEnabled = !busy,
+                    onCancel = { if (!busy) pendingDelete = null },
+                    onConfirm = { if (!busy) deleteItem(target) },
+                )
+            },
         ) {
-            EtaDialogActions(
-                confirmText = stringResource(R.string.action_delete),
-                destructive = true,
-                confirmEnabled = !busy,
-                onCancel = { if (!busy) pendingDelete = null },
-                onConfirm = { if (!busy) deleteItem(target) },
-            )
         }
     }
 }

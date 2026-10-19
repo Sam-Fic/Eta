@@ -56,6 +56,13 @@ internal fun SessionListDialog(
         show = true,
         title = stringResource(R.string.terminal_sessions),
         onDismissRequest = onDismiss,
+        actions = {
+            TerminalTextButton(
+                text = stringResource(R.string.terminal_new_session),
+                onClick = onNew,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
     ) {
         if (rows.isEmpty()) {
             TerminalBodyText(
@@ -78,13 +85,6 @@ internal fun SessionListDialog(
                 }
             }
         }
-        TerminalTextButton(
-            text = stringResource(R.string.terminal_new_session),
-            onClick = onNew,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 4.dp),
-        )
     }
 }
 

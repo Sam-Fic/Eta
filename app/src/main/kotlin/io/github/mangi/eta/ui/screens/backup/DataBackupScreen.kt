@@ -197,48 +197,50 @@ internal fun DataBackupScreen(
                     pendingImportUri = null
                 }
             },
-        ) {
-            EtaDialogActions(
-                confirmText = if (busy) {
-                    stringResource(R.string.data_backup_working)
-                } else {
-                    stringResource(R.string.action_import)
-                },
-                destructive = true,
-                cancelEnabled = !busy,
-                confirmEnabled = !busy,
-                onCancel = {
-                    showImportDialog = false
-                    pendingImportUri = null
-                },
-                onConfirm = {
-                    val uri = pendingImportUri ?: return@EtaDialogActions
-                    showImportDialog = false
-                    scope.launch {
-                        importing = true
-                        try {
-                            val input = context.contentResolver.openInputStream(uri)
-                                ?: error(context.getString(R.string.data_backup_file_open_failed))
-                            val summary = input.use { onImport(it) }
-                            Toast.makeText(
-                                context,
-                                context.getString(
-                                    R.string.data_backup_imported,
-                                    summary.conversationCount,
-                                    summary.providerCount,
-                                    summary.assistantCount,
-                                ),
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                        } catch (throwable: Throwable) {
-                            showFailure(throwable)
-                        } finally {
-                            pendingImportUri = null
-                            importing = false
+            actions = {
+                EtaDialogActions(
+                    confirmText = if (busy) {
+                        stringResource(R.string.data_backup_working)
+                    } else {
+                        stringResource(R.string.action_import)
+                    },
+                    destructive = true,
+                    cancelEnabled = !busy,
+                    confirmEnabled = !busy,
+                    onCancel = {
+                        showImportDialog = false
+                        pendingImportUri = null
+                    },
+                    onConfirm = {
+                        val uri = pendingImportUri ?: return@EtaDialogActions
+                        showImportDialog = false
+                        scope.launch {
+                            importing = true
+                            try {
+                                val input = context.contentResolver.openInputStream(uri)
+                                    ?: error(context.getString(R.string.data_backup_file_open_failed))
+                                val summary = input.use { onImport(it) }
+                                Toast.makeText(
+                                    context,
+                                    context.getString(
+                                        R.string.data_backup_imported,
+                                        summary.conversationCount,
+                                        summary.providerCount,
+                                        summary.assistantCount,
+                                    ),
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            } catch (throwable: Throwable) {
+                                showFailure(throwable)
+                            } finally {
+                                pendingImportUri = null
+                                importing = false
+                            }
                         }
-                    }
-                },
-            )
+                    },
+                )
+            },
+        ) {
         }
     }
 }

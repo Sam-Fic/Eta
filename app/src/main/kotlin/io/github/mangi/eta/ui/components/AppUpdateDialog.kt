@@ -51,19 +51,7 @@ internal fun AppUpdateDialog(
         onDismissRequest = {
             if (!downloading) onDismiss()
         },
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            if (offer.notes.isNotBlank()) {
-                EtaText(
-                    text = offer.notes,
-                    style = EtaTextStyle.Secondary,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 160.dp)
-                        .padding(bottom = 12.dp)
-                        .verticalScroll(rememberScrollState()),
-                )
-            }
+        actions = {
             EtaDialogActions(
                 confirmText = if (downloading) {
                     stringResource(R.string.update_downloading)
@@ -115,6 +103,20 @@ internal fun AppUpdateDialog(
                     }
                 },
             )
+        },
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            if (offer.notes.isNotBlank()) {
+                EtaText(
+                    text = offer.notes,
+                    style = EtaTextStyle.Secondary,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 160.dp)
+                        .padding(bottom = 12.dp)
+                        .verticalScroll(rememberScrollState()),
+                )
+            }
         }
     }
 }

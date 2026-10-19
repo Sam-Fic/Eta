@@ -181,13 +181,15 @@ fun AgentSkillsScreen(
             title = stringResource(R.string.ui_replace_user_skills_250e98),
             summary = stringResource(R.string.skills_replace_summary, replacement.name, replacement.id),
             onDismissRequest = { onAction(AgentSkillsAction.CancelZipReplacement) },
+            actions = {
+                EtaDialogActions(
+                    confirmText = stringResource(R.string.skills_replace),
+                    confirmEnabled = !operationPending,
+                    onCancel = { onAction(AgentSkillsAction.CancelZipReplacement) },
+                    onConfirm = { onAction(AgentSkillsAction.ConfirmZipReplacement) },
+                )
+            },
         ) {
-            EtaDialogActions(
-                confirmText = stringResource(R.string.skills_replace),
-                confirmEnabled = !operationPending,
-                onCancel = { onAction(AgentSkillsAction.CancelZipReplacement) },
-                onConfirm = { onAction(AgentSkillsAction.ConfirmZipReplacement) },
-            )
         }
     }
 
@@ -197,17 +199,19 @@ fun AgentSkillsScreen(
             title = stringResource(R.string.ui_delete_user_skills_f319a9),
             summary = stringResource(R.string.skills_delete_summary, skill.name),
             onDismissRequest = { deleteTarget = null },
+            actions = {
+                EtaDialogActions(
+                    confirmText = stringResource(R.string.ui_delete_3755f5),
+                    destructive = true,
+                    confirmEnabled = !operationPending,
+                    onCancel = { deleteTarget = null },
+                    onConfirm = {
+                        deleteTarget = null
+                        onAction(AgentSkillsAction.DeleteSkill(skill.id))
+                    },
+                )
+            },
         ) {
-            EtaDialogActions(
-                confirmText = stringResource(R.string.ui_delete_3755f5),
-                destructive = true,
-                confirmEnabled = !operationPending,
-                onCancel = { deleteTarget = null },
-                onConfirm = {
-                    deleteTarget = null
-                    onAction(AgentSkillsAction.DeleteSkill(skill.id))
-                },
-            )
         }
     }
 
@@ -217,22 +221,24 @@ fun AgentSkillsScreen(
             title = notice.title,
             summary = notice.message,
             onDismissRequest = { onAction(AgentSkillsAction.DismissNotice) },
+            actions = {
+                // 官方按钮：错误提示用 error 配色，正常提示用默认主色。
+                M3Button(
+                    onClick = { onAction(AgentSkillsAction.DismissNotice) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = if (notice.isError) {
+                        M3ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError,
+                        )
+                    } else {
+                        M3ButtonDefaults.buttonColors()
+                    },
+                ) {
+                    M3Text(text = stringResource(R.string.ui_knew_cb63c6))
+                }
+            },
         ) {
-            // 官方按钮：错误提示用 error 配色，正常提示用默认主色。
-            M3Button(
-                onClick = { onAction(AgentSkillsAction.DismissNotice) },
-                modifier = Modifier.fillMaxWidth(),
-                colors = if (notice.isError) {
-                    M3ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError,
-                    )
-                } else {
-                    M3ButtonDefaults.buttonColors()
-                },
-            ) {
-                M3Text(text = stringResource(R.string.ui_knew_cb63c6))
-            }
         }
     }
 }

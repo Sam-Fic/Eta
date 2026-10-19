@@ -349,13 +349,15 @@ internal fun AssistantDeleteDialog(
         title = stringResource(R.string.assistant_delete_title),
         summary = stringResource(R.string.assistant_delete_body, profile.name),
         onDismissRequest = onDismiss,
+        actions = {
+            EtaDialogActions(
+                confirmText = stringResource(R.string.action_delete),
+                destructive = true,
+                confirmEnabled = canDelete,
+                onCancel = onDismiss,
+                onConfirm = onConfirm,
+            )
+        },
     ) {
-        EtaDialogActions(
-            confirmText = stringResource(R.string.action_delete),
-            destructive = true,
-            confirmEnabled = canDelete,
-            onCancel = onDismiss,
-            onConfirm = onConfirm,
-        )
     }
 }

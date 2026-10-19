@@ -29,6 +29,15 @@ internal fun ItemDescriptionDialog(
         title = title,
         summary = summary?.takeIf(String::isNotBlank),
         onDismissRequest = onDismiss,
+        actions = {
+            // 官方文字按钮：形状、行高与配色均取官方默认值。
+            M3TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                M3Text(text = stringResource(R.string.action_close))
+            }
+        },
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp),
@@ -37,16 +46,9 @@ internal fun ItemDescriptionDialog(
             EtaText(
                 text = description,
                 style = EtaTextStyle.Secondary,
-                modifier = Modifier.fillMaxWidth().weight(1f, fill = false)
+                modifier = Modifier.fillMaxWidth()
                     .verticalScroll(rememberScrollState()),
             )
-            // 官方文字按钮：形状、行高与配色均取官方默认值。
-            M3TextButton(
-                onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                M3Text(text = stringResource(R.string.action_close))
-            }
         }
     }
 }

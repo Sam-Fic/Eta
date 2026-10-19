@@ -188,17 +188,19 @@ internal fun AgentMemoryScreen(
             title = stringResource(R.string.ui_clear_all_memory_a43bd3),
             summary = stringResource(R.string.ui_the_entire_contents_of_memory_md_will_be_deleted_and_83a8ac),
             onDismissRequest = { showClearDialog = false },
+            actions = {
+                EtaDialogActions(
+                    confirmText = stringResource(R.string.memory_clear),
+                    destructive = true,
+                    confirmEnabled = !state.isSaving,
+                    onCancel = { showClearDialog = false },
+                    onConfirm = {
+                        showClearDialog = false
+                        onAction(AgentMemoryAction.Clear)
+                    },
+                )
+            },
         ) {
-            EtaDialogActions(
-                confirmText = stringResource(R.string.memory_clear),
-                destructive = true,
-                confirmEnabled = !state.isSaving,
-                onCancel = { showClearDialog = false },
-                onConfirm = {
-                    showClearDialog = false
-                    onAction(AgentMemoryAction.Clear)
-                },
-            )
         }
     }
 
@@ -208,14 +210,16 @@ internal fun AgentMemoryScreen(
             title = stringResource(R.string.ui_memory_b55ff5),
             summary = notice,
             onDismissRequest = { onAction(AgentMemoryAction.DismissNotice) },
+            actions = {
+                // 官方文字按钮：形状、行高与配色均取官方默认值。
+                M3TextButton(
+                    onClick = { onAction(AgentMemoryAction.DismissNotice) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    M3Text(text = stringResource(R.string.ui_knew_cb63c6))
+                }
+            },
         ) {
-            // 官方文字按钮：形状、行高与配色均取官方默认值。
-            M3TextButton(
-                onClick = { onAction(AgentMemoryAction.DismissNotice) },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                M3Text(text = stringResource(R.string.ui_knew_cb63c6))
-            }
         }
     }
 }
