@@ -13,6 +13,8 @@ internal object AgentSelfSettingsToolCatalog {
     const val GET_SETTINGS = "eta_get_settings"
     const val SET_SETTINGS = "eta_set_settings"
     const val MANAGE_MODELS = "eta_manage_models"
+    const val MANAGE_SUBAGENTS = "eta_manage_subagents"
+    const val MANAGE_HISTORY = "eta_manage_history"
 
     fun appendTo(tools: JSONArray) {
         tools
@@ -215,6 +217,211 @@ internal object AgentSelfSettingsToolCatalog {
                                     JSONObject()
                                         .put("type", "boolean")
                                         .put("description", "fetch_models only: also store the new models it found. Default false, which only refreshes the ones already stored."),
+                                ),
+                        )
+                        .put("required", JSONArray().put("action")),
+                ),
+            )
+            .put(
+                AgentToolSchema.function(
+                    name = MANAGE_SUBAGENTS,
+                    description = "Create and manage the sub-agent groups of Eta, the assistant app you are running. " +
+                        "A group is a reusable preset of sub-agents that the main agent delegates to with delegate_task, and it can be applied to a conversation. " +
+                        "action=list returns every group with its sub-agents and which group this conversation applied, and needs no other field. " +
+                        "create_group, rename_group, delete_group and set_delegation manage a group itself, where set_delegation turns its automatic delegation on or off. " +
+                        "add_agent, update_agent and remove_agent manage the sub-agents inside one group. " +
+                        "apply copies a group onto this conversation. " +
+                        "Only change what the user actually asked for, and state the result in your reply. " +
+                        "Every change applies from the next reply, not to the answer you are writing now; editing a group does not change conversations that already applied it.",
+                    parameters = JSONObject()
+                        .put("type", "object")
+                        .put(
+                            "properties",
+                            JSONObject()
+                                .put(
+                                    "action",
+                                    JSONObject()
+                                        .put("type", "string")
+                                        .put(
+                                            "enum",
+                                            JSONArray()
+                                                .put("list")
+                                                .put("create_group")
+                                                .put("rename_group")
+                                                .put("delete_group")
+                                                .put("set_delegation")
+                                                .put("add_agent")
+                                                .put("update_agent")
+                                                .put("remove_agent")
+                                                .put("apply"),
+                                        )
+                                        .put("description", "Required. What to do with a group or one of its sub-agents."),
+                                )
+                                .put(
+                                    "group",
+                                    JSONObject()
+                                        .put("type", "string")
+                                        .put("maxLength", 80)
+                                        .put("description", "Group id or displayed name. Required by every action except list and create_group."),
+                                )
+                                .put(
+                                    "name",
+                                    JSONObject()
+                                        .put("type", "string")
+                                        .put("maxLength", 80)
+                                        .put("description", "create_group and rename_group only: the group's name, which is the new name when renaming."),
+                                )
+                                .put(
+                                    "agent",
+                                    JSONObject()
+                                        .put("type", "string")
+                                        .put("maxLength", 80)
+                                        .put("description", "update_agent and remove_agent only: the sub-agent's id or displayed name."),
+                                )
+                                .put(
+                                    "agent_name",
+                                    JSONObject()
+                                        .put("type", "string")
+                                        .put("maxLength", 80)
+                                        .put("description", "add_agent and update_agent only: the sub-agent's displayed name."),
+                                )
+                                .put(
+                                    "role",
+                                    JSONObject()
+                                        .put("type", "string")
+                                        .put(
+                                            "enum",
+                                            JSONArray().put("implementation").put("review").put("image_generation").put("video_generation"),
+                                        )
+                                        .put("description", "add_agent and update_agent only: what the sub-agent does. Default implementation."),
+                                )
+                                .put(
+                                    "provider",
+                                    JSONObject()
+                                        .put("type", "string")
+                                        .put("maxLength", 200)
+                                        .put("description", "add_agent and update_agent only: provider id or displayed name; pass it together with model to bind the sub-agent to a model."),
+                                )
+                                .put(
+                                    "model",
+                                    JSONObject()
+                                        .put("type", "string")
+                                        .put("maxLength", 200)
+                                        .put("description", "add_agent and update_agent only: model id or displayed name on that provider."),
+                                )
+                                .put(
+                                    "enabled",
+                                    JSONObject()
+                                        .put("type", "boolean")
+                                        .put("description", "set_delegation: the group's automatic delegation. add_agent and update_agent: whether this sub-agent is enabled; a new sub-agent starts enabled."),
+                                )
+                                .put(
+                                    "task_tier",
+                                    JSONObject()
+                                        .put("type", "string")
+                                        .put("enum", JSONArray().put("simple").put("regular").put("complex"))
+                                        .put("description", "add_agent and update_agent only: task tier for role=implementation; ignored by other roles."),
+                                )
+                                .put(
+                                    "reasoning",
+                                    JSONObject()
+                                        .put("type", "string")
+                                        .put(
+                                            "enum",
+                                            JSONArray()
+                                                .put("off")
+                                                .put("default")
+                                                .put("minimal")
+                                                .put("low")
+                                                .put("medium")
+                                                .put("high")
+                                                .put("xhigh")
+                                                .put("max"),
+                                        )
+                                        .put("description", "add_agent and update_agent only: reasoning effort for this sub-agent; pass an empty string to clear it."),
+                                )
+                                .put(
+                                    "image_resolution",
+                                    JSONObject()
+                                        .put("type", "string")
+                                        .put("enum", JSONArray().put("low").put("medium").put("high").put("ultra"))
+                                        .put("description", "add_agent and update_agent only: resolution for role=image_generation; pass an empty string to clear it."),
+                                ),
+                        )
+                        .put("required", JSONArray().put("action")),
+                ),
+            )
+            .put(
+                AgentToolSchema.function(
+                    name = MANAGE_HISTORY,
+                    description = "Browse and organize the chat history of Eta, the assistant app you are running: its folders and its saved conversations. " +
+                        "action=list_folders returns every folder with how many conversations it holds and needs no other field. " +
+                        "action=list_conversations returns the stored conversations, pinned ones first and then newest first. " +
+                        "action=search_conversations finds conversations by the text inside their messages. " +
+                        "create_folder, rename_folder and delete_folder manage folders; deleting a folder keeps its conversations and moves them back to the ungrouped list. " +
+                        "rename_conversation, move_conversation, set_pinned and delete_conversation change one conversation, where set_pinned sets the value rather than toggling it. " +
+                        "conversation accepts an id or a title, or the special value current for the conversation you are answering in; folder accepts an id or a name, or none for the ungrouped list. " +
+                        "When a conversation id or title matches more than one conversation the call fails and lists the candidates instead of guessing. " +
+                        "Deleting a conversation is permanent and cannot be undone. " +
+                        "Only change what the user actually asked for, and state the result in your reply; every change shows up in the history list right away.",
+                    parameters = JSONObject()
+                        .put("type", "object")
+                        .put(
+                            "properties",
+                            JSONObject()
+                                .put(
+                                    "action",
+                                    JSONObject()
+                                        .put("type", "string")
+                                        .put(
+                                            "enum",
+                                            JSONArray()
+                                                .put("list_folders")
+                                                .put("list_conversations")
+                                                .put("search_conversations")
+                                                .put("create_folder")
+                                                .put("rename_folder")
+                                                .put("delete_folder")
+                                                .put("rename_conversation")
+                                                .put("move_conversation")
+                                                .put("set_pinned")
+                                                .put("delete_conversation"),
+                                        )
+                                        .put("description", "Required. What to do with a folder or a conversation."),
+                                )
+                                .put(
+                                    "folder",
+                                    JSONObject()
+                                        .put("type", "string")
+                                        .put("maxLength", 80)
+                                        .put("description", "Folder id or name; also the target of move_conversation. Pass none to mean the ungrouped list."),
+                                )
+                                .put(
+                                    "name",
+                                    JSONObject()
+                                        .put("type", "string")
+                                        .put("maxLength", 120)
+                                        .put("description", "create_folder, rename_folder and rename_conversation only: the new name."),
+                                )
+                                .put(
+                                    "conversation",
+                                    JSONObject()
+                                        .put("type", "string")
+                                        .put("maxLength", 200)
+                                        .put("description", "Conversation id or title; pass current for the conversation you are answering in."),
+                                )
+                                .put(
+                                    "query",
+                                    JSONObject()
+                                        .put("type", "string")
+                                        .put("maxLength", 120)
+                                        .put("description", "search_conversations only: text to look for inside the messages."),
+                                )
+                                .put(
+                                    "pinned",
+                                    JSONObject()
+                                        .put("type", "boolean")
+                                        .put("description", "set_pinned only: true pins the conversation to the top, false unpins it."),
                                 ),
                         )
                         .put("required", JSONArray().put("action")),

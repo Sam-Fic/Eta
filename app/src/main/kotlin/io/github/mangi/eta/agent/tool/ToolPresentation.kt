@@ -9,6 +9,7 @@ import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.automirrored.rounded.StickyNote2
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
+import androidx.compose.material.icons.rounded.AccountTree
 import androidx.compose.material.icons.rounded.AdminPanelSettings
 import androidx.compose.material.icons.rounded.Build
 import androidx.compose.material.icons.rounded.AdsClick
@@ -28,6 +29,7 @@ import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.FindReplace
 import androidx.compose.material.icons.rounded.FolderOpen
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.Key
@@ -140,6 +142,8 @@ internal object ToolPresentation {
         "eta_get_settings" -> R.string.tool_eta_get_settings
         "eta_set_settings" -> R.string.tool_eta_set_settings
         "eta_manage_models" -> R.string.tool_eta_manage_models
+        "eta_manage_subagents" -> R.string.tool_eta_manage_subagents
+        "eta_manage_history" -> R.string.tool_eta_manage_history
         else -> null
     }
 
@@ -238,6 +242,8 @@ internal object ToolPresentation {
         "eta_get_settings" -> Icons.Rounded.Tune
         "eta_set_settings" -> Icons.Rounded.ManageAccounts
         "eta_manage_models" -> Icons.Rounded.SmartToy
+        "eta_manage_subagents" -> SubAgents
+        "eta_manage_history" -> Icons.Rounded.History
         "skills_list", "skills_list_curated" -> Icons.AutoMirrored.Rounded.MenuBook
         "skills_read", "skills_read_resource" -> Icons.Rounded.Description
         "skills_inspect_github" -> Icons.Rounded.Code

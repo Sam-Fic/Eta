@@ -2229,6 +2229,193 @@ internal class AgentAppState(
         persistConversations()
     }
 
+    /** eta_manage_history 读取的文件夹快照。 */
+    internal data class HistoryFolder(
+        val id: String,
+        val name: String,
+        val sortIndex: Int,
+        val conversationCount: Int,
+    )
+
+    /** eta_manage_history 读取的会话快照。 */
+    internal data class HistoryConversation(
+        val id: String,
+        val title: String,
+        val updatedAt: Long,
+        val createdAt: Long,
+        val folderId: String?,
+        val folderName: String?,
+        val pinned: Boolean,
+    )
+
+    /** eta_manage_history 写操作结果；失败时返回结构化错误码与说明。 */
+    internal data class HistoryMutation(
+        val ok: Boolean,
+        val code: String = "",
+        val message: String = "",
+        val folder: HistoryFolder? = null,
+        val conversation: HistoryConversation? = null,
+        val movedConversations: Int = 0,
+    )
+
+    private fun historyFailure(code: String, message: String) = HistoryMutation(ok = false, code = code, message = message)
+
+    private fun historyFolderSnapshot(folder: ConversationFolderUi): HistoryFolder = HistoryFolder(
+        id = folder.id,
+        name = folder.name,
+        sortIndex = folder.sortIndex,
+        conversationCount = conversationFolderIds.count { it.value == folder.id },
+    )
+
+    private fun historyConversationSnapshot(conversationId: String): HistoryConversation? {
+        if (conversationId !in conversationsById) return null
+        val folderId = conversationFolderIds[conversationId]?.takeIf { it.isNotBlank() }
+        return HistoryConversation(
+            id = conversationId,
+            title = conversationTitles[conversationId]?.takeIf { it.isNotBlank() }
+                ?: appContext.getString(R.string.conversation_unnamed),
+            updatedAt = conversationUpdatedAt[conversationId] ?: 0L,
+            createdAt = conversationCreatedAt[conversationId] ?: 0L,
+            folderId = folderId,
+            folderName = folderId?.let { id -> conversationFolders.firstOrNull { it.id == id }?.name },
+            pinned = conversationId in conversationPinned,
+        )
+    }
+
+    /**
+     * eta_manage_history 的只读入口：读取全部文件夹。
+     *
+     * 会话与文件夹的唯一真相源是本对象持有的内存快照；工具在读之前先等启动水合完成，
+     * 避免看到构造期那批空种子数据。
+     */
+    internal suspend fun agentHistoryFolders(): List<HistoryFolder> = withContext(Dispatchers.Main.immediate) {
+        awaitConversationsHydrated()
+        conversationFolders.sortedBy { it.sortIndex }.map(::historyFolderSnapshot)
+    }
+
+    /** eta_manage_history 的只读入口：读取全部会话，置顶在前，其后按更新时间由新到旧。 */
+    internal suspend fun agentHistoryConversations(): List<HistoryConversation> = withContext(Dispatchers.Main.immediate) {
+        awaitConversationsHydrated()
+        conversationsById.keys
+            .sortedWith(
+                compareByDescending<String> { it in conversationPinned }
+                    .thenByDescending { conversationUpdatedAt[it] ?: 0L }
+                    .thenBy { it },
+            )
+            .mapNotNull(::historyConversationSnapshot)
+    }
+
+    /** eta_manage_history 的只读入口：按消息正文检索会话。 */
+    internal suspend fun agentHistorySearch(query: String): List<MessageSearchHit> {
+        awaitConversationsHydrated()
+        return searchHistory(query)
+    }
+
+    /**
+     * eta_manage_history 的写入入口：新建文件夹。
+     *
+     * 写入路径必须落在主线程，且与手工操作共用同一批门面方法，因此这里只做前置校验、
+     * 调用既有方法、再回读快照确认结果，保证工具改动与人手改动完全等价。
+     */
+    internal suspend fun agentHistoryCreateFolder(name: String): HistoryMutation = withContext(Dispatchers.Main.immediate) {
+        awaitConversationsHydrated()
+        val trimmed = name.trim()
+        if (trimmed.isBlank()) return@withContext historyFailure("INVALID_ARGUMENT", "新建文件夹需要提供 name")
+        if (conversationFolders.any { it.name.equals(trimmed, ignoreCase = true) }) {
+            return@withContext historyFailure("NAME_TAKEN", "已存在同名文件夹：$trimmed")
+        }
+        if (rejectConversationArchiveMutation(protectStoppingRun = false)) {
+            return@withContext historyFailure("BUSY", "当前有对话归档任务在执行，请稍后再试")
+        }
+        val before = conversationFolders.mapTo(mutableSetOf()) { it.id }
+        createFolder(trimmed)
+        val created = conversationFolders.firstOrNull { it.id !in before }
+            ?: return@withContext historyFailure("WRITE_FAILED", "新建文件夹失败")
+        HistoryMutation(ok = true, folder = historyFolderSnapshot(created))
+    }
+
+    internal suspend fun agentHistoryRenameFolder(folderId: String, name: String): HistoryMutation = withContext(Dispatchers.Main.immediate) {
+        awaitConversationsHydrated()
+        val folder = conversationFolders.firstOrNull { it.id == folderId }
+            ?: return@withContext historyFailure("FOLDER_NOT_FOUND", "找不到文件夹：$folderId")
+        val trimmed = name.trim()
+        if (trimmed.isBlank()) return@withContext historyFailure("INVALID_ARGUMENT", "重命名文件夹需要提供 name")
+        if (conversationFolders.any { it.id != folderId && it.name.equals(trimmed, ignoreCase = true) }) {
+            return@withContext historyFailure("NAME_TAKEN", "已存在同名文件夹：$trimmed")
+        }
+        if (rejectConversationArchiveMutation(protectStoppingRun = false)) {
+            return@withContext historyFailure("BUSY", "当前有对话归档任务在执行，请稍后再试")
+        }
+        renameFolder(folderId, trimmed)
+        HistoryMutation(ok = true, folder = historyFolderSnapshot(folder.copy(name = trimmed)))
+    }
+
+    internal suspend fun agentHistoryDeleteFolder(folderId: String): HistoryMutation = withContext(Dispatchers.Main.immediate) {
+        awaitConversationsHydrated()
+        val folder = conversationFolders.firstOrNull { it.id == folderId }
+            ?: return@withContext historyFailure("FOLDER_NOT_FOUND", "找不到文件夹：$folderId")
+        if (rejectConversationArchiveMutation(protectStoppingRun = false)) {
+            return@withContext historyFailure("BUSY", "当前有对话归档任务在执行，请稍后再试")
+        }
+        val moved = conversationFolderIds.count { it.value == folderId }
+        deleteFolder(folderId)
+        HistoryMutation(ok = true, folder = historyFolderSnapshot(folder), movedConversations = moved)
+    }
+
+    internal suspend fun agentHistoryRenameConversation(conversationId: String, name: String): HistoryMutation = withContext(Dispatchers.Main.immediate) {
+        awaitConversationsHydrated()
+        if (conversationId !in conversationsById) {
+            return@withContext historyFailure("CONVERSATION_NOT_FOUND", "找不到对话：$conversationId")
+        }
+        val trimmed = name.trim()
+        if (trimmed.isBlank()) return@withContext historyFailure("INVALID_ARGUMENT", "重命名对话需要提供 name")
+        if (rejectConversationArchiveMutation(protectStoppingRun = false)) {
+            return@withContext historyFailure("BUSY", "当前有对话归档任务在执行，请稍后再试")
+        }
+        renameConversation(conversationId, trimmed)
+        HistoryMutation(ok = true, conversation = historyConversationSnapshot(conversationId))
+    }
+
+    /** [folderId] 为 null 表示移出文件夹、回到未归类。 */
+    internal suspend fun agentHistoryMoveConversation(conversationId: String, folderId: String?): HistoryMutation = withContext(Dispatchers.Main.immediate) {
+        awaitConversationsHydrated()
+        if (conversationId !in conversationsById) {
+            return@withContext historyFailure("CONVERSATION_NOT_FOUND", "找不到对话：$conversationId")
+        }
+        if (folderId != null && conversationFolders.none { it.id == folderId }) {
+            return@withContext historyFailure("FOLDER_NOT_FOUND", "找不到文件夹：$folderId")
+        }
+        if (rejectConversationArchiveMutation(protectStoppingRun = false)) {
+            return@withContext historyFailure("BUSY", "当前有对话归档任务在执行，请稍后再试")
+        }
+        moveConversationToFolder(conversationId, folderId)
+        HistoryMutation(ok = true, conversation = historyConversationSnapshot(conversationId))
+    }
+
+    internal suspend fun agentHistorySetConversationPinned(conversationId: String, pinned: Boolean): HistoryMutation = withContext(Dispatchers.Main.immediate) {
+        awaitConversationsHydrated()
+        if (conversationId !in conversationsById) {
+            return@withContext historyFailure("CONVERSATION_NOT_FOUND", "找不到对话：$conversationId")
+        }
+        if (rejectConversationArchiveMutation(protectStoppingRun = false)) {
+            return@withContext historyFailure("BUSY", "当前有对话归档任务在执行，请稍后再试")
+        }
+        // 门面是「直接设值」，只有在当前状态与目标不一致时才触发既有的翻转方法。
+        if ((conversationId in conversationPinned) != pinned) toggleConversationPinned(conversationId)
+        HistoryMutation(ok = true, conversation = historyConversationSnapshot(conversationId))
+    }
+
+    internal suspend fun agentHistoryDeleteConversation(conversationId: String): HistoryMutation = withContext(Dispatchers.Main.immediate) {
+        awaitConversationsHydrated()
+        val snapshot = historyConversationSnapshot(conversationId)
+            ?: return@withContext historyFailure("CONVERSATION_NOT_FOUND", "找不到对话：$conversationId")
+        if (rejectConversationArchiveMutation()) {
+            return@withContext historyFailure("BUSY", "当前有对话归档任务在执行，请稍后再试")
+        }
+        deleteConversation(conversationId)
+        HistoryMutation(ok = true, conversation = snapshot)
+    }
+
     fun sendCurrentMessage(submittedText: String? = null) {
         if (homeState.pendingConversationMentions.any { it.id in preparingConversationMentions }) {
             if (submittedText != null) updateCurrentConversation(homeState.copy(input = submittedText))
@@ -7387,6 +7574,8 @@ internal fun buildToolsState(context: Context): AgentToolsUiState =
                     ToolItemUi("eta_get_settings", context.getString(R.string.tool_ui_eta_get_settings), context.getString(R.string.tool_ui_eta_get_settings_summary)),
                     ToolItemUi("eta_set_settings", context.getString(R.string.tool_ui_eta_set_settings), context.getString(R.string.tool_ui_eta_set_settings_summary)),
                     ToolItemUi("eta_manage_models", context.getString(R.string.tool_ui_eta_manage_models), context.getString(R.string.tool_ui_eta_manage_models_summary)),
+                    ToolItemUi("eta_manage_subagents", context.getString(R.string.tool_ui_eta_manage_subagents), context.getString(R.string.tool_ui_eta_manage_subagents_summary)),
+                    ToolItemUi("eta_manage_history", context.getString(R.string.tool_ui_eta_manage_history), context.getString(R.string.tool_ui_eta_manage_history_summary)),
                 ),
             ),
             ToolGroupUi(

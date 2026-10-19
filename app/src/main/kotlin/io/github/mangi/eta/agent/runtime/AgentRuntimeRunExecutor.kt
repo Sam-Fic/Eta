@@ -138,6 +138,7 @@ internal class AgentRuntimeRunExecutor(
                 browserConversationId = request.handoff?.takeIf {
                     it.source == AgentRuntimeWire.AGENT_UI_HANDOFF_SOURCE
                 }?.let { AgentUiHandoffPayload.from(it.payload).conversationId }.orEmpty(),
+                agentConversationId = request.effectiveModelSessionId,
                 frozenSurface = runSurface,
                 chooseSurface = { toolName, toolsClosed ->
                     // 先写会话再等弹窗退场；返回值取自会话，工具侧与会话保持一致。

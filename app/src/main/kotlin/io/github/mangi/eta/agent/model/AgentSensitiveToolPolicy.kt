@@ -50,5 +50,7 @@ internal object AgentSensitiveToolPolicy {
         "memory_write",
         // 参数可能携带供应商密钥与端点；原始结果不进入持久会话。
         "eta_manage_models",
+        // 参数与结果可能包含用户历史对话的标题与正文；原始结果不进入持久会话。
+        "eta_manage_history",
     )
 }

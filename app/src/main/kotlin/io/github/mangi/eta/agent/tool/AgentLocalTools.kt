@@ -120,6 +120,8 @@ internal class AgentLocalTools(
     private val selfForegroundPackage: () -> String? = {
         AgentAccessibilityService.current()?.currentMainDisplayPackageName()
     },
+    /** 当前会话 id，用于把子代理组应用到本会话。 */
+    private val agentConversationId: String = "",
 ) : AgentModelClient.ToolExecutor, AutoCloseable {
 
     /** ASK 只在第一次界面操作前问一次，之后整轮 run 都用选定的位置。 */
@@ -158,6 +160,8 @@ internal class AgentLocalTools(
     )
     private val selfSettingsTools = AgentSelfSettingsTools()
     private val selfModelTools = AgentSelfModelTools(context)
+    private val selfSubAgentTools = AgentSelfSubAgentTools(agentConversationId)
+    private val selfHistoryTools = AgentSelfHistoryTools(context, agentConversationId)
     private val terminalController = RootShellTerminalController(
         processSupervisor = io.github.mangi.eta.agent.terminal.ShellProcessSupervisor(skillsDirectoryProvider = { runSkillsRoot }),
         logger = logger,
@@ -487,6 +491,8 @@ internal class AgentLocalTools(
                 AgentSelfSettingsToolCatalog.GET_SETTINGS -> textResult(selfSettingsTool { selfSettingsTools.list() })
                 AgentSelfSettingsToolCatalog.SET_SETTINGS -> textResult(selfSettingsTool { selfSettingsTools.set(args) })
                 AgentSelfSettingsToolCatalog.MANAGE_MODELS -> textResult(selfSettingsTool { selfModelTools.execute(args) })
+                AgentSelfSettingsToolCatalog.MANAGE_SUBAGENTS -> textResult(selfSettingsTool { selfSubAgentTools.execute(args) })
+                AgentSelfSettingsToolCatalog.MANAGE_HISTORY -> textResult(selfSettingsTool { selfHistoryTools.execute(args) })
                 else -> textResult(
                     errorResult(
                         code = "UNKNOWN_TOOL",

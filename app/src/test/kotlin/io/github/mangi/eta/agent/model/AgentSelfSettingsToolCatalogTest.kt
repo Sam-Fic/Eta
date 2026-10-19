@@ -16,6 +16,8 @@ class AgentSelfSettingsToolCatalogTest {
             AgentSelfSettingsToolCatalog.GET_SETTINGS,
             AgentSelfSettingsToolCatalog.SET_SETTINGS,
             AgentSelfSettingsToolCatalog.MANAGE_MODELS,
+            AgentSelfSettingsToolCatalog.MANAGE_SUBAGENTS,
+            AgentSelfSettingsToolCatalog.MANAGE_HISTORY,
         ).forEach { name -> assertTrue("$name missing", name in tools.toolNames()) }
 
         val manage = tools.function(AgentSelfSettingsToolCatalog.MANAGE_MODELS)
@@ -103,6 +105,48 @@ class AgentSelfSettingsToolCatalogTest {
     }
 
     @Test
+    fun subAgentGroupManagementCoversGroupAndAgentActions() {
+        val manage = catalog().function(AgentSelfSettingsToolCatalog.MANAGE_SUBAGENTS)
+        assertEquals(
+            listOf(
+                "list", "create_group", "rename_group", "delete_group", "set_delegation",
+                "add_agent", "update_agent", "remove_agent", "apply",
+            ),
+            manage.properties().getJSONObject("action").getJSONArray("enum").stringValues(),
+        )
+        assertEquals(listOf("action"), manage.parameters().requiredNames())
+        assertEquals(
+            listOf("implementation", "review", "image_generation", "video_generation"),
+            manage.properties().getJSONObject("role").getJSONArray("enum").stringValues(),
+        )
+        assertEquals(
+            listOf("simple", "regular", "complex"),
+            manage.properties().getJSONObject("task_tier").getJSONArray("enum").stringValues(),
+        )
+        assertEquals(
+            listOf("low", "medium", "high", "ultra"),
+            manage.properties().getJSONObject("image_resolution").getJSONArray("enum").stringValues(),
+        )
+        assertTrue(manage.getString("description").contains("next reply"))
+    }
+
+    @Test
+    fun historyManagementCoversFoldersAndConversations() {
+        val manage = catalog().function(AgentSelfSettingsToolCatalog.MANAGE_HISTORY)
+        assertEquals(
+            listOf(
+                "list_folders", "list_conversations", "search_conversations",
+                "create_folder", "rename_folder", "delete_folder",
+                "rename_conversation", "move_conversation", "set_pinned", "delete_conversation",
+            ),
+            manage.properties().getJSONObject("action").getJSONArray("enum").stringValues(),
+        )
+        assertEquals(listOf("action"), manage.parameters().requiredNames())
+        assertEquals("boolean", manage.properties().getJSONObject("pinned").getString("type"))
+        assertTrue(manage.getString("description").contains("current"))
+    }
+
+    @Test
     fun selfSettingsToolsAreAFeatureFlagThatDefaultsToOn() {
         val names = catalog().toolNames()
         assertTrue(names.containsAll(SELF_TOOLS))
@@ -143,6 +187,8 @@ class AgentSelfSettingsToolCatalogTest {
             AgentSelfSettingsToolCatalog.GET_SETTINGS,
             AgentSelfSettingsToolCatalog.SET_SETTINGS,
             AgentSelfSettingsToolCatalog.MANAGE_MODELS,
+            AgentSelfSettingsToolCatalog.MANAGE_SUBAGENTS,
+            AgentSelfSettingsToolCatalog.MANAGE_HISTORY,
         )
     }
 }
