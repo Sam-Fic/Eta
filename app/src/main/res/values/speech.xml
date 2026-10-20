@@ -25,4 +25,5 @@
     <string name="speech_no_voice">No speech recognized. Recording stopped.</string>
     <string name="speech_failed">Speech input failed. Check microphone permission and the speech pack.</string>
     <string name="speech_permission_denied">Microphone permission is required for dictation.</string>
+  <string name="speech_search_option">Search options</string>
 </resources>

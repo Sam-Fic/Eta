@@ -37,6 +37,7 @@ import io.github.mangi.eta.agent.voice.doubao.VoiceCatalogPreferences
 import io.github.mangi.eta.agent.voice.doubao.VoiceCatalogSecretStore
 import io.github.mangi.eta.agent.voice.doubao.VoiceProjectCatalog
 import io.github.mangi.eta.ui.adaptive.EtaClickableRow
+import io.github.mangi.eta.ui.adaptive.EtaPickerSheet
 import io.github.mangi.eta.ui.adaptive.EtaScaffold
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedItemContainer
@@ -47,8 +48,8 @@ import io.github.mangi.eta.ui.adaptive.EtaText
 import io.github.mangi.eta.ui.adaptive.EtaTextButton
 import io.github.mangi.eta.ui.adaptive.EtaTextStyle
 import io.github.mangi.eta.ui.adaptive.etaPrimary
-import io.github.mangi.eta.ui.components.EtaMaterialDropdownMenu
-import io.github.mangi.eta.ui.components.EtaMaterialDropdownMenuItem
+import io.github.mangi.eta.ui.adaptive.EtaMenuEntry
+import io.github.mangi.eta.ui.adaptive.EtaTextMenu
 import io.github.mangi.eta.ui.components.ListEmptyState
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import kotlinx.coroutines.launch
@@ -141,10 +142,21 @@ internal fun DoubaoVoiceSettings(onBack: () -> Unit) {
         actions = {
             if (home) Box {
                 IconButton(onClick = { TouchHaptics.click(view); settingsMenu = true }) { Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.dv_settings_cd)) }
-                EtaMaterialDropdownMenu(expanded = settingsMenu, onDismissRequest = { settingsMenu = false }) {
-                    EtaMaterialDropdownMenuItem(text = stringResource(R.string.dv_account_title), onClick = { TouchHaptics.click(view); settingsMenu = false; showAccount = true; notice = "" })
-                    EtaMaterialDropdownMenuItem(text = stringResource(R.string.dv_sync_title), enabled = config.cloneKey.isNotBlank(), onClick = { TouchHaptics.click(view); settingsMenu = false; showSync = true; notice = "" })
-                }
+                EtaTextMenu(
+                    expanded = settingsMenu,
+                    onDismissRequest = { settingsMenu = false },
+                    entries = listOf(
+                        EtaMenuEntry(text = stringResource(R.string.dv_account_title)) {
+                            TouchHaptics.click(view); settingsMenu = false; showAccount = true; notice = ""
+                        },
+                        EtaMenuEntry(
+                            text = stringResource(R.string.dv_sync_title),
+                            enabled = config.cloneKey.isNotBlank(),
+                        ) {
+                            TouchHaptics.click(view); settingsMenu = false; showSync = true; notice = ""
+                        },
+                    ),
+                )
             }
         },
     ) { padding, scrollConnection, sidePadding ->
@@ -498,6 +510,7 @@ private fun VoiceSlotSync(apiKey: String, onBusy: (Boolean) -> Unit, onResult: (
     var failed by remember { mutableStateOf(false) }
     var projectOptions by remember { mutableStateOf(false) }
     var projectPicker by remember { mutableStateOf(false) }
+    var projectQuery by remember { mutableStateOf("") }
     var projects by remember { mutableStateOf<List<VoiceProjectCatalog.Project>>(emptyList()) }
     var projectsLoaded by remember { mutableStateOf(false) }
     var projectLoading by remember { mutableStateOf(false) }
@@ -554,6 +567,7 @@ private fun VoiceSlotSync(apiKey: String, onBusy: (Boolean) -> Unit, onResult: (
                                 VoiceProjectCatalog.list(accessKey, secretKey)
                             }
                             projectsLoaded = true
+                            projectQuery = ""
                             projectPicker = projects.isNotEmpty()
                             if (projects.isEmpty()) projectError = context.getString(R.string.dv_no_projects)
                         } catch (e: Exception) {
@@ -571,7 +585,7 @@ private fun VoiceSlotSync(apiKey: String, onBusy: (Boolean) -> Unit, onResult: (
         if (projects.isNotEmpty()) {
             item {
                 EtaClickableRow(title = stringResource(R.string.dv_pick_project), showChevron = false, enabled = !working,
-                    onClick = { projectPicker = true })
+                    onClick = { projectQuery = ""; projectPicker = true })
             }
         }
         item {
@@ -623,12 +637,34 @@ private fun VoiceSlotSync(apiKey: String, onBusy: (Boolean) -> Unit, onResult: (
                 })
         }
     }
-    if (projectPicker) AlertDialog(
-        onDismissRequest = { projectPicker = false },
-        title = { Text(stringResource(R.string.dv_pick_project)) },
-        text = {
-            Column(Modifier.fillMaxWidth().heightIn(max = 400.dp).verticalScroll(rememberScrollState()).selectableGroup()) {
-                projects.forEach { item ->
+    if (projectPicker) {
+        val visibleProjects = remember(projects, projectQuery) {
+            val needle = projectQuery.trim()
+            if (needle.isEmpty()) projects
+            else projects.filter {
+                it.displayName.contains(needle, ignoreCase = true) || it.name.contains(needle, ignoreCase = true)
+            }
+        }
+        EtaPickerSheet(
+            title = stringResource(R.string.dv_pick_project),
+            onDismiss = { projectPicker = false },
+            query = projectQuery,
+            onQueryChange = { projectQuery = it },
+            searchPlaceholder = stringResource(R.string.dv_search_project),
+        ) {
+            Column(
+                Modifier.fillMaxWidth().heightIn(max = 480.dp)
+                    .verticalScroll(rememberScrollState()).selectableGroup(),
+            ) {
+                if (visibleProjects.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.ui_no_matching_options),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 12.dp),
+                    )
+                }
+                visibleProjects.forEach { item ->
                     Row(Modifier.fillMaxWidth().heightIn(min = 56.dp)
                         .selectable(selected = project == item.name, enabled = item.allowed && !working, role = Role.RadioButton, onClick = {
                             TouchHaptics.click(view)
@@ -646,9 +682,8 @@ private fun VoiceSlotSync(apiKey: String, onBusy: (Boolean) -> Unit, onResult: (
                     }
                 }
             }
-        },
-        confirmButton = { TextButton(onClick = { TouchHaptics.click(view); projectPicker = false }) { Text(stringResource(R.string.action_close)) } },
-    )
+        }
+    }
 }
 
 @Composable
@@ -679,11 +714,29 @@ private fun PersonalVoiceRow(
             }
             Box {
                 IconButton(onClick = { TouchHaptics.click(view); menu = true }) { Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.dv_voice_actions)) }
-                EtaMaterialDropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    EtaMaterialDropdownMenuItem(text = stringResource(R.string.dv_refresh_status), onClick = { TouchHaptics.click(view); menu = false; onRefresh() })
-                    if (voice.error.isNotBlank()) EtaMaterialDropdownMenuItem(text = stringResource(R.string.dv_error_details), onClick = { TouchHaptics.click(view); menu = false; showError = true })
-                    EtaMaterialDropdownMenuItem(text = stringResource(R.string.dv_remove_local), enabled = enabled, onClick = { TouchHaptics.click(view); menu = false; onDelete() })
-                }
+                EtaTextMenu(
+                    expanded = menu,
+                    onDismissRequest = { menu = false },
+                    entries = buildList {
+                        add(
+                            EtaMenuEntry(text = stringResource(R.string.dv_refresh_status)) {
+                                TouchHaptics.click(view); menu = false; onRefresh()
+                            },
+                        )
+                        if (voice.error.isNotBlank()) {
+                            add(
+                                EtaMenuEntry(text = stringResource(R.string.dv_error_details)) {
+                                    TouchHaptics.click(view); menu = false; showError = true
+                                },
+                            )
+                        }
+                        add(
+                            EtaMenuEntry(text = stringResource(R.string.dv_remove_local), enabled = enabled) {
+                                TouchHaptics.click(view); menu = false; onDelete()
+                            },
+                        )
+                    },
+                )
             }
         },
     )

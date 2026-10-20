@@ -1,13 +1,22 @@
 package io.github.mangi.eta.ui
 
-import android.content.Context
 import android.content.SharedPreferences
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Compress
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.SmartToy
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -16,7 +25,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
@@ -27,8 +38,10 @@ import io.github.mangi.eta.ui.adaptive.EtaClickableRow
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
 import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
+import io.github.mangi.eta.ui.adaptive.EtaTextButton
 import io.github.mangi.eta.ui.components.PreferenceIcon
 import io.github.mangi.eta.ui.components.rememberAutoCompressEnabled
+import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.model.AgentModelOptionUi
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
 import kotlinx.coroutines.Dispatchers
@@ -39,9 +52,16 @@ import kotlinx.coroutines.withContext
  * 上下文压缩设置页（KernelSU 式分组结构）：
  * ① 自动压缩开关组 ② 压缩模型组（开关 + 条件可见的选择行，M3 下带 spring 收缩动画）
  * ③ 请求接口组。每行带前导图标，两种主题族共用同一信息架构。
+ *
+ * 顶栏溢出菜单「压缩会话」也落到本页（不再单开一页），底部操作区提供「立即压缩」。
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-internal fun ContextCompressionSettingsScreen(context: Context, onBack: () -> Unit) {
+internal fun ContextCompressionSettingsScreen(
+    isCompressing: Boolean,
+    onBack: () -> Unit,
+    onCompress: (onFinished: (Boolean) -> Unit) -> Unit,
+) {
     val prefs = Prefs.localAgentPreferences()
     val autoCompressPreference = remember(prefs) { AutoCompressPreference(prefs) }
     val enabled by rememberAutoCompressEnabled(autoCompressPreference)
@@ -94,7 +114,49 @@ internal fun ContextCompressionSettingsScreen(context: Context, onBack: () -> Un
         onDispose { prefs?.unregisterOnSharedPreferenceChangeListener(listener) }
     }
 
-    EtaScaffoldPage(title = stringResource(R.string.ui_context_compression_settings_title), onBack = onBack) {
+    val view = LocalView.current
+
+    EtaScaffoldPage(
+        title = stringResource(R.string.ui_context_compression_settings_title),
+        onBack = onBack,
+        bottomBar = {
+            Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                ) {
+                    if (isCompressing) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            // M3E LoadingIndicator（morph 变形）：行内 18dp 槽，按 loading 选型表统一。
+                            LoadingIndicator(modifier = Modifier.size(18.dp))
+                            Text(
+                                text = stringResource(R.string.compress_conversation_in_progress),
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(start = 8.dp),
+                            )
+                        }
+                    }
+                    EtaTextButton(
+                        text = stringResource(R.string.action_compress_conversation),
+                        enabled = !isCompressing,
+                        onClick = {
+                            TouchHaptics.click(view)
+                            onCompress { ok -> if (ok) onBack() }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+        },
+    ) {
         // ① 自动压缩组
         item(key = "auto_compress") {
             EtaSegmentedColumn(

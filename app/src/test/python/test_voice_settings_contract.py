@@ -25,16 +25,21 @@ class VoiceSettingsContractTest(unittest.TestCase):
         self.assertNotIn('pushRoute(', block)
         self.assertIn('is AppRoute.VoiceSettings ->', read('ui/app/AgentAppShell.kt'))
 
-    def test_selector_expands_vertically_and_switches_in_place(self):
+    def test_selector_switches_in_place_with_connected_segmented_buttons(self):
         source = read('ui/VoiceSettingsScreen.kt')
-        # KernelSU SegmentedDropdownItem 对应物：点击在按下位置弹出选项列表，
-        # 不再展开长列表把内容下推，也不再手写 clip + background + clickable 双轨拼装。
-        self.assertIn('EtaSegmentedDropdownRow(', source)
-        self.assertIn('onItemSelected = { index -> selected = sections[index] }', source)
+        # 与外观设置页主题模式同款：官方 ButtonGroupDefaults 连体形状的 ToggleButton 组，
+        # 按钮按文字自然宽度排布，超出屏宽整组横向滚动；选中即原地替换内容，
+        # 不经下拉弹层中转，也不再手写 clip + background + clickable 拼装。
+        self.assertIn('EtaExpressiveToggleButton(', source)
+        self.assertIn('ButtonGroupDefaults.connectedLeadingButtonShapes()', source)
+        self.assertIn('ButtonGroupDefaults.connectedTrailingButtonShapes()', source)
+        self.assertIn('horizontalScroll(', source)
+        self.assertIn('TouchHaptics.click(view)', source)
         self.assertIn('rememberSaveable', source)
         self.assertIn('key(selected)', source)
-        self.assertIn('VoiceGroup {', source)
-        for forbidden in ('TabRow', 'LazyRow', 'pushRoute(', 'onNavigate(', 'RoundedCornerShape', 'isMaterial3Theme()'):
+        for forbidden in ('TabRow', 'LazyRow', 'pushRoute(', 'onNavigate(', 'RoundedCornerShape', 'isMaterial3Theme()',
+                          'SingleChoiceSegmentedButtonRow', 'EtaSegmentedDropdownRow', 'voice_section_choose',
+                          'VoiceGroup {'):
             self.assertNotIn(forbidden, source)
         for name in ('RECOGNITION', 'READ_ALOUD', 'CONVERSATION', 'REALTIME', 'PERSONAL'):
             self.assertIn(f'VoiceSettingsSection.{name} ->', source)
@@ -107,7 +112,7 @@ class VoiceSettingsContractTest(unittest.TestCase):
 
     def test_no_old_hint_resources_or_empty_action_placeholder(self):
         removed = ('voice_mode_universal_settings_hint', 'voice_mode_doubao_settings_hint',
-                   'voice_mode_universal_settings_summary')
+                   'voice_mode_universal_settings_summary', 'voice_section_choose')
         for name in ('VoiceModeSettingsScreen', 'TtsSettingsScreen', 'VoiceSettingsScreen', 'VoiceConversationRecognitionSettings'):
             source = read(f'ui/{name}.kt')
             for key in removed:
@@ -120,7 +125,7 @@ class VoiceSettingsContractTest(unittest.TestCase):
             for key in removed:
                 self.assertNotIn(key, names)
             for name in ('voice_title', 'voice_section_speech', 'voice_section_tts', 'voice_section_conversation',
-                         'voice_section_realtime', 'voice_section_personal', 'voice_section_choose',
+                         'voice_section_realtime', 'voice_section_personal',
                          'voice_conversation_cloud_asr', 'voice_conversation_asr_resource'):
                 self.assertIn(name, names)
 

@@ -25,4 +25,5 @@
     <string name="speech_no_voice">未识别到语音，已停止收音。</string>
     <string name="speech_failed">语音输入失败，请检查麦克风权限和语音包。</string>
     <string name="speech_permission_denied">需要麦克风权限才能语音输入。</string>
+  <string name="speech_search_option">搜索选项</string>
 </resources>

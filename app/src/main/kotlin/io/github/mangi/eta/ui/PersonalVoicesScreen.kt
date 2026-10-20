@@ -25,8 +25,8 @@ import io.github.mangi.eta.ui.adaptive.EtaClickableRow
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedTextField
 import io.github.mangi.eta.ui.adaptive.EtaText
 import io.github.mangi.eta.ui.adaptive.EtaTextStyle
-import io.github.mangi.eta.ui.components.EtaMaterialDropdownMenu
-import io.github.mangi.eta.ui.components.EtaMaterialDropdownMenuItem
+import io.github.mangi.eta.ui.adaptive.EtaMenuEntry
+import io.github.mangi.eta.ui.adaptive.EtaTextMenu
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -115,13 +115,15 @@ internal fun MimoVoicesScreen(onBack: () -> Unit) {
                         enabled = !busy && available.isNotEmpty(),
                         onClick = { providerMenu = true },
                     )
-                    EtaMaterialDropdownMenu(providerMenu, { providerMenu = false }) {
-                        available.forEach { item ->
-                            EtaMaterialDropdownMenuItem(item.name, onClick = {
+                    EtaTextMenu(
+                        expanded = providerMenu,
+                        onDismissRequest = { providerMenu = false },
+                        entries = available.map { item ->
+                            EtaMenuEntry(text = item.name) {
                                 TouchHaptics.click(view); selectedProvider = item.id; providerMenu = false
-                            })
-                        }
-                    }
+                            }
+                        },
+                    )
                 }
             }
             item {

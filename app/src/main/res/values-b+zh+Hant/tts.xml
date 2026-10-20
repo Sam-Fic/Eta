@@ -22,4 +22,6 @@
     <string name="tts_privacy">播放的是合成語音，不是真人錄音。系統模式僅選擇引擎宣告的本機音色；缺少時提示安裝。雲端模式會傳送清理後的回覆正文，可能產生費用；失敗不自動切換或從頭重播。停止朗讀不結束對話任務。</string>
     <string name="tts_sample">你好，我是Eta。這是語音朗讀試聽。</string>
   <string name="tts_voice_personal">個人</string>
+  <string name="tts_search_voice">搜尋音色</string>
+  <string name="tts_no_matching_voice">沒有符合的音色</string>
 </resources>

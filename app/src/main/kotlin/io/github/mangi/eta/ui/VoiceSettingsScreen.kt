@@ -1,22 +1,30 @@
 package io.github.mangi.eta.ui
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.adaptive.EtaExpressiveToggleButton
 import io.github.mangi.eta.ui.adaptive.EtaScaffold
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
-import io.github.mangi.eta.ui.adaptive.EtaSegmentedDropdownRow
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedScope
+import io.github.mangi.eta.ui.haptics.TouchHaptics
 
 internal enum class VoiceSettingsSection(val title: Int) {
     RECOGNITION(R.string.voice_section_speech),
@@ -83,17 +91,37 @@ internal fun VoiceSettingsScreen(
     EtaScaffold(title = stringResource(R.string.voice_title), onBack = onBack) { padding, scrollConnection, sidePadding ->
         Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
             .padding(horizontal = sidePadding).nestedScroll(scrollConnection)) {
-            // 分区选择器：KernelSU 式下拉行——点击在按下位置弹出选项列表，选中即切换，
-            // 不再展开成长列表把内容往下挤，也不再手写 clip + background + clickable 拼装。
-            VoiceGroup {
-                item {
-                    val sections = VoiceSettingsSection.entries
-                    EtaSegmentedDropdownRow(
-                        title = stringResource(R.string.voice_section_choose),
-                        items = sections.map { stringResource(it.title) },
-                        selectedIndex = selected.ordinal,
-                        onItemSelected = { index -> selected = sections[index] },
-                    )
+            // 分区选择器：外观设置页主题模式同款的官方连体按钮组（ButtonGroupDefaults 连体形状），
+            // 每个按钮取文字自然宽度，总宽超出屏幕时整组横向滚动，不做等分屏宽；点击即切、
+            // 原地替换内容（key(selected) 重建分区内容），不经下拉弹层中转。
+            val view = LocalView.current
+            val sections = VoiceSettingsSection.entries
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 13.dp)
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+            ) {
+                sections.forEachIndexed { index, section ->
+                    EtaExpressiveToggleButton(
+                        checked = selected == section,
+                        onCheckedChange = { checked ->
+                            if (checked) {
+                                TouchHaptics.click(view)
+                                selected = section
+                            }
+                        },
+                        modifier = Modifier.semantics { role = Role.RadioButton },
+                        shapes = when (index) {
+                            0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                            sections.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                            else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+                        },
+                    ) {
+                        Text(text = stringResource(section.title))
+                    }
                 }
             }
             Box(Modifier.weight(1f).fillMaxWidth()) {

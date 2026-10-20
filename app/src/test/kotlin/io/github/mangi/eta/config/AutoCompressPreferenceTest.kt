@@ -188,7 +188,6 @@ class AutoCompressPreferenceTest {
         prefs.edit()
             .putBoolean(Prefs.Keys.AGENT_COMPRESS_CUSTOM_MODEL_ENABLED, true)
             .putString(Prefs.Keys.AGENT_COMPRESS_ENDPOINT_MODE, "test-endpoint")
-            .putString(Prefs.Keys.AGENT_MANUAL_COMPRESS_MODEL_ID, "manual-model")
             .putString(Prefs.Keys.AGENT_COMPRESS_MODEL_PROVIDER_ID, "compression-provider")
             .commit()
         val unrelated = prefs.all.filterKeys { it != key }

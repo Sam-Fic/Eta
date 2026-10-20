@@ -7,7 +7,6 @@
     <string name="voice_section_conversation">語音對話</string>
     <string name="voice_section_realtime">豆包即時通話</string>
     <string name="voice_section_personal">我的聲音</string>
-    <string name="voice_section_choose">選擇語音設定</string>
     <string name="voice_mode_title">語音對話</string>
     <string name="voice_mode_open">開啟語音模式</string>
     <string name="voice_mode_stop">結束語音對話</string>

@@ -112,33 +112,37 @@ internal fun OfflineSpeechPackColumn(modifier: Modifier = Modifier) {
     }
 
     // 选中即提交（与相邻的资源选择弹窗一致），不再多一次「确认」。
-    EtaExpressiveDialog(
-        onDismissRequest = { modelPicker = false },
-        title = { Text(stringResource(R.string.speech_model)) },
-        confirmButton = {
-            TextButton(onClick = { modelPicker = false }) { Text(stringResource(R.string.action_close)) }
-        },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth().heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
-            ) {
-                EtaSegmentedColumn(modifier = Modifier.fillMaxWidth()) {
-                    SpeechModelCatalog.models.forEach { model ->
-                        item(key = model.id) {
-                            EtaSegmentedRadioRow(
-                                title = speechModelLabel(model.id),
-                                selected = model.id == state.model.id,
-                                onClick = {
-                                    modelPicker = false
-                                    OfflineSpeechPack.select(context, model.id, state.source.id)
-                                },
-                            )
+    // EtaExpressiveDialog 自身没有 show 开关（不同于 EtaDialog 的 `if (!show) return`），
+    // 必须由调用方用 modelPicker 控制是否组合，否则点「关闭」/系统返回键都无法移除它。
+    if (modelPicker) {
+        EtaExpressiveDialog(
+            onDismissRequest = { modelPicker = false },
+            title = { Text(stringResource(R.string.speech_model)) },
+            confirmButton = {
+                TextButton(onClick = { modelPicker = false }) { Text(stringResource(R.string.action_close)) }
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
+                ) {
+                    EtaSegmentedColumn(modifier = Modifier.fillMaxWidth()) {
+                        SpeechModelCatalog.models.forEach { model ->
+                            item(key = model.id) {
+                                EtaSegmentedRadioRow(
+                                    title = speechModelLabel(model.id),
+                                    selected = model.id == state.model.id,
+                                    onClick = {
+                                        modelPicker = false
+                                        OfflineSpeechPack.select(context, model.id, state.source.id)
+                                    },
+                                )
+                            }
                         }
                     }
                 }
-            }
-        },
-    )
+            },
+        )
+    }
     EtaDialog(
         show = confirmDownload,
         title = stringResource(R.string.speech_download),

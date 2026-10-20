@@ -7,7 +7,6 @@
     <string name="voice_section_conversation">Voice conversation</string>
     <string name="voice_section_realtime">Doubao realtime call</string>
     <string name="voice_section_personal">My voices</string>
-    <string name="voice_section_choose">Choose voice setting</string>
     <string name="voice_mode_title">Voice conversation</string>
     <string name="voice_mode_open">Open voice modes</string>
     <string name="voice_mode_stop">End voice conversation</string>
