@@ -34,6 +34,8 @@ internal class AgentSelfSettingsTools {
         val area: Area,
         val options: List<String> = emptyList(),
         val note: String = "",
+        /** CHOICE 未写入时的默认值；留空回落到 options.first()。 */
+        val default: String = "",
     )
 
     /**
@@ -70,6 +72,11 @@ internal class AgentSelfSettingsTools {
         EtaSetting(
             Prefs.Keys.AGENT_COMPRESS_CUSTOM_MODEL_ENABLED, "压缩使用独立模型", Kind.SWITCH, Area.CHAT,
             note = "需要先打开上下文自动压缩",
+        ),
+        EtaSetting(
+            Prefs.Keys.TRASH_RETENTION_DAYS, "回收站留存天数", Kind.CHOICE, Area.CHAT,
+            listOf("7", "30", "90", "never"), default = "30",
+            note = "对话移入回收站超过留存天数后自动彻底清理；never 表示不自动清理",
         ),
         EtaSetting(MEMORY_ENABLED, "长期记忆", Kind.SWITCH, Area.MEMORY),
         EtaSetting(Prefs.Keys.HAPTIC_TOUCH_FEEDBACK, "触感总开关", Kind.SWITCH, Area.HAPTICS),
@@ -201,7 +208,7 @@ internal class AgentSelfSettingsTools {
 
     private fun readChoice(setting: EtaSetting): String {
         val stored = localPreferences()?.getString(setting.key, null).orEmpty()
-        return stored.ifBlank { setting.options.first() }
+        return stored.ifBlank { setting.default.ifBlank { setting.options.first() } }
     }
 
     /** 返回规范化后的取值，无法解析时返回 null。 */
