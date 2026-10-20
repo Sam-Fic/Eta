@@ -7,6 +7,7 @@ import android.content.SharedPreferences
 import android.provider.Settings
 import android.service.voice.VoiceInteractionService
 import android.widget.Toast
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Code
@@ -42,7 +43,10 @@ import io.github.mangi.eta.systemizer.SystemizerInstallResult
 import io.github.mangi.eta.ui.adaptive.EtaClickableRow
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.EtaGroupHorizontalPadding
+import io.github.mangi.eta.ui.adaptive.EtaNoticeText
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedGroupSpacing
 import io.github.mangi.eta.ui.app.EnhancementSettingsHistory
 import io.github.mangi.eta.ui.app.rememberDeviceCapabilities
 import io.github.mangi.eta.ui.components.PreferenceIcon
@@ -58,7 +62,10 @@ import kotlinx.coroutines.withContext
  * Gemini / 一圈即搜）在此按原顺序呈现，主页只留一个入口行。
  *
  * 主页那些需要 hook 进程状态的副作用（RemotePreferences 绑定、连接历史、能力探测、
- * 长按电源键目标、助手活跃状态与系统化安装）一并搬到这里，可见性门控与主页保持一致。
+ * 长按电源键目标、助手活跃状态与系统化安装）一并搬到这里。
+ *
+ * 四个分组不再按连接状态整组隐藏（模块未连接时整页只剩一项、观感像坏掉）：分组始终呈现，
+ * 依赖 hook 的开关按 [prefs]（当前是否连上 LSPosed 服务）置灰，并在页顶给出未连接说明。
  */
 @Composable
 internal fun SystemTakeoverSettingsScreen(
@@ -69,7 +76,6 @@ internal fun SystemTakeoverSettingsScreen(
     val coroutineScope = rememberCoroutineScope()
     val capabilities = rememberDeviceCapabilities()
     val enhancementHistory = remember(context.applicationContext) { EnhancementSettingsHistory(context) }
-    var hasConnectedFramework by remember { mutableStateOf(enhancementHistory.hasConnected) }
     var hasUsedSystemizer by remember { mutableStateOf(enhancementHistory.hasUsedSystemizer) }
     var showSystemizerDialog by remember { mutableStateOf(false) }
     var installingSystemizer by remember { mutableStateOf(false) }
@@ -92,7 +98,6 @@ internal fun SystemTakeoverSettingsScreen(
                 }
                 prefs?.let { connected ->
                     enhancementHistory.captureConnected(connected)
-                    hasConnectedFramework = true
                 }
                 Prefs.reconcileAgentPreferences(service)
             }
@@ -148,9 +153,25 @@ internal fun SystemTakeoverSettingsScreen(
         title = stringResource(R.string.ui_system_assistant_takes_over_f46043),
         onBack = onBack,
     ) {
-        // ── 系统助手接管 ──────────────────────────────────────────────
+        // 模块未连接时页内所有依赖 hook 的开关都不可修改：顶部说明原因，分组本身始终呈现，
+        // 避免整页看起来只剩「Eta 系统助手」一项。
+        if (prefs == null) {
+            item(key = "lsposed_notice") {
+                EtaNoticeText(
+                    title = stringResource(R.string.ui_lsposed_service_is_not_connected_44734d),
+                    summary = stringResource(R.string.ui_agent_and_local_tools_can_still_be_used_but_the_syst_b14479),
+                    modifier = Modifier.padding(
+                        start = EtaGroupHorizontalPadding,
+                        end = EtaGroupHorizontalPadding,
+                        bottom = EtaSegmentedGroupSpacing,
+                    ),
+                )
+            }
+        }
+
+        // ── 默认助手 ────────────────────────────────────────────────
         settingsGroup(
-            title = { stringResource(R.string.ui_system_assistant_takes_over_f46043) },
+            title = { stringResource(R.string.settings_system_takeover_default_assistant) },
             sectionModifier = Modifier,
         ) {
             row {
@@ -172,171 +193,161 @@ internal fun SystemTakeoverSettingsScreen(
                 )
             }
 
-            if (prefs != null || hasConnectedFramework) {
-                row {
-                    SwitchPref(
-                        context = context,
-                        prefs = prefs,
-                        title = stringResource(R.string.ui_automatically_set_default_assistant_f86963),
-                        summary = stringResource(R.string.ui_valid_only_for_gemini_and_eta_d5b63d),
-                        key = Prefs.Keys.ASSISTANT_AUTO_CONFIG,
-                        icon = Icons.Rounded.Settings,
-                    )
-                }
+            row {
+                SwitchPref(
+                    context = context,
+                    prefs = prefs,
+                    title = stringResource(R.string.ui_automatically_set_default_assistant_f86963),
+                    summary = stringResource(R.string.ui_valid_only_for_gemini_and_eta_d5b63d),
+                    key = Prefs.Keys.ASSISTANT_AUTO_CONFIG,
+                    icon = Icons.Rounded.Settings,
+                )
+            }
 
+            row {
+                WindowSpinnerPreference(
+                    title = stringResource(R.string.ui_long_press_the_power_button_1958d0),
+                    items = powerAssistantItems,
+                    selectedIndex = powerAssistantTargets.indexOf(powerAssistantTarget),
+                    onSelectedIndexChange = { index ->
+                        val target = powerAssistantTargets.getOrNull(index)
+                        ?: return@WindowSpinnerPreference
+                        val targetPrefs = prefs ?: return@WindowSpinnerPreference
+                        if (putStringSync(
+                                prefs = targetPrefs,
+                                key = Prefs.Keys.POWER_KEY_ASSISTANT_TARGET,
+                                value = target.persistedValue,
+                            )
+                        ) {
+                            powerAssistantTarget = target
+                            enhancementHistory.recordCommittedTarget(target)
+                        } else {
+                            Toast.makeText(
+                                context.applicationContext,
+                                context.getString(R.string.settings_write_failed),
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        }
+                    },
+                    startAction = {
+                        PreferenceIcon(
+                            icon = Icons.Rounded.PowerSettingsNew,
+                            enabled = prefs != null,
+                        )
+                    },
+                    enabled = prefs != null,
+                )
+            }
+        }
+
+        // ── 厂商助手兼容入口 ──────────────────────────────────────────
+        settingsGroup(
+            title = { stringResource(R.string.ui_xiaobu_xiaoai_compatible_entrance_ae918a) },
+            sectionModifier = Modifier,
+        ) {
+            row {
+                SwitchPref(
+                    context = context,
+                    prefs = prefs,
+                    title = stringResource(R.string.ui_enable_vendor_assistant_custom_models_c8e465),
+                    key = Prefs.Keys.AGENT_CUSTOM_MODEL,
+                    icon = Icons.Rounded.Memory,
+                )
+            }
+
+            row {
+                SwitchPref(
+                    context = context,
+                    prefs = prefs,
+                    title = stringResource(R.string.ui_only_take_over_with_agent_prefix_d17556),
+                    key = Prefs.Keys.AGENT_REQUIRE_PREFIX,
+                    icon = Icons.Rounded.Code,
+                )
+            }
+        }
+
+        // ── Gemini ─────────────────────────────────────────────────
+        settingsGroup(
+            title = { "Gemini" },
+            sectionModifier = Modifier,
+        ) {
+            row {
+                SwitchPref(
+                    context = context,
+                    prefs = prefs,
+                    title = stringResource(R.string.ui_maintain_hey_google_detection_after_screen_rest_9d6877),
+                    key = Prefs.Keys.HOTWORD_SELF_HEAL,
+                    icon = Icons.Rounded.Hearing,
+                )
+            }
+
+            row {
+                SwitchPref(
+                    context = context,
+                    prefs = prefs,
+                    title = stringResource(R.string.ui_lock_screen_evokes_automatic_voice_input_1cde18),
+                    key = Prefs.Keys.LOCKSCREEN_VOICE_COMMAND,
+                    icon = Icons.Rounded.Lock,
+                )
+            }
+
+            row {
+                SwitchPref(
+                    context = context,
+                    prefs = prefs,
+                    title = stringResource(R.string.ui_bright_screen_evokes_automatic_voice_input_4358fe),
+                    key = Prefs.Keys.SCREEN_ON_VOICE_COMMAND,
+                    icon = Icons.Rounded.Mic,
+                )
+            }
+
+            if (capabilities.root.isGranted || hasUsedSystemizer) {
                 row {
-                    WindowSpinnerPreference(
-                        title = stringResource(R.string.ui_long_press_the_power_button_1958d0),
-                        items = powerAssistantItems,
-                        selectedIndex = powerAssistantTargets.indexOf(powerAssistantTarget),
-                        onSelectedIndexChange = { index ->
-                            val target = powerAssistantTargets.getOrNull(index)
-                            ?: return@WindowSpinnerPreference
-                            val targetPrefs = prefs ?: return@WindowSpinnerPreference
-                            if (putStringSync(
-                                    prefs = targetPrefs,
-                                    key = Prefs.Keys.POWER_KEY_ASSISTANT_TARGET,
-                                    value = target.persistedValue,
-                                )
-                            ) {
-                                powerAssistantTarget = target
-                                enhancementHistory.recordCommittedTarget(target)
-                            } else {
-                                Toast.makeText(
-                                    context.applicationContext,
-                                    context.getString(R.string.settings_write_failed),
-                                    Toast.LENGTH_SHORT,
-                                ).show()
-                            }
-                        },
-                        startAction = {
+                    EtaClickableRow(
+                        title = stringResource(R.string.ui_convert_google_apps_to_system_apps_0f6d89),
+                        leading = {
                             PreferenceIcon(
-                                icon = Icons.Rounded.PowerSettingsNew,
-                                enabled = prefs != null,
+                                icon = Icons.Rounded.Inventory,
                             )
                         },
-                        enabled = prefs != null,
+                        summary = if (capabilities.root.isGranted) null else stringResource(R.string.capability_root_required),
+                        enabled = !installingSystemizer,
+                        holdDownState = showSystemizerDialog,
+                        onClick = {
+                            if (!capabilities.root.isGranted) {
+                                onNavigate(AppRoute.SystemEnhance)
+                            } else if (!installingSystemizer) {
+                                showSystemizerDialog = true
+                            }
+                        },
                     )
                 }
             }
         }
 
-        if (prefs != null || hasConnectedFramework) {
-            // ── 厂商助手兼容入口 ──────────────────────────────────────────
-            settingsGroup(
-                title = { stringResource(R.string.ui_xiaobu_xiaoai_compatible_entrance_ae918a) },
-                sectionModifier = Modifier,
-            ) {
-                row {
-                    SwitchPref(
-                        context = context,
-                        prefs = prefs,
-                        title = stringResource(R.string.ui_enable_vendor_assistant_custom_models_c8e465),
-                        key = Prefs.Keys.AGENT_CUSTOM_MODEL,
-                        icon = Icons.Rounded.Memory,
-                    )
-                }
-
-                row {
-                    SwitchPref(
-                        context = context,
-                        prefs = prefs,
-                        title = stringResource(R.string.ui_only_take_over_with_agent_prefix_d17556),
-                        key = Prefs.Keys.AGENT_REQUIRE_PREFIX,
-                        icon = Icons.Rounded.Code,
-                    )
-                }
+        // ── 一圈即搜 ────────────────────────────────────────────────
+        settingsGroup(
+            title = { stringResource(R.string.ui_search_in_one_turn_179584) },
+            sectionModifier = Modifier,
+        ) {
+            row {
+                SwitchPref(
+                    context = context,
+                    prefs = prefs,
+                    title = stringResource(R.string.ui_long_press_on_the_gesture_bar_triggers_a_circle_to_s_b80117),
+                    key = Prefs.Keys.GESTURE_BAR_CIRCLE_TO_SEARCH,
+                    icon = Icons.Rounded.SwipeUp,
+                )
             }
-        }
 
-        if (prefs != null || hasConnectedFramework || capabilities.root.isGranted || hasUsedSystemizer) {
-            // ── Gemini ─────────────────────────────────────────────────
-            settingsGroup(
-                title = { "Gemini" },
-                sectionModifier = Modifier,
-            ) {
-                if (prefs != null || hasConnectedFramework) {
-                    row {
-                        SwitchPref(
-                            context = context,
-                            prefs = prefs,
-                            title = stringResource(R.string.ui_maintain_hey_google_detection_after_screen_rest_9d6877),
-                            key = Prefs.Keys.HOTWORD_SELF_HEAL,
-                            icon = Icons.Rounded.Hearing,
-                        )
-                    }
-
-                    row {
-                        SwitchPref(
-                            context = context,
-                            prefs = prefs,
-                            title = stringResource(R.string.ui_lock_screen_evokes_automatic_voice_input_1cde18),
-                            key = Prefs.Keys.LOCKSCREEN_VOICE_COMMAND,
-                            icon = Icons.Rounded.Lock,
-                        )
-                    }
-
-                    row {
-                        SwitchPref(
-                            context = context,
-                            prefs = prefs,
-                            title = stringResource(R.string.ui_bright_screen_evokes_automatic_voice_input_4358fe),
-                            key = Prefs.Keys.SCREEN_ON_VOICE_COMMAND,
-                            icon = Icons.Rounded.Mic,
-                        )
-                    }
-                }
-
-                if (capabilities.root.isGranted || hasUsedSystemizer) {
-                    row {
-                        EtaClickableRow(
-                            title = stringResource(R.string.ui_convert_google_apps_to_system_apps_0f6d89),
-                            leading = {
-                                PreferenceIcon(
-                                    icon = Icons.Rounded.Inventory,
-                                )
-                            },
-                            summary = if (capabilities.root.isGranted) null else stringResource(R.string.capability_root_required),
-                            enabled = !installingSystemizer,
-                            holdDownState = showSystemizerDialog,
-                            onClick = {
-                                if (!capabilities.root.isGranted) {
-                                    onNavigate(AppRoute.SystemEnhance)
-                                } else if (!installingSystemizer) {
-                                    showSystemizerDialog = true
-                                }
-                            },
-                        )
-                    }
-                }
-            }
-        }
-
-        if (prefs != null || hasConnectedFramework) {
-            // ── 一圈即搜 ────────────────────────────────────────────────
-            settingsGroup(
-                title = { stringResource(R.string.ui_search_in_one_turn_179584) },
-                sectionModifier = Modifier,
-            ) {
-                row {
-                    SwitchPref(
-                        context = context,
-                        prefs = prefs,
-                        title = stringResource(R.string.ui_long_press_on_the_gesture_bar_triggers_a_circle_to_s_b80117),
-                        key = Prefs.Keys.GESTURE_BAR_CIRCLE_TO_SEARCH,
-                        icon = Icons.Rounded.SwipeUp,
-                    )
-                }
-
-                row {
-                    SwitchPref(
-                        context = context,
-                        prefs = prefs,
-                        title = stringResource(R.string.ui_long_press_with_two_fingers_to_trigger_a_circle_sear_ab597a),
-                        key = Prefs.Keys.DOUBLE_FINGER_CIRCLE_TO_SEARCH,
-                        icon = Icons.Rounded.TouchApp,
-                    )
-                }
+            row {
+                SwitchPref(
+                    context = context,
+                    prefs = prefs,
+                    title = stringResource(R.string.ui_long_press_with_two_fingers_to_trigger_a_circle_sear_ab597a),
+                    key = Prefs.Keys.DOUBLE_FINGER_CIRCLE_TO_SEARCH,
+                    icon = Icons.Rounded.TouchApp,
+                )
             }
         }
     }
