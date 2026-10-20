@@ -265,7 +265,7 @@ internal class AgentRuntimeRunExecutor(
                         onTaskChanged = { generationForCallback?.let(AgentChildTaskGroups::onTaskChanged) },
                         prepareManualCompactor = { config -> io.github.mangi.eta.agent.model.AgentCompressionEndpoint.apply(
                             AgentRuntimePolicy.forCompression(config),
-                            Prefs.localAgentPreferences()?.getString(Prefs.Keys.AGENT_MANUAL_COMPRESS_ENDPOINT_MODE, null)) },
+                            Prefs.localAgentPreferences()?.getString(Prefs.Keys.AGENT_COMPRESS_ENDPOINT_MODE, null)) },
                         executeImageChild = { config, prompt, controller, imageOptions -> SubAgentMediaRunner.run(
                             appContext, childSessionId, config, prompt, controller, video = false, imageOptions = imageOptions) },
                         executeVideoChild = { config, prompt, controller -> SubAgentMediaRunner.run(

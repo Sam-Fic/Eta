@@ -138,11 +138,13 @@ class AgentSelfSettingsToolCatalogTest {
                 "list_folders", "list_conversations", "search_conversations",
                 "create_folder", "rename_folder", "delete_folder",
                 "rename_conversation", "move_conversation", "set_pinned", "delete_conversation",
+                "restore_conversation", "delete_conversation_forever", "empty_trash",
             ),
             manage.properties().getJSONObject("action").getJSONArray("enum").stringValues(),
         )
         assertEquals(listOf("action"), manage.parameters().requiredNames())
         assertEquals("boolean", manage.properties().getJSONObject("pinned").getString("type"))
+        assertEquals("boolean", manage.properties().getJSONObject("trashed").getString("type"))
         assertTrue(manage.getString("description").contains("current"))
     }
 

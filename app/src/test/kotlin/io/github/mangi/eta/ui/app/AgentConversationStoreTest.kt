@@ -84,6 +84,38 @@ class AgentConversationStoreTest {
         assertNull(restored.livePromptTokens)
     }
 
+    @Test fun trashedConversationSurvivesReopenAndRestoreClearsMarker() {
+        val state = AgentChatHomeUiState(messages = emptyList(),
+            history = listOf(AgentModelClient.ConversationMessage("user", "task")),
+            input = "", isStreaming = false, thinkingEnabled = false,
+            providerId = "p", modelId = "m")
+        // 回收站往返：软删除的会话内容保留、快照带删除时间，但启动选中跳过它。
+        runBlocking {
+            AgentConversationStore.save(
+                context, "live", mapOf("live" to state, "gone" to state),
+                mapOf("live" to "keep", "gone" to "trashed"), mapOf("live" to 1L, "gone" to 2L),
+                deletedAt = mapOf("gone" to 99L),
+            )
+        }
+        EtaDatabase.closeForTests()
+        val snapshot = AgentConversationStore.load(context)
+        assertEquals("live", snapshot.selectedConversationId)
+        assertEquals(99L, snapshot.deletedAt.getValue("gone"))
+        assertTrue("回收站会话必须留在内存快照里", "gone" in snapshot.conversationsById)
+        // 恢复 = 照常保存但不带 deletedAt，标记应被清空。
+        runBlocking {
+            AgentConversationStore.save(
+                context, "live", snapshot.conversationsById, snapshot.titles, snapshot.updatedAt,
+                folderIds = snapshot.folderIds, pinnedIds = snapshot.pinnedIds,
+                completionMarkerIds = snapshot.completionMarkerIds, folders = snapshot.folders,
+            )
+        }
+        EtaDatabase.closeForTests()
+        val restored = AgentConversationStore.load(context)
+        assertTrue("恢复后不应残留删除标记", restored.deletedAt.isEmpty())
+        assertTrue("gone" in restored.conversationsById)
+    }
+
     @Test fun cloudInputSurvivesDatabaseReopenAndInvalidationStaysEmpty() {
         val original = AgentChatHomeUiState(messages = emptyList(),
             history = listOf(AgentModelClient.ConversationMessage("user", "task")),
