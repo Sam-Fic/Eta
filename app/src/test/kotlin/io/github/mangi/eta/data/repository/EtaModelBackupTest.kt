@@ -2,6 +2,7 @@ package io.github.mangi.eta.data.repository
 
 import android.content.Context
 import io.github.mangi.eta.agent.media.index.EmbeddingModelStore
+import io.github.mangi.eta.agent.media.index.MediaIndexTestFixtures
 import io.github.mangi.eta.agent.voice.offline.OfflineSpeechPack
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -39,6 +40,8 @@ class EtaModelBackupTest {
     fun setUp() {
         context.noBackupFilesDir.deleteRecursively()
         File(context.filesDir, "model-restore").deleteRecursively()
+        // 两个模型仓库是进程内单例，跨用例残留会污染恢复后的状态；本用例从默认状态起步。
+        MediaIndexTestFixtures.resetModelStore()
     }
 
     private fun digest(content: ByteArray): String =
@@ -83,8 +86,8 @@ class EtaModelBackupTest {
 
         val summary = EtaModelBackup.importArchive(context, ByteArrayInputStream(bytes))
 
-        // 恢复后两个模型仓库被标记为重新校验（refresh 同步置位，异步复核在 idle 后完成）。
-        assertTrue(EmbeddingModelStore.state.value.checking)
+        // 恢复后两个模型仓库被标记为重新校验：即时状态是内部瞬态（取决于排队协程的执行时机），
+        // 只断言复核结束后的稳定态——默认目录下没有真实模型，因此不应处于就绪态。
         shadowOf(context.mainLooper).idle()
         assertFalse(EmbeddingModelStore.state.value.ready)
 
