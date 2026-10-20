@@ -1,15 +1,13 @@
 package io.github.mangi.eta.ui.screens.browser
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SheetValue
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -24,14 +22,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.browser.AgentBrowserSession
-import io.github.mangi.eta.ui.components.ContainedMorphLoadingIndicator
 import io.github.mangi.eta.agent.browser.ported.browser.BrowserTabPool
-import io.github.mangi.eta.agent.browser.ported.ui.browser.BrowserSheet
+import io.github.mangi.eta.agent.browser.ported.ui.browser.BrowserPage
+import io.github.mangi.eta.agent.browser.ported.ui.browser.BrowserSheetTopBar
+import io.github.mangi.eta.ui.components.ContainedMorphLoadingIndicator
 import kotlinx.coroutines.CancellationException
 
-/** Full multi-tab browser UI; the pool is the same one used by browser_use. */
+/** Full multi-tab browser page; the pool is the same one used by browser_use. */
 @Composable
-internal fun AgentBrowserScreen(onDismiss: () -> Unit, conversationId: String? = null, modifier: Modifier = Modifier) {
+internal fun AgentBrowserScreen(onBack: () -> Unit, conversationId: String? = null, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val owner = remember { Any() }
     var pool by remember { mutableStateOf<BrowserTabPool?>(null) }
@@ -50,35 +49,38 @@ internal fun AgentBrowserScreen(onDismiss: () -> Unit, conversationId: String? =
     }
     val ready = pool
     if (ready != null) {
-        // 浏览器面板整体走应用自身的 M3 Expressive 主题（官方组件 + 主题令牌）。
-        BrowserSheet(tabPool = ready, onDismiss = onDismiss, modifier = modifier)
+        // 浏览器页面整体走应用自身的 M3 Expressive 主题（官方组件 + 主题令牌）。
+        BrowserPage(tabPool = ready, onBack = onBack, modifier = modifier)
     } else {
-        BrowserLoadingSheet(failed = failed, onDismiss = onDismiss, modifier = modifier)
+        BrowserLoadingPage(failed = failed, onBack = onBack, modifier = modifier)
     }
 }
 
 /**
- * 面板未就绪时的占位：官方 [ModalBottomSheet] + 官方进度环 / 文案。
+ * 页面未就绪时的占位：与浏览器页同款页头 + 官方进度环 / 文案。
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun BrowserLoadingSheet(
+private fun BrowserLoadingPage(
     failed: Boolean,
-    onDismiss: () -> Unit,
+    onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberBottomSheetState(
-            initialValue = SheetValue.Expanded,
-            enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
-        ),
-        modifier = modifier,
-    ) {
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        topBar = {
+            BrowserSheetTopBar(
+                title = stringResource(R.string.om_browser_title),
+                onDismiss = onBack,
+                navigationIcon = Icons.AutoMirrored.Rounded.ArrowBack,
+                navigationContentDescription = stringResource(R.string.action_back),
+            )
+        },
+    ) { padding ->
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(BrowserLoadingSheetHeight),
+                .fillMaxSize()
+                .padding(padding),
             contentAlignment = Alignment.Center,
         ) {
             if (failed) {
@@ -96,6 +98,3 @@ private fun BrowserLoadingSheet(
         }
     }
 }
-
-/** 占位面板高度：只放一个进度环 / 一行文案，不需要占满屏幕。 */
-private val BrowserLoadingSheetHeight = 240.dp

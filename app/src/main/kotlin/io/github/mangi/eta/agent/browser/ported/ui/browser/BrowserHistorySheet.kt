@@ -3,7 +3,9 @@
 // Local/private integration; see third_party/openminis-browser/NOTICE.md.
 package io.github.mangi.eta.agent.browser.ported.ui.browser
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -34,8 +36,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.browser.ported.browser.BrowserHistoryStore
-import io.github.mangi.eta.ui.adaptive.EtaDialog
-import io.github.mangi.eta.ui.adaptive.EtaDialogActions
 import io.github.mangi.eta.ui.adaptive.EtaGroupHorizontalPadding
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedGroupSpacing
@@ -80,7 +80,7 @@ fun BrowserHistorySheet(
                 actions = {
                     TextButton(
                         onClick = { showClearConfirm = true },
-                        enabled = historyStore.getEntries().isNotEmpty(),
+                        enabled = historyStore.getEntries().isNotEmpty() && !showClearConfirm,
                     ) {
                         Text(
                             text = stringResource(R.string.om_browser_history_clear),
@@ -94,108 +94,126 @@ fun BrowserHistorySheet(
                 },
             )
 
-            // 搜索框：官方 OutlinedTextField（前导搜索图标，去掉自绘圆角与字阶覆盖）。
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                placeholder = { Text(stringResource(R.string.om_browser_history_search)) },
-                leadingIcon = {
-                    Icon(imageVector = Icons.Rounded.Search, contentDescription = null)
-                },
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-            )
-
-            if (entries.values.flatten().isEmpty()) {
-                BrowserSheetEmptyState(
-                    title = stringResource(R.string.om_browser_history_empty_title),
-                    summary = stringResource(R.string.om_browser_history_empty_subtitle),
-                )
-            } else {
-                LazyColumn(
+            if (showClearConfirm) {
+                // 清理确认在面板原位完成，避免在面板之上再叠一层弹窗。
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .navigationBarsPadding(),
+                        .padding(horizontal = 24.dp)
+                        .padding(bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    for ((dayLabel, dayEntries) in entries) {
-                        if (dayEntries.isEmpty()) continue
-                        item(key = "group_$dayLabel") {
-                            EtaSegmentedColumn(
-                                title = dayLabel,
-                                modifier = Modifier.padding(
-                                    start = EtaGroupHorizontalPadding,
-                                    end = EtaGroupHorizontalPadding,
-                                    bottom = EtaSegmentedGroupSpacing,
-                                ),
-                            ) {
-                                dayEntries.forEach { entry ->
-                                    item(key = entry.id) {
-                                        EtaSegmentedRow(
-                                            onClick = { onNavigate(entry.url) },
-                                            modifier = Modifier.fillMaxWidth(),
-                                            leadingContent = {
-                                                Icon(
-                                                    imageVector = Icons.Rounded.History,
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                )
-                                            },
-                                            content = {
-                                                Text(
-                                                    text = entry.title.ifEmpty { entry.domain },
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                )
-                                            },
-                                            supportingContent = {
-                                                Text(
-                                                    text = entry.url,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                )
-                                            },
-                                            trailingContent = {
-                                                Text(
-                                                    text = SimpleDateFormat("HH:mm", LocalConfiguration.current.locales[0])
-                                                        .format(Date(entry.timestamp)),
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                )
-                                            },
-                                        )
+                    Text(
+                        text = stringResource(R.string.om_browser_history_clear_dialog_title),
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                    Text(
+                        text = stringResource(R.string.om_browser_history_clear_dialog_message),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        TextButton(onClick = { showClearConfirm = false }) {
+                            Text(stringResource(R.string.action_cancel))
+                        }
+                        TextButton(onClick = {
+                            historyStore.clear()
+                            showClearConfirm = false
+                        }) {
+                            Text(
+                                text = stringResource(R.string.om_browser_history_clear),
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                    }
+                }
+            } else {
+
+                // 搜索框：官方 OutlinedTextField（前导搜索图标，去掉自绘圆角与字阶覆盖）。
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text(stringResource(R.string.om_browser_history_search)) },
+                    leadingIcon = {
+                        Icon(imageVector = Icons.Rounded.Search, contentDescription = null)
+                    },
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+
+                if (entries.values.flatten().isEmpty()) {
+                    BrowserSheetEmptyState(
+                        title = stringResource(R.string.om_browser_history_empty_title),
+                        summary = stringResource(R.string.om_browser_history_empty_subtitle),
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding(),
+                    ) {
+                        for ((dayLabel, dayEntries) in entries) {
+                            if (dayEntries.isEmpty()) continue
+                            item(key = "group_$dayLabel") {
+                                EtaSegmentedColumn(
+                                    title = dayLabel,
+                                    modifier = Modifier.padding(
+                                        start = EtaGroupHorizontalPadding,
+                                        end = EtaGroupHorizontalPadding,
+                                        bottom = EtaSegmentedGroupSpacing,
+                                    ),
+                                ) {
+                                    dayEntries.forEach { entry ->
+                                        item(key = entry.id) {
+                                            EtaSegmentedRow(
+                                                onClick = { onNavigate(entry.url) },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                leadingContent = {
+                                                    Icon(
+                                                        imageVector = Icons.Rounded.History,
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    )
+                                                },
+                                                content = {
+                                                    Text(
+                                                        text = entry.title.ifEmpty { entry.domain },
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                    )
+                                                },
+                                                supportingContent = {
+                                                    Text(
+                                                        text = entry.url,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                    )
+                                                },
+                                                trailingContent = {
+                                                    Text(
+                                                        text = SimpleDateFormat("HH:mm", LocalConfiguration.current.locales[0])
+                                                            .format(Date(entry.timestamp)),
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    )
+                                                },
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                    item(key = "eta_bottom_spacer") {
-                        Spacer(modifier = Modifier.height(24.dp))
+                        item(key = "eta_bottom_spacer") {
+                            Spacer(modifier = Modifier.height(24.dp))
+                        }
                     }
                 }
             }
-        }
-    }
-
-    if (showClearConfirm) {
-        EtaDialog(
-            show = true,
-            title = stringResource(R.string.om_browser_history_clear_dialog_title),
-            summary = stringResource(R.string.om_browser_history_clear_dialog_message),
-            onDismissRequest = { showClearConfirm = false },
-            actions = {
-                EtaDialogActions(
-                    confirmText = stringResource(R.string.om_browser_history_clear),
-                    destructive = true,
-                    onCancel = { showClearConfirm = false },
-                    onConfirm = {
-                        historyStore.clear()
-                        showClearConfirm = false
-                    },
-                )
-            },
-        ) {
         }
     }
 }

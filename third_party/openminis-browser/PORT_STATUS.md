@@ -2,9 +2,9 @@
 
 ## Integrated at source level
 
-- Browser opening now presents the imported BrowserSheet as a modal over the existing
-  app screen, instead of navigating into a full-screen shell. Close, scrim and
-  back dismissal release browser ownership without popping the underlying chat.
+- Browser opening now navigates to the imported BrowserSheet as a dedicated full-screen
+  page instead of presenting it as a modal over the existing app screen. Top-bar back
+  and system back release browser ownership without closing the underlying chat.
 - Preserved tab bar (up to 3 tabs), new/close/select tab, address input, navigation,
   history/search, download list/progress/cancel/open, UA/custom UA, viewport presets,
   cookie/data controls, and idle-tab timeout settings.

@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
@@ -26,12 +28,9 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -41,6 +40,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -57,6 +57,7 @@ import io.github.mangi.eta.agent.browser.ported.ui.util.bringIntoViewOnFocus
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
 import io.github.mangi.eta.ui.adaptive.EtaGroupHorizontalPadding
+import io.github.mangi.eta.ui.adaptive.EtaScaffold
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedGroupSpacing
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedRadioRow
@@ -67,9 +68,9 @@ import io.github.mangi.eta.ui.haptics.TouchHaptics
 import kotlinx.coroutines.launch
 
 /**
- * 浏览器设置面板（M3 Expressive）。
+ * 浏览器设置页（M3 Expressive）。
  *
- * 官方 [ModalBottomSheet] + [BrowserSheetTopBar] 页头；四个分区
+ * 独立页面骨架 + [EtaScaffold] 页头；四个分区
  * （User Agent / Web Viewport / Idle Tab Eviction / Cookies）各自收进
  * [EtaSegmentedColumn] 分组，行用 [EtaSegmentedRadioRow] / [EtaSegmentedRow] /
  * [EtaSegmentedTextField]，按钮用官方 [TextButton] / [EtaTextButton]，
@@ -77,14 +78,10 @@ import kotlinx.coroutines.launch
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BrowserSettingsSheet(
+fun BrowserSettingsPage(
     tabPool: BrowserTabPool,
     onDismiss: () -> Unit,
 ) {
-    val sheetState = rememberBottomSheetState(
-        initialValue = SheetValue.Expanded,
-        enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
-    )
     val context = LocalContext.current
     val view = LocalView.current
     val coroutineScope = rememberCoroutineScope()
@@ -125,29 +122,23 @@ fun BrowserSettingsSheet(
         else allDomains.filter { it.contains(cookieFilterText.trim(), ignoreCase = true) }
     }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-    ) {
+    EtaScaffold(
+        title = stringResource(R.string.om_browser_settings_title),
+        onBack = onDismiss,
+        modifier = Modifier.fillMaxSize(),
+    ) { padding, scrollConnection, _ ->
         Column(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxSize()
+                .padding(padding)
+                .consumeWindowInsets(padding)
                 // [T-android-browser-settings-keyboard-overlap] imePadding
-                // shrinks the sheet's content frame when the keyboard
-                // opens; verticalScroll lets the user (or the focused-
-                // field bring-into-view) scroll the now-shorter content
-                // so the focused TextField isn't behind the keyboard.
-                // Previously the Column was a fixed Column with no
-                // scroll, so Width/Height/idle-timeout fields below the
-                // viewport stayed glued and the keyboard ate them.
+                // shrinks the page's content frame when the keyboard opens;
+                // verticalScroll lets the focused TextField scroll into view.
+                .nestedScroll(scrollConnection)
                 .imePadding()
                 .verticalScroll(rememberScrollState()),
         ) {
-            BrowserSheetTopBar(
-                title = stringResource(R.string.om_browser_settings_title),
-                onDismiss = onDismiss,
-            )
-
             val groupPadding = Modifier.padding(
                 start = EtaGroupHorizontalPadding,
                 end = EtaGroupHorizontalPadding,

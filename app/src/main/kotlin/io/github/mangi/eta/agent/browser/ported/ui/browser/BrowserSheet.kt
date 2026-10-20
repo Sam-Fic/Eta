@@ -3,7 +3,9 @@
 // Local/private integration; see third_party/openminis-browser/NOTICE.md.
 package io.github.mangi.eta.agent.browser.ported.ui.browser
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
@@ -25,6 +27,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -51,26 +54,26 @@ import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SheetValue
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -78,13 +81,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -108,10 +107,7 @@ import io.github.mangi.eta.ui.adaptive.etaConnectedPosition
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import kotlinx.coroutines.launch
 
-/** 浏览器面板占屏幕高度的比例（与上游 iOS 的 large detent 一致）。 */
-private const val BrowserSheetHeightFraction = 0.9f
-
-/** 与 [BrowserTabPool] 的最大标签数一致（面板里「+」的禁用条件）。 */
+/** 与 [BrowserTabPool] 的最大标签数一致（页面里「+」的禁用条件）。 */
 private const val MAX_TABS = 3
 
 /** 标签按钮的内容内边距：左 12dp 给标题留呼吸，右 4dp 让关闭钮贴近胶囊边缘。 */
@@ -124,17 +120,46 @@ private val TabCloseTouchSize = 32.dp
 private val TabCloseIconSize = 16.dp
 
 /**
- * 浏览器各子面板共用的页头：官方 [TopAppBar]（左侧关闭 + 右侧动作槽）。
+ * 标签过渡用的「收拢到底」份额（取极小正数而非 0）：`weight` 只在大于 0 时才参与
+ * 「按权重比例分配剩余空间」，份额恰好为 0 的子项会被当成非权重子项、按内容自然宽度
+ * （文案 + 关闭钮）占位，于是过渡的首帧 / 末帧会闪一下原始宽度。
+ */
+private const val CollapsedTabFraction = 0.001f
+
+/**
+ * 标签在标签栏里的宽度过渡：`Steady` 直接落位，`Entering` 从 0 权重展开（新增标签），
+ * `Exiting` 从 1f 权重收拢到 0（关闭后留下的残影），三者互斥。
+ */
+private enum class TabChipTransition { Steady, Entering, Exiting }
+
+/**
+ * 正在退场的标签「残影」：标签关闭后池里已经没有这条记录（manager 也已 destroy），
+ * 但标签栏还需要一个占位条目把「收拢到 0」的动画播完，因此保留关闭瞬间的
+ * 文案 / 所处下标 / 选中态快照。
+ */
+private data class ExitingBrowserTab(
+    val id: Int,
+    val label: String,
+    val index: Int,
+    val selected: Boolean,
+)
+
+/**
+ * 浏览器各子面板共用的页头：官方 [TopAppBar]（左侧关闭/返回 + 右侧动作槽）。
  *
- * 容器色与 [ModalBottomSheet] 的 `surfaceContainerLow` 一致，顶栏与页面不出缝。
+ * 容器色与浏览器页面背景的 `surfaceContainerLow` 一致，顶栏与页面不出缝。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun BrowserSheetTopBar(
     title: String,
     onDismiss: () -> Unit,
+    navigationIcon: ImageVector = Icons.Rounded.Close,
+    navigationContentDescription: String? = null,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
+    val resolvedNavigationContentDescription =
+        navigationContentDescription ?: stringResource(R.string.om_standard_sheet_close)
     TopAppBar(
         title = {
             Text(
@@ -146,8 +171,8 @@ internal fun BrowserSheetTopBar(
         navigationIcon = {
             IconButton(onClick = onDismiss) {
                 Icon(
-                    imageVector = Icons.Rounded.Close,
-                    contentDescription = stringResource(R.string.om_standard_sheet_close),
+                    imageVector = navigationIcon,
+                    contentDescription = resolvedNavigationContentDescription,
                 )
             }
         },
@@ -198,18 +223,17 @@ internal fun BrowserSheetEmptyState(
 }
 
 /**
- * 浏览器面板（M3 Expressive 重设计版）。
+ * 浏览器页面（M3 Expressive 重设计版）。
  *
- * 全部使用官方标准组件：官方 [ModalBottomSheet] 作外壳、[TopAppBar] 作页头、
+ * 独立全屏页面：官方 [Scaffold] 作骨架、[TopAppBar] 作页头、
  * [Button] / [FilledTonalButton] 组成的官方相连按钮组作标签栏、[OutlinedTextField] 作地址栏、
- * [IconButton]（项目 M3E 套件 [EtaIconButton]）作底部工具栏。
+ * 官方 M3E [HorizontalFloatingToolbar]（内容为项目 M3E 套件 [EtaIconButton]）作底部工具栏。
  * 颜色一律走 `MaterialTheme.colorScheme` 角色，不写死色值。
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BrowserSheet(
+fun BrowserPage(
     tabPool: BrowserTabPool,
-    onDismiss: () -> Unit,
+    onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val tabs by tabPool.tabs.collectAsState()
@@ -236,43 +260,37 @@ fun BrowserSheet(
     val downloadEntries by tabPool.downloads.collectAsState()
     val activeDownload by tabPool.activeDownload.collectAsState()
 
-    // Mirror iOS onAppear: ensure at least one tab exists when the sheet opens.
-    // Callers should also call `ensureTabForUI()` before flipping the sheet
-    // visible so the first composition sees a non-empty tab list; this is a
-    // defensive fallback.
+    // Mirror iOS onAppear: ensure at least one tab exists when the page opens.
+    // Callers should also call `ensureTabForUI()` before navigating so the
+    // first composition sees a non-empty tab list; this is a defensive fallback.
     LaunchedEffect(Unit) {
         if (tabs.isEmpty()) tabPool.ensureTabForUI()
     }
 
-    // Prevent the bottom sheet from swallowing WebView scroll gestures.
-    // Returning the full delta as "consumed" on pre-scroll keeps the sheet's
-    // nested-scroll dispatcher from dragging the sheet down when the user
-    // scrolls inside a webpage.
-    val webViewScrollGuard = remember {
-        object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset = available
-        }
+    // 新增标签的展开动画需要知道「谁是这一次新增的」：首帧就存在的标签直接落位，
+    // 之后多出来的标签才播放入场（1 个标签 → 2 个标签时，新标签从 0 宽度展开、
+    // 已有标签按相连按钮组的权重比例同步收窄）。
+    val knownTabIds = remember { mutableStateOf(tabs.map { it.id }.toSet()) }
+    LaunchedEffect(tabs.map { it.id }) {
+        knownTabIds.value = tabs.map { it.id }.toSet()
     }
 
-    val configuration = LocalConfiguration.current
-    val sheetHeight = (configuration.screenHeightDp * BrowserSheetHeightFraction).dp
+    // 关闭标签的收拢动画需要一个「残影」条目（见 [ExitingBrowserTab]）：关闭动作会同步
+    // 通知标签池并把标签从 `tabs` 里摘掉，残影在同一帧接替它的位置、按同样的权重起播，
+    // 因此宽度不会跳变；动画播完由 `onExitFinished` 摘除。
+    val exitingTabs = remember { mutableStateListOf<ExitingBrowserTab>() }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberBottomSheetState(
-            initialValue = SheetValue.Expanded,
-            enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
-        ),
-        modifier = modifier,
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(sheetHeight),
-        ) {
+    BackHandler(enabled = showSettings) { showSettings = false }
+    Box(modifier = modifier.fillMaxSize()) {
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        topBar = {
             BrowserSheetTopBar(
                 title = pageTitle.ifEmpty { stringResource(R.string.om_browser_title) },
-                onDismiss = onDismiss,
+                onDismiss = onBack,
+                navigationIcon = Icons.AutoMirrored.Rounded.ArrowBack,
+                navigationContentDescription = stringResource(R.string.action_back),
                 actions = {
                     IconButton(onClick = { showHistory = true }, enabled = !isAgentBusy) {
                         Icon(
@@ -293,12 +311,55 @@ fun BrowserSheet(
                     }
                 },
             )
+        },
+        bottomBar = {
+            Column {
+                // ── Download progress banner ──
+                activeDownload?.let { dl ->
+                    BrowserDownloadBanner(
+                        filename = dl.filename,
+                        progress = dl.progress,
+                    )
+                }
+
+                // ── Bottom toolbar（官方 M3E 浮动工具栏）──
+                BrowserNavToolbar(
+                    canGoBack = canGoBack,
+                    canGoForward = canGoForward,
+                    isLoading = isLoading,
+                    isAgentBusy = isAgentBusy,
+                    // [T-android-browser-download-ux] Downloads entry: shows while
+                    // the session has ANY download records, disappears when the
+                    // user clears the last one; the badge counts in-flight +
+                    // unviewed terminal entries and hides at 0 (iOS v2 spec).
+                    showDownloads = downloadEntries.isNotEmpty(),
+                    downloadBadgeCount = tabPool.downloadBadgeCount(downloadEntries),
+                    onBack = { selectedTab?.manager?.goBack() },
+                    onForward = { selectedTab?.manager?.goForward() },
+                    onReload = { selectedTab?.manager?.reload() },
+                    onStop = { selectedTab?.manager?.stopLoading() },
+                    onShowDownloads = { showDownloads = true },
+                )
+            }
+        },
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+        ) {
             // 标签栏：相连按钮组（与侧边抽屉「新建对话 / 管理聊天」同款按钮组）——
             // 每个标签自绘形状，选中时用 M3E Morph 在「连体形状」与「全圆角胶囊」之间渐变、
             // 按压时按官方 Button 的按压形状收内侧圆角，容器色同步 secondaryContainer → primary；
             // 行尾「+」是同一组里的末位官方 FilledTonalButton，满 MAX_TABS 时自动禁用。
-            // 标签按 1f 权重等分整行，少量标签不再挤在左侧留白。
-            val tabGroupCount = tabs.size + 1
+            // 标签按 1f 权重等分整行，少量标签不再挤在左侧留白；新增标签从 0 权重展开、
+            // 关闭后的残影从 1f 权重收拢，展开/收拢期间同一行其它标签按权重比例被同步挤压
+            // （权重动画即等分宽度动画）。标签与残影全部退净后仍留一份同权重占位，
+            // 所以行尾「+」自始至终停在原位、不会弹回左侧。
+            val tabIds = tabs.mapTo(mutableSetOf()) { it.id }
+            // 同 id 的真实标签还在 `tabs` 里时先不渲染残影，避免短时间内出现两个同样的标签。
+            val visibleExitingTabs = exitingTabs.filter { it.id !in tabIds }
+            val tabGroupCount = tabs.size + visibleExitingTabs.size + 1
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -306,20 +367,74 @@ fun BrowserSheet(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
             ) {
+                // 相连按钮组里的位次：残影与真实标签共用一个计数，插回原位置后各段形状不变。
+                var chipIndex = 0
                 tabs.forEachIndexed { index, tab ->
-                    val title = tab.manager.pageTitle.collectAsState().value
-                    val domain = tab.manager.currentURL.collectAsState().value
-                        .let { url -> try { java.net.URI(url).host } catch (_: Exception) { null } }
-                    BrowserTabChip(
-                        label = title.ifEmpty { domain ?: "Tab ${tab.id}" },
-                        index = index,
-                        count = tabGroupCount,
-                        selected = tab.id == selectedTabId,
-                        enabled = !isAgentBusy,
-                        onSelect = { tabPool.selectTab(tab.id) },
-                        onClose = { scope.launch { tabPool.closeTabFromUI(tab.id) } },
-                        modifier = Modifier.weight(1f),
-                    )
+                    // 残影插回它关闭时所处的位置（排在当前该下标的标签之前）。
+                    // 以标签 id 作为组合身份：中途关闭标签时下标会整体前移，
+                    // 没有 key 的话过渡进度会被错位复用。
+                    visibleExitingTabs.forEach { ghost ->
+                        if (ghost.index == index) {
+                            key(ghost.id) {
+                                ExitingTabChip(
+                                    ghost = ghost,
+                                    index = chipIndex++,
+                                    count = tabGroupCount,
+                                    enabled = !isAgentBusy,
+                                    onExited = { exitingTabs.remove(ghost) },
+                                )
+                            }
+                        }
+                    }
+                    key(tab.id) {
+                        val title = tab.manager.pageTitle.collectAsState().value
+                        val domain = tab.manager.currentURL.collectAsState().value
+                            .let { url -> try { java.net.URI(url).host } catch (_: Exception) { null } }
+                        val label = title.ifEmpty { domain ?: "Tab ${tab.id}" }
+                        BrowserTabChip(
+                            label = label,
+                            index = chipIndex++,
+                            count = tabGroupCount,
+                            selected = tab.id == selectedTabId,
+                            enabled = !isAgentBusy,
+                            transition = if (tab.id in knownTabIds.value) {
+                                TabChipTransition.Steady
+                            } else {
+                                TabChipTransition.Entering
+                            },
+                            onSelect = { tabPool.selectTab(tab.id) },
+                            onClose = {
+                                // 关闭瞬间把标签的样子记成残影，供退场动画继续渲染。
+                                if (exitingTabs.none { it.id == tab.id }) {
+                                    exitingTabs += ExitingBrowserTab(
+                                        id = tab.id,
+                                        label = label,
+                                        index = index,
+                                        selected = tab.id == selectedTabId,
+                                    )
+                                }
+                                scope.launch { tabPool.closeTabFromUI(tab.id) }
+                            },
+                        )
+                    }
+                }
+                // 关闭时位于末位的残影（下标已越界）统一排在所有标签之后、「+」之前。
+                visibleExitingTabs.forEach { ghost ->
+                    if (ghost.index >= tabs.size) {
+                        key(ghost.id) {
+                            ExitingTabChip(
+                                ghost = ghost,
+                                index = chipIndex++,
+                                count = tabGroupCount,
+                                enabled = !isAgentBusy,
+                                onExited = { exitingTabs.remove(ghost) },
+                            )
+                        }
+                    }
+                }
+                // 标签与残影都退净后保留一份等分权重占位：行尾「+」停在原位、不弹回左侧。
+                if (tabGroupCount == 1) {
+                    Spacer(modifier = Modifier.weight(1f))
                 }
                 BrowserNewTabButton(
                     index = tabGroupCount - 1,
@@ -387,17 +502,16 @@ fun BrowserSheet(
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxWidth()
-                    .nestedScroll(webViewScrollGuard),
+                    .fillMaxWidth(),
             ) {
                 if (selectedTab != null && currentURL.isNotEmpty()) {
                     // Only mount the WebView once there's something to display.
-                    // Mounting an empty WebView (no URL loaded) corrupts the
-                    // OpenGL swap behavior for the hosting ModalBottomSheet —
-                    // sibling Compose UI (top bar, tab row, address bar) draws
-                    // blank white on the first-open case until the WebView
-                    // has real content. Keep it out of the hierarchy until
-                    // the user navigates somewhere.
+                    // Mounting an empty WebView (no URL loaded) can corrupt the
+                    // OpenGL swap behavior for the hosting surface — sibling
+                    // Compose UI (top bar, tab row, address bar) draws blank
+                    // white on the first-open case until the WebView has real
+                    // content. Keep it out of the hierarchy until the user
+                    // navigates somewhere.
                     BrowserWebView(
                         webView = selectedTab.manager.webView,
                         modifier = Modifier.fillMaxSize(),
@@ -420,33 +534,13 @@ fun BrowserSheet(
                     )
                 }
             }
+        }
+    }
 
-            // ── Download progress banner ──
-            activeDownload?.let { dl ->
-                BrowserDownloadBanner(
-                    filename = dl.filename,
-                    progress = dl.progress,
-                )
-            }
-
-            // ── Bottom toolbar ──
-            HorizontalDivider()
-            BrowserNavToolbar(
-                canGoBack = canGoBack,
-                canGoForward = canGoForward,
-                isLoading = isLoading,
-                isAgentBusy = isAgentBusy,
-                // [T-android-browser-download-ux] Downloads entry: shows while
-                // the session has ANY download records, disappears when the
-                // user clears the last one; the badge counts in-flight +
-                // unviewed terminal entries and hides at 0 (iOS v2 spec).
-                showDownloads = downloadEntries.isNotEmpty(),
-                downloadBadgeCount = tabPool.downloadBadgeCount(downloadEntries),
-                onBack = { selectedTab?.manager?.goBack() },
-                onForward = { selectedTab?.manager?.goForward() },
-                onReload = { selectedTab?.manager?.reload() },
-                onStop = { selectedTab?.manager?.stopLoading() },
-                onShowDownloads = { showDownloads = true },
+        if (showSettings) {
+            BrowserSettingsPage(
+                tabPool = tabPool,
+                onDismiss = { showSettings = false },
             )
         }
     }
@@ -476,12 +570,6 @@ fun BrowserSheet(
         )
     }
 
-    if (showSettings) {
-        BrowserSettingsSheet(
-            tabPool = tabPool,
-            onDismiss = { showSettings = false },
-        )
-    }
 }
 
 /**
@@ -492,22 +580,56 @@ fun BrowserSheet(
  * 按压时用 `fastSpatialSpec` 收内侧圆角到官方按压档 4dp（即官方 Button 的按压形状）。
  * 容器 / 内容色按官方档位同步渐变（未选中 secondaryContainer → 选中 primary，禁用取官方禁用档位）。
  * 内容排版、关闭钮与触觉反馈与改造前一致。
+ *
+ * 宽度过渡（[transition]）：新增标签从 0 权重展开到 1f、关闭后的残影从 1f 收拢到 0，
+ * 同一行其余标签由相连按钮组的权重比例自动推导出新宽度，因此「1 个标签 → 2 个标签」
+ * 与「2 个标签 → 1 个标签」都是一次连贯的收窄 / 展开，不会瞬移；展开途中内容随进度淡入，
+ * 容器色由形状裁剪自然铺开，收拢途中内容随进度淡出。
+ *
+ * 例外是「这一行只剩它自己」（[count] == 2，即整个标签栏只有这一个标签）：权重按比例
+ * 分配剩余空间，独占时无论权重多小都会占满整行，展开 / 收拢都动不了，所以额外补一份
+ * 互补权重的占位来承接腾出的宽度（见下方 `Spacer`）——这样从 0 个标签加出第一个标签时
+ * 它是从 0 展开的，关掉最后一个标签时也能真的收拢到 0，且行尾「+」全程停在原位。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun BrowserTabChip(
+private fun RowScope.BrowserTabChip(
     label: String,
     index: Int,
     count: Int,
     selected: Boolean,
     enabled: Boolean,
+    transition: TabChipTransition,
     onSelect: () -> Unit,
     onClose: () -> Unit,
+    /** [TabChipTransition.Exiting] 收拢动画播完时回调：由上层摘除退场残影。 */
+    onExitFinished: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val view = LocalView.current
     val motionScheme = MaterialTheme.motionScheme
     val position = etaConnectedPosition(index, count)
+    // 宽度份额：展开 = 0 → 1f、收拢 = 1f → 0、稳态直接落位（1f）。权重即相连按钮组里的
+    // 「等分份额」，对它做插值 ⇒ 本标签变化的同一行其余标签被等比挤压 / 撑开，
+    // 整体是一次连贯的宽度重排（M3E 默认空间规格）。
+    // 方向只取首帧：入场标签的 `transition` 会在上层把「已知标签」归位后变成 Steady，
+    // 若拿 `transition` 当 key，那次归位会把进行中的动画取消掉、标签卡在半宽。
+    val transitionDirection = remember { transition }
+    val revealFraction = remember {
+        Animatable(
+            if (transitionDirection == TabChipTransition.Entering) CollapsedTabFraction else 1f,
+        )
+    }
+    LaunchedEffect(Unit) {
+        when (transitionDirection) {
+            TabChipTransition.Steady -> Unit
+            TabChipTransition.Entering -> revealFraction.animateTo(1f, motionScheme.defaultSpatialSpec<Float>())
+            TabChipTransition.Exiting -> {
+                revealFraction.animateTo(CollapsedTabFraction, motionScheme.defaultSpatialSpec<Float>())
+                onExitFinished()
+            }
+        }
+    }
     val selectionProgress by animateFloatAsState(
         targetValue = if (selected) 1f else 0f,
         animationSpec = motionScheme.defaultSpatialSpec<Float>(),
@@ -546,6 +668,8 @@ private fun BrowserTabChip(
     CompositionLocalProvider(LocalContentColor provides contentColor) {
         Row(
             modifier = modifier
+                // 宽度份额：过渡进度即相连按钮组里的等分份额，动画期间整行宽度按比例重排。
+                .weight(revealFraction.value)
                 .heightIn(min = ButtonDefaults.MinHeight)
                 .clip(
                     EtaMorphChipShape(
@@ -555,6 +679,9 @@ private fun BrowserTabChip(
                     ),
                 )
                 .background(containerColor)
+                // 文字 / 关闭钮随过渡淡入淡出；容器色由外层 `background` 先画，不受这层透明度影响，
+                // 因此标签是「底先铺开、内容再显现」／「内容先隐去、底再收拢」。
+                .graphicsLayer { alpha = revealFraction.value }
                 .clickable(
                     interactionSource = interactionSource,
                     indication = ripple(),
@@ -597,6 +724,42 @@ private fun BrowserTabChip(
             }
         }
     }
+
+    // 整行只剩这一个标签时（[count] == 2）补一份互补权重的占位：`weight` 按权重比例分配
+    // 剩余空间，独占时无论权重多小都会占满整行——展开 / 收拢都动不了。补上它（本标签份额
+    // 与占位份额之和恒为 1f）后，这一个标签也能真的从 0 展开、收拢到 0，且行尾「+」全程
+    // 停在原位。稳态时占位权重为 0，只是让过渡前后这一行的子项数一致（少一份间隙的跳变）。
+    if (count == 2) {
+        Spacer(Modifier.weight(1f - revealFraction.value))
+    }
+}
+
+/**
+ * 退场残影：标签关闭后接替它位置的占位标签，外观沿用关闭瞬间的快照（文案 / 位次 / 选中态 / 启用档位），
+ * 与普通标签同形同色，只是权重从 1f 收拢到 0、内容随进度淡出，收拢完由 `onExited` 摘除。
+ *
+ * 两个回调留空：残影存在期间标签已经不在池里，点它不应触发选中或再次关闭。
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun RowScope.ExitingTabChip(
+    ghost: ExitingBrowserTab,
+    index: Int,
+    count: Int,
+    enabled: Boolean,
+    onExited: () -> Unit,
+) {
+    BrowserTabChip(
+        label = ghost.label,
+        index = index,
+        count = count,
+        selected = ghost.selected,
+        enabled = enabled,
+        transition = TabChipTransition.Exiting,
+        onSelect = {},
+        onClose = {},
+        onExitFinished = onExited,
+    )
 }
 
 /**
@@ -678,7 +841,9 @@ private fun BrowserDownloadBanner(
 }
 
 /**
- * 底部工具栏：官方 [IconButton]（项目 M3E 套件的 `S` 档令牌）。
+ * 底部工具栏：官方 M3E [HorizontalFloatingToolbar]（药丸容器 + 官方容器色 / 海拔令牌），
+ * 取代贴边的裸按钮行与其上方分隔线；`expanded = true` 常驻展开，内容为居中的图标按钮组，
+ * 工具栏整体浮在页面底部（左右 12dp、下方 8dp + 系统导航条留白）。
  *
  * 下载入口用官方 [BadgedBox] 承载角标；有下载记录时才出现。
  */
@@ -697,80 +862,95 @@ private fun BrowserNavToolbar(
     onShowDownloads: () -> Unit,
 ) {
     val view = LocalView.current
-    Row(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceContainerLow)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-        verticalAlignment = Alignment.CenterVertically,
+            .navigationBarsPadding()
+            .padding(horizontal = 12.dp)
+            .padding(bottom = 8.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        EtaIconButton(
-            icon = Icons.AutoMirrored.Rounded.ArrowBack,
-            contentDescription = stringResource(R.string.om_browser_nav_back),
-            onClick = {
-                TouchHaptics.click(view)
-                onBack()
-            },
-            enabled = canGoBack && !isAgentBusy,
-            size = EtaIconSize.S,
-            style = EtaButtonStyle.Standard,
-        )
-        EtaIconButton(
-            icon = Icons.AutoMirrored.Rounded.ArrowForward,
-            contentDescription = stringResource(R.string.om_browser_nav_forward),
-            onClick = {
-                TouchHaptics.click(view)
-                onForward()
-            },
-            enabled = canGoForward && !isAgentBusy,
-            size = EtaIconSize.S,
-            style = EtaButtonStyle.Standard,
-        )
-        if (showDownloads) {
-            BadgedBox(
-                badge = {
-                    if (downloadBadgeCount > 0) {
-                        Badge { Text(text = "$downloadBadgeCount") }
-                    }
-                },
+        HorizontalFloatingToolbar(
+            expanded = true,
+            // 官方 minimumInteractiveBalancedPadding 只在两侧都没有 leading/trailing 内容时才生效：
+            // 它会把内容里的 MinimumInteractive*AlignmentLine（含位置偏移的大值）当成补偿内边距，
+            // 把整条工具栏撑高。本行内容布局完全显式（固定间距，整体居中），显式传空的 leadingContent
+            // 让这组补偿归零（官方参数语义，非 hack）。
+            leadingContent = {},
+        ) {
+            // 动作组：固定 8dp 间距的一行图标按钮（EtaIconButton 的 `Standard` 档裸图标）。
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 EtaIconButton(
-                    icon = Icons.Rounded.Download,
-                    contentDescription = stringResource(R.string.om_browser_downloads_title),
+                    icon = Icons.AutoMirrored.Rounded.ArrowBack,
+                    contentDescription = stringResource(R.string.om_browser_nav_back),
                     onClick = {
                         TouchHaptics.click(view)
-                        onShowDownloads()
+                        onBack()
                     },
+                    enabled = canGoBack && !isAgentBusy,
                     size = EtaIconSize.S,
                     style = EtaButtonStyle.Standard,
                 )
+                EtaIconButton(
+                    icon = Icons.AutoMirrored.Rounded.ArrowForward,
+                    contentDescription = stringResource(R.string.om_browser_nav_forward),
+                    onClick = {
+                        TouchHaptics.click(view)
+                        onForward()
+                    },
+                    enabled = canGoForward && !isAgentBusy,
+                    size = EtaIconSize.S,
+                    style = EtaButtonStyle.Standard,
+                )
+                if (showDownloads) {
+                    BadgedBox(
+                        badge = {
+                            if (downloadBadgeCount > 0) {
+                                Badge { Text(text = "$downloadBadgeCount") }
+                            }
+                        },
+                    ) {
+                        EtaIconButton(
+                            icon = Icons.Rounded.Download,
+                            contentDescription = stringResource(R.string.om_browser_downloads_title),
+                            onClick = {
+                                TouchHaptics.click(view)
+                                onShowDownloads()
+                            },
+                            size = EtaIconSize.S,
+                            style = EtaButtonStyle.Standard,
+                        )
+                    }
+                }
+                if (isLoading) {
+                    EtaIconButton(
+                        icon = Icons.Rounded.Close,
+                        contentDescription = stringResource(R.string.om_browser_stop),
+                        onClick = {
+                            TouchHaptics.click(view)
+                            onStop()
+                        },
+                        enabled = !isAgentBusy,
+                        size = EtaIconSize.S,
+                        style = EtaButtonStyle.Standard,
+                    )
+                } else {
+                    EtaIconButton(
+                        icon = Icons.Rounded.Refresh,
+                        contentDescription = stringResource(R.string.om_browser_reload),
+                        onClick = {
+                            TouchHaptics.click(view)
+                            onReload()
+                        },
+                        enabled = !isAgentBusy,
+                        size = EtaIconSize.S,
+                        style = EtaButtonStyle.Standard,
+                    )
+                }
             }
-        }
-        if (isLoading) {
-            EtaIconButton(
-                icon = Icons.Rounded.Close,
-                contentDescription = stringResource(R.string.om_browser_stop),
-                onClick = {
-                    TouchHaptics.click(view)
-                    onStop()
-                },
-                enabled = !isAgentBusy,
-                size = EtaIconSize.S,
-                style = EtaButtonStyle.Standard,
-            )
-        } else {
-            EtaIconButton(
-                icon = Icons.Rounded.Refresh,
-                contentDescription = stringResource(R.string.om_browser_reload),
-                onClick = {
-                    TouchHaptics.click(view)
-                    onReload()
-                },
-                enabled = !isAgentBusy,
-                size = EtaIconSize.S,
-                style = EtaButtonStyle.Standard,
-            )
         }
     }
 }

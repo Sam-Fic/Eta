@@ -26,9 +26,8 @@ import androidx.compose.ui.viewinterop.AndroidView
  * `.id(pool.selectedTabId)` remounting; the container+update pattern is the
  * Android equivalent.
  *
- * Ask all ancestor views (including the host ModalBottomSheet) to stop
- * intercepting touches as soon as the user puts a finger down on the
- * WebView, so page scroll gestures never drag the sheet.
+ * Ask all ancestor views to stop intercepting touches as soon as the user puts
+ * a finger down on the WebView, so page scroll gestures stay inside the page.
  */
 @SuppressLint("ClickableViewAccessibility")
 @Composable
@@ -68,7 +67,7 @@ fun BrowserWebView(
             }
         },
         onRelease = { container ->
-            // Free the WebView so a later mount (same or different sheet)
+            // Free the WebView so a later mount (same or different page)
             // can re-parent it without hitting the has-a-parent guard.
             container.removeAllViews()
         },
