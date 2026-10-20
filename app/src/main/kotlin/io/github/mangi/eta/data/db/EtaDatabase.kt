@@ -25,7 +25,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         SkillRegistryEntity::class,
         McpServerEntity::class,
     ],
-    version = 33,
+    version = 34,
     exportSchema = false,
 )
 internal abstract class EtaDatabase : RoomDatabase() {
@@ -74,6 +74,7 @@ internal abstract class EtaDatabase : RoomDatabase() {
                         MIGRATION_30_31,
                         MIGRATION_31_32,
                         MIGRATION_32_33,
+                        MIGRATION_33_34,
                     )
                     .fallbackToDestructiveMigration(dropAllTables = true)
                     .build()
@@ -206,6 +207,11 @@ internal abstract class EtaDatabase : RoomDatabase() {
                     "'{\"__eta_checkpoint_skipped\":true}' " +
                     "WHERE length(CAST(event_json AS BLOB)) > 65536"
             )
+        }
+
+        // 会话回收站：deleted_at 非空表示在回收站里，等待恢复或永久清理。
+        internal val MIGRATION_33_34 = Migration(33, 34) { database ->
+            database.execSQL("ALTER TABLE conversations ADD COLUMN deleted_at INTEGER")
         }
 
         internal val MIGRATION_30_31 = Migration(30, 31) { database ->

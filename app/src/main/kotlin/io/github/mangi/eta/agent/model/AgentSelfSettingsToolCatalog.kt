@@ -357,12 +357,13 @@ internal object AgentSelfSettingsToolCatalog {
                     description = "Browse and organize the chat history of Eta, the assistant app you are running: its folders and its saved conversations. " +
                         "action=list_folders returns every folder with how many conversations it holds and needs no other field. " +
                         "action=list_conversations returns the stored conversations, pinned ones first and then newest first. " +
-                        "action=search_conversations finds conversations by the text inside their messages. " +
+                        "action=search_conversations finds conversations by their title or by the text inside their messages; each hit reports match=title for a title hit and match=message for a message hit, and a title hit carries no message id. " +
                         "create_folder, rename_folder and delete_folder manage folders; deleting a folder keeps its conversations and moves them back to the ungrouped list. " +
                         "rename_conversation, move_conversation, set_pinned and delete_conversation change one conversation, where set_pinned sets the value rather than toggling it. " +
+                        "Deleting a conversation moves it to the trash and keeps its content; restore_conversation brings it back, while delete_conversation_forever wipes it for good and only works inside the trash; empty_trash wipes every trashed conversation at once. " +
                         "conversation accepts an id or a title, or the special value current for the conversation you are answering in; folder accepts an id or a name, or none for the ungrouped list. " +
                         "When a conversation id or title matches more than one conversation the call fails and lists the candidates instead of guessing. " +
-                        "Deleting a conversation is permanent and cannot be undone. " +
+                        "Only delete_conversation_forever and empty_trash are irreversible; never call them unless the user clearly asked for a permanent wipe. " +
                         "Only change what the user actually asked for, and state the result in your reply; every change shows up in the history list right away.",
                     parameters = JSONObject()
                         .put("type", "object")
@@ -385,7 +386,10 @@ internal object AgentSelfSettingsToolCatalog {
                                                 .put("rename_conversation")
                                                 .put("move_conversation")
                                                 .put("set_pinned")
-                                                .put("delete_conversation"),
+                                                .put("delete_conversation")
+                                                .put("restore_conversation")
+                                                .put("delete_conversation_forever")
+                                                .put("empty_trash"),
                                         )
                                         .put("description", "Required. What to do with a folder or a conversation."),
                                 )
@@ -415,13 +419,19 @@ internal object AgentSelfSettingsToolCatalog {
                                     JSONObject()
                                         .put("type", "string")
                                         .put("maxLength", 120)
-                                        .put("description", "search_conversations only: text to look for inside the messages."),
+                                        .put("description", "search_conversations only: text to look for in conversation titles or inside the messages."),
                                 )
                                 .put(
                                     "pinned",
                                     JSONObject()
                                         .put("type", "boolean")
                                         .put("description", "set_pinned only: true pins the conversation to the top, false unpins it."),
+                                )
+                                .put(
+                                    "trashed",
+                                    JSONObject()
+                                        .put("type", "boolean")
+                                        .put("description", "list_conversations only: true lists the trash instead of the normal history."),
                                 ),
                         )
                         .put("required", JSONArray().put("action")),

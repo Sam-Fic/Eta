@@ -66,6 +66,8 @@ internal object AgentConversationStore {
         val pinnedIds: Set<String> = emptySet(),
         val completionMarkerIds: Set<String> = emptySet(),
         val folders: List<ConversationFolderUi> = emptyList(),
+        /** 回收站：会话 id -> 软删除时间。仅包含 deleted_at 非空的行。 */
+        val deletedAt: Map<String, Long> = emptyMap(),
     )
 
     private val saveMutex = Mutex()
@@ -91,8 +93,9 @@ internal object AgentConversationStore {
     fun persistedSelectedConversationId(context: Context): String? =
         runBlocking(Dispatchers.IO) {
             val dao = EtaDatabase.get(context.applicationContext).conversationDao()
+            // 回收站里的会话不能被恢复为启动选中项；stored 存在但已软删除时走最近会话兜底。
             val stored = dao.state()?.selectedConversationId
-            val exists = stored != null && dao.conversationMetadata(stored) != null
+            val exists = stored != null && dao.conversationMetadata(stored)?.let { it.deletedAt == null } == true
             if (exists) stored else dao.conversationsPage(limit = 1, offset = 0).firstOrNull()?.id
         }
 
@@ -136,6 +139,7 @@ internal object AgentConversationStore {
         pinnedIds: Set<String> = emptySet(),
         completionMarkerIds: Set<String> = emptySet(),
         folders: List<ConversationFolderUi> = emptyList(),
+        deletedAt: Map<String, Long> = emptyMap(),
     ) {
         val appContext = context.applicationContext
         saveMutex.withLock {
@@ -163,6 +167,7 @@ internal object AgentConversationStore {
                         providerId = state.providerId,
                         modelId = state.modelId,
                         assistantId = state.assistantId,
+                        deletedAt = deletedAt[id],
                     )
                 }
                 val database = EtaDatabase.get(appContext)
@@ -186,7 +191,8 @@ internal object AgentConversationStore {
                     dao.updateConversationMetadata(metadata.map { row ->
                         ConversationMetadata(row.id, row.title, row.thinkingEnabled, row.reasoningEffort,
                             row.appliedRuntimeRunIdsJson, row.createdAt, row.updatedAt, row.folderId,
-                            row.isPinned, row.hasCompletionMarker, row.providerId, row.modelId, row.assistantId)
+                            row.isPinned, row.hasCompletionMarker, row.providerId, row.modelId, row.assistantId,
+                            row.deletedAt)
                     })
                     dao.deleteState()
                     for ((conversationId, state) in sorted) {
@@ -520,9 +526,10 @@ internal object AgentConversationStore {
         val updatedAt = mutableMapOf<String, Long>()
         val createdAt = mutableMapOf<String, Long>()
 
+        // 回收站会话照常进内存快照（软删除靠 deletedAt 标记），但启动选中项与兜底都只能落在未删除会话上。
         val selected = dao.state()?.selectedConversationId
-            ?.takeIf { id -> conversations.any { it.id == id } }
-            ?: conversations.first().id
+            ?.takeIf { id -> conversations.any { it.id == id && it.deletedAt == null } }
+            ?: conversations.firstOrNull { it.deletedAt == null }?.id
         conversations.forEach { conversation ->
             states[conversation.id] = loadConversationState(context, dao, conversation, !selectedOnly || conversation.id == selected)
             titles[conversation.id] = conversation.title.takeUnless { it == LEGACY_UNNAMED_TITLE }.orEmpty()
@@ -544,6 +551,9 @@ internal object AgentConversationStore {
             pinnedIds = conversations.filter { it.isPinned }.map { it.id }.toSet(),
             completionMarkerIds = conversations.filter { it.hasCompletionMarker }.map { it.id }.toSet(),
             folders = dao.folders().toUiFolders(),
+            deletedAt = conversations.mapNotNull { conversation ->
+                conversation.deletedAt?.let { conversation.id to it }
+            }.toMap(),
         )
     }
 

@@ -32,6 +32,9 @@ internal data class ConversationEntity(
     val modelId: String = "",
     @ColumnInfo(name = "assistant_id", defaultValue = "''")
     val assistantId: String = "",
+    /** 回收站：非空表示已软删除、待恢复或永久清理的时间戳；恢复后回到 null。 */
+    @ColumnInfo(name = "deleted_at")
+    val deletedAt: Long? = null,
 )
 
 internal data class ConversationMetadata(
@@ -48,6 +51,7 @@ internal data class ConversationMetadata(
     @ColumnInfo(name = "provider_id") val providerId: String = "",
     @ColumnInfo(name = "model_id") val modelId: String = "",
     @ColumnInfo(name = "assistant_id") val assistantId: String = "",
+    @ColumnInfo(name = "deleted_at") val deletedAt: Long? = null,
 )
 
 @Serializable

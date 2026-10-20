@@ -16,6 +16,9 @@ import org.json.JSONObject
  * 会话与文件夹的唯一真相源是界面持有的内存快照（AgentAppState），这里通过进程内单例
  * AgentSessionHost 取到同一个实例；所有写入都复用界面已有的门面方法，因此工具改动与
  * 手工操作完全等价，改动立刻反映在历史列表上。
+ *
+ * 删除走回收站：delete_conversation 只做软删除（可 restore_conversation 恢复），
+ * 真正清理资源需要先删除、再对回收站里的会话调用 delete_conversation_forever。
  */
 internal class AgentSelfHistoryTools(
     context: Context,
@@ -30,7 +33,7 @@ internal class AgentSelfHistoryTools(
         try {
             when (val action = args.optString("action").trim()) {
                 "list_folders" -> listFolders()
-                "list_conversations" -> listConversations()
+                "list_conversations" -> listConversations(args)
                 "search_conversations" -> searchConversations(args)
                 "create_folder" -> createFolder(args)
                 "rename_folder" -> renameFolder(args)
@@ -39,6 +42,9 @@ internal class AgentSelfHistoryTools(
                 "move_conversation" -> moveConversation(args)
                 "set_pinned" -> setPinned(args)
                 "delete_conversation" -> deleteConversation(args)
+                "restore_conversation" -> restoreConversation(args)
+                "delete_conversation_forever" -> deleteConversationForever(args)
+                "empty_trash" -> emptyTrash()
                 else -> error("INVALID_ARGUMENT", "action 取值无效：$action")
             }
         } catch (cancellation: CancellationException) {
@@ -65,9 +71,10 @@ internal class AgentSelfHistoryTools(
             .toString()
     }
 
-    private suspend fun listConversations(): String {
+    private suspend fun listConversations(args: JSONObject): String {
         val state = state() ?: return unavailable()
-        val conversations = state.agentHistoryConversations()
+        // trashed=true 列回收站（按删除时间由新到旧），默认列正常历史。
+        val conversations = state.agentHistoryConversations(trashed = args.optBoolean("trashed"))
         val limited = conversations.take(MAX_LIST)
         val array = JSONArray()
         limited.forEach { array.put(conversationJson(it)) }
@@ -93,6 +100,7 @@ internal class AgentSelfHistoryTools(
                     .put("conversation_id", hit.conversationId)
                     .put("conversation_title", hit.conversationTitle)
                     .put("message_id", hit.messageId)
+                    .put("match", if (hit.isTitleMatch) "title" else "message")
                     .put("role", hit.roleLabel)
                     .put("snippet", hit.snippet),
             )
@@ -162,11 +170,32 @@ internal class AgentSelfHistoryTools(
         return mutationJson("set_pinned", state.agentHistorySetConversationPinned(target, args.optBoolean("pinned")))
     }
 
+    /** 软删除：会话进入回收站，可用 restore_conversation 撤销；重复删除返回现状而非报错。 */
     private suspend fun deleteConversation(args: JSONObject): String {
         val state = state() ?: return unavailable()
         val resolution = lookupConversation(state.agentHistoryConversations(), args.optString("conversation"))
         val target = resolution.id ?: return resolutionError(resolution)
         return mutationJson("delete_conversation", state.agentHistoryDeleteConversation(target))
+    }
+
+    private suspend fun restoreConversation(args: JSONObject): String {
+        val state = state() ?: return unavailable()
+        // 恢复只对回收站成员有意义，所以在回收站列表里解析目标。
+        val resolution = lookupConversation(state.agentHistoryConversations(trashed = true), args.optString("conversation"))
+        val target = resolution.id ?: return resolutionError(resolution)
+        return mutationJson("restore_conversation", state.agentHistoryRestoreConversation(target))
+    }
+
+    private suspend fun deleteConversationForever(args: JSONObject): String {
+        val state = state() ?: return unavailable()
+        val resolution = lookupConversation(state.agentHistoryConversations(trashed = true), args.optString("conversation"))
+        val target = resolution.id ?: return resolutionError(resolution)
+        return mutationJson("delete_conversation_forever", state.agentHistoryDeleteConversationForever(target))
+    }
+
+    private suspend fun emptyTrash(): String {
+        val state = state() ?: return unavailable()
+        return mutationJson("empty_trash", state.agentHistoryEmptyTrash())
     }
 
     /** conversation 接受 id / 标题，以及特殊值 current；多义时不猜测，返回候选列表。 */
@@ -241,6 +270,7 @@ internal class AgentSelfHistoryTools(
         result.folder?.let { json.put("folder", folderJson(it)) }
         result.conversation?.let { json.put("conversation", conversationJson(it)) }
         if (result.movedConversations > 0) json.put("moved_conversations", result.movedConversations)
+        if (result.deletedConversations > 0) json.put("deleted", result.deletedConversations)
         return json.put("effect", "history_updated").toString()
     }
 
@@ -272,6 +302,7 @@ internal class AgentSelfHistoryTools(
             .put("folder_id", conversation.folderId ?: JSONObject.NULL)
             .put("folder_name", conversation.folderName ?: JSONObject.NULL)
             .put("pinned", conversation.pinned)
+            .put("deleted_at", conversation.deletedAt ?: JSONObject.NULL)
 
     private fun describeConversation(conversation: AgentAppState.HistoryConversation): String =
         "${conversation.title}（id=${conversation.id}）"

@@ -6,6 +6,26 @@ import org.junit.Test
 
 class PrefsDefaultsTest {
     @Test
+    fun trashRetentionParsingCoversChoiceValuesAndJunk() {
+        // 目录四个选项：7/30/90/never。
+        assertEquals(7, Prefs.trashRetentionDays("7"))
+        assertEquals(30, Prefs.trashRetentionDays("30"))
+        assertEquals(90, Prefs.trashRetentionDays("90"))
+        assertEquals(0, Prefs.trashRetentionDays("never"))
+        // 兼容 eta_set_settings 可能写入的 "0" 表示永不清理。
+        assertEquals(0, Prefs.trashRetentionDays("0"))
+        // 大小写与空白容忍。
+        assertEquals(0, Prefs.trashRetentionDays("  NEVER "))
+        assertEquals(14, Prefs.trashRetentionDays(" 14 "))
+        // 非整数视为非法回落默认 30 天；越界夹取到 [1, 3650]。
+        assertEquals(30, Prefs.trashRetentionDays("0.5"))
+        assertEquals(3650, Prefs.trashRetentionDays("99999"))
+        assertEquals(30, Prefs.trashRetentionDays("soon"))
+        assertEquals(30, Prefs.trashRetentionDays(""))
+        assertEquals(1, Prefs.trashRetentionDays("-3"))
+    }
+
+    @Test
     fun defaultsMatchRecommendedInitialSettings() {
         assertEquals(
             mapOf(

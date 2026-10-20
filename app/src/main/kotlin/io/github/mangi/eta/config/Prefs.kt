@@ -25,6 +25,9 @@ internal object Prefs {
 
     private const val LOCAL_AGENT_GROUP = "eta_agent_preferences"
 
+    /** 回收站留存天数默认值。 */
+    private const val DEFAULT_TRASH_RETENTION_DAYS = 30
+
     /** 所有功能开关 key。默认值按功能风险独立定义。 */
     object Keys {
         const val POWER_KEY_ASSISTANT_TARGET = "power_key_assistant_target"
@@ -86,6 +89,9 @@ internal object Prefs {
         const val HAPTIC_REASONING_DONE = "haptic_reasoning_done"
         const val HAPTIC_BACKGROUND = "haptic_background"
         const val HAPTIC_BACKGROUND_REASONING = "haptic_background_reasoning"
+        // 回收站留存天数：字符串存储（"7"/"30"/"90"/"never"），与 eta_set_settings 的
+        // CHOICE 写入路径共用一个格式；解析统一走 [trashRetentionDays]。
+        const val TRASH_RETENTION_DAYS = "trash_retention_days"
 
         /** 全部布尔开关及其默认值。 */
         val BOOLEAN_DEFAULTS: Map<String, Boolean> = mapOf(
@@ -287,6 +293,16 @@ internal object Prefs {
         }
         return !prefs.getString(Keys.AGENT_COMPRESS_MODEL_PROVIDER_ID, null).isNullOrBlank() &&
             !prefs.getString(Keys.AGENT_COMPRESS_MODEL_ID, null).isNullOrBlank()
+    }
+
+    /**
+     * 回收站留存天数；0 表示永不自动清理。非法存量值一律回落到默认 30 天。
+     */
+    fun trashRetentionDays(): Int = trashRetentionDays(getString(Keys.TRASH_RETENTION_DAYS, DEFAULT_TRASH_RETENTION_DAYS.toString()))
+
+    fun trashRetentionDays(stored: String): Int = when (stored.trim().lowercase()) {
+        "never", "0" -> 0
+        else -> stored.trim().toIntOrNull()?.coerceIn(1, 3650) ?: DEFAULT_TRASH_RETENTION_DAYS
     }
 
     /**

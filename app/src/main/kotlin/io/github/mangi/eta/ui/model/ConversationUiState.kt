@@ -10,6 +10,8 @@ data class ConversationPaneUiState(
     val folders: List<ConversationFolderUi> = emptyList(),
     val selectedFolderId: String? = null,
     val historyConversations: List<ConversationSummaryUi> = emptyList(),
+    /** 回收站成员，按删除时间由新到旧；正常历史列表不含它们。 */
+    val trashConversations: List<ConversationSummaryUi> = emptyList(),
 )
 
 @Immutable

@@ -189,7 +189,7 @@ internal fun ManageChatsScreen(
             onDismissRequest = { pendingDelete = null },
             actions = {
                 EtaDialogActions(
-                    confirmText = stringResource(R.string.action_delete),
+                    confirmText = stringResource(R.string.conversation_move_to_trash),
                     destructive = true,
                     onCancel = { pendingDelete = null },
                     onConfirm = {
@@ -257,7 +257,7 @@ private fun ManageChatRow(
     val pinDescription = stringResource(
         if (conversation.isPinned) R.string.conversation_unpin else R.string.conversation_pin,
     )
-    val deleteDescription = stringResource(R.string.action_delete)
+    val deleteDescription = stringResource(R.string.conversation_move_to_trash)
     val statusPresent = conversation.isActiveRun || conversation.hasCompletionMarker
 
     EtaSegmentedItem(index = segmentIndex, count = segmentCount) {

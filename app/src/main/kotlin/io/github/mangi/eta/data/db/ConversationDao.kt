@@ -13,21 +13,22 @@ internal interface ConversationDao {
     @Query(
         "SELECT id, title, thinking_enabled, reasoning_effort, " +
             "applied_runtime_run_ids_json, created_at, updated_at, folder_id, is_pinned, has_completion_marker, " +
-            "provider_id, model_id, assistant_id " +
+            "provider_id, model_id, assistant_id, deleted_at " +
             "FROM conversations ORDER BY updated_at DESC"
     )
     suspend fun conversations(): List<ConversationMetadata>
 
+    // 启动兜底选中的会话不取回收站里的。
     @Query(
         "SELECT id, title, thinking_enabled, reasoning_effort, " +
             "applied_runtime_run_ids_json, created_at, updated_at, folder_id, is_pinned, has_completion_marker, " +
-            "provider_id, model_id, assistant_id " +
-            "FROM conversations ORDER BY updated_at DESC LIMIT :limit OFFSET :offset"
+            "provider_id, model_id, assistant_id, deleted_at " +
+            "FROM conversations WHERE deleted_at IS NULL ORDER BY updated_at DESC LIMIT :limit OFFSET :offset"
     )
     suspend fun conversationsPage(limit: Int, offset: Int): List<ConversationMetadata>
 
     @Query("SELECT id, title, thinking_enabled, reasoning_effort, applied_runtime_run_ids_json, " +
-        "created_at, updated_at, folder_id, is_pinned, has_completion_marker, provider_id, model_id, assistant_id " +
+        "created_at, updated_at, folder_id, is_pinned, has_completion_marker, provider_id, model_id, assistant_id, deleted_at " +
         "FROM conversations WHERE id = :id")
     suspend fun conversationMetadata(id: String): ConversationMetadata?
 
@@ -51,7 +52,9 @@ internal interface ConversationDao {
         "AND type IN ('user', 'assistant', 'thinking', 'tool') ORDER BY sort_index ASC LIMIT :limit OFFSET :offset")
     suspend fun searchablePage(id: String, limit: Int, offset: Int): List<ConversationTextRow>
 
-    @Query("SELECT DISTINCT conversation_id FROM conversation_messages WHERE type = 'question'")
+    @Query("SELECT DISTINCT conversation_id FROM conversation_messages " +
+        "WHERE type = 'question' AND conversation_id IN " +
+        "(SELECT id FROM conversations WHERE deleted_at IS NULL)")
     suspend fun questionConversationIds(): List<String>
 
     @Query("SELECT * FROM conversation_messages ORDER BY conversation_id ASC, sort_index ASC")
