@@ -60,10 +60,14 @@ class ExplicitConversationCreationContract(unittest.TestCase):
 
     def test_deleting_last_conversation_does_not_create_another_record(self):
         deletion = method(self.source, "deleteConversation")
-        self.assertIn("selectedConversationId = null", deletion)
-        self.assertIn("homeState = newDraftChatState()", deletion)
+        # 删除改为软删除（进回收站），选中项的落点交给统一的「删后切换」逻辑。
+        self.assertIn("selectNextConversationAfterDeletion(excludeId = conversationId)", deletion)
         self.assertNotIn("newConversationId()", deletion)
         self.assertNotIn("createConversation()", deletion)
+        switch = method(self.source, "selectNextConversationAfterDeletion")
+        self.assertIn("selectedConversationId = null", switch)
+        self.assertIn("homeState = newDraftChatState()", switch)
+        self.assertNotIn("newConversationId()", switch)
 
 
 if __name__ == "__main__":

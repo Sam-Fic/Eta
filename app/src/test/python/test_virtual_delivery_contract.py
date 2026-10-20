@@ -41,7 +41,7 @@ class VirtualDeliveryMigrationSqlTest(unittest.TestCase):
         self.assertEqual(2, entities.replace(' ', '').count('@ColumnInfo(name="virtual_delivery_completed",defaultValue="0")'))
         self.assertEqual(2, entities.count('val virtualDeliveryCompleted: Boolean = false'))
         database = (DB / 'EtaDatabase.kt').read_text()
-        self.assertIn('version = 33,', database)
+        self.assertIn('version = 35,', database)
         self.assertEqual(2, database.count('MIGRATION_28_29'))
 
     def test_completed_label_is_unique_in_all_supported_locales(self):
