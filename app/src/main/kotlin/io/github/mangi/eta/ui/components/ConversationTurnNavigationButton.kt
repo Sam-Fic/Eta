@@ -238,7 +238,7 @@ private fun M3TurnNavigationToggle(
     ) {
         ChatInputLongPressSlot(
             enabled = true,
-            onLongPress = { TouchHaptics.longPress(view); onEdge(direction) },
+            onLongPress = { onEdge(direction) },
             longClickLabel = edgeLabel,
         ) {
             Icon(
