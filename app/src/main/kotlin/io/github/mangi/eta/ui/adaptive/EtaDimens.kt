@@ -33,4 +33,7 @@ object EtaDimens {
 
     /** 小号确定进度环笔画（输入区上下文用量环、朗读按钮 spinner 同款）。 */
     val SmallRingStroke = 2.5.dp
+
+    /** 空态装饰形状（M3E 形状）的边长：图标坐在上面，形状在下缘露出一截。 */
+    val EmptyStateShapeSize = 128.dp
 }

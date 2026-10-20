@@ -26,10 +26,12 @@ import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.material3.ToggleButtonShapes
@@ -37,6 +39,7 @@ import androidx.compose.material3.ToggleButtonSize
 import androidx.compose.material3.ripple
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberSearchBarState
+import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
@@ -273,6 +276,12 @@ fun etaConnectedPosition(index: Int, count: Int): EtaConnectedPosition = when {
 /**
  * 官方相连按钮组形状（静止 + 按压），全部取自 `ButtonGroupDefaults`：
  * 外侧 `CornerFull`、内侧 8dp，按压时内圆角收到 4dp。
+ *
+ * 仅适用于**不可选中**的按钮（`Button` / `FilledTonalButton` / `IconButton`）：它只给
+ * 连体位置形状，不带选中态形状。可选中的相连按钮组请改用官方
+ * `ButtonGroupDefaults.connected*ButtonShapes()` —— `ToggleButtonShapes` 自带
+ * `shape = 位置形状`、`checkedShape = connectedButtonCheckedShape`（四角全部大圆角），
+ * 交给官方 `ToggleButton` 后选中态会自动切换（连体形状 ↔ 全圆角胶囊，含官方形变动画）。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -448,3 +457,58 @@ fun EtaCircularProgress(
         )
     }
 }
+
+// ---------------------------------------------------------------------------
+// 装饰形状（M3E 形状色块）
+// ---------------------------------------------------------------------------
+
+/**
+ * M3E 装饰形状：把官方 [MaterialShapes] 的多边形轮廓铺成一块实心色底。
+ *
+ * 纯装饰、不承载信息——空态页在图标下方垫一块这样的形状，给整页一点 M3E 的形状趣味
+ * （与聊天空态的 M3E 色块同源）。形状取官方轮廓，不自绘多边形；颜色只引用
+ * `colorScheme` 角色并降 alpha，换配色风格（单色 / 中性 / 彩虹）都协调。
+ *
+ * @param shape 官方形状轮廓；默认 [MaterialShapes.Puffy]（柔软的鼓包形）。
+ * @param color 形状填充色；默认弱化的 `onSurfaceVariant`。
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun EtaDecorativeShape(
+    modifier: Modifier = Modifier,
+    shape: RoundedPolygon = MaterialShapes.Puffy,
+    color: Color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f),
+) {
+    Surface(
+        modifier = modifier,
+        shape = shape.toShape(),
+        color = color,
+        contentColor = Color.Transparent,
+    ) {}
+}
+
+/**
+ * 空态装饰形状的候选池：官方 M3E 轮廓里挑的一组「剪影一眼看得出区别」的异形，
+ * 全部是饱满的圆鼓轮廓——尖刺 / 细长类（Burst、Arrow、Pill）垫在图标下方会显得脏，不收。
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+private val EtaDecorativeShapePool: List<RoundedPolygon> = listOf(
+    MaterialShapes.Puffy,
+    MaterialShapes.PuffyDiamond,
+    MaterialShapes.Flower,
+    MaterialShapes.Clover4Leaf,
+    MaterialShapes.Clover8Leaf,
+    MaterialShapes.Cookie9Sided,
+    MaterialShapes.Cookie12Sided,
+    MaterialShapes.Ghostish,
+    MaterialShapes.Bun,
+    MaterialShapes.Gem,
+    MaterialShapes.SoftBurst,
+    MaterialShapes.ClamShell,
+)
+
+/**
+ * 随机取一枚装饰形状轮廓：调用方用 `remember` 存住，于是「每次进页面换一枚、
+ * 同一次停留内保持稳定」（页内重组成不会跳形状）。
+ */
+fun etaRandomDecorativeShape(): RoundedPolygon = EtaDecorativeShapePool.random()

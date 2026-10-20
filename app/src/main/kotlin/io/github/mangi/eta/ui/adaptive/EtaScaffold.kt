@@ -53,6 +53,7 @@ fun EtaScaffoldPage(
     listModifier: Modifier = Modifier,
     floatingActionButton: (@Composable () -> Unit)? = null,
     titleContent: (@Composable () -> Unit)? = null,
+    bottomBar: (@Composable () -> Unit)? = null,
     content: LazyListScope.() -> Unit,
 ) {
     EtaMaterialScaffoldPage(
@@ -65,6 +66,7 @@ fun EtaScaffoldPage(
         listModifier = listModifier,
         floatingActionButton = floatingActionButton,
         titleContent = titleContent,
+        bottomBar = bottomBar,
         content = content,
     )
 }
@@ -128,6 +130,7 @@ private fun EtaMaterialScaffoldPage(
     listModifier: Modifier = Modifier,
     floatingActionButton: (@Composable () -> Unit)? = null,
     titleContent: (@Composable () -> Unit)? = null,
+    bottomBar: (@Composable () -> Unit)? = null,
     content: LazyListScope.() -> Unit,
 ) {
     // 大标题随滚动折叠成单行顶栏（M3 LargeTopAppBar）。
@@ -136,6 +139,7 @@ private fun EtaMaterialScaffoldPage(
         modifier = modifier.fillMaxSize(),
         // KernelSU 式：整页背景与顶栏同用 surfaceContainer，分段条目（surfaceBright）浮在其上。
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        bottomBar = { bottomBar?.invoke() },
         topBar = {
             LargeFlexibleTopAppBar(
                 title = {
@@ -209,13 +213,14 @@ fun EtaScaffold(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     actions: @Composable RowScope.() -> Unit = {},
+    bottomBar: (@Composable () -> Unit)? = null,
     content: @Composable (
         paddingValues: PaddingValues,
         scrollConnection: NestedScrollConnection,
         sidePadding: Dp,
     ) -> Unit,
 ) {
-    EtaMaterialScaffold(title, onBack, modifier, actions, content)
+    EtaMaterialScaffold(title, onBack, modifier, actions, bottomBar, content)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -225,6 +230,7 @@ private fun EtaMaterialScaffold(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     actions: @Composable RowScope.() -> Unit = {},
+    bottomBar: (@Composable () -> Unit)? = null,
     content: @Composable (PaddingValues, NestedScrollConnection, Dp) -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
@@ -232,6 +238,7 @@ private fun EtaMaterialScaffold(
         modifier = modifier.fillMaxSize(),
         // KernelSU 式：整页背景与顶栏同用 surfaceContainer，分段条目（surfaceBright）浮在其上。
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        bottomBar = { bottomBar?.invoke() },
         topBar = {
             LargeFlexibleTopAppBar(
                 title = {

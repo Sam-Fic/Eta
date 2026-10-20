@@ -113,6 +113,11 @@ private fun etaExpressiveSwitchColors(): SwitchColors {
  *
  * [shapes] 为连接按钮组位置形状（`ButtonGroupDefaults.connected*Shapes()`），与 KernelSU
  * `ExpressiveToggleButton` 一致为必填；单体使用请传 `ToggleButtonDefaults.shapesFor(height)`。
+ *
+ * 注意：选中态的静止形状由 [shapes] 里的 `checkedShape` 决定，官方
+ * `ButtonGroupDefaults.connected*ButtonShapes()` 已把它设为 `connectedButtonCheckedShape`
+ * （四角全部大圆角）。若自行拼 `ToggleButtonShapes`，必须一并给对 `checkedShape`，
+ * 否则选中项会一直停在连体位置形状、拿不到该有的四角大圆角。
  */
 @Composable
 fun EtaExpressiveToggleButton(

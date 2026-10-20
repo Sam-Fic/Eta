@@ -3,6 +3,7 @@ package io.github.mangi.eta.ui.adaptive
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -10,6 +11,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -19,6 +21,8 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 
@@ -70,6 +74,32 @@ fun EtaDialog(
         // 官方 buttons 槽：位置与内边距全部交给 AlertDialog，调用方无需再自绘 Row。
         confirmButton = { actions?.invoke() },
     )
+}
+
+/**
+ * 全屏页面式表面：内容放进独立窗口，内部照常使用 [EtaScaffold] / [EtaScaffoldPage]。
+ *
+ * 用于内容体量已属目的地、但状态又无法序列化进路由的编辑器（草稿会话、owner 票据等）；
+ * 窗口占满整屏，返回键交给 [onDismissRequest]，不再有底部弹层的拖拽与遮罩语义。
+ */
+@Composable
+fun EtaPageSurface(
+    onDismissRequest: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    Dialog(
+        onDismissRequest = onDismissRequest,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false,
+        ),
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            content = content,
+        )
+    }
 }
 
 /**
