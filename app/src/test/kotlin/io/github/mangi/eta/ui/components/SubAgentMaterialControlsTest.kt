@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.agent.delegation.SubAgentProfile
 import io.github.mangi.eta.agent.delegation.SubAgentTaskTier
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -31,23 +32,28 @@ import org.robolectric.annotation.GraphicsMode
 class SubAgentMaterialControlsTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun selectedMenuRowUsesGrayBackgroundInsteadOfCheckIcon() {
-        val selectedColor = Color(0xFFE7E5E6)
+    @Test fun selectedMenuRowUsesOfficialSelectableItemWithCheckLeadingIcon() {
         var clicked = false
         compose.setContent {
-            MaterialTheme(colorScheme = lightColorScheme(tertiaryContainer = selectedColor)) {
+            MaterialTheme(colorScheme = lightColorScheme()) {
                 Column(Modifier.width(220.dp)) {
-                    SubAgentSelectionItem("复杂任务", true) { clicked = true }
-                    SubAgentSelectionItem("简单任务", false) { }
+                    SubAgentSelectionItem("复杂任务", true, 0, 2) { clicked = true }
+                    SubAgentSelectionItem("简单任务", false, 1, 2) { }
                 }
             }
         }
-        val selected = compose.onNodeWithText("复杂任务").assertIsSelected()
-        compose.onNodeWithText("简单任务").assertIsNotSelected()
+        compose.onNode(isSelectable() and hasText("复杂任务")).assertIsSelected()
+        compose.onNode(isSelectable() and hasText("简单任务")).assertIsNotSelected()
+        // 官方 SelectableDropdownMenuItem 承担选中态：对勾前导图标是装饰性的，不再挂无障碍标签。
         compose.onNodeWithContentDescription("当前分工").assertDoesNotExist()
-        val pixels = selected.captureToImage().toPixelMap()
-        assertEquals(selectedColor, pixels[pixels.width - 12, pixels.height / 2])
-        selected.performClick()
+        // 选中容器色由官方组件从主题取，不再是自绘的 tertiaryContainer：只锁定「选中行与未选中行底色不同」。
+        val selected = compose.onNode(isSelectable() and hasText("复杂任务")).captureToImage().toPixelMap()
+        val other = compose.onNode(isSelectable() and hasText("简单任务")).captureToImage().toPixelMap()
+        assertNotEquals(
+            other[other.width - 12, other.height / 2],
+            selected[selected.width - 12, selected.height / 2],
+        )
+        compose.onNode(isSelectable() and hasText("复杂任务")).performClick()
         compose.runOnIdle { assertTrue(clicked) }
     }
 
