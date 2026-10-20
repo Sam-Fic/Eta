@@ -112,19 +112,23 @@ internal fun TrashScreen(
                 key = { _, conversation -> conversation.id },
                 contentType = { _, _ -> "trash-conversation" },
             ) { index, conversation ->
-                TrashRow(
-                    conversation = conversation,
-                    segmentIndex = index,
-                    segmentCount = trash.size,
-                    onRestore = {
-                        TouchHaptics.click(view)
-                        currentOnRestore(conversation.id)
-                    },
-                    onDeleteForever = {
-                        TouchHaptics.click(view)
-                        pendingDeleteForever = conversation
-                    },
-                )
+                Box(
+                    modifier = Modifier.padding(horizontal = EtaGroupHorizontalPadding),
+                ) {
+                    TrashRow(
+                        conversation = conversation,
+                        segmentIndex = index,
+                        segmentCount = trash.size,
+                        onRestore = {
+                            TouchHaptics.click(view)
+                            currentOnRestore(conversation.id)
+                        },
+                        onDeleteForever = {
+                            TouchHaptics.click(view)
+                            pendingDeleteForever = conversation
+                        },
+                    )
+                }
             }
         }
     }
