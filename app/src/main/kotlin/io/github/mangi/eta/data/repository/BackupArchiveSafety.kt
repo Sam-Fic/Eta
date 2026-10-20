@@ -73,10 +73,12 @@ internal object BackupArchiveSafety {
                 val name = relativePath(entry.name)
                 require(names.add(name)) { "备份存在重复条目：$name" }
                 if (entry.isDirectory) continue
-                require(name == "eta-backup.json" || name == "eta-conversation.json" ||
+                require(name == "eta-backup.json" || name == "eta-conversation.json" || name == "eta-models.json" ||
                     name.startsWith("conversations/") && name.endsWith(".json") ||
                     name.startsWith("attachments/chat-images/") || name.startsWith("attachments/imports/") ||
                     name.startsWith("linux/workspace/") ||
+                    name == "media-index/records.jsonl" || name.startsWith("media-index/thumbs/") ||
+                    name.startsWith("models/") ||
                     LINUX_ENVIRONMENT_TAR.matches(name)) { "不支持的备份条目：$name" }
                 val file = target(directory, name)
                 require(file.parentFile!!.mkdirs() || file.parentFile!!.isDirectory)
@@ -90,7 +92,7 @@ internal object BackupArchiveSafety {
                 files[name] = file
             }
         }
-        require(files.keys.count { it == "eta-backup.json" || it == "eta-conversation.json" } == 1) {
+        require(files.keys.count { it == "eta-backup.json" || it == "eta-conversation.json" || it == "eta-models.json" } == 1) {
             "备份必须且只能包含一个清单"
         }
         return files

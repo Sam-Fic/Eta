@@ -7,6 +7,10 @@ import io.github.mangi.eta.agent.runtime.AgentExecutionService
 import io.github.mangi.eta.agent.device.RootAccess
 import io.github.mangi.eta.agent.device.RootSu
 import io.github.mangi.eta.agent.media.AgentChatImageCache
+import io.github.mangi.eta.agent.media.index.EmbeddingModelStore
+import io.github.mangi.eta.agent.media.index.Float16VectorCodec
+import io.github.mangi.eta.agent.media.index.MediaExtraction
+import io.github.mangi.eta.agent.media.index.MediaSourceScanner
 import io.github.mangi.eta.agent.skill.SkillRuntime
 import io.github.mangi.eta.agent.terminal.AndroidBusyBox
 import io.github.mangi.eta.agent.terminal.LinuxDistribution
@@ -27,6 +31,9 @@ import io.github.mangi.eta.data.db.ConversationFolderEntity
 import io.github.mangi.eta.data.db.ConversationMessageEntity
 import io.github.mangi.eta.data.db.ConversationStateEntity
 import io.github.mangi.eta.data.db.EtaDatabase
+import io.github.mangi.eta.data.db.MediaIndexDao
+import io.github.mangi.eta.data.db.MediaIndexEntity
+import io.github.mangi.eta.data.db.MediaKind
 import io.github.mangi.eta.data.db.McpServerEntity
 import io.github.mangi.eta.data.db.ProviderEntity
 import io.github.mangi.eta.data.db.ProviderModelEntity
@@ -49,7 +56,11 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
-/** Eta用户数据备份。schema 1 只有对话、提供商和记忆；schema 2 补上助手、技能、MCP、设置、附件和可选 Linux 环境。 */
+/**
+ * Eta用户数据备份。schema 1 只有对话、提供商和记忆；schema 2 补上助手、技能、MCP、设置、附件和可选 Linux 环境；
+ * schema 5 补上可选媒体语义索引（向量行不进本清单，写在独立条目 `media-index/records.jsonl`）；
+ * schema 6 补上可选已下载模型（文件写在 `models/` 下，元数据在 [models]）。
+ */
 @Serializable
 internal data class EtaBackupDocument(
     val format: String = FORMAT,
@@ -72,6 +83,8 @@ internal data class EtaBackupDocument(
     val mcpServers: List<McpServerEntity> = emptyList(),
     val mcpTokens: Map<String, String> = emptyMap(),
     val settings: EtaSettingsBackup? = null,
+    val mediaIndex: EtaBackupMediaIndex? = null,
+    val models: EtaModelBackupDocument? = null,
     val includeLinuxEnvironment: Boolean = false,
     val linuxWorkspaceIncluded: Boolean = false,
     val attachmentCount: Int = 0,
@@ -82,7 +95,7 @@ internal data class EtaBackupDocument(
 ) {
     companion object {
         const val FORMAT = "eta-backup"
-        const val SCHEMA_VERSION = 4
+        const val SCHEMA_VERSION = 6
         const val MIN_SUPPORTED_SCHEMA = 1
         const val MANIFEST_NAME = "eta-backup.json"
     }
@@ -92,6 +105,48 @@ internal data class EtaBackupDocument(
 internal data class EtaBackupProvider(
     val provider: ProviderEntity,
     val models: List<ProviderModelEntity> = emptyList(),
+)
+
+/**
+ * 媒体语义索引备份元数据：清单只记切片（模型 / 截断维度）与规模，
+ * 向量行写在独立归档条目 [ENTRY]，缩略图写在 [THUMBS_PREFIX]。
+ */
+@Serializable
+internal data class EtaBackupMediaIndex(
+    val modelId: String,
+    val vectorDim: Int,
+    val count: Int,
+    val payloadEntry: String = ENTRY,
+) {
+    companion object {
+        const val ENTRY = "media-index/records.jsonl"
+        const val THUMBS_PREFIX = "media-index/thumbs/"
+    }
+}
+
+/**
+ * records.jsonl 单行：媒体元数据 + Base64(Float16 向量)。
+ * 归档行不带 modelId/vectorDim（由清单元数据统一给出）；回滚快照行带这两个字段，
+ * 以便把 media_index 整表（含其它切片）精确还原到导入前状态。
+ */
+@Serializable
+internal data class EtaBackupMediaRecord(
+    val sourceKey: String,
+    val modelId: String? = null,
+    val vectorDim: Int? = null,
+    val kind: String,
+    val displayName: String,
+    val mime: String,
+    val sizeBytes: Long,
+    val modifiedAt: Long,
+    val contentHash: String = "",
+    val durationMs: Long? = null,
+    val width: Int? = null,
+    val height: Int? = null,
+    val frameTimeMs: Long? = null,
+    val thumbPath: String? = null,
+    val indexedAt: Long,
+    val vector: String,
 )
 
 @Serializable
@@ -125,10 +180,19 @@ internal data class EtaBackupSummary(
     val skillCount: Int = 0,
     val attachmentCount: Int = 0,
     val includedLinuxEnvironment: Boolean = false,
+    val mediaIndexCount: Int = 0,
+    val mediaIndexModelId: String? = null,
+    val mediaIndexDim: Int = 0,
+    val downloadedModelCount: Int = 0,
+    val downloadedModelBytes: Long = 0,
 )
 
 internal data class EtaBackupExportOptions(
     val includeLinuxEnvironment: Boolean = false,
+    /** 是否包含媒体语义索引（embedding 向量）：默认开启，与「包含 Linux 环境」并列的独立开关。 */
+    val includeEmbeddings: Boolean = true,
+    /** 是否连同已下载的语音识别 / Embedding 模型一起打包。 */
+    val includeModels: Boolean = false,
 )
 
 internal class EtaBackupException(message: String, cause: Throwable? = null) :
@@ -143,6 +207,13 @@ internal object EtaBackupRepository {
         prettyPrint = true
     }
 
+    /** records.jsonl 每行一条紧凑 JSON：缺省字段直接省略。 */
+    private val lineJson = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+        explicitNulls = false
+    }
+
     fun linuxEnvironmentBytes(context: Context): Long {
         val appContext = context.applicationContext
         val walked = LinuxDistribution.entries.sumOf { distribution ->
@@ -155,6 +226,14 @@ internal object EtaBackupRepository {
         }
     }
 
+    /** 备份体积预估：行数 × vectorDim × 2 字节（Float16），供备份界面提示。 */
+    suspend fun mediaIndexEstimateBytes(context: Context): Long = withContext(Dispatchers.IO) {
+        val appContext = context.applicationContext
+        val dao = EtaDatabase.get(appContext).mediaIndexDao()
+        val (modelId, vectorDim) = mediaIndexSlice(appContext, dao)
+        dao.countForModel(modelId, vectorDim).toLong() * vectorDim * 2L
+    }
+
     suspend fun export(
         context: Context,
         output: OutputStream,
@@ -164,12 +243,19 @@ internal object EtaBackupRepository {
             AgentExecutionService.beginBackupMaintenance()
             try {
                 val appContext = context.applicationContext
+                val modelSources = if (options.includeModels) {
+                    EtaModelBackup.downloadedSources(appContext)
+                } else {
+                    emptyList()
+                }
+                val modelDocument = modelSources.takeIf { it.isNotEmpty() }
+                    ?.let(EtaModelBackup::document)
                 val payloads = File(appContext.cacheDir, "daiyu-backup-conversations")
                 payloads.deleteRecursively()
                 BackupDurability.mkdirs(payloads)
                 val document = try {
                     EtaDatabase.get(appContext).withTransaction {
-                        val meta = snapshot(appContext, options)
+                        val meta = snapshot(appContext, options, models = modelDocument)
                         val count = writeConversationPayloads(appContext, payloads)
                         require(count == meta.messageCount) { "会话消息在导出时发生变化" }
                         meta
@@ -181,7 +267,7 @@ internal object EtaBackupRepository {
                 try {
                 ZipOutputStream(output).use { zip ->
                     val writer = BackupZipWriter(zip)
-                    zip.setLevel(if (options.includeLinuxEnvironment) 1 else 6)
+                    zip.setLevel(if (options.includeLinuxEnvironment || modelDocument != null) 1 else 6)
                     val manifest = json.encodeToString(document)
                     require(manifest.toByteArray().size <= BackupArchiveSafety.MANIFEST_LIMIT) { "备份清单超过大小限制" }
                     writer.text(EtaBackupDocument.MANIFEST_NAME, manifest)
@@ -201,6 +287,8 @@ internal object EtaBackupRepository {
                     if (options.includeLinuxEnvironment) {
                         exportLinuxEnvironments(appContext, writer)
                     }
+                    document.mediaIndex?.let { meta -> exportMediaIndex(appContext, writer, meta) }
+                    EtaModelBackup.writeFiles(writer, modelSources)
                     zip.finish()
                 }
                 document.toBackupSummary()
@@ -212,6 +300,28 @@ internal object EtaBackupRepository {
             }
         }
     }
+
+    /** 只导出已下载模型，不读取或改写对话、设置等用户数据。 */
+    suspend fun exportModels(context: Context, output: OutputStream): EtaModelBackupSummary =
+        withContext(Dispatchers.IO) {
+            operationMutex.withLock {
+                EtaModelBackup.export(context.applicationContext, output)
+            }
+        }
+
+    /** 只恢复模型文件；不触碰对话、设置与附件。 */
+    suspend fun importModels(context: Context, input: InputStream): EtaModelBackupSummary =
+        withContext(Dispatchers.IO) {
+            operationMutex.withLock {
+                EtaModelBackup.importArchive(context.applicationContext, input)
+            }
+        }
+
+    /** 当前可备份的模型数量与体积，供备份界面展示。 */
+    suspend fun downloadedModels(context: Context): EtaModelBackupSummary =
+        withContext(Dispatchers.IO) {
+            EtaModelBackup.downloaded(context.applicationContext)
+        }
 
     suspend fun exportConversation(
         context: Context,
@@ -260,10 +370,18 @@ internal object EtaBackupRepository {
                         val header = archive.inputStream().use { it.readNBytes(2) }
                         require(header.isNotEmpty()) { "备份文件为空" }
                         val files = if (header.contentEquals(byteArrayOf(0x50, 0x4b))) {
+                            java.util.zip.ZipFile(archive).use { zip ->
+                                require(zip.getEntry(EtaModelBackupDocument.MANIFEST_NAME) == null) {
+                                    "这是模型备份，请使用「恢复模型」导入"
+                                }
+                            }
                             BackupArchiveSafety.stageZip(archive, File(operation, "staged"))
                         } else {
                             require(archive.length() <= BackupArchiveSafety.MANIFEST_LIMIT) { "备份清单过大" }
                             mapOf(manifestName(archive.readText()) to archive)
+                        }
+                        require(files.keys.none { it == EtaModelBackupDocument.MANIFEST_NAME }) {
+                            "这是模型备份，请使用「恢复模型」导入"
                         }
                         val document = files[EtaBackupDocument.MANIFEST_NAME]?.let {
                             attachExternalMessages(decodeDocument(it.readText()).also(::validate), files.filterKeys(::isConversationPayload).values)
@@ -317,10 +435,25 @@ internal object EtaBackupRepository {
                         }
                         val planned = linkedMapOf<File, File>()
                         val linuxTars = mutableListOf<Triple<String, String, File>>()
+                        val modelEntries = linkedMapOf<String, File>()
+                        var mediaRecordsFile: File? = null
                         files.forEach { (name, source) ->
                             val target = when {
                                 name == EtaBackupDocument.MANIFEST_NAME || name == EtaConversationExport.MANIFEST_NAME -> null
                                 isConversationPayload(name) -> null
+                                name == EtaBackupMediaIndex.ENTRY -> {
+                                    require(document?.mediaIndex != null) { "备份中的媒体索引条目缺少清单元数据" }
+                                    require(mediaRecordsFile == null) { "备份包含多份媒体索引数据" }
+                                    mediaRecordsFile = source
+                                    null
+                                }
+                                name.startsWith(EtaBackupMediaIndex.THUMBS_PREFIX) -> BackupArchiveSafety.target(
+                                    thumbDirectory(appContext), name.removePrefix(EtaBackupMediaIndex.THUMBS_PREFIX))
+                                name.startsWith(EtaModelBackupDocument.PREFIX) -> {
+                                    require(document?.models != null) { "备份中的模型条目缺少清单元数据" }
+                                    modelEntries[name] = source
+                                    null
+                                }
                                 name.startsWith("attachments/chat-images/") -> BackupArchiveSafety.target(
                                     File(appContext.cacheDir, AgentChatImageCache.CACHE_DIRECTORY), name.removePrefix("attachments/chat-images/"))
                                 name.startsWith("attachments/imports/") -> BackupArchiveSafety.target(
@@ -343,6 +476,15 @@ internal object EtaBackupRepository {
                                 planned[target] = source
                             }
                         }
+                        val modelDocument = document?.models
+                        if (modelDocument != null) {
+                            require(modelEntries.keys == EtaModelBackup.expectedEntries(modelDocument)) {
+                                "备份中的模型条目与清单不一致"
+                            }
+                            EtaModelBackup.verify(modelEntries, modelDocument)
+                        } else {
+                            require(modelEntries.isEmpty()) { "备份中的模型条目缺少清单元数据" }
+                        }
                         val destinations = planned.keys.map { it.toPath() }.toSet()
                         require(destinations.none { path ->
                             generateSequence(path.parent) { it.parent }.any { it in destinations }
@@ -352,6 +494,31 @@ internal object EtaBackupRepository {
                             val records = daemons.inputStream().use { BackupArchiveSafety.readText(it, 1024 * 1024) }
                             require(org.json.JSONArray(records).length() == 0) { "请先停止并移除后台守护任务，再导入备份" }
                         }
+                        require((mediaRecordsFile != null) == (document?.mediaIndex != null)) { "备份中的媒体索引条目与清单不一致" }
+                        // 向量解析与重关联都在改动任何数据前完成；行最终在 restoreMetadata 的事务里写入 media_index。
+                        val mediaRows = document?.mediaIndex?.let { meta ->
+                            val thumbNames = files.keys.mapNotNullTo(hashSetOf()) { key ->
+                                if (key.startsWith(EtaBackupMediaIndex.THUMBS_PREFIX)) {
+                                    key.removePrefix(EtaBackupMediaIndex.THUMBS_PREFIX)
+                                } else {
+                                    null
+                                }
+                            }
+                            val scan = scanMediaRecords(
+                                requireNotNull(mediaRecordsFile).bufferedReader(Charsets.UTF_8).lineSequence(),
+                                keep = true,
+                                meta = meta,
+                                thumbRoot = thumbDirectory(appContext),
+                                thumbNames = thumbNames,
+                            )
+                            requireMediaRecordsMatch(scan, meta)
+                            relinkMediaRecords(appContext, scan.rows, planned)
+                        }
+                        // 模型是可重建缓存：在全部校验完成后、任何元数据写入前恢复；
+                        // 这样数据导入失败回滚时不会留下半份模型，也无需把大文件纳入恢复日志。
+                        if (modelDocument != null) {
+                            EtaModelBackup.install(appContext, modelEntries, modelDocument)
+                        }
                         val previousPayloads = File(operation, "previous-conversations")
                         previousPayloads.deleteRecursively()
                         BackupDurability.mkdirs(previousPayloads)
@@ -359,6 +526,7 @@ internal object EtaBackupRepository {
                             val meta = snapshot(appContext, EtaBackupExportOptions())
                             val count = writeConversationPayloads(appContext, previousPayloads)
                             require(count == meta.messageCount) { "回滚快照中的消息数量不一致，未开始恢复" }
+                            writeMediaSnapshot(appContext, File(operation, "previous-media-index.jsonl"))
                             meta
                         }
                         val oldJson = json.encodeToString(old)
@@ -370,7 +538,7 @@ internal object EtaBackupRepository {
                             EtaDatabase.get(appContext).withTransaction {
                                 planned.forEach { (target, source) -> journal.replace(target, source) }
                                 if (document != null) {
-                                    restoreMetadata(appContext, document)
+                                    restoreMetadata(appContext, document, mediaIndexRows = mediaRows)
                                     rewriteRestoredPaths(appContext, document)
                                 }
                             }
@@ -383,7 +551,8 @@ internal object EtaBackupRepository {
                             withContext(NonCancellable) {
                                 try {
                                     journal.rollback()
-                                    restoreMetadata(appContext, attachExternalMessages(old, previousPayloads.listFiles()?.toList().orEmpty()), reconcile = false, exactPreferences = true)
+                                    restoreMetadata(appContext, attachExternalMessages(old, previousPayloads.listFiles()?.toList().orEmpty()), reconcile = false, exactPreferences = true,
+                                        mediaIndexRows = readMediaSnapshot(operation))
                                 } catch (rollbackFailure: Throwable) {
                                     failure.addSuppressed(rollbackFailure)
                                     throw EtaBackupException("恢复失败且回滚尚未完成，恢复日志已保留。请重启应用完成恢复。", failure)
@@ -434,7 +603,8 @@ internal object EtaBackupRepository {
                 }
                 val previousPayloads = File(operation, "previous-conversations").listFiles()?.toList().orEmpty()
                 BackupRestoreJournal(operation).rollback()
-                restoreMetadata(context, attachExternalMessages(old, previousPayloads), reconcile = false, exactPreferences = true)
+                restoreMetadata(context, attachExternalMessages(old, previousPayloads), reconcile = false, exactPreferences = true,
+                    mediaIndexRows = readMediaSnapshot(operation))
             }
         }
         if (BackupRestoreJournal.hasJournal(operation) && BackupRestoreJournal.isCommitted(operation)) {
@@ -453,6 +623,9 @@ internal object EtaBackupRepository {
         body.unread(header)
         if (header.contentEquals(byteArrayOf(0x50, 0x4b))) {
             var summary: EtaBackupSummary? = null
+            var document: EtaBackupDocument? = null
+            var mediaScan: MediaRecordScan? = null
+            val modelEntries = hashSetOf<String>()
             var total = 0L
             val names = hashSetOf<String>()
             ZipInputStream(body).use { zip ->
@@ -467,14 +640,35 @@ internal object EtaBackupRepository {
                         total += raw.toByteArray().size
                         require(total <= BackupArchiveSafety.TOTAL_LIMIT) { "备份总量超过限制" }
                         summary = if (name == EtaBackupDocument.MANIFEST_NAME) {
-                            decodeDocument(raw).also(::validate).toBackupSummary()
+                            decodeDocument(raw).also(::validate).also { document = it }.toBackupSummary()
                         } else decodeConversation(raw).toConversationSummary()
+                    } else if (name == EtaBackupMediaIndex.ENTRY) {
+                        // 预览不保留向量：逐行解析做一致性校验，元数据与清单的比对在读完清单后统一做。
+                        require(mediaScan == null) { "备份包含多份媒体索引数据" }
+                        val scan = scanMediaRecords(zip.bufferedReader(Charsets.UTF_8).lineSequence(), keep = false)
+                        mediaScan = scan
+                        total += scan.bytes
+                        require(total <= BackupArchiveSafety.TOTAL_LIMIT) { "备份总量超过限制" }
                     } else {
+                        if (name.startsWith(EtaModelBackupDocument.PREFIX)) modelEntries += name
                         total += BackupArchiveSafety.copyLimited(zip, OutputStream.nullOutputStream(), BackupArchiveSafety.TOTAL_LIMIT - total)
                     }
                 }
             }
-            requireNotNull(summary) { "备份文件缺少清单" }
+            val preview = requireNotNull(summary) { "备份文件缺少清单" }
+            val meta = document?.mediaIndex
+            if (meta != null) {
+                requireMediaRecordsMatch(requireNotNull(mediaScan) { "备份缺少媒体语义索引数据" }, meta)
+            } else {
+                require(mediaScan == null) { "备份中的媒体索引条目缺少清单元数据" }
+            }
+            val models = document?.models
+            if (models != null) {
+                require(modelEntries == EtaModelBackup.expectedEntries(models)) { "备份中的模型条目与清单不一致" }
+            } else {
+                require(modelEntries.isEmpty()) { "备份中的模型条目缺少清单元数据" }
+            }
+            preview
         } else {
             val raw = BackupArchiveSafety.readText(body)
             if (manifestName(raw) == EtaConversationExport.MANIFEST_NAME) decodeConversation(raw).toConversationSummary()
@@ -534,6 +728,7 @@ internal object EtaBackupRepository {
     private suspend fun snapshot(
         context: Context,
         options: EtaBackupExportOptions,
+        models: EtaModelBackupDocument? = null,
     ): EtaBackupDocument {
         val database = EtaDatabase.get(context)
         val providers = database.providerDao().providers().map { provider ->
@@ -544,6 +739,9 @@ internal object EtaBackupRepository {
         val mcpServers = database.mcpServerDao().servers()
         val chatImages = File(context.cacheDir, AgentChatImageCache.CACHE_DIRECTORY)
         val imports = File(TerminalPrivateStorage.workspace(context.filesDir), "imports")
+        val mediaDao = database.mediaIndexDao()
+        val (mediaModelId, mediaVectorDim) = mediaIndexSlice(context, mediaDao)
+        val mediaCount = mediaDao.countForModel(mediaModelId, mediaVectorDim)
         return EtaBackupDocument(
             exportedAt = System.currentTimeMillis(),
             providers = providers,
@@ -563,6 +761,12 @@ internal object EtaBackupRepository {
             mcpServers = mcpServers,
             mcpTokens = McpSecretStore(context).exportTokens(mcpServers.map { it.id }),
             settings = settings,
+            mediaIndex = if (options.includeEmbeddings && mediaCount > 0) {
+                EtaBackupMediaIndex(modelId = mediaModelId, vectorDim = mediaVectorDim, count = mediaCount)
+            } else {
+                null
+            },
+            models = models,
             includeLinuxEnvironment = options.includeLinuxEnvironment,
             linuxWorkspaceIncluded = true,
             attachmentCount = countFiles(chatImages),
@@ -595,6 +799,7 @@ internal object EtaBackupRepository {
 
     private suspend fun restoreMetadata(
         context: Context, document: EtaBackupDocument, reconcile: Boolean = true, exactPreferences: Boolean = false,
+        mediaIndexRows: List<MediaIndexEntity>? = null,
     ) {
         val subAgentStore = ConversationSubAgentPreferences()
         // Prepare/validate before touching Room, settings or local preferences. The undo path must
@@ -624,6 +829,13 @@ internal object EtaBackupRepository {
             if (document.schemaVersion >= 2) {
                 database.mcpServerDao().replaceAll(document.mcpServers)
                 database.skillDao().replaceRegistry(document.skillRegistry)
+            }
+            if (mediaIndexRows != null) {
+                val mediaDao = database.mediaIndexDao()
+                // exactPreferences 即本仓库自己的回滚快照路径：整表精确还原到导入前状态；
+                // 正向导入只写入备份行（已重关联），本地既有行保留待下次索引补齐。
+                if (exactPreferences) mediaDao.clearAll()
+                if (mediaIndexRows.isNotEmpty()) mediaDao.upsertAll(mediaIndexRows)
             }
         }
         AgentMemoryRepository.importAll(document.assistantMemories, document.memoryMd)
@@ -752,6 +964,248 @@ internal object EtaBackupRepository {
         if (mcpIds.size != mcpIds.toSet().size || mcpIds.any(String::isBlank)) {
             throw EtaBackupException("备份中的 MCP 服务器存在重复或无效 ID")
         }
+        document.mediaIndex?.let { meta ->
+            if (meta.modelId.isBlank() || meta.vectorDim !in 1..4096 || meta.count !in 0..BackupArchiveSafety.ENTRY_LIMIT) {
+                throw EtaBackupException("备份中的媒体语义索引元数据无效")
+            }
+            if (meta.payloadEntry != EtaBackupMediaIndex.ENTRY) {
+                throw EtaBackupException("备份中的媒体语义索引数据条目无效")
+            }
+        }
+        document.models?.let(EtaModelBackup::validate)
+    }
+
+    /** 备份只覆盖一个 (modelId, vectorDim) 切片：优先当前模型/维度，为空则取存量最多的切片。 */
+    private suspend fun mediaIndexSlice(context: Context, dao: MediaIndexDao): Pair<String, Int> {
+        val modelId = EmbeddingModelStore.state.value.model.id
+        val vectorDim = EmbeddingModelStore.vectorDim(context)
+        if (dao.countForModel(modelId, vectorDim) > 0) return modelId to vectorDim
+        val dominant = dao.all().groupingBy { it.modelId to it.vectorDim }.eachCount().maxByOrNull { it.value }?.key
+        return dominant ?: (modelId to vectorDim)
+    }
+
+    /** 缩略图缓存目录：与 MediaExtraction 的 media-thumbs 一致，恢复后按归档里的原文件名重定位。 */
+    private fun thumbDirectory(context: Context): File = File(context.applicationContext.cacheDir, "media-thumbs")
+
+    /** 向量不进 manifest（受 MANIFEST_LIMIT 约束）：写独立条目 records.jsonl，缩略图写 media-index/thumbs/。 */
+    private suspend fun exportMediaIndex(context: Context, writer: BackupZipWriter, meta: EtaBackupMediaIndex) {
+        val rows = EtaDatabase.get(context).mediaIndexDao().listForModel(meta.modelId, meta.vectorDim)
+        require(rows.size == meta.count) { "媒体索引在导出时发生变化" }
+        writer.stream(meta.payloadEntry) { output -> writeMediaRecords(output, rows, withSlice = false) }
+        writer.directory(EtaBackupMediaIndex.THUMBS_PREFIX, thumbDirectory(context))
+    }
+
+    private fun writeMediaRecords(output: OutputStream, rows: List<MediaIndexEntity>, withSlice: Boolean) {
+        val writer = output.bufferedWriter(Charsets.UTF_8)
+        rows.forEach { row ->
+            writer.append(mediaRecordJson(row, withSlice))
+            writer.newLine()
+        }
+        writer.flush()
+    }
+
+    private fun mediaRecordJson(row: MediaIndexEntity, withSlice: Boolean): String = lineJson.encodeToString(
+        EtaBackupMediaRecord(
+            sourceKey = row.sourceKey,
+            modelId = if (withSlice) row.modelId else null,
+            vectorDim = if (withSlice) row.vectorDim else null,
+            kind = row.kind,
+            displayName = row.displayName,
+            mime = row.mime,
+            sizeBytes = row.sizeBytes,
+            modifiedAt = row.modifiedAt,
+            contentHash = row.contentHash,
+            durationMs = row.durationMs,
+            width = row.width,
+            height = row.height,
+            frameTimeMs = row.frameTimeMs,
+            thumbPath = row.thumbPath,
+            indexedAt = row.indexedAt,
+            // 存量 BLOB 就是 Float16；经 FloatArray 往返一次，导出前先验证半精度可解码。
+            vector = Base64.encodeToString(Float16VectorCodec.encode(Float16VectorCodec.decode(row.vector)), Base64.NO_WRAP),
+        ),
+    )
+
+    /** 回滚快照：整表（所有切片）都记下来，导入失败可把 media_index 精确还原到导入前状态。 */
+    private suspend fun writeMediaSnapshot(context: Context, file: File) {
+        val rows = EtaDatabase.get(context).mediaIndexDao().all()
+        BackupDurability.mkdirs(requireNotNull(file.parentFile))
+        val atomic = android.util.AtomicFile(file)
+        val stream = atomic.startWrite()
+        try {
+            val writer = stream.bufferedWriter(Charsets.UTF_8)
+            rows.forEach { row ->
+                writer.append(mediaRecordJson(row, withSlice = true))
+                writer.newLine()
+            }
+            writer.flush()
+            stream.fd.sync()
+            atomic.finishWrite(stream)
+        } catch (failure: Throwable) {
+            atomic.failWrite(stream)
+            throw failure
+        }
+        BackupDurability.syncDirectory(requireNotNull(file.parentFile))
+    }
+
+    /** 读回滚快照；没有快照文件返回 null（旧版恢复日志：不动 media_index）。 */
+    private fun readMediaSnapshot(operation: File): List<MediaIndexEntity>? {
+        val file = File(operation, "previous-media-index.jsonl")
+        if (!file.exists() && !File(file.path + ".bak").exists()) return null
+        return android.util.AtomicFile(file).openRead().use { input ->
+            scanMediaRecords(input.bufferedReader(Charsets.UTF_8).lineSequence(), keep = true).rows
+        }
+    }
+
+    /** records.jsonl 解析统计：预览只留计数/维度/键，导入保留实体。 */
+    private class MediaRecordScan {
+        val rows = mutableListOf<MediaIndexEntity>()
+        val keys = hashSetOf<Triple<String, String?, Int?>>()
+        val dims = hashSetOf<Int>()
+        var count = 0
+        var bytes = 0L
+    }
+
+    /**
+     * 逐行解析 records.jsonl 并做行级校验（向量维度、sourceKey 唯一）。
+     * 归档行的切片由 [meta] 统一给出；回滚快照行自带 modelId/vectorDim（[meta] 传 null）。
+     */
+    private fun scanMediaRecords(
+        lines: Sequence<String>,
+        keep: Boolean,
+        meta: EtaBackupMediaIndex? = null,
+        thumbRoot: File? = null,
+        thumbNames: Set<String> = emptySet(),
+    ): MediaRecordScan {
+        val scan = MediaRecordScan()
+        lines.forEach { line ->
+            if (line.isBlank()) return@forEach
+            scan.bytes += line.length
+            require(scan.bytes <= BackupArchiveSafety.TOTAL_LIMIT) { "媒体索引备份超过大小限制" }
+            scan.count++
+            require(scan.count <= BackupArchiveSafety.ENTRY_LIMIT) { "媒体索引行数过多" }
+            val record = runCatching { lineJson.decodeFromString<EtaBackupMediaRecord>(line) }
+                .getOrElse { failure -> throw EtaBackupException("媒体索引备份行格式无效", failure) }
+            require(record.sourceKey.isNotBlank() && record.sourceKey.length <= 4096) { "媒体索引 sourceKey 无效" }
+            require(MediaKind.from(record.kind) != null) { "媒体索引类型无效：${record.kind}" }
+            require(record.sizeBytes >= 0 && record.modifiedAt >= 0 && record.indexedAt >= 0) { "媒体索引元数据无效" }
+            val vector = runCatching { Base64.decode(record.vector, Base64.NO_WRAP) }
+                .getOrElse { failure -> throw EtaBackupException("媒体向量编码无效", failure) }
+            require(vector.size in 2..8192 && vector.size % 2 == 0) { "媒体向量字节数无效" }
+            val vectorDim = vector.size / 2
+            require(record.vectorDim == null || record.vectorDim == vectorDim) { "媒体向量维度与行声明不一致" }
+            require(scan.keys.add(Triple(record.sourceKey, record.modelId, record.vectorDim))) {
+                "媒体索引 sourceKey 重复：${record.sourceKey}"
+            }
+            scan.dims += vectorDim
+            if (keep) {
+                val modelId = record.modelId ?: requireNotNull(meta?.modelId) { "媒体索引行缺少模型信息" }
+                val dim = record.vectorDim ?: requireNotNull(meta?.vectorDim) { "媒体索引行缺少维度信息" }
+                scan.rows += MediaIndexEntity(
+                    sourceKey = record.sourceKey,
+                    modelId = modelId,
+                    vectorDim = dim,
+                    kind = record.kind,
+                    displayName = record.displayName,
+                    mime = record.mime,
+                    sizeBytes = record.sizeBytes,
+                    modifiedAt = record.modifiedAt,
+                    contentHash = record.contentHash,
+                    durationMs = record.durationMs,
+                    width = record.width,
+                    height = record.height,
+                    frameTimeMs = record.frameTimeMs,
+                    thumbPath = record.thumbPath?.let { path ->
+                        if (thumbRoot == null) {
+                            path
+                        } else {
+                            // 缩略图随备份恢复到本机缓存目录：按归档里的原文件名重定位绝对路径。
+                            val name = File(path).name
+                            if (name in thumbNames) File(thumbRoot, name).absolutePath else null
+                        }
+                    },
+                    // 经 FloatArray 往返，保证入库的半精度向量可解码且编码归一。
+                    vector = Float16VectorCodec.encode(Float16VectorCodec.decode(vector)),
+                    indexedAt = record.indexedAt,
+                )
+            }
+        }
+        return scan
+    }
+
+    /** 一致性校验：records 行数 = count、向量维度 = vectorDim（sourceKey 唯一已在逐行解析时保证）。 */
+    private fun requireMediaRecordsMatch(scan: MediaRecordScan, meta: EtaBackupMediaIndex) {
+        require(scan.count == meta.count) { "媒体索引行数与清单不一致" }
+        require(scan.dims == setOf(meta.vectorDim)) { "媒体向量维度与清单不一致" }
+    }
+
+    /**
+     * 重关联：重装后 MediaStore / 路径型 sourceKey 会变，无法只靠 key 恢复。
+     * 用重新扫描到的文件按 contentHash（优先）、其次 (sizeBytes, modifiedAt) 回配，
+     * 能配上的复用向量（写回新 sourceKey），配不上的保留原行待下次索引补齐。
+     */
+    private suspend fun relinkMediaRecords(
+        context: Context,
+        rows: List<MediaIndexEntity>,
+        restored: Map<File, File>,
+    ): List<MediaIndexEntity> {
+        if (rows.isEmpty()) return rows
+        val app = context.applicationContext
+        val thumbRoot = thumbDirectory(app).absolutePath + File.separator
+        val candidates = mutableListOf<MediaSourceScanner.Candidate>()
+        // 归档里即将落盘的媒体：恢复后的目标路径就是新的 sourceKey，内容哈希读暂存文件（内容与落盘一致）。
+        restored.forEach { (target, source) ->
+            if (target.absolutePath.startsWith(thumbRoot)) return@forEach
+            val kind = MediaSourceScanner.kindForName(target.name) ?: return@forEach
+            candidates += MediaSourceScanner.Candidate(
+                sourceKey = target.absolutePath,
+                kind = kind,
+                displayName = target.name,
+                mime = MediaSourceScanner.mimeForName(target.name) ?: "application/octet-stream",
+                sizeBytes = source.length(),
+                modifiedAt = source.lastModified(),
+                filePath = source.absolutePath,
+            )
+        }
+        // 其余可重新扫描到的媒体（MediaStore、附件缓存、工作区……）。
+        val dao = EtaDatabase.get(app).mediaIndexDao()
+        val sources = dao.sources().filter { it.enabled }
+            .ifEmpty { MediaSourceScanner.recommendedSources().filter { it.enabled } }
+        sources.forEach { source -> candidates += MediaSourceScanner.scan(app, source) }
+        val byKey = candidates.associateBy { it.sourceKey }
+        val bySize = candidates.groupBy { it.sizeBytes }
+        val bySizeTime = LinkedHashMap<Pair<Long, Long>, MediaSourceScanner.Candidate>()
+        candidates.forEach { candidate -> bySizeTime.putIfAbsent(candidate.sizeBytes to candidate.modifiedAt, candidate) }
+        val restoredKeys = restored.keys.mapTo(hashSetOf()) { it.absolutePath }
+        val hashes = hashMapOf<String, String?>()
+        val claimed = hashSetOf<String>()
+        return rows.map { row ->
+            val unchanged = byKey[row.sourceKey] != null ||
+                (!row.sourceKey.startsWith("content:") && restoredKeys.contains(row.sourceKey)) ||
+                (!row.sourceKey.startsWith("content:") && File(row.sourceKey).isFile)
+            val matched: String? = when {
+                unchanged -> row.sourceKey
+                else -> {
+                    // 内容相同的文件必然同大小：只对同大小候选做哈希，兼顾「contentHash 优先」与开销。
+                    val byHash = row.contentHash.takeIf { it.isNotBlank() }?.let { hash ->
+                        bySize[row.sizeBytes]?.firstOrNull { candidate ->
+                            candidate.sourceKey !in claimed &&
+                                hashes.getOrPut(candidate.sourceKey) {
+                                    MediaExtraction.contentHash(app, candidate)
+                                } == hash
+                        }?.sourceKey
+                    }
+                    byHash ?: bySizeTime[row.sizeBytes to row.modifiedAt]
+                        ?.takeIf { it.sourceKey !in claimed }?.sourceKey
+                }
+            }
+            if (matched == null) {
+                row
+            } else {
+                claimed += matched
+                row.copy(sourceKey = matched)
+            }
+        }
     }
 
     private fun EtaBackupDocument.toBackupSummary(): EtaBackupSummary = EtaBackupSummary(
@@ -765,6 +1219,11 @@ internal object EtaBackupRepository {
         skillCount = skillFiles.keys.map { it.substringBefore('/') }.filter { it.isNotBlank() }.toSet().size,
         attachmentCount = attachmentCount + importedFileCount,
         includedLinuxEnvironment = includeLinuxEnvironment,
+        mediaIndexCount = mediaIndex?.count ?: 0,
+        mediaIndexModelId = mediaIndex?.modelId,
+        mediaIndexDim = mediaIndex?.vectorDim ?: 0,
+        downloadedModelCount = models?.models?.size ?: 0,
+        downloadedModelBytes = models?.models?.sumOf { model -> model.files.sumOf { it.bytes } } ?: 0L,
     )
 
     private fun EtaConversationExport.toConversationSummary(): EtaBackupSummary = EtaBackupSummary(

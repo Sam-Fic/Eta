@@ -50,6 +50,20 @@ internal object OfflineSpeechPack {
         }
     }
 
+    /** 模型文件被备份恢复后重新校验；取消进行中的下载，避免旧任务发布过期状态。 */
+    @Synchronized fun refresh(context: Context) {
+        download?.cancel()
+        download = null
+        initialized = false
+        mutable.value = mutable.value.copy(
+            checking = true,
+            downloading = false,
+            downloadedBytes = 0,
+            error = false,
+        )
+        initialize(context)
+    }
+
     fun setEnabled(context: Context, enabled: Boolean): Boolean {
         if (enabled && !SpeechInputPolicy.canEnable(mutable.value.ready, mutable.value.checking, mutable.value.downloading)) return false
         prefs(context).edit().putBoolean("enabled", enabled).apply()

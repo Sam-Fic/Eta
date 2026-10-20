@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.FileDownload
+import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -28,6 +30,7 @@ import io.github.mangi.eta.R
 import io.github.mangi.eta.data.repository.EtaBackupExportOptions
 import io.github.mangi.eta.data.repository.EtaBackupRepository
 import io.github.mangi.eta.data.repository.EtaBackupSummary
+import io.github.mangi.eta.data.repository.EtaModelBackupSummary
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
@@ -55,21 +58,38 @@ internal fun DataBackupScreen(
     onBack: () -> Unit,
     onExport: suspend (OutputStream, EtaBackupExportOptions) -> EtaBackupSummary,
     onImport: suspend (InputStream) -> EtaBackupSummary,
+    onExportModels: suspend (OutputStream) -> EtaModelBackupSummary,
+    onImportModels: suspend (InputStream) -> EtaModelBackupSummary,
 ) {
     val scope = rememberCoroutineScope()
     var exporting by remember { mutableStateOf(false) }
     var importing by remember { mutableStateOf(false) }
-    val busy = exporting || importing
+    var exportingModels by remember { mutableStateOf(false) }
+    var importingModels by remember { mutableStateOf(false) }
+    val busy = exporting || importing || exportingModels || importingModels
     var pendingImportUri by remember { mutableStateOf<Uri?>(null) }
     var showImportDialog by remember { mutableStateOf(false) }
+    var pendingModelImportUri by remember { mutableStateOf<Uri?>(null) }
+    var showModelImportDialog by remember { mutableStateOf(false) }
     var includeLinuxEnvironment by remember { mutableStateOf(false) }
     var linuxBytes by remember { mutableStateOf<Long?>(null) }
+    var includeEmbeddings by remember { mutableStateOf(true) }
+    var mediaBytes by remember { mutableStateOf<Long?>(null) }
+    var includeModels by remember { mutableStateOf(false) }
+    var modelSummary by remember { mutableStateOf(EtaModelBackupSummary.EMPTY) }
     LaunchedEffect(Unit) {
         linuxBytes = withContext(Dispatchers.IO) {
             EtaBackupRepository.linuxEnvironmentBytes(context)
         }
+        mediaBytes = withContext(Dispatchers.IO) {
+            EtaBackupRepository.mediaIndexEstimateBytes(context)
+        }
+        modelSummary = EtaBackupRepository.downloadedModels(context)
     }
     val linuxSizeLabel = linuxBytes?.takeIf { it > 0L }?.let { Formatter.formatShortFileSize(context, it) }
+    val mediaSizeLabel = mediaBytes?.takeIf { it > 0L }?.let { Formatter.formatShortFileSize(context, it) }
+    val modelSizeLabel = modelSummary.bytes.takeIf { modelSummary.modelCount > 0 }
+        ?.let { Formatter.formatShortFileSize(context, it) }
 
     fun showFailure(throwable: Throwable) {
         if (throwable is CancellationException) throw throwable
@@ -89,14 +109,28 @@ internal fun DataBackupScreen(
             try {
                 val output = context.contentResolver.openOutputStream(uri)
                     ?: error(context.getString(R.string.data_backup_file_open_failed))
-                val summary = output.use { onExport(it, EtaBackupExportOptions(includeLinuxEnvironment = includeLinuxEnvironment)) }
+                val summary = output.use {
+                    onExport(
+                        it,
+                        EtaBackupExportOptions(
+                            includeLinuxEnvironment = includeLinuxEnvironment,
+                            includeEmbeddings = includeEmbeddings,
+                            includeModels = includeModels,
+                        ),
+                    )
+                }
                 Toast.makeText(
                     context,
-                    context.getString(
-                        R.string.data_backup_exported,
-                        summary.conversationCount,
-                        summary.providerCount,
-                        summary.assistantCount,
+                    backupMessage(
+                        context,
+                        context.getString(
+                            R.string.data_backup_exported,
+                            summary.conversationCount,
+                            summary.providerCount,
+                            summary.assistantCount,
+                        ),
+                        R.string.data_backup_exported_models,
+                        summary.downloadedModelCount,
                     ),
                     Toast.LENGTH_SHORT,
                 ).show()
@@ -114,6 +148,42 @@ internal fun DataBackupScreen(
         if (uri != null) {
             pendingImportUri = uri
             showImportDialog = true
+        }
+    }
+
+    val modelExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/zip"),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            exportingModels = true
+            try {
+                val output = context.contentResolver.openOutputStream(uri)
+                    ?: error(context.getString(R.string.data_backup_file_open_failed))
+                val summary = output.use { onExportModels(it) }
+                Toast.makeText(
+                    context,
+                    context.getString(
+                        R.string.backup_models_exported,
+                        summary.modelCount,
+                        Formatter.formatShortFileSize(context, summary.bytes),
+                    ),
+                    Toast.LENGTH_SHORT,
+                ).show()
+            } catch (throwable: Throwable) {
+                showFailure(throwable)
+            } finally {
+                exportingModels = false
+            }
+        }
+    }
+
+    val modelImportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) {
+            pendingModelImportUri = uri
+            showModelImportDialog = true
         }
     }
 
@@ -151,6 +221,36 @@ internal fun DataBackupScreen(
                     )
                 }
                 item {
+                    EtaSwitchRow(
+                        title = stringResource(R.string.backup_media_include),
+                        summary = buildString {
+                            append(stringResource(R.string.backup_media_include_summary))
+                            mediaSizeLabel?.let { size ->
+                                append('\n')
+                                append(context.getString(R.string.backup_media_size, size))
+                            }
+                        },
+                        checked = includeEmbeddings,
+                        onCheckedChange = { includeEmbeddings = it },
+                        enabled = !busy,
+                    )
+                }
+                item {
+                    EtaSwitchRow(
+                        title = stringResource(R.string.backup_models_include),
+                        summary = buildString {
+                            append(stringResource(R.string.backup_models_include_summary))
+                            modelSizeLabel?.let { size ->
+                                append('\n')
+                                append(context.getString(R.string.backup_models_size, size))
+                            }
+                        },
+                        checked = includeModels,
+                        onCheckedChange = { includeModels = it },
+                        enabled = !busy && modelSummary.modelCount > 0,
+                    )
+                }
+                item {
                     BackupActionRow(
                         title = stringResource(R.string.data_backup_export),
                         summary = if (exporting) {
@@ -179,6 +279,49 @@ internal fun DataBackupScreen(
                         enabled = !busy,
                         onClick = {
                             importLauncher.launch(arrayOf("application/zip", "application/json", "text/plain", "*/*"))
+                        },
+                    )
+                }
+            }
+        }
+        item(key = "models-card") {
+            EtaSegmentedColumn(
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                title = stringResource(R.string.backup_models_section),
+            ) {
+                item {
+                    BackupActionRow(
+                        title = stringResource(R.string.backup_models_export),
+                        summary = when {
+                            exportingModels -> stringResource(R.string.data_backup_working)
+                            modelSummary.modelCount > 0 -> context.getString(
+                                R.string.backup_models_downloaded,
+                                modelSummary.modelCount,
+                                Formatter.formatShortFileSize(context, modelSummary.bytes),
+                            )
+                            else -> stringResource(R.string.backup_models_none)
+                        },
+                        icon = Icons.Rounded.FileDownload,
+                        loading = exportingModels,
+                        enabled = !busy && modelSummary.modelCount > 0,
+                        onClick = {
+                            modelExportLauncher.launch(defaultModelBackupFileName(context))
+                        },
+                    )
+                }
+                item {
+                    BackupActionRow(
+                        title = stringResource(R.string.backup_models_import),
+                        summary = if (importingModels) {
+                            stringResource(R.string.data_backup_working)
+                        } else {
+                            stringResource(R.string.backup_models_import_summary)
+                        },
+                        icon = Icons.Rounded.FileUpload,
+                        loading = importingModels,
+                        enabled = !busy,
+                        onClick = {
+                            modelImportLauncher.launch(arrayOf("application/zip", "*/*"))
                         },
                     )
                 }
@@ -222,11 +365,16 @@ internal fun DataBackupScreen(
                                 val summary = input.use { onImport(it) }
                                 Toast.makeText(
                                     context,
-                                    context.getString(
-                                        R.string.data_backup_imported,
-                                        summary.conversationCount,
-                                        summary.providerCount,
-                                        summary.assistantCount,
+                                    backupMessage(
+                                        context,
+                                        context.getString(
+                                            R.string.data_backup_imported,
+                                            summary.conversationCount,
+                                            summary.providerCount,
+                                            summary.assistantCount,
+                                        ),
+                                        R.string.data_backup_imported_models,
+                                        summary.downloadedModelCount,
                                     ),
                                     Toast.LENGTH_SHORT,
                                 ).show()
@@ -235,6 +383,63 @@ internal fun DataBackupScreen(
                             } finally {
                                 pendingImportUri = null
                                 importing = false
+                            }
+                        }
+                    },
+                )
+            },
+        ) {
+        }
+    }
+
+    if (showModelImportDialog) {
+        EtaDialog(
+            show = true,
+            title = stringResource(R.string.backup_models_import_confirm_title),
+            summary = stringResource(R.string.backup_models_import_confirm_summary),
+            onDismissRequest = {
+                if (!busy) {
+                    showModelImportDialog = false
+                    pendingModelImportUri = null
+                }
+            },
+            actions = {
+                EtaDialogActions(
+                    confirmText = if (importingModels) {
+                        stringResource(R.string.data_backup_working)
+                    } else {
+                        stringResource(R.string.backup_models_restore_action)
+                    },
+                    cancelEnabled = !busy,
+                    confirmEnabled = !busy,
+                    onCancel = {
+                        showModelImportDialog = false
+                        pendingModelImportUri = null
+                    },
+                    onConfirm = {
+                        val uri = pendingModelImportUri ?: return@EtaDialogActions
+                        showModelImportDialog = false
+                        scope.launch {
+                            importingModels = true
+                            try {
+                                val input = context.contentResolver.openInputStream(uri)
+                                    ?: error(context.getString(R.string.data_backup_file_open_failed))
+                                val summary = input.use { onImportModels(it) }
+                                modelSummary = EtaBackupRepository.downloadedModels(context)
+                                Toast.makeText(
+                                    context,
+                                    context.getString(
+                                        R.string.backup_models_imported,
+                                        summary.modelCount,
+                                        Formatter.formatShortFileSize(context, summary.bytes),
+                                    ),
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            } catch (throwable: Throwable) {
+                                showFailure(throwable)
+                            } finally {
+                                pendingModelImportUri = null
+                                importingModels = false
                             }
                         }
                     },
@@ -303,3 +508,9 @@ private fun BackupActionRow(
 
 private fun defaultBackupFileName(context: Context): String =
     context.getString(R.string.data_backup_file_name, SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date()))
+
+private fun defaultModelBackupFileName(context: Context): String =
+    context.getString(R.string.backup_models_file_name, SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date()))
+
+private fun backupMessage(context: Context, base: String, modelCountRes: Int, modelCount: Int): String =
+    if (modelCount > 0) base + "\n" + context.getString(modelCountRes, modelCount) else base
