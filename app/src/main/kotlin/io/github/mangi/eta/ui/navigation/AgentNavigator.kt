@@ -60,10 +60,14 @@ private val appRouteTypes: List<KClass<out AppRoute>> = listOf(
     AppRoute.AssistantEdit::class,
     AppRoute.UsageStats::class,
     AppRoute.ManageChats::class,
+    AppRoute.ConversationTrash::class,
+    AppRoute.ConversationTrashSearch::class,
     AppRoute.MessageSearch::class,
     AppRoute.ConversationTokenUsage::class,
     AppRoute.SubAgentStatus::class,
     AppRoute.TerminalDaemonTasks::class,
+    AppRoute.MediaSearch::class,
+    AppRoute.MediaIndexSettings::class,
 )
 
 /** 模式串（destination.route）→ 路由类型；导航目标是复用的，所以只需解析一次。 */
@@ -157,6 +161,33 @@ class AgentNavigator(
         while (routes().size > 1) {
             if (!navController.popBackStack()) break
         }
+    }
+
+    /**
+     * 回到承载对话的页面（[AppRoute.Home] 或 [AppRoute.Chat]）。
+     *
+     * 搜索命中要「点开就落在对话里」：从管理聊天页跳进来的栈是
+     * `Home → ManageChats → MessageSearch`，逐级 pop 会停在管理聊天页，
+     * 所以这里一次性弹回承载对话的那一层（栈里有 Home 和 Chat 时取更靠上的那个）。
+     * 栈里没有承载对话的页面（异常栈）时退到首页。
+     */
+    @SuppressLint("RestrictedApi")
+    fun popToConversationHost(): Boolean {
+        val entries = navController.currentBackStack.value
+        val target = entries.indexOfLast { entry ->
+            val route = entry.toAppRoute()
+            route is AppRoute.Home || route is AppRoute.Chat
+        }
+        if (target < 0) {
+            popToHome()
+            return false
+        }
+        // 一次 popBackStack 弹到目标 destination：只播一次转场，不会出现逐级退场的多段动画。
+        val popped = navController.popBackStack(entries[target].destination.id, inclusive = false)
+        io.github.mangi.eta.core.AndroidAgentLogger.info(
+            "nav.popToConversationHost -> popped=$popped",
+        )
+        return popped
     }
 
     fun current(): AppRoute? = routes().lastOrNull()

@@ -101,6 +101,8 @@ internal fun AgentChatScreen(
             onRunTraceClick = { /* 对话页暂不做 Run trace 展开 */ },
             onOpenBrowser = { onAction(AgentChatAction.OpenBrowser) },
             onEditAssistant = { id -> onAction(AgentChatAction.EditAssistant(id)) },
+            onOpenModelProviders = { onAction(AgentChatAction.OpenModelProviders) },
+            onOpenAssistants = { onAction(AgentChatAction.OpenAssistants) },
             onAssistantSelected = { id -> onAction(AgentChatAction.AssistantSelected(id)) },
             gptSpeedMode = state.gptSpeedMode,
             onCycleGptSpeedMode = { onAction(AgentChatAction.CycleGptSpeedMode) },

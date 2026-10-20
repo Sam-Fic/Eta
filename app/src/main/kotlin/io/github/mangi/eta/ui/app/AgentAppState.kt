@@ -88,6 +88,7 @@ import io.github.mangi.eta.data.repository.AgentMemoryRepository
 import io.github.mangi.eta.data.repository.EtaBackupExportOptions
 import io.github.mangi.eta.data.repository.EtaBackupRepository
 import io.github.mangi.eta.data.repository.EtaBackupSummary
+import io.github.mangi.eta.data.repository.EtaModelBackupSummary
 import io.github.mangi.eta.data.repository.ProviderBalanceStore
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.data.repository.AssistantRepository
@@ -104,6 +105,7 @@ import io.github.mangi.eta.ui.model.canContinueDisconnectedRun
 import io.github.mangi.eta.ui.model.MessageSearchHit
 import io.github.mangi.eta.ui.model.MessageSearchRoleLabels
 import io.github.mangi.eta.ui.model.searchConversationMessages
+import io.github.mangi.eta.ui.model.searchConversationTitle
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
 import io.github.mangi.eta.ui.model.AgentOwnerContextState
 import io.github.mangi.eta.ui.model.normalizeTerminalRunMessages
@@ -157,6 +159,8 @@ import io.github.mangi.eta.ui.model.durationMsAt
 import io.github.mangi.eta.ui.model.canDeleteUserSkill
 import java.io.InputStream
 import java.io.OutputStream
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CancellationException
@@ -351,6 +355,8 @@ internal class AgentAppState(
     private var conversationFolderIds: Map<String, String>
     private var conversationPinned: Set<String>
     private var conversationCompletionMarkers: Set<String>
+    /** 回收站：会话 id -> 软删除时间；键集合即回收站成员，删除时间用于回收站列表排序。 */
+    private var conversationDeletedAt: Map<String, Long>
     private var conversationFolders: List<ConversationFolderUi>
     /** Startup hydration and backup reload both publish the same maps; only one wins. */
     private var conversationsHydrated = false
@@ -386,6 +392,7 @@ internal class AgentAppState(
         conversationFolderIds = initialConversations.folderIds
         conversationPinned = initialConversations.pinnedIds
         conversationCompletionMarkers = initialConversations.completionMarkerIds
+        conversationDeletedAt = initialConversations.deletedAt
         conversationFolders = initialConversations.folders
         hydrateConversations()
     }
@@ -425,10 +432,13 @@ internal class AgentAppState(
                 conversationFolderIds = snapshot.folderIds
                 conversationPinned = snapshot.pinnedIds
                 conversationCompletionMarkers = snapshot.completionMarkerIds - listOfNotNull(snapshot.selectedConversationId)
+                conversationDeletedAt = snapshot.deletedAt
                 conversationFolders = snapshot.folders
                 homeState = selectedConversationId?.let(::conversationState) ?: newDraftChatState()
                 conversationPaneState = conversationPaneState.copy(selectedConversationId = selectedConversationId)
                 refreshConversationSummaries()
+                // 启动水合后先清一次过期回收站：App 长期不开回收站页也能按留存期落盘清理。
+                purgeExpiredTrash()
             }
         }
     }
@@ -1327,6 +1337,18 @@ internal class AgentAppState(
             EtaBackupRepository.exportConversation(appContext, conversationId, output)
         }
 
+    /** 只导出已下载模型，不读取或改写对话数据。 */
+    suspend fun exportModels(output: OutputStream): EtaModelBackupSummary =
+        withContext(Dispatchers.IO) {
+            EtaBackupRepository.exportModels(appContext, output)
+        }
+
+    /** 只恢复模型文件，不改动对话、设置与附件。 */
+    suspend fun importModels(input: InputStream): EtaModelBackupSummary =
+        withContext(Dispatchers.IO) {
+            EtaBackupRepository.importModels(appContext, input)
+        }
+
     suspend fun importBackup(input: InputStream): EtaBackupSummary = withConversationArchive {
         val activeRunQuery = withContext(Dispatchers.IO) {
             AgentRuntimeClient(appContext, AndroidAgentLogger).queryActiveRun()
@@ -1890,23 +1912,27 @@ internal class AgentAppState(
             tool = appContext.getString(R.string.search_history_role_tool),
         )
         val unnamed = appContext.getString(R.string.conversation_unnamed)
+        val titleRole = appContext.getString(R.string.search_history_role_title)
         val source = if (currentConversationOnly) currentConversationSearchScope() else
             conversationsById.toMutableMap().also { all ->
                 selectedConversationId?.let { all[it] = homeState }
                 if (selectedConversationId == null && homeState.messages.isNotEmpty()) all[""] = homeState
-            }
+            }.filterKeys { it !in conversationDeletedAt }
         val titles = conversationTitles
         val timestamps = conversationUpdatedAt
         return runInterruptible(Dispatchers.IO) {
         source.entries.sortedWith(compareBy<Map.Entry<String, AgentChatHomeUiState>> {
             timestamps[it.key] ?: 0L
         }.thenBy { it.key }).flatMap { (id, state) ->
-            if (state.conversationContentLoaded) {
+            // 标题与正文一起匹配：标题命中排在同一会话的正文命中之前。
+            val titleHit = searchConversationTitle(id, titles[id].orEmpty(), query, titleRole)
+            val messageHits = if (state.conversationContentLoaded) {
                 searchConversationMessages(mapOf(id to state), titles, timestamps, query, unnamed, roles)
             } else {
                 AgentConversationStore.searchStoredConversation(appContext, id, titles[id].orEmpty(),
                     timestamps[id] ?: 0L, query, unnamed, roles)
             }
+            listOfNotNull(titleHit) + messageHits
         }
         }
     }
@@ -1921,10 +1947,12 @@ internal class AgentAppState(
     }
 
     fun openHistorySearchHit(hit: MessageSearchHit) {
+        // 标题命中没有目标消息：只切会话，不设置滚动锚点（否则会滚到一个不存在的 id）。
+        val scrollTarget = hit.messageId.takeIf { it.isNotEmpty() }
         if (hit.conversationId.isNotEmpty() && hit.conversationId != selectedConversationId) {
-            selectConversationContent(hit.conversationId) { pendingScrollToMessageId = hit.messageId }
-        } else {
-            pendingScrollToMessageId = hit.messageId
+            selectConversationContent(hit.conversationId) { pendingScrollToMessageId = scrollTarget }
+        } else if (scrollTarget != null) {
+            pendingScrollToMessageId = scrollTarget
         }
     }
 
@@ -1940,6 +1968,8 @@ internal class AgentAppState(
         val version = ++conversationSelectionVersion
         conversationSelectionJob?.cancel()
         val state = conversationsById[conversationId] ?: return
+        // 回收站里的会话不能被选中：入口只应来自恢复操作。
+        if (conversationId in conversationDeletedAt) return
         if (state.conversationContentLoaded) {
             applySelectedConversation(conversationId, state)
             onSelected()
@@ -2162,8 +2192,36 @@ internal class AgentAppState(
         }
     }
 
+    /**
+     * 把会话移入回收站（软删除）：内容、草稿、图片缓存与压缩原文都保留，可随时恢复；
+     * 只有 [deleteConversationForever] 才真正清理这些资源并退休用量统计。
+     */
     fun deleteConversation(conversationId: String) {
         if (rejectConversationArchiveMutation()) return
+        if (conversationId !in conversationsById || conversationId in conversationDeletedAt) return
+        if (selectedConversationId == conversationId) {
+            // 软删除也要把选中项从被删会话上挪走，复用永久删除的切换逻辑（跳过回收站成员）。
+            selectNextConversationAfterDeletion(excludeId = conversationId)
+        }
+        conversationDeletedAt = conversationDeletedAt + (conversationId to System.currentTimeMillis())
+        conversationPaneState = conversationPaneState.copy(selectedConversationId = selectedConversationId)
+        refreshConversationSummaries()
+        persistConversations()
+    }
+
+    /** 从回收站恢复会话：仅清除软删除标记，标题、文件夹、置顶等状态原样保留。 */
+    fun restoreConversationFromTrash(conversationId: String) {
+        if (rejectConversationArchiveMutation(protectStoppingRun = false)) return
+        if (conversationId !in conversationDeletedAt) return
+        conversationDeletedAt = conversationDeletedAt - conversationId
+        refreshConversationSummaries()
+        persistConversations()
+    }
+
+    /** 永久删除：清掉全部内存痕迹、草稿、图片缓存与压缩原文，并把用量统计退休。不可恢复。 */
+    fun deleteConversationForever(conversationId: String) {
+        if (rejectConversationArchiveMutation()) return
+        if (conversationId !in conversationsById) return
         val wasSelected = selectedConversationId == conversationId
         conversationState(conversationId)?.let { state ->
             retainDeletedConversation(state.messages, conversationUpdatedAt[conversationId])
@@ -2176,31 +2234,10 @@ internal class AgentAppState(
         conversationFolderIds = conversationFolderIds - conversationId
         conversationPinned = conversationPinned - conversationId
         conversationCompletionMarkers = conversationCompletionMarkers - conversationId
+        conversationDeletedAt = conversationDeletedAt - conversationId
         scope.launch(Dispatchers.IO) { chatImageCache.deleteConversation(conversationId) }
         if (wasSelected) {
-            fileAttachmentOwnerVersion += 1
-            val nextId = conversationsById.keys.firstOrNull()
-            if (nextId != null) {
-                selectedConversationId = nextId
-                conversationCompletionMarkers = conversationCompletionMarkers - nextId
-                // The load below can legitimately return null: this conversation may have
-                // been removed concurrently, or the row can fail to decode. Crashing the
-                // UI on a failed switch is worse than falling back to a fresh draft.
-                val next = conversationState(nextId)
-                if (next != null) {
-                    homeState = next
-                    conversationsById = conversationsById + (nextId to next)
-                } else {
-                    conversationsById = conversationsById - nextId
-                    selectedConversationId = null
-                    beginNewSubAgentDraft()
-                    homeState = newDraftChatState()
-                }
-            } else {
-                beginNewSubAgentDraft()
-                selectedConversationId = null
-                homeState = newDraftChatState()
-            }
+            selectNextConversationAfterDeletion(excludeId = conversationId)
         }
         conversationPaneState = conversationPaneState.copy(selectedConversationId = selectedConversationId)
         if (wasSelected) restoreConversationRuntimeModel()
@@ -2213,6 +2250,64 @@ internal class AgentAppState(
                         .onFailure { AndroidAgentLogger.warn("压缩原文清理失败：${it.javaClass.simpleName}") }
                 }
             }
+        }
+    }
+
+    /** 清空回收站：逐个走 [deleteConversationForever]，持久化队列会合并这些快照。 */
+    fun emptyTrash() {
+        if (rejectConversationArchiveMutation()) return
+        val trashedIds = conversationDeletedAt.keys.toList()
+        if (trashedIds.isEmpty()) return
+        trashedIds.forEach { id ->
+            if (id in conversationsById) deleteConversationForever(id)
+        }
+    }
+
+    /**
+     * 自动清理回收站：把软删除时间超过留存期（[Prefs.trashRetentionDays]）的会话
+     * 永久删除；留存为 0（永不清理）时不动任何内容。在启动水合完成后、打开回收站
+     * 视图与工具列出回收站时调用，保证回收站成员最终一定会被清理。
+     */
+    fun purgeExpiredTrash(now: Long = System.currentTimeMillis()) {
+        if (rejectConversationArchiveMutation()) return
+        val retentionDays = Prefs.trashRetentionDays()
+        if (retentionDays <= 0) return
+        val retentionMs = retentionDays * DAY_MILLIS
+        val expired = conversationDeletedAt
+            .filterValues { deletedAt -> now - deletedAt >= retentionMs }
+            .keys
+            .filter { it in conversationsById }
+        if (expired.isEmpty()) return
+        expired.forEach { deleteConversationForever(it) }
+    }
+
+    /**
+     * 删除（软/硬）后的选中切换：从剩余会话里挑一个未删除的，挑不出就落到新草稿。
+     * 由 [deleteConversation] 与 [deleteConversationForever] 共用，调用方负责后续的 pane 同步。
+     */
+    private fun selectNextConversationAfterDeletion(excludeId: String) {
+        fileAttachmentOwnerVersion += 1
+        val nextId = conversationsById.keys.firstOrNull { it != excludeId && it !in conversationDeletedAt }
+        if (nextId != null) {
+            selectedConversationId = nextId
+            conversationCompletionMarkers = conversationCompletionMarkers - nextId
+            // The load below can legitimately return null: this conversation may have
+            // been removed concurrently, or the row can fail to decode. Crashing the
+            // UI on a failed switch is worse than falling back to a fresh draft.
+            val next = conversationState(nextId)
+            if (next != null) {
+                homeState = next
+                conversationsById = conversationsById + (nextId to next)
+            } else {
+                conversationsById = conversationsById - nextId
+                selectedConversationId = null
+                beginNewSubAgentDraft()
+                homeState = newDraftChatState()
+            }
+        } else {
+            beginNewSubAgentDraft()
+            selectedConversationId = null
+            homeState = newDraftChatState()
         }
     }
 
@@ -2237,7 +2332,7 @@ internal class AgentAppState(
         val conversationCount: Int,
     )
 
-    /** eta_manage_history 读取的会话快照。 */
+    /** eta_manage_history 读取的会话快照；[deletedAt] 非空表示在回收站里。 */
     internal data class HistoryConversation(
         val id: String,
         val title: String,
@@ -2246,6 +2341,7 @@ internal class AgentAppState(
         val folderId: String?,
         val folderName: String?,
         val pinned: Boolean,
+        val deletedAt: Long? = null,
     )
 
     /** eta_manage_history 写操作结果；失败时返回结构化错误码与说明。 */
@@ -2256,6 +2352,7 @@ internal class AgentAppState(
         val folder: HistoryFolder? = null,
         val conversation: HistoryConversation? = null,
         val movedConversations: Int = 0,
+        val deletedConversations: Int = 0,
     )
 
     private fun historyFailure(code: String, message: String) = HistoryMutation(ok = false, code = code, message = message)
@@ -2279,6 +2376,7 @@ internal class AgentAppState(
             folderId = folderId,
             folderName = folderId?.let { id -> conversationFolders.firstOrNull { it.id == id }?.name },
             pinned = conversationId in conversationPinned,
+            deletedAt = conversationDeletedAt[conversationId],
         )
     }
 
@@ -2294,15 +2392,28 @@ internal class AgentAppState(
     }
 
     /** eta_manage_history 的只读入口：读取全部会话，置顶在前，其后按更新时间由新到旧。 */
-    internal suspend fun agentHistoryConversations(): List<HistoryConversation> = withContext(Dispatchers.Main.immediate) {
+    internal suspend fun agentHistoryConversations(trashed: Boolean = false): List<HistoryConversation> = withContext(Dispatchers.Main.immediate) {
         awaitConversationsHydrated()
-        conversationsById.keys
-            .sortedWith(
-                compareByDescending<String> { it in conversationPinned }
-                    .thenByDescending { conversationUpdatedAt[it] ?: 0L }
-                    .thenBy { it },
-            )
-            .mapNotNull(::historyConversationSnapshot)
+        if (trashed) {
+            // 列回收站前先按留存期清理一次，模型看到的即真实回收站。
+            purgeExpiredTrash()
+            // 回收站视图：按删除时间由新到旧。
+            conversationsById.keys
+                .filter { it in conversationDeletedAt }
+                .sortedWith(
+                    compareByDescending<String> { conversationDeletedAt[it] ?: 0L }.thenBy { it },
+                )
+                .mapNotNull(::historyConversationSnapshot)
+        } else {
+            conversationsById.keys
+                .filter { it !in conversationDeletedAt }
+                .sortedWith(
+                    compareByDescending<String> { it in conversationPinned }
+                        .thenByDescending { conversationUpdatedAt[it] ?: 0L }
+                        .thenBy { it },
+                )
+                .mapNotNull(::historyConversationSnapshot)
+        }
     }
 
     /** eta_manage_history 的只读入口：按消息正文检索会话。 */
@@ -2412,8 +2523,54 @@ internal class AgentAppState(
         if (rejectConversationArchiveMutation()) {
             return@withContext historyFailure("BUSY", "当前有对话归档任务在执行，请稍后再试")
         }
+        // 软删除进回收站：可恢复，真正清理资源要再走永久删除。
+        if (snapshot.deletedAt != null) {
+            return@withContext HistoryMutation(ok = true, conversation = snapshot)
+        }
         deleteConversation(conversationId)
+        HistoryMutation(ok = true, conversation = historyConversationSnapshot(conversationId) ?: snapshot.copy(deletedAt = System.currentTimeMillis()))
+    }
+
+    /** 从回收站恢复会话；不在回收站时报错，避免模型把「恢复」当成通用撤销用。 */
+    internal suspend fun agentHistoryRestoreConversation(conversationId: String): HistoryMutation = withContext(Dispatchers.Main.immediate) {
+        awaitConversationsHydrated()
+        val snapshot = historyConversationSnapshot(conversationId)
+            ?: return@withContext historyFailure("CONVERSATION_NOT_FOUND", "找不到对话：$conversationId")
+        if (snapshot.deletedAt == null) {
+            return@withContext historyFailure("NOT_IN_TRASH", "该对话不在回收站中，无需恢复")
+        }
+        if (rejectConversationArchiveMutation(protectStoppingRun = false)) {
+            return@withContext historyFailure("BUSY", "当前有对话归档任务在执行，请稍后再试")
+        }
+        restoreConversationFromTrash(conversationId)
+        HistoryMutation(ok = true, conversation = historyConversationSnapshot(conversationId) ?: snapshot.copy(deletedAt = null))
+    }
+
+    /** 永久删除：删除内容与图片缓存并退休用量统计，不可恢复。要求目标已在回收站。 */
+    internal suspend fun agentHistoryDeleteConversationForever(conversationId: String): HistoryMutation = withContext(Dispatchers.Main.immediate) {
+        awaitConversationsHydrated()
+        val snapshot = historyConversationSnapshot(conversationId)
+            ?: return@withContext historyFailure("CONVERSATION_NOT_FOUND", "找不到对话：$conversationId")
+        if (snapshot.deletedAt == null) {
+            return@withContext historyFailure("NOT_IN_TRASH", "该对话不在回收站中；请先删除再永久清理")
+        }
+        if (rejectConversationArchiveMutation()) {
+            return@withContext historyFailure("BUSY", "当前有对话归档任务在执行，请稍后再试")
+        }
+        deleteConversationForever(conversationId)
         HistoryMutation(ok = true, conversation = snapshot)
+    }
+
+    /** 清空回收站；返回清理数量。 */
+    internal suspend fun agentHistoryEmptyTrash(): HistoryMutation = withContext(Dispatchers.Main.immediate) {
+        awaitConversationsHydrated()
+        if (rejectConversationArchiveMutation()) {
+            return@withContext historyFailure("BUSY", "当前有对话归档任务在执行，请稍后再试")
+        }
+        val count = conversationDeletedAt.size
+        if (count == 0) return@withContext HistoryMutation(ok = true, deletedConversations = 0)
+        emptyTrash()
+        HistoryMutation(ok = true, deletedConversations = count)
     }
 
     fun sendCurrentMessage(submittedText: String? = null) {
@@ -3337,18 +3494,13 @@ internal class AgentAppState(
 
     private suspend fun resolveCompressModelConfig(
         fallback: AgentModelClient.ModelConfig?,
-        providerId: String? = null,
-        modelId: String? = null,
-        manual: Boolean = false,
     ): AgentModelClient.ModelConfig? {
         val prefs = Prefs.localAgentPreferences()
         val customEnabled = Prefs.isCustomCompressModelEnabled(prefs)
-        val resolvedProviderId = providerId
-            ?: prefs?.takeIf { customEnabled }
-                ?.getString(Prefs.Keys.AGENT_COMPRESS_MODEL_PROVIDER_ID, null)
-        val resolvedModelId = modelId
-            ?: prefs?.takeIf { customEnabled }
-                ?.getString(Prefs.Keys.AGENT_COMPRESS_MODEL_ID, null)
+        val resolvedProviderId = prefs?.takeIf { customEnabled }
+            ?.getString(Prefs.Keys.AGENT_COMPRESS_MODEL_PROVIDER_ID, null)
+        val resolvedModelId = prefs?.takeIf { customEnabled }
+            ?.getString(Prefs.Keys.AGENT_COMPRESS_MODEL_ID, null)
         val resolved = if (resolvedProviderId.isNullOrBlank() || resolvedModelId.isNullOrBlank()) {
             fallback
         } else {
@@ -3364,12 +3516,7 @@ internal class AgentAppState(
                 ?: fallback
         }
         val compressed = resolved?.let(AgentRuntimePolicy::forCompression) ?: return null
-        val endpointKey = if (manual) {
-            Prefs.Keys.AGENT_MANUAL_COMPRESS_ENDPOINT_MODE
-        } else {
-            Prefs.Keys.AGENT_COMPRESS_ENDPOINT_MODE
-        }
-        return AgentCompressionEndpoint.apply(compressed, prefs?.getString(endpointKey, null)).copy(
+        return AgentCompressionEndpoint.apply(compressed, prefs?.getString(Prefs.Keys.AGENT_COMPRESS_ENDPOINT_MODE, null)).copy(
             errorReconnectPolicy = fallback?.errorReconnectPolicy
                 ?: SettingsDataStore.settings().errorReconnectPolicy.persistedValue,
         )
@@ -6640,7 +6787,91 @@ internal class AgentAppState(
             use24HourClock = use24HourClock,
         )
         conversationSummaryCache.retain(conversationsById.keys)
+        // 回收站成员不进正常列表；单独生成回收站快照，排序按删除时间由新到旧。
+        fun buildSummary(id: String, state: AgentChatHomeUiState): ConversationSummaryUi {
+            val lastMessage = state.messages.lastOrNull()
+            val key = ConversationSummaryKey(
+                title = conversationTitles[id].orEmpty(),
+                previewInput = conversationSummaryPreviewInput(lastMessage),
+                createdAtMillis = conversationCreatedAt[id],
+                updatedAtMillis = conversationUpdatedAt[id],
+                isPinned = id in conversationPinned,
+                isActiveRun = state.isStreaming,
+                hasCompletionMarker = id in conversationCompletionMarkers,
+                folderId = conversationFolderIds[id],
+                environment = environment,
+            )
+            // The open conversation's preview changes on every token. Keep the last
+            // summary while it is streaming so the manage list is not rebuilt per delta,
+            // but never keep its old day/locale/zone after the label environment changes.
+            val cached = if (state.isStreaming && id == selectedConversationId) {
+                conversationSummaryCache.current(id, environment)
+            } else {
+                null
+            }
+            return cached ?: conversationSummaryCache.getOrBuild(id, key) {
+                ConversationSummaryUi(
+                    id = id,
+                    title = conversationTitles[id].orEmpty().ifBlank {
+                        appContext.getString(R.string.conversation_unnamed)
+                    },
+                    preview = when (lastMessage) {
+                        is UserMessageUi -> AgentFileReferencePromptCodec
+                            .parse(lastMessage.content)
+                            .let { parsed ->
+                                AgentFileReferencePolicy.titleSource(
+                                    request = parsed.request,
+                                    references = parsed.references,
+                                )
+                            }
+                        is AgentMessageUi -> lastMessage.content.ifBlank {
+                            appContext.getString(R.string.conversation_preview_reasoning)
+                        }
+                        is SystemNoticeMessageUi -> appContext.getString(
+                            when (lastMessage.code) {
+                                SystemNoticeCode.Stopped -> R.string.system_notice_stopped
+                                SystemNoticeCode.EmptyResult -> R.string.system_notice_empty_result
+                                SystemNoticeCode.ModelRetry -> R.string.system_notice_model_retry
+                                SystemNoticeCode.RuntimeFailed -> R.string.system_notice_runtime_failed
+                                SystemNoticeCode.Interrupted -> R.string.system_notice_interrupted
+                                SystemNoticeCode.Completed -> R.string.system_notice_completed
+                            },
+                        )
+                        is ThinkingMessageUi -> appContext.getString(R.string.conversation_preview_reasoning)
+                        is ToolActivityMessageUi -> appContext.getString(
+                            R.string.conversation_preview_tool_call,
+                            lastMessage.toolName,
+                        )
+                        else -> appContext.getString(R.string.conversation_preview_empty)
+                    }.take(MAX_PREVIEW_CHARS),
+                    timeLabel = (conversationCreatedAt[id] ?: conversationUpdatedAt[id])?.let { timestamp ->
+                        ConversationTimeLabels.label(
+                            timestampMillis = timestamp,
+                            nowMillis = nowMillis,
+                            locale = locale,
+                            timeZone = timeZone,
+                            use24HourClock = use24HourClock,
+                            yesterdayLabel = appContext.getString(R.string.time_yesterday),
+                            recentLabel = appContext.getString(R.string.time_recent),
+                        )
+                    } ?: appContext.getString(R.string.time_recent),
+                    updatedAtMillis = conversationUpdatedAt[id] ?: 0L,
+                    createdAtMillis = conversationCreatedAt[id] ?: conversationUpdatedAt[id] ?: 0L,
+                    mode = ConversationModeUi.Chat,
+                    isPinned = id in conversationPinned,
+                    isActiveRun = state.isStreaming,
+                    hasCompletionMarker = id in conversationCompletionMarkers,
+                    folderId = conversationFolderIds[id],
+                    isToday = ConversationTimeLabels.isToday(
+                        timestampMillis = conversationCreatedAt[id] ?: conversationUpdatedAt[id] ?: 0L,
+                        nowMillis = nowMillis,
+                        timeZone = timeZone,
+                    ),
+                )
+            }
+        }
         val summaries = conversationsById.entries
+            .filterNot { (id, _) -> id in conversationDeletedAt }
             .sortedWith(
                 compareByDescending<Map.Entry<String, AgentChatHomeUiState>> { (id, _) ->
                     id in conversationPinned
@@ -6648,87 +6879,18 @@ internal class AgentAppState(
                     conversationCreatedAt[id] ?: conversationUpdatedAt[id] ?: 0L
                 },
             )
+            .map { (id, state) -> buildSummary(id, state) }
+        val trashSummaries = conversationsById.entries
+            .filter { (id, _) -> id in conversationDeletedAt }
+            .sortedWith(
+                compareByDescending<Map.Entry<String, AgentChatHomeUiState>> { (id, _) ->
+                    conversationDeletedAt[id] ?: 0L
+                }.thenBy { (id, _) -> id },
+            )
             .map { (id, state) ->
-                val lastMessage = state.messages.lastOrNull()
-                val key = ConversationSummaryKey(
-                    title = conversationTitles[id].orEmpty(),
-                    previewInput = conversationSummaryPreviewInput(lastMessage),
-                    createdAtMillis = conversationCreatedAt[id],
-                    updatedAtMillis = conversationUpdatedAt[id],
-                    isPinned = id in conversationPinned,
-                    isActiveRun = state.isStreaming,
-                    hasCompletionMarker = id in conversationCompletionMarkers,
-                    folderId = conversationFolderIds[id],
-                    environment = environment,
-                )
-                // The open conversation's preview changes on every token. Keep the last
-                // summary while it is streaming so the manage list is not rebuilt per delta,
-                // but never keep its old day/locale/zone after the label environment changes.
-                val cached = if (state.isStreaming && id == selectedConversationId) {
-                    conversationSummaryCache.current(id, environment)
-                } else {
-                    null
-                }
-                cached ?: conversationSummaryCache.getOrBuild(id, key) {
-                    ConversationSummaryUi(
-                        id = id,
-                        title = conversationTitles[id].orEmpty().ifBlank {
-                            appContext.getString(R.string.conversation_unnamed)
-                        },
-                        preview = when (lastMessage) {
-                            is UserMessageUi -> AgentFileReferencePromptCodec
-                                .parse(lastMessage.content)
-                                .let { parsed ->
-                                    AgentFileReferencePolicy.titleSource(
-                                        request = parsed.request,
-                                        references = parsed.references,
-                                    )
-                                }
-                            is AgentMessageUi -> lastMessage.content.ifBlank {
-                                appContext.getString(R.string.conversation_preview_reasoning)
-                            }
-                            is SystemNoticeMessageUi -> appContext.getString(
-                                when (lastMessage.code) {
-                                    SystemNoticeCode.Stopped -> R.string.system_notice_stopped
-                                    SystemNoticeCode.EmptyResult -> R.string.system_notice_empty_result
-                                    SystemNoticeCode.ModelRetry -> R.string.system_notice_model_retry
-                                    SystemNoticeCode.RuntimeFailed -> R.string.system_notice_runtime_failed
-                                    SystemNoticeCode.Interrupted -> R.string.system_notice_interrupted
-                                    SystemNoticeCode.Completed -> R.string.system_notice_completed
-                                },
-                            )
-                            is ThinkingMessageUi -> appContext.getString(R.string.conversation_preview_reasoning)
-                            is ToolActivityMessageUi -> appContext.getString(
-                                R.string.conversation_preview_tool_call,
-                                lastMessage.toolName,
-                            )
-                            else -> appContext.getString(R.string.conversation_preview_empty)
-                        }.take(MAX_PREVIEW_CHARS),
-                        timeLabel = (conversationCreatedAt[id] ?: conversationUpdatedAt[id])?.let { timestamp ->
-                            ConversationTimeLabels.label(
-                                timestampMillis = timestamp,
-                                nowMillis = nowMillis,
-                                locale = locale,
-                                timeZone = timeZone,
-                                use24HourClock = use24HourClock,
-                                yesterdayLabel = appContext.getString(R.string.time_yesterday),
-                                recentLabel = appContext.getString(R.string.time_recent),
-                            )
-                        } ?: appContext.getString(R.string.time_recent),
-                        updatedAtMillis = conversationUpdatedAt[id] ?: 0L,
-                        createdAtMillis = conversationCreatedAt[id] ?: conversationUpdatedAt[id] ?: 0L,
-                        mode = ConversationModeUi.Chat,
-                        isPinned = id in conversationPinned,
-                        isActiveRun = state.isStreaming,
-                        hasCompletionMarker = id in conversationCompletionMarkers,
-                        folderId = conversationFolderIds[id],
-                        isToday = ConversationTimeLabels.isToday(
-                            timestampMillis = conversationCreatedAt[id] ?: conversationUpdatedAt[id] ?: 0L,
-                            nowMillis = nowMillis,
-                            timeZone = timeZone,
-                        ),
-                    )
-                }
+                // 回收站行的副文本是「删除于 …」而不是会话时间：copy 覆盖展示字段，
+                // 不改 ConversationSummaryKey，缓存照常命中。
+                buildSummary(id, state).copy(timeLabel = trashDeletedLabel(id, nowMillis))
             }
         val folderVisible = summaries.filterForFolder(selectedFolderId)
         conversationPaneState = conversationPaneState.copy(
@@ -6739,7 +6901,21 @@ internal class AgentAppState(
             folders = conversationFolders,
             selectedFolderId = selectedFolderId,
             historyConversations = summaries,
+            trashConversations = trashSummaries,
         )
+    }
+
+    /** 回收站行的副文本：按软删除时间生成「今天/昨天/N 天前删除」。 */
+    private fun trashDeletedLabel(id: String, nowMillis: Long): String {
+        val deletedAt = conversationDeletedAt[id]
+            ?: return appContext.getString(R.string.time_recent)
+        val deletedDate = Instant.ofEpochMilli(deletedAt).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+        val today = Instant.ofEpochMilli(nowMillis).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+        return when (val days = ChronoUnit.DAYS.between(deletedDate, today)) {
+            in Long.MIN_VALUE..0L -> appContext.getString(R.string.trash_deleted_today)
+            1L -> appContext.getString(R.string.trash_deleted_yesterday)
+            else -> appContext.getString(R.string.trash_deleted_days_ago, days)
+        }
     }
 
     private fun retainDeletedConversation(
@@ -6770,6 +6946,7 @@ internal class AgentAppState(
         val folderIds: Map<String, String>,
         val pinnedIds: Set<String>,
         val completionMarkerIds: Set<String>,
+        val deletedAt: Map<String, Long>,
         val folders: List<ConversationFolderUi>,
         val retired: ConversationTokenUsageUi,
         val retiredConversations: Int,
@@ -6812,7 +6989,8 @@ internal class AgentAppState(
         return synchronized(persistenceLock) {
             val snapshot = ConversationSaveSnapshot(
                 selectedConversationId, conversationsById, conversationTitles, conversationUpdatedAt,
-                conversationFolderIds, conversationPinned, conversationCompletionMarkers, conversationFolders,
+                conversationFolderIds, conversationPinned, conversationCompletionMarkers, conversationDeletedAt,
+                conversationFolders,
                 pendingRetiredUsage, pendingRetiredConversations, pendingRetiredMessages, pendingRetiredHeatmap,
             )
             pendingRetiredUsage = ConversationTokenUsageUi()
@@ -6832,7 +7010,7 @@ internal class AgentAppState(
                     conversationsById = snapshot.conversations, titles = snapshot.titles,
                     updatedAt = snapshot.timestamps, folderIds = snapshot.folderIds,
                     pinnedIds = snapshot.pinnedIds, completionMarkerIds = snapshot.completionMarkerIds,
-                    folders = snapshot.folders,
+                    folders = snapshot.folders, deletedAt = snapshot.deletedAt,
                 )
                 SettingsDataStore.addRetiredUsage(
                     inputTokens = snapshot.retired.inputTokens,
@@ -6962,6 +7140,9 @@ internal class AgentAppState(
         // A 120 Hz frame is 8.33 ms; reserve most of it for Compose/layout/draw.
         const val STREAM_EVENT_FRAME_BUDGET_NS = 2_000_000L
 
+        /** 一天的毫秒数，用于回收站留存期计算。 */
+        const val DAY_MILLIS = 24L * 60L * 60L * 1000L
+
         fun emptyChatState(thinkingEnabled: Boolean): AgentChatHomeUiState =
             AgentChatHomeUiState(
                 messages = emptyList(),
@@ -6993,8 +7174,6 @@ internal class AgentAppState(
 
     /** Capture the selected task at click time; later selection changes cannot retarget this request. */
     fun compressCurrentConversation(
-        providerId: String?,
-        modelId: String?,
         onFinished: (Boolean) -> Unit,
     ) {
         if (rejectConversationArchiveMutation()) {
@@ -7013,9 +7192,8 @@ internal class AgentAppState(
             onFinished(true)
             scope.launch(Dispatchers.IO) {
                 val sent = runCatching {
-                    val config = if (providerId.isNullOrBlank() || modelId.isNullOrBlank()) null else
-                        resolveCompressModelConfig(null, providerId, modelId, manual = true)
-                    AgentChildTaskGroups.requestCompact(ownerId, targetId, keepRecentFor(), config)
+                    // 模型与端点统一取压缩设置页里的偏好，不再有独立的手动压缩配置。
+                    AgentChildTaskGroups.requestCompact(ownerId, targetId, keepRecentFor(), null)
                 }.getOrDefault(false)
                 if (!sent) withContext(Dispatchers.Main) {
                     Toast.makeText(appContext, appContext.getString(R.string.appst_compact_request_unconfirmed), Toast.LENGTH_LONG).show()
@@ -7023,7 +7201,6 @@ internal class AgentAppState(
             }
             return
         }
-        persistCompressPreferences(providerId, modelId)
         val runInFlight = homeState.isStreaming || homeState.isPaused
         val busyWithOtherConversation = compressionJob?.isActive == true &&
             compressionJobConversationId != selectedConversationId
@@ -7054,18 +7231,13 @@ internal class AgentAppState(
             requestInRunCompress(
                 conversationId,
                 keepRecentMessages,
-                providerId,
-                modelId,
             )
             return
         }
         setConversationWaitingForCompression(conversationId, true)
         pendingManualCompress = PendingManualCompress(
             conversationId = conversationId,
-            providerId = providerId,
-            modelId = modelId,
             keepRecent = keepRecentMessages,
-
             resumeAfter = false,
         )
         startPendingManualCompress()
@@ -7075,8 +7247,6 @@ internal class AgentAppState(
     private fun requestInRunCompress(
         conversationId: String?,
         keepRecent: Int,
-        providerId: String? = null,
-        modelId: String? = null,
     ) {
         val runId = runIdForConversation(conversationId) ?: run {
             Toast.makeText(appContext, appContext.getString(R.string.appst_compact_run_ended), Toast.LENGTH_LONG).show()
@@ -7090,9 +7260,6 @@ internal class AgentAppState(
             val sent = try {
                 val model = resolveCompressModelConfig(
                     fallback = runtimeConfigForBoundModel(snapshot, assistant = null),
-                    providerId = providerId,
-                    modelId = modelId,
-                    manual = true,
                 )
                 model != null && AgentRuntimeClient(appContext, AndroidAgentLogger).compactRun(
                     runId = runId,
@@ -7185,14 +7352,7 @@ internal class AgentAppState(
                 }
                 val originalHistory = snapshot.history
                 val fallback = runtimeConfigForBoundModel(snapshot, assistant = null)
-                    ?: if (request.providerId.isNullOrBlank() || request.modelId.isNullOrBlank()) null else
-                        RuntimeConfigRepository.configForProviderAndModel(request.providerId, request.modelId, assistant = null)
-                val modelConfig = resolveCompressModelConfig(
-                    fallback = fallback,
-                    providerId = request.providerId,
-                    modelId = request.modelId,
-                    manual = true,
-                )
+                val modelConfig = resolveCompressModelConfig(fallback = fallback)
                 if (modelConfig == null) {
                     withContext(Dispatchers.Main) {
                         Toast.makeText(
@@ -7309,16 +7469,6 @@ internal class AgentAppState(
         }
     }
 
-    private fun persistCompressPreferences(
-        providerId: String?,
-        modelId: String?,
-    ) {
-        if (!providerId.isNullOrBlank() && !modelId.isNullOrBlank()) {
-            Prefs.putString(Prefs.Keys.AGENT_MANUAL_COMPRESS_MODEL_PROVIDER_ID, providerId)
-            Prefs.putString(Prefs.Keys.AGENT_MANUAL_COMPRESS_MODEL_ID, modelId)
-        }
-    }
-
     private fun applyManualCompressedHistory(
         conversationId: String?,
         originalHistory: List<AgentModelClient.ConversationMessage>,
@@ -7394,8 +7544,6 @@ private val RESUME_AFTER_COMPRESS_PROMPT =
 
 private data class PendingManualCompress(
     val conversationId: String?,
-    val providerId: String?,
-    val modelId: String?,
     val keepRecent: Int,
 
     val resumeAfter: Boolean = false,
@@ -7566,6 +7714,17 @@ internal fun buildToolsState(context: Context): AgentToolsUiState =
                 tools = listOf(
                     ToolItemUi("memory_get", context.getString(R.string.tool_ui_read_memory_979135), context.getString(R.string.tool_ui_paged_to_read_or_retrieve_long_term_memory_in_me_88afc4)),
                     ToolItemUi("memory_write", context.getString(R.string.tool_ui_organize_memory_2b08eb), context.getString(R.string.tool_ui_partially_update_append_or_clear_long_term_memor_c1bab6)),
+                ),
+            ),
+            ToolGroupUi(
+                id = "media_search",
+                title = context.getString(R.string.tool_group_media_search),
+                tools = listOf(
+                    ToolItemUi(
+                        "semantic_search_media",
+                        context.getString(R.string.tool_ui_semantic_search_media),
+                        context.getString(R.string.tool_ui_semantic_search_media_summary),
+                    ),
                 ),
             ),
             ToolGroupUi(

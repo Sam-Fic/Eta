@@ -26,6 +26,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Info
@@ -75,6 +77,7 @@ import io.github.mangi.eta.ui.AgentTaskSurfacePrompt
 import io.github.mangi.eta.ui.AppearanceSettingsScreen
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.EtaPickerSheet
 import io.github.mangi.eta.ui.components.LocalShellTopBarInset
 import io.github.mangi.eta.ui.HapticsSettingsScreen
 import io.github.mangi.eta.ui.ErrorReconnectSettingsScreen
@@ -88,6 +91,7 @@ import io.github.mangi.eta.ui.model.AgentMemoryAction
 import io.github.mangi.eta.ui.model.AgentSkillsAction
 import io.github.mangi.eta.ui.model.AgentSystemEnhanceAction
 import io.github.mangi.eta.ui.model.AgentToolsAction
+import io.github.mangi.eta.ui.model.ConversationFolderUi
 import io.github.mangi.eta.ui.model.ConversationSummaryUi
 import io.github.mangi.eta.ui.model.PermissionHealthAction
 import io.github.mangi.eta.ui.navigation.AgentNavigator
@@ -105,6 +109,8 @@ import io.github.mangi.eta.ui.screens.browser.AgentBrowserScreen
 import io.github.mangi.eta.ui.screens.chat.AgentChatScreen
 import io.github.mangi.eta.ui.screens.chat.ConversationTokenUsageScreen
 import io.github.mangi.eta.ui.screens.chat.ManageChatsScreen
+import io.github.mangi.eta.ui.screens.chat.TrashScreen
+import io.github.mangi.eta.ui.screens.chat.TrashSearchScreen
 import io.github.mangi.eta.ui.screens.chat.MessageSearchScreen
 import io.github.mangi.eta.ui.screens.chat.SubAgentStatusScreen
 import io.github.mangi.eta.ui.screens.enhance.SystemEnhanceScreen
@@ -239,14 +245,12 @@ fun AgentAppRoot(
 
 
     var conversationPaneOpen by remember { mutableStateOf(false) }
-    var browserSheetVisible by rememberSaveable { mutableStateOf(false) }
     val diagnosticLoggingEnabled by remember {
         io.github.mangi.eta.data.datastore.SettingsDataStore.fileLoggingEnabledFlow()
     }.collectAsState(initial = false)
     io.github.mangi.eta.ui.components.StreamPerformanceMonitor(
         loggingEnabled = diagnosticLoggingEnabled,
         page = when {
-            browserSheetVisible -> io.github.mangi.eta.ui.components.FrameDiagnosticPage.BrowserOverlay
             conversationPaneOpen -> io.github.mangi.eta.ui.components.FrameDiagnosticPage.ConversationDrawer
             else -> currentRoute?.frameDiagnosticPage()
                 ?: io.github.mangi.eta.ui.components.FrameDiagnosticPage.Unknown
@@ -373,10 +377,8 @@ fun AgentAppRoot(
             focusManager.clearFocus(force = true)
             keyboard?.hide()
             conversationPaneOpen = false
-            browserSheetVisible = true
-        } else {
-            navigator.push(route)
         }
+        navigator.push(route)
     }
 
     fun pushFromDrawer(route: AppRoute) {
@@ -403,8 +405,19 @@ fun AgentAppRoot(
         ).show()
     }
 
+    /**
+     * 回到承载对话的页面（首页或独立会话页）。
+     *
+     * 搜索命中点开后要直接落在对话里：从管理聊天页进来时栈是
+     * `Home → ManageChats → MessageSearch`，只弹一层会停在管理聊天页。
+     */
+    fun popToConversation() {
+        navigator.popToConversationHost()
+        exitGuard.reset()
+    }
+
     // NavHost 只在还能出栈时消费返回；根页面必须自己接住，否则系统会直接 finish Activity。
-    val interceptExitBack = navRoutes.size <= 1 && !conversationPaneOpen && !browserSheetVisible
+    val interceptExitBack = navRoutes.size <= 1 && !conversationPaneOpen
     val exitBackState = rememberNavigationEventState(NavigationEventInfo.None)
     NavigationBackHandler(
         state = exitBackState,
@@ -479,13 +492,7 @@ fun AgentAppRoot(
             else shellHomeState.childContexts.any { it.taskId == shellHomeState.selectedContextTaskId &&
                 (it.isCompacting || it.manualCompactionState == "pending") },
             onToggleAutoCompress = { agentState.updateAutoCompressEnabled(it) },
-            onCompressConversation = { providerId, modelId, onFinished ->
-                agentState.compressCurrentConversation(
-                    providerId,
-                    modelId,
-                    onFinished,
-                )
-            },
+            onOpenCompressConversation = { pushRoute(AppRoute.ContextCompression) },
             onOpenSearchHistory = { pushRoute(AppRoute.MessageSearch(conversationScoped = true)) },
             onOpenTokenUsage = { pushRoute(AppRoute.ConversationTokenUsage) },
             onOpenSubAgentStatus = { pushRoute(AppRoute.SubAgentStatus) },
@@ -517,6 +524,10 @@ fun AgentAppRoot(
             onCreateFolder = { name -> agentState.createFolder(name) },
             onRenameFolder = { folderId, name -> agentState.renameFolder(folderId, name) },
             onDeleteFolder = { folderId -> agentState.deleteFolder(folderId) },
+            onRestoreConversation = { conversationId -> agentState.restoreConversationFromTrash(conversationId) },
+            onConversationDeleteForever = { conversationId -> agentState.deleteConversationForever(conversationId) },
+            onEmptyTrash = { agentState.emptyTrash() },
+            onOpenTrash = { pushFromDrawer(AppRoute.ConversationTrash) },
             onSelectAssistant = { id -> agentState.selectAssistant(id) },
             onEditAssistant = { id -> pushFromDrawer(AppRoute.AssistantEdit(id)) },
             onOpenAssistants = { pushFromDrawer(AppRoute.Assistants()) },
@@ -651,6 +662,8 @@ fun AgentAppRoot(
                                 AgentHomeAction.OpenSettings -> pushRoute(AppRoute.Settings)
                                 AgentHomeAction.OpenBrowser -> pushRoute(AppRoute.Browser)
                                 is AgentHomeAction.EditAssistant -> pushRoute(AppRoute.AssistantEdit(action.id))
+                                AgentHomeAction.OpenModelProviders -> pushRoute(AppRoute.ModelProviders)
+                                AgentHomeAction.OpenAssistants -> pushRoute(AppRoute.Assistants())
                                 AgentHomeAction.ExpandRunTrace -> Unit
                             }
                         },
@@ -693,6 +706,8 @@ fun AgentAppRoot(
                                 is AgentChatAction.AssistantSelected -> agentState.selectAssistant(action.id)
                                 AgentChatAction.OpenBrowser -> pushRoute(AppRoute.Browser)
                                 is AgentChatAction.EditAssistant -> pushRoute(AppRoute.AssistantEdit(action.id))
+                                AgentChatAction.OpenModelProviders -> pushRoute(AppRoute.ModelProviders)
+                                AgentChatAction.OpenAssistants -> pushRoute(AppRoute.Assistants())
                                 is AgentChatAction.ImageAttached -> agentState.attachImage(action.uri)
                                 is AgentChatAction.VideoAttached -> agentState.attachVideo(action.uri)
                                 is AgentChatAction.RemoveImage -> agentState.removePendingImage(action.id)
@@ -721,15 +736,16 @@ fun AgentAppRoot(
                                 is AgentChatAction.SubmitQuestionAnswer -> agentState.submitQuestionAnswer(action.conversationId, action.questionId)
                             }
                         },
+                        scrollToMessageId = agentState.pendingScrollToMessageId,
+                        onScrollToMessageConsumed = agentState::consumePendingScrollToMessage,
                     )
                 }
             }
             composable<AppRoute.Browser> {
-                // Migrate a restored legacy route to a modal over the preceding screen.
-                LaunchedEffect(Unit) {
-                    navigator.pop()
-                    browserSheetVisible = true
-                }
+                AgentBrowserScreen(
+                    onBack = ::popRoute,
+                    conversationId = agentState.conversationPaneState.selectedConversationId,
+                )
             }
             composable<AppRoute.Terminal> {
                 LaunchedEffect(Unit) { requestExecutionNotifications() }
@@ -944,6 +960,37 @@ fun AgentAppRoot(
                     onOpenSearchHistory = { pushRoute(AppRoute.MessageSearch()) },
                 )
             }
+            composable<AppRoute.ConversationTrash> {
+                TrashScreen(
+                    trash = agentState.conversationPaneState.trashConversations,
+                    onBack = ::popRoute,
+                    onRestore = { conversationId ->
+                        agentState.restoreConversationFromTrash(conversationId)
+                    },
+                    onDeleteForever = { conversationId ->
+                        agentState.deleteConversationForever(conversationId)
+                    },
+                    onEmptyTrash = { agentState.emptyTrash() },
+                    onPurgeExpired = { agentState.purgeExpiredTrash() },
+                    onOpenSearch = { pushRoute(AppRoute.ConversationTrashSearch) },
+                )
+            }
+            composable<AppRoute.ConversationTrashSearch> {
+                TrashSearchScreen(
+                    onSearch = { query ->
+                        agentState.conversationPaneState.trashConversations.filter {
+                            it.title.contains(query, ignoreCase = true)
+                        }
+                    },
+                    onBack = ::popRoute,
+                    onRestore = { conversationId ->
+                        agentState.restoreConversationFromTrash(conversationId)
+                    },
+                    onDeleteForever = { conversationId ->
+                        agentState.deleteConversationForever(conversationId)
+                    },
+                )
+            }
             composable<AppRoute.MessageSearch> { entry ->
                 val route = entry.toRoute<AppRoute.MessageSearch>()
                 MessageSearchScreen(
@@ -956,7 +1003,8 @@ fun AgentAppRoot(
                     onOpenHit = { hit ->
                         conversationPaneOpen = false
                         agentState.openHistorySearchHit(hit)
-                        popRoute()
+                        // 回到对话本体：命中的是哪条消息，就落在哪条消息上。
+                        popToConversation()
                     },
                     onBack = ::popRoute,
                     // 跨会话检索时命中行要标出所属会话，会话内检索则省掉这层噪音。
@@ -984,6 +1032,18 @@ fun AgentAppRoot(
                     onBack = ::popRoute,
                     currentProviderId = shellHomeState.providerId,
                     currentModelId = shellHomeState.modelId,
+                )
+            }
+            composable<AppRoute.MediaSearch> {
+                io.github.mangi.eta.ui.screens.search.MediaSearchScreen(
+                    onNavigate = { route -> pushRoute(route) },
+                    onBack = ::popRoute,
+                )
+            }
+            composable<AppRoute.MediaIndexSettings> {
+                io.github.mangi.eta.ui.screens.settings.MediaIndexSettingsScreen(
+                    onNavigate = { route -> pushRoute(route) },
+                    onBack = ::popRoute,
                 )
             }
             composable<AppRoute.SettingsSearch> {
@@ -1046,6 +1106,8 @@ fun AgentAppRoot(
                         appViewModel.refreshKimiWeb()
                         summary
                     },
+                    onExportModels = agentState::exportModels,
+                    onImportModels = agentState::importModels,
                 )
             }
             composable<AppRoute.Memory> {
@@ -1127,8 +1189,15 @@ fun AgentAppRoot(
             }
             composable<AppRoute.ContextCompression> {
                 ContextCompressionSettingsScreen(
-                    context = context,
+                    isCompressing = if (shellHomeState.selectedContextTaskId == null)
+                        shellHomeState.isCompressingContext || shellHomeState.isWaitingForCompression
+                    else shellHomeState.childContexts.any { it.taskId == shellHomeState.selectedContextTaskId &&
+                        (it.isCompacting || it.manualCompactionState == "pending") },
                     onBack = ::popRoute,
+                    onCompress = { onFinished ->
+                        // 模型与端点取本页配置（与自动压缩同一份偏好），不再单独维护手动压缩配置。
+                        agentState.compressCurrentConversation(onFinished)
+                    },
                 )
             }
             composable<AppRoute.Assistants> { entry ->
@@ -1177,10 +1246,6 @@ fun AgentAppRoot(
     }
 
     AgentPendingChildStopDialog(agentState.conversationPaneState.selectedConversationId)
-
-    if (browserSheetVisible) {
-        AgentBrowserScreen(onDismiss = { browserSheetVisible = false }, conversationId = agentState.conversationPaneState.selectedConversationId)
-    }
 
     conversationRenameTarget?.let { conversation ->
         var renameInput by remember(conversation.id) { mutableStateOf(conversation.title) }
@@ -1260,7 +1325,7 @@ fun AgentAppRoot(
             onDismissRequest = { conversationDeleteTarget = null },
             actions = {
                 EtaDialogActions(
-                    confirmText = stringResource(R.string.action_delete),
+                    confirmText = stringResource(R.string.conversation_move_to_trash),
                     destructive = true,
                     onCancel = { conversationDeleteTarget = null },
                     onConfirm = {
@@ -1274,42 +1339,15 @@ fun AgentAppRoot(
     }
 
     conversationMoveTarget?.let { conversation ->
-        EtaDialog(
-            show = true,
-            title = stringResource(R.string.drawer_move_to_folder),
-            onDismissRequest = { conversationMoveTarget = null },
-            actions = {
-                // 分组可能很多：按弹窗列表约定给 360dp 上限并允许滚动，
-                // 避免移出 text 槽后失去高度约束被弹窗裁切。
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 360.dp)
-                        .verticalScroll(rememberScrollState()),
-                ) {
-                    val folders = agentState.conversationPaneState.folders
-                    MoveFolderOption(
-                        label = stringResource(R.string.drawer_chats_chip),
-                        selected = conversation.folderId.isNullOrBlank(),
-                        onClick = {
-                            agentState.moveConversationToFolder(conversation.id, null)
-                            conversationMoveTarget = null
-                        },
-                    )
-                    folders.forEach { folder ->
-                        MoveFolderOption(
-                            label = folder.name,
-                            selected = conversation.folderId == folder.id,
-                            onClick = {
-                                agentState.moveConversationToFolder(conversation.id, folder.id)
-                                conversationMoveTarget = null
-                            },
-                        )
-                    }
-                }
+        MoveToFolderSheet(
+            folders = agentState.conversationPaneState.folders,
+            currentFolderId = conversation.folderId,
+            onMove = { folderId ->
+                agentState.moveConversationToFolder(conversation.id, folderId)
+                conversationMoveTarget = null
             },
-        ) {
-        }
+            onDismiss = { conversationMoveTarget = null },
+        )
     }
 
     messageDeleteTarget?.let { target ->
@@ -1383,6 +1421,56 @@ private data class MessageMutationTarget(
     val messageId: String,
     val laterTurnCount: Int,
 )
+
+@Composable
+private fun MoveToFolderSheet(
+    folders: List<ConversationFolderUi>,
+    currentFolderId: String?,
+    onMove: (String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var query by remember { mutableStateOf("") }
+    val visible = remember(folders, query) {
+        val needle = query.trim()
+        if (needle.isEmpty()) folders
+        else folders.filter { it.name.contains(needle, ignoreCase = true) }
+    }
+    EtaPickerSheet(
+        title = stringResource(R.string.drawer_move_to_folder),
+        onDismiss = onDismiss,
+        query = query,
+        onQueryChange = { query = it },
+        searchPlaceholder = stringResource(R.string.drawer_search_folder),
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(max = 480.dp)
+                .verticalScroll(rememberScrollState()),
+        ) {
+            MoveFolderOption(
+                label = stringResource(R.string.drawer_uncategorized_chip),
+                selected = currentFolderId.isNullOrBlank(),
+                onClick = { onMove(null) },
+            )
+            if (visible.isEmpty() && query.isNotBlank()) {
+                Text(
+                    text = stringResource(R.string.ui_no_matching_options),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                )
+            }
+            visible.forEach { folder ->
+                MoveFolderOption(
+                    label = folder.name,
+                    selected = currentFolderId == folder.id,
+                    onClick = { onMove(folder.id) },
+                )
+            }
+        }
+    }
+}
 
 private data class ShellHomeState(
     val selectedContextTaskId: String?,

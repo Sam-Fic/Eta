@@ -40,6 +40,7 @@ import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Smartphone
 import androidx.compose.material.icons.rounded.Terminal
+import androidx.compose.material.icons.rounded.TravelExplore
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material.icons.rounded.VerifiedUser
@@ -66,6 +67,7 @@ import io.github.mangi.eta.config.PowerAssistantTarget
 import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.core.AppFileLogger
 import io.github.mangi.eta.data.datastore.SettingsDataStore
+import io.github.mangi.eta.data.repository.AppUpdateRepository
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 import io.github.mangi.eta.ui.app.EnhancementSettingsHistory
@@ -89,6 +91,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import io.github.mangi.eta.ui.components.LanguagePreference
+import io.github.mangi.eta.ui.components.TrashRetentionPreference
 import io.github.mangi.eta.ui.components.SwitchPreference
 import androidx.compose.material3.Text as M3Text
 import io.github.mangi.eta.ui.adaptive.EtaGroupHorizontalPadding
@@ -408,23 +411,15 @@ internal fun SettingsScreen(
                 }
 
                 row {
+                    TrashRetentionPreference()
+                }
+
+                row {
                     EtaClickableRow(
                         title = stringResource(R.string.haptics_list),
                         summary = stringResource(R.string.haptics_entry_summary),
                         leading = { PreferenceIcon(Icons.Rounded.Vibration) },
                         onClick = { onNavigate(AppRoute.Haptics) },
-                    )
-                }
-
-                row {
-                    EtaClickableRow(
-                        title = stringResource(R.string.ui_about_bed172),
-                        leading = {
-                            PreferenceIcon(
-                                icon = Icons.Rounded.Info,
-                            )
-                        },
-                        onClick = { onNavigate(AppRoute.About) },
                     )
                 }
             }
@@ -510,6 +505,26 @@ internal fun SettingsScreen(
                         summary = stringResource(R.string.settings_self_settings_tools_summary),
                         key = Prefs.Keys.AGENT_SELF_SETTINGS_TOOLS,
                         icon = Icons.Rounded.Tune,
+                    )
+                }
+
+                row {
+                    SwitchPref(
+                        context = context,
+                        prefs = agentPrefs,
+                        title = stringResource(R.string.settings_media_search_tools),
+                        summary = stringResource(R.string.settings_media_search_tools_summary),
+                        key = Prefs.Keys.AGENT_MEDIA_SEARCH_TOOLS,
+                        icon = Icons.Rounded.TravelExplore,
+                    )
+                }
+
+                row {
+                    EtaClickableRow(
+                        title = stringResource(R.string.media_settings_entry_title),
+                        summary = stringResource(R.string.media_settings_entry_summary),
+                        leading = { PreferenceIcon(Icons.Rounded.TravelExplore) },
+                        onClick = { onNavigate(AppRoute.MediaIndexSettings) },
                     )
                 }
             }
@@ -689,6 +704,29 @@ internal fun SettingsScreen(
                             enabled = prefs != null && !accessibilityProtectionPending,
                         )
                     }
+                }
+            }
+
+            // ── 关于（固定收尾，保持整页最后一组）─────────────────────────
+            settingsGroup(
+                title = { stringResource(R.string.ui_about_bed172) },
+                sectionModifier = Modifier,
+            ) {
+                row {
+                    val versionName = remember { AppUpdateRepository.currentVersionName(context) }
+                    EtaClickableRow(
+                        title = stringResource(R.string.app_name),
+                        summary = stringResource(
+                            R.string.update_current_version,
+                            versionName.ifBlank { stringResource(R.string.update_unknown_version) },
+                        ),
+                        leading = {
+                            PreferenceIcon(
+                                icon = Icons.Rounded.Info,
+                            )
+                        },
+                        onClick = { onNavigate(AppRoute.About) },
+                    )
                 }
             }
         }

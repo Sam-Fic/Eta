@@ -48,8 +48,12 @@ internal fun AppRoute.frameDiagnosticPage(): FrameDiagnosticPage = when (this) {
     is AppRoute.AssistantEdit -> FrameDiagnosticPage.AssistantEdit
     AppRoute.UsageStats -> FrameDiagnosticPage.UsageStats
     AppRoute.ManageChats -> FrameDiagnosticPage.ManageChats
+    AppRoute.ConversationTrash -> FrameDiagnosticPage.ManageChats
+    AppRoute.ConversationTrashSearch -> FrameDiagnosticPage.ManageChats
     is AppRoute.MessageSearch -> FrameDiagnosticPage.ManageChats
     AppRoute.ConversationTokenUsage -> FrameDiagnosticPage.UsageStats
     AppRoute.SubAgentStatus -> FrameDiagnosticPage.SubAgents
     AppRoute.TerminalDaemonTasks -> FrameDiagnosticPage.Terminal
+    AppRoute.MediaSearch -> FrameDiagnosticPage.Settings
+    AppRoute.MediaIndexSettings -> FrameDiagnosticPage.Settings
 }

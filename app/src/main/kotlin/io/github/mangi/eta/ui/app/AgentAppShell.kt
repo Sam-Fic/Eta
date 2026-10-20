@@ -90,11 +90,7 @@ internal fun AgentAppShell(
     autoCompressEnabled: Boolean = false,
     isCompressingContext: Boolean = false,
     onToggleAutoCompress: (Boolean) -> Unit = {},
-    onCompressConversation: (
-        providerId: String?,
-        modelId: String?,
-        onFinished: (Boolean) -> Unit,
-    ) -> Unit = { _, _, done -> done(false) },
+    onOpenCompressConversation: () -> Unit = {},
     onOpenSearchHistory: () -> Unit = {},
     onOpenTokenUsage: () -> Unit = {},
     onOpenSubAgentStatus: () -> Unit = {},
@@ -110,6 +106,10 @@ internal fun AgentAppShell(
     onCreateFolder: (String) -> Unit = {},
     onRenameFolder: (String, String) -> Unit = { _, _ -> },
     onDeleteFolder: (String) -> Unit = {},
+    onRestoreConversation: (String) -> Unit = {},
+    onConversationDeleteForever: (String) -> Unit = {},
+    onEmptyTrash: () -> Unit = {},
+    onOpenTrash: () -> Unit = {},
     selectedAssistantId: String = "",
     onSelectAssistant: (String) -> Unit = {},
     onEditAssistant: (String) -> Unit = {},
@@ -202,7 +202,7 @@ internal fun AgentAppShell(
                             autoCompressEnabled = autoCompressEnabled,
                             isCompressingContext = isCompressingContext,
                             onToggleAutoCompress = onToggleAutoCompress,
-                            onCompressConversation = onCompressConversation,
+                            onOpenCompressConversation = onOpenCompressConversation,
                             onOpenSearchHistory = onOpenSearchHistory,
                             onOpenTokenUsage = onOpenTokenUsage,
                             onOpenSubAgentStatus = onOpenSubAgentStatus,
@@ -248,6 +248,10 @@ internal fun AgentAppShell(
                 onCreateFolder = onCreateFolder,
                 onRenameFolder = onRenameFolder,
                 onDeleteFolder = onDeleteFolder,
+                onRestoreConversation = onRestoreConversation,
+                onConversationDeleteForever = onConversationDeleteForever,
+                onEmptyTrash = onEmptyTrash,
+                onOpenTrash = onOpenTrash,
                 selectedAssistantId = selectedAssistantId,
                 onSelectAssistant = onSelectAssistant,
                 onEditAssistant = onEditAssistant,
@@ -288,11 +292,7 @@ private fun AgentTopBar(
     autoCompressEnabled: Boolean = false,
     isCompressingContext: Boolean = false,
     onToggleAutoCompress: (Boolean) -> Unit = {},
-    onCompressConversation: (
-        providerId: String?,
-        modelId: String?,
-        onFinished: (Boolean) -> Unit,
-    ) -> Unit = { _, _, done -> done(false) },
+    onOpenCompressConversation: () -> Unit = {},
     onOpenSearchHistory: () -> Unit = {},
     onOpenTokenUsage: () -> Unit = {},
     onOpenSubAgentStatus: () -> Unit = {},
@@ -357,7 +357,7 @@ private fun AgentTopBar(
                 autoCompressEnabled = autoCompressEnabled,
                 isCompressingContext = isCompressingContext,
                 onToggleAutoCompress = onToggleAutoCompress,
-                onCompressConversation = onCompressConversation,
+                onOpenCompressConversation = onOpenCompressConversation,
                 onOpenSearchHistory = onOpenSearchHistory,
                 onOpenTokenUsage = onOpenTokenUsage,
                 onOpenSubAgentStatus = onOpenSubAgentStatus,
@@ -394,7 +394,7 @@ private fun AgentTopBar(
             autoCompressEnabled = autoCompressEnabled,
             isCompressingContext = isCompressingContext,
             onToggleAutoCompress = onToggleAutoCompress,
-            onCompressConversation = onCompressConversation,
+            onOpenCompressConversation = onOpenCompressConversation,
             onOpenSearchHistory = onOpenSearchHistory,
             onOpenTokenUsage = onOpenTokenUsage,
             onOpenSubAgentStatus = onOpenSubAgentStatus,
@@ -465,12 +465,16 @@ private fun titleForRoute(route: AppRoute?, currentConversationTitle: String? = 
     is AppRoute.ContextCompression -> stringResource(R.string.route_context_compression)
     is AppRoute.UsageStats -> stringResource(R.string.stats_page_title)
     is AppRoute.ManageChats -> stringResource(R.string.history_page_title)
+    is AppRoute.ConversationTrash -> stringResource(R.string.drawer_trash_title)
+    is AppRoute.ConversationTrashSearch -> stringResource(R.string.trash_search_title)
     is AppRoute.MessageSearch -> stringResource(R.string.search_history_hint)
     is AppRoute.ConversationTokenUsage -> stringResource(R.string.action_token_usage)
     is AppRoute.SubAgentStatus -> stringResource(R.string.action_sub_agent_status)
     is AppRoute.Assistants -> stringResource(R.string.assistant_list_title)
     is AppRoute.AssistantSearch -> stringResource(R.string.assistant_search)
     is AppRoute.AssistantEdit -> stringResource(R.string.assistant_edit_title)
+    is AppRoute.MediaSearch -> stringResource(R.string.media_search_title)
+    is AppRoute.MediaIndexSettings -> stringResource(R.string.media_settings_title)
     null -> stringResource(R.string.app_name)
 }
 
