@@ -29,25 +29,41 @@ gh secret set ETA_RELEASE_KEY_PASSWORD
 
 发布证书不要提交到仓库。本地把 `keystore.properties` 放到仓库根目录，或把同一份 PKCS12 配进 Actions Secrets。
 
-以下情况会构建经过签名验证的 Release APK，并作为 Actions Artifact 保存 14 天：
+`Eta Build` 工作流（`.github/workflows/android-release.yml`）在以下情况运行：
 
-- 向 `main` 推送提交
-- 推送 `v*` 标签
-- 在 GitHub 的 `Actions > Eta Build` 中手动运行
+- 推送 `v*` 标签（发版）
+- 在 GitHub 的 `Actions > Eta Build` 中手动运行（日常试构建）
 
-工作流不会创建、修改或发布 GitHub Release。
+工作流分三个 job：
 
-正式发布前先更新 `versionCode` 和 `versionName`，然后创建与
-`versionName` 对应的标签。例如发布 `2.2.2`：
+1. `Lint 与单元测试`：跑 `:app:lintDebug` 与 `:app:testDebugUnitTest`，**不通过则整条发版链路中止**。
+2. `构建 Debug 与 Release APK`：构建并用 `apksigner` 校验签名后的 Release APK，作为 Artifact 保存 14 天。
+3. `创建 Release 草稿`：仅在标签推送时运行，下载 Release APK 并创建 **草稿** Release（附 `app-release.apk`，标题为标签名，说明自动生成）。
+
+草稿不会出现在 `releases/latest`，App 内的更新检查要等草稿正式发布后才可见。
+
+## 发版步骤
+
+正式发布前先更新 `versionCode` 和 `versionName`，再创建与 `versionName` 一致的标签。
+工作流会校验标签与构建产物的 `versionName` 是否一致，不一致直接失败。
+
+`versionCode` 规则是 `yyyyMMdd + 当日两位序号`（见 `app/build.gradle.kts`），发版时随 `versionName` 一起手动递增。
+例如发布 `5.3.12`：
 
 ```bash
-git tag v2.2.2
-git push origin v2.2.2
+# 1. 改 app/build.gradle.kts 的 versionCode / versionName，提交并推送
+git commit -am "build: 发版 5.3.12（versionCode 2026102101）"
+git push origin main
+
+# 2. 打与 versionName 对应的标签
+git tag -a v5.3.12 -m "Eta 5.3.12"
+git push origin v5.3.12
 ```
 
-标签推送后，等待 `Eta Build` 工作流完成，然后：
+标签推送后等待 `Eta Build` 工作流跑完，然后：
 
-1. 从该次工作流的 `Artifacts` 下载 `app-release.apk`。
-2. 在仓库的 `Releases > Draft a new release` 中选择已有标签。
-3. 填写 Release Notes 并上传 APK。
-4. 检查版本、说明和附件后，由维护者手动发布。
+1. 打开草稿 Release，把自动生成的说明替换成正式 Release Notes。
+2. 确认附件是 `app-release.apk`，标题与标签一致。
+3. 由维护者手动发布（`gh release edit v5.3.12 --draft=false`）。
+
+发布后可用 `gh release view v5.3.12` 复核标签、说明与附件。
