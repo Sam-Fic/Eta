@@ -3,10 +3,9 @@ package io.github.mangi.eta.ui.components
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.scrollBy
@@ -269,6 +268,8 @@ internal fun AgentChatBody(
     onRunTraceClick: () -> Unit,
     onOpenBrowser: () -> Unit,
     onEditAssistant: (String) -> Unit,
+    onOpenModelProviders: () -> Unit,
+    onOpenAssistants: () -> Unit,
     onAssistantSelected: (String) -> Unit = {},
     gptSpeedMode: io.github.mangi.eta.data.model.GptSpeedMode = io.github.mangi.eta.data.model.GptSpeedMode.NORMAL,
     onCycleGptSpeedMode: () -> Unit = {},
@@ -498,6 +499,8 @@ internal fun AgentChatBody(
                 onRunTraceClick = onRunTraceClick,
                 onOpenBrowser = onOpenBrowser,
                 onEditAssistant = onEditAssistant,
+                onOpenModelProviders = onOpenModelProviders,
+                onOpenAssistants = onOpenAssistants,
                 onAssistantSelected = onAssistantSelected,
                 gptSpeedMode = gptSpeedMode,
                 onCycleGptSpeedMode = onCycleGptSpeedMode,
@@ -571,6 +574,8 @@ internal fun AgentChatScaffold(
     onRunTraceClick: () -> Unit,
     onOpenBrowser: () -> Unit,
     onEditAssistant: (String) -> Unit,
+    onOpenModelProviders: () -> Unit,
+    onOpenAssistants: () -> Unit,
     onAssistantSelected: (String) -> Unit = {},
     currentBrowserMessageId: String?,
     scrollToMessageId: String? = null,
@@ -657,6 +662,8 @@ internal fun AgentChatScaffold(
                 onRemoveFileReference = onRemoveFileReference,
                 onCancelMessageEdit = onCancelMessageEdit,
                 onEditAssistant = onEditAssistant,
+                onOpenModelProviders = onOpenModelProviders,
+                onOpenAssistants = onOpenAssistants,
                 onAssistantSelected = onAssistantSelected,
                 gptSpeedMode = gptSpeedMode,
                 onCycleGptSpeedMode = onCycleGptSpeedMode,
@@ -2134,6 +2141,8 @@ private fun AgentChatBottomBar(
     onRemoveFileReference: (String) -> Unit,
     onCancelMessageEdit: () -> Unit,
     onEditAssistant: (String) -> Unit,
+    onOpenModelProviders: () -> Unit,
+    onOpenAssistants: () -> Unit,
     onAssistantSelected: (String) -> Unit = {},
     gptSpeedMode: io.github.mangi.eta.data.model.GptSpeedMode = io.github.mangi.eta.data.model.GptSpeedMode.NORMAL,
     onCycleGptSpeedMode: () -> Unit = {},
@@ -2223,6 +2232,8 @@ private fun AgentChatBottomBar(
                 onRemoveFileReference = onRemoveFileReference,
                 onCancelMessageEdit = onCancelMessageEdit,
                 onEditAssistant = onEditAssistant,
+                onOpenModelProviders = onOpenModelProviders,
+                onOpenAssistants = onOpenAssistants,
                 onAssistantSelected = onAssistantSelected,
                 gptSpeedMode = gptSpeedMode,
                 onCycleGptSpeedMode = onCycleGptSpeedMode,
@@ -2645,6 +2656,16 @@ private fun EmptyChatState(
         // 标题最长的那条交给最大的那块形状，文字不会被挤掉。
         .sortedByDescending { it.title.length }
 
+    // 键盘起落时建议形状要收走，但「收走」不能只靠进出场：淡化 + 位移的进出场在播完之后
+    // 才把整块占位一次性从布局里拿掉，标题因此先随键盘被底栏顶上去、再瞬间跳回可视区中间。
+    // 这里把占位高度交给同一条弹簧曲线逐帧收放（与键盘动画同一拍开始），标题在整组里的位移
+    // 就只剩这一条连续曲线，不再有突变的那一帧。状态只创建、不在组合期读，.value 留到
+    // layout lambda 里读，逐帧变化只落到这一层测量，空态子树不会被拖进逐帧重组。
+    val suggestionSlotCollapse = animateFloatAsState(
+        targetValue = if (showSuggestions) 0f else 1f,
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+        label = "chatEmptySuggestionSlot",
+    )
     Box(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -2662,25 +2683,34 @@ private fun EmptyChatState(
 
             AnimatedVisibility(
                 visible = showSuggestions,
-                // 进出场动效统一取官方 motionScheme 规格。
+                // 进出场只做淡入淡出：位置与高度的变化全部交给下面的占位曲线（随键盘同一拍起落），
+                // 形状本身不再做垂直位移或裁切，键盘收回时是整组顺着占位长出来。
                 enter = fadeIn(
                     animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec()
-                ) + slideInVertically(
-                    animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
-                    initialOffsetY = { it / 3 },
                 ),
                 exit = fadeOut(
                     animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec()
-                ) + slideOutVertically(
-                    animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
-                    targetOffsetY = { it / 4 },
                 ),
             ) {
-                ExpressiveSuggestionBlobs(
-                    suggestions = suggestions,
-                    onSuggestionClick = onSuggestionClick,
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        // 形状整组始终按完整高度测量、只把占位高度交给动画：占位收起时形状本身不会
+                        // 被压扁，也不会被裁切，而是保持原样随整组上移 / 下移。
+                        .layout { measurable, constraints ->
+                            val placeable = measurable.measure(constraints)
+                            val slotHeight = (placeable.height * (1f - suggestionSlotCollapse.value))
+                                .toInt()
+                                .coerceIn(0, placeable.height)
+                            layout(placeable.width, slotHeight) { placeable.placeRelative(0, 0) }
+                        },
+                ) {
+                    ExpressiveSuggestionBlobs(
+                        suggestions = suggestions,
+                        onSuggestionClick = onSuggestionClick,
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                    )
+                }
             }
         }
     }

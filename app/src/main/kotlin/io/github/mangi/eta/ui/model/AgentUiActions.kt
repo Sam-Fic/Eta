@@ -39,6 +39,8 @@ sealed interface AgentHomeAction {
     data object OpenSettings : AgentHomeAction
     data object OpenBrowser : AgentHomeAction
     data class EditAssistant(val id: String) : AgentHomeAction
+    data object OpenModelProviders : AgentHomeAction
+    data object OpenAssistants : AgentHomeAction
     data object ExpandRunTrace : AgentHomeAction
 }
 
@@ -62,6 +64,8 @@ sealed interface AgentChatAction {
     data class AssistantSelected(val id: String) : AgentChatAction
     data object OpenBrowser : AgentChatAction
     data class EditAssistant(val id: String) : AgentChatAction
+    data object OpenModelProviders : AgentChatAction
+    data object OpenAssistants : AgentChatAction
     data class ImageAttached(val uri: String) : AgentChatAction
     data class VideoAttached(val uri: String) : AgentChatAction
     data class RemoveImage(val id: String) : AgentChatAction

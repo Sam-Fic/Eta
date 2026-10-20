@@ -1,25 +1,32 @@
 package io.github.mangi.eta.ui.components
 
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -31,7 +38,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -53,7 +63,7 @@ import io.github.mangi.eta.ui.model.AgentContextUsageUi
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
 import io.github.mangi.eta.ui.pages.providers.ProviderBalanceIndicator
 import io.github.mangi.eta.ui.pages.providers.hasBalanceIndicatorContent
-import io.github.mangi.eta.ui.screens.assistants.AssistantDeleteDialog
+import io.github.mangi.eta.ui.screens.assistants.AssistantDeleteConfirmPanel
 import io.github.mangi.eta.ui.screens.assistants.AssistantRow
 import io.github.mangi.eta.ui.screens.assistants.AssistantSearchField
 import kotlinx.coroutines.Dispatchers
@@ -61,13 +71,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * 「助手与模型」二合一选择弹窗（官方 `ModalBottomSheet`，仅 Hidden↔Expanded 两态）。
+ * 「模型与助手」二合一选择弹窗（官方 `ModalBottomSheet`，仅 Hidden↔Expanded 两态）。
  *
  * 结构：
  * 1. 标题。（关闭走 ModalBottomSheet 的下拉 / 点遮罩，不放关闭按钮。）
- * 2. 官方单选分段按钮的页签：助手 / 模型。
- *    - 助手页签：官方搜索框 + KernelSU 式分段列表（行尾三点菜单提供复制 / 编辑 / 删除）。
- *    - 模型页签：官方搜索框 + 服务商分类标题 + 分组内的官方分段单选行（全部平铺，不折叠）。
+ * 2. 官方单选分段按钮的页签：模型 / 助手。
+ *    - 模型页签：官方搜索框 + 「配置模型」入口 + 服务商分类标题 + 分组内的官方分段单选行
+ *      （全部平铺，不折叠）。
+ *    - 助手页签：官方搜索框 + 「配置助手」入口 + KernelSU 式分段列表
+ *      （行尾三点菜单提供复制 / 编辑 / 删除）。
  * 3. 底部固定两行「思考档位」「上下文用量」，复用输入区原有的两个控件（含各自弹窗 /
  *    长按语义），替代旧布局里的两个独立按钮。
  */
@@ -78,6 +90,8 @@ internal fun M3ComposerPickerSheet(
     onDismiss: () -> Unit,
     assistantId: String,
     onEditAssistant: (String) -> Unit,
+    onOpenModelProviders: () -> Unit,
+    onOpenAssistants: () -> Unit,
     onAssistantSelected: (String) -> Unit,
     modelPickerState: AgentModelPickerUiState,
     isStreaming: Boolean,
@@ -114,8 +128,8 @@ internal fun M3ComposerPickerSheet(
                 style = etaTextStyle(EtaType.Title),
             )
             val tabs = listOf(
-                stringResource(R.string.assistant_list_title),
                 stringResource(R.string.conversation_dock_models),
+                stringResource(R.string.assistant_list_title),
             )
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 tabs.forEachIndexed { index, title ->
@@ -135,6 +149,17 @@ internal fun M3ComposerPickerSheet(
                     .verticalScroll(rememberScrollState()),
             ) {
                 if (tabIndex == 0) {
+                    M3ModelPickerTab(
+                        state = modelPickerState,
+                        isStreaming = isStreaming,
+                        isPaused = isPaused,
+                        onModelSelected = onModelSelected,
+                        onConfigureModels = {
+                            onDismiss()
+                            onOpenModelProviders()
+                        },
+                    )
+                } else {
                     M3AssistantPickerTab(
                         assistantId = assistantId,
                         onOpen = { id ->
@@ -145,13 +170,10 @@ internal fun M3ComposerPickerSheet(
                             onDismiss()
                             onEditAssistant(id)
                         },
-                    )
-                } else {
-                    M3ModelPickerTab(
-                        state = modelPickerState,
-                        isStreaming = isStreaming,
-                        isPaused = isPaused,
-                        onModelSelected = onModelSelected,
+                        onConfigureAssistants = {
+                            onDismiss()
+                            onOpenAssistants()
+                        },
                     )
                 }
             }
@@ -179,32 +201,104 @@ internal fun M3ComposerPickerSheet(
                     )
                 }
             }
-            // 上下文用量：沿用输入区原来的进度环（单击详情 / 长按切换上下文目标）。
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    text = stringResource(R.string.acm_context_stats),
-                    style = etaTextStyle(EtaType.Body),
-                    modifier = Modifier.weight(1f),
-                )
-                AgentContextUsageButton(
-                    usage = usage,
-                    popupMaxHeight = popupMaxHeight,
-                    sendBlocked = contextSendBlocked,
-                    containerSize = IconButtonDefaults.smallContainerSize().width,
-                    ringSize = IconButtonDefaults.largeIconSize,
-                    ringStrokeWidth = ProgressIndicatorDefaults.CircularStrokeWidth,
-                    wavy = isStreaming && !isPaused,
-                )
-            }
+            // 上下文用量：直接写在页面上，不再用「点击弹窗」承载详情。
+            ContextUsageRow(
+                usage = usage,
+                sendBlocked = contextSendBlocked,
+                popupMaxHeight = popupMaxHeight,
+            )
         }
     }
 }
 
 /**
- * 助手页签：官方搜索框 + KernelSU 式分段列表；行尾三点菜单提供复制 / 编辑 / 删除，
+ * 上下文统计行：用量直接写在页面上。
+ *
+ * 长按这串数字可切换统计目标（主代理 / 子任务上下文），与旧进度环的长按语义一致。
+ */
+@Composable
+private fun ContextUsageRow(
+    usage: AgentContextUsageUi,
+    sendBlocked: Boolean,
+    popupMaxHeight: () -> Dp,
+) {
+    val telemetry = LocalAgentContextTelemetry.current
+    val display = contextUsageDisplay(usage = usage, sendBlocked = sendBlocked)
+    val targetLabel = stringResource(R.string.acm_select_context_target)
+    val blockedText = stringResource(R.string.context_window_send_blocked)
+    var selectorOpen by remember { mutableStateOf(false) }
+    val text = buildString {
+        append(display.label)
+        append(" · ")
+        append(display.summary)
+        if (display.blocked) {
+            append(" · ")
+            append(blockedText)
+        }
+    }
+    val longPressModifier = if (telemetry.children.isEmpty()) {
+        Modifier
+    } else {
+        Modifier
+            .pointerInput(Unit) { detectTapGestures(onLongPress = { selectorOpen = true }) }
+            .semantics {
+                onLongClick(targetLabel) {
+                    selectorOpen = true
+                    true
+                }
+            }
+    }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            text = stringResource(R.string.acm_context_stats),
+            style = etaTextStyle(EtaType.Body),
+        )
+        Box(
+            modifier = Modifier.weight(1f),
+            contentAlignment = Alignment.CenterEnd,
+        ) {
+            Text(
+                text = text,
+                style = etaTextStyle(EtaType.Secondary),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = longPressModifier,
+            )
+            ContextTargetSelectorMenu(
+                telemetry = telemetry,
+                expanded = selectorOpen,
+                onDismiss = { selectorOpen = false },
+                popupMaxHeight = popupMaxHeight,
+            )
+        }
+    }
+}
+
+/** 页签内的配置入口：右对齐的设置图标 + 文字按钮（模型 / 助手两个页签共用）。 */
+@Composable
+private fun PickerConfigureEntry(text: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.End,
+    ) {
+        TextButton(onClick = onClick) {
+            Icon(
+                imageVector = Icons.Rounded.Settings,
+                contentDescription = null,
+                modifier = Modifier.size(IconButtonDefaults.smallIconSize),
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(text = text)
+        }
+    }
+}
+
+/**
+ * 助手页签：官方搜索框 + 「配置助手」入口 + KernelSU 式分段列表；行尾三点菜单提供复制 / 编辑 / 删除，
  * 与独立助手选择弹窗的 Material 3 分支保持同一套交互。
  */
 @Composable
@@ -212,6 +306,7 @@ private fun M3AssistantPickerTab(
     assistantId: String,
     onOpen: (String) -> Unit,
     onEdit: (String) -> Unit,
+    onConfigureAssistants: () -> Unit,
 ) {
     val profiles by AssistantRepository.profiles.collectAsState()
     val repositoryActiveId by AssistantRepository.activeId.collectAsState()
@@ -225,10 +320,33 @@ private fun M3AssistantPickerTab(
             query.isBlank() || profile.name.contains(query, ignoreCase = true)
         }
     }
+    val deleteTarget = deleteProfile
+    if (deleteTarget != null) {
+        // 页签内原位确认，不覆盖在面板之上再开弹窗。
+        AssistantDeleteConfirmPanel(
+            profile = deleteTarget,
+            canDelete = profiles.size > 1,
+            onCancel = { deleteProfile = null },
+            onConfirm = {
+                deleteProfile = null
+                scope.launch {
+                    withContext(Dispatchers.IO) {
+                        AssistantRepository.delete(deleteTarget.id)
+                        RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+                    }
+                }
+            },
+        )
+        return
+    }
     AssistantSearchField(
         query = searchQuery,
         onQueryChange = { searchQuery = it },
         placeholder = stringResource(R.string.assistant_search),
+    )
+    PickerConfigureEntry(
+        text = stringResource(R.string.composer_configure_assistants),
+        onClick = onConfigureAssistants,
     )
     Spacer(modifier = Modifier.height(12.dp))
     EtaSegmentedColumn(modifier = Modifier.fillMaxWidth()) {
@@ -259,23 +377,6 @@ private fun M3AssistantPickerTab(
             modifier = Modifier.padding(vertical = 12.dp),
         )
     }
-    deleteProfile?.let { profile ->
-        AssistantDeleteDialog(
-            profile = profile,
-            canDelete = profiles.size > 1,
-            onDismiss = { deleteProfile = null },
-            onConfirm = {
-                val target = profile
-                deleteProfile = null
-                scope.launch {
-                    withContext(Dispatchers.IO) {
-                        AssistantRepository.delete(target.id)
-                        RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
-                    }
-                }
-            },
-        )
-    }
 }
 
 /**
@@ -290,6 +391,7 @@ private fun M3ModelPickerTab(
     isStreaming: Boolean,
     isPaused: Boolean,
     onModelSelected: (String, String) -> Unit,
+    onConfigureModels: () -> Unit,
 ) {
     var modelQuery by remember { mutableStateOf("") }
     val pickerAvailable = (!isStreaming || isPaused) && state.providerGroups.isNotEmpty()
@@ -300,6 +402,11 @@ private fun M3ModelPickerTab(
     }
     val selected = state.selectedModel
     ModelSearchField(query = modelQuery, onQueryChange = { modelQuery = it })
+    // 入口放在空态早退之前：尚未配置任何服务商时也能进入配置页新增模型。
+    PickerConfigureEntry(
+        text = stringResource(R.string.composer_configure_models),
+        onClick = onConfigureModels,
+    )
     if (groups.isEmpty()) {
         Text(
             text = stringResource(R.string.model_search_empty),
