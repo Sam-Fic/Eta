@@ -134,14 +134,12 @@ import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider as M3Slider
 import androidx.compose.material3.Surface
@@ -157,6 +155,9 @@ import io.github.mangi.eta.ui.adaptive.EtaConnectedGroupRow
 import io.github.mangi.eta.ui.adaptive.etaGptSpeedColor
 import io.github.mangi.eta.ui.adaptive.EtaIconButton
 import io.github.mangi.eta.ui.adaptive.EtaIconSize
+import io.github.mangi.eta.ui.adaptive.EtaMenuGroup
+import io.github.mangi.eta.ui.adaptive.EtaMenuItemShape
+import io.github.mangi.eta.ui.adaptive.EtaMenuPopup
 import io.github.mangi.eta.ui.adaptive.EtaType
 import io.github.mangi.eta.ui.adaptive.etaOnTertiaryContainer
 import io.github.mangi.eta.ui.adaptive.etaOnSurface
@@ -221,6 +222,8 @@ internal fun AgentChatInputBar(
     onRemoveFileReference: (String) -> Unit,
     onCancelMessageEdit: () -> Unit,
     onEditAssistant: (String) -> Unit,
+    onOpenModelProviders: () -> Unit,
+    onOpenAssistants: () -> Unit,
     onAssistantSelected: (String) -> Unit = {},
     /** GPT 速度档位（真值来自 owner 的 uiState，UI 不本地记忆）。 */
     gptSpeedMode: GptSpeedMode = GptSpeedMode.NORMAL,
@@ -491,6 +494,8 @@ internal fun AgentChatInputBar(
             onAttachFolder = onAttachFolder,
             onAttachFilePath = onAttachFilePath,
             onEditAssistant = onEditAssistant,
+            onOpenModelProviders = onOpenModelProviders,
+            onOpenAssistants = onOpenAssistants,
             onAssistantSelected = onAssistantSelected,
             onModelSelected = onModelSelected,
             onReasoningEffortChange = onReasoningEffortChange,
@@ -1307,37 +1312,31 @@ private fun VoiceEntryPickerDialog(
     onDismiss: () -> Unit,
     onSelect: (VoiceEntryMode) -> Unit,
 ) {
-    // Material 3 Expressive 用官方 DropdownMenu + DropdownMenuItem 的默认样式
-    // （surfaceContainer 容器、shapes.extraSmall 圆角、Level2 阴影、48dp 行高、labelLarge）。
-    val items: @Composable (dismiss: () -> Unit) -> Unit = { dismiss ->
-        val entries = listOf(
-            Triple(VoiceEntryMode.DICTATION, Icons.Rounded.KeyboardVoice, R.string.voice_mode_dictation),
-            Triple(VoiceEntryMode.UNIVERSAL, Icons.Rounded.RecordVoiceOver, R.string.voice_mode_universal),
-            Triple(VoiceEntryMode.DOUBAO_DUPLEX, Icons.Rounded.GraphicEq, R.string.voice_mode_doubao),
-        ).filter { it.first in modes }
-        entries.forEachIndexed { index, (mode, icon, label) ->
-            // 形状取官方 MenuDefaults：单项用 standalone，多项按位置取 leading/middle/trailing。
-            DropdownMenuItem(
-                text = { M3Text(stringResource(label)) },
-                leadingIcon = { Icon(icon, contentDescription = null) },
-                shape = if (entries.size <= 1) {
-                    MenuDefaults.standaloneItemShape
-                } else {
-                    MenuDefaults.itemShape(index, entries.size).shape
-                },
-                onClick = {
-                    dismiss()
-                    onSelect(mode)
-                },
-            )
-        }
-    }
-    // focusable = false：菜单弹出时不抢走输入焦点、不收起输入法（与模型菜单同一套官方窗口属性）。
-    DropdownMenu(
+    // Material 3 Expressive 用官方 DropdownMenuPopup + DropdownMenuGroup + DropdownMenuItem
+    // 的默认样式（组容器 surfaceContainerLow 圆角、Level2 阴影、48dp 行高、labelLarge）。
+    EtaMenuPopup(
         expanded = show,
         onDismissRequest = onDismiss,
     ) {
-        items(onDismiss)
+        EtaMenuGroup(index = 0, count = 1) {
+            val entries = listOf(
+                Triple(VoiceEntryMode.DICTATION, Icons.Rounded.KeyboardVoice, R.string.voice_mode_dictation),
+                Triple(VoiceEntryMode.UNIVERSAL, Icons.Rounded.RecordVoiceOver, R.string.voice_mode_universal),
+                Triple(VoiceEntryMode.DOUBAO_DUPLEX, Icons.Rounded.GraphicEq, R.string.voice_mode_doubao),
+            ).filter { it.first in modes }
+            entries.forEachIndexed { index, (mode, icon, label) ->
+                // 形状取官方 MenuDefaults：单项用 standalone，多项按位置取 leading/middle/trailing。
+                DropdownMenuItem(
+                    text = { M3Text(stringResource(label)) },
+                    leadingIcon = { Icon(icon, contentDescription = null) },
+                    shape = EtaMenuItemShape(index, entries.size),
+                    onClick = {
+                        onDismiss()
+                        onSelect(mode)
+                    },
+                )
+            }
+        }
     }
 }
 

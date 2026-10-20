@@ -8,9 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material3.DropdownMenuGroup
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.DropdownMenuPopup
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MenuDefaults
@@ -27,6 +25,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.adaptive.EtaDialog
+import io.github.mangi.eta.ui.adaptive.EtaMenuGroup
+import io.github.mangi.eta.ui.adaptive.EtaMenuItemShape
+import io.github.mangi.eta.ui.adaptive.EtaMenuPopup
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults as M3ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -97,8 +98,8 @@ internal fun FileEntryActionsDialog(
  * 文件行尾「更多」按钮 + Material 3 Expressive 操作菜单。
  *
  * 结构照 KernelSU 顶栏 `IconButton + DropdownMenuPopup` 就地写法：菜单挂在按钮内容里，
- * 由 `DropdownMenuPopup` 自动锚定到该按钮；条目全部带 `MenuDefaults.itemShape` 分段形状，
- * 破坏性的「删除」用 error 色强调。
+ * 由官方弹出层自动锚定到该按钮；容器与条目形状全部取官方 Expressive 默认值
+ * （与「上下文压缩 → 请求接口」那个下拉同款），破坏性的「删除」用 error 色强调。
  */
 @Composable
 internal fun EtaFileActionsButton(
@@ -125,11 +126,11 @@ internal fun EtaFileActionsButton(
             imageVector = Icons.Rounded.MoreVert,
             contentDescription = stringResource(R.string.action_more),
         )
-        DropdownMenuPopup(
+        EtaMenuPopup(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
-            DropdownMenuGroup(shapes = MenuDefaults.groupShape(index = 0, count = 1)) {
+            EtaMenuGroup(index = 0, count = 1) {
                 if (canExport) {
                     DropdownMenuItem(
                         onClick = {
@@ -138,7 +139,7 @@ internal fun EtaFileActionsButton(
                             onExport()
                         },
                         text = { M3Text(text = stringResource(R.string.linux_files_export)) },
-                        shape = MenuDefaults.itemShape(index = 0, count = itemCount).shape,
+                        shape = EtaMenuItemShape(index = 0, count = itemCount),
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Rounded.FileDownload,
@@ -161,10 +162,10 @@ internal fun EtaFileActionsButton(
                                 color = MaterialTheme.colorScheme.error,
                             )
                         },
-                        shape = MenuDefaults.itemShape(
+                        shape = EtaMenuItemShape(
                             index = if (canExport) 1 else 0,
                             count = itemCount,
-                        ).shape,
+                        ),
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Rounded.DeleteOutline,

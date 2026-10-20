@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.runtime.LaunchedEffect
@@ -20,6 +21,7 @@ import io.github.mangi.eta.ui.pages.providers.ProviderBalanceIndicator
 import io.github.mangi.eta.ui.pages.providers.hasBalanceIndicatorContent
 import io.github.mangi.eta.ui.pages.providers.activityLifecycleOwnerOrNull
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,8 +34,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -46,9 +46,6 @@ import io.github.mangi.eta.ui.model.AgentModelProviderGroupUi
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
 import io.github.mangi.eta.ui.model.formatContextUsage
 import androidx.compose.material3.SelectableDropdownMenuItem
-import androidx.compose.material3.CircularProgressIndicator as M3CircularProgressIndicator
-import androidx.compose.material3.CircularWavyProgressIndicator
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -60,14 +57,11 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetState
-import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.drawscope.Stroke
-import io.github.mangi.eta.ui.adaptive.EtaDimens
+import io.github.mangi.eta.ui.adaptive.EtaMenuGroup
+import io.github.mangi.eta.ui.adaptive.EtaMenuPopup
 import io.github.mangi.eta.ui.adaptive.EtaType
 import io.github.mangi.eta.ui.adaptive.etaTextStyle
 
@@ -82,18 +76,6 @@ import io.github.mangi.eta.ui.adaptive.etaTextStyle
  *
  * 代价（与官方一致）：菜单弹出时会收起输入法。这是官方 `DropdownMenu` 的标准行为。
  */
-
-/**
- * 官方菜单项形状：按位置取 `MenuDefaults` 的 leading / middle / trailing 令牌，
- * 单项时用 `standaloneItemShape`。不自定义圆角。
- */
-@Composable
-internal fun etaOfficialMenuItemShape(index: Int, count: Int): Shape = when {
-    count <= 1 -> MenuDefaults.standaloneItemShape
-    index == 0 -> MenuDefaults.leadingItemShape
-    index == count - 1 -> MenuDefaults.trailingItemShape
-    else -> MenuDefaults.middleItemShape
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -204,7 +186,8 @@ internal fun AgentModelPickerButton(
             content = anchorContent,
         )
         // Material 3 Expressive：官方 ModalBottomSheet（布局复刻 KernelSU MultiSelectDialog：
-        // 标题行 + 关闭按钮 + 搜索框 + 可滚动列表；仅允许 Hidden↔Expanded 两态，不进半展开）。
+        // 标题行 + 搜索框 + 可滚动列表；仅允许 Hidden↔Expanded 两态，不进半展开）。
+        // 关闭走面板下拉 / 点遮罩 / 返回键，不放右上角关闭按钮。
         if (menuVisible) {
             ModalBottomSheet(
                 onDismissRequest = onMenuDismiss,
@@ -220,21 +203,14 @@ internal fun AgentModelPickerButton(
                         .padding(bottom = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth(),
+                    Box(
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        contentAlignment = Alignment.CenterStart,
                     ) {
                         M3Text(
                             text = stringResource(R.string.model_picker_title),
                             style = etaTextStyle(EtaType.Title),
-                            modifier = Modifier.weight(1f),
                         )
-                        IconButton(onClick = onMenuDismiss) {
-                            Icon(
-                                imageVector = Icons.Rounded.Close,
-                                contentDescription = stringResource(R.string.action_close),
-                            )
-                        }
                     }
                     Column(
                         modifier = Modifier
@@ -420,6 +396,14 @@ internal fun ModelPickerMenuContentM3(
                     index = index - rows.firstItemInRunAt(index),
                     count = rows.itemRunLengthAt(index),
                 ),
+                // 选中项带 Check 前导图标，与「请求接口」那个下拉同款。
+                selectedLeadingIcon = {
+                    Icon(
+                        Icons.Filled.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(MenuDefaults.LeadingIconSize),
+                    )
+                },
             )
 
             ModelMenuRow.Empty -> DropdownMenuItem(
@@ -432,48 +416,34 @@ internal fun ModelPickerMenuContentM3(
     }
 }
 
-@OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
+/**
+ * 上下文统计的页内直显内容。
+ *
+ * 选中子任务上下文时展示该子任务的用量，否则展示主代理的。
+ */
+@Immutable
+internal data class ContextUsageDisplay(
+    /** 统计对象的模型名（子任务上下文时是子代理的模型与角色）。 */
+    val label: String,
+    /** 用量摘要，如「0k / 262.14K tokens」。 */
+    val summary: String,
+    /** 上下文已满、发送被拦截。 */
+    val blocked: Boolean,
+)
+
+/**
+ * 上下文统计内容：与旧弹窗同源（主代理或当前选中的子任务上下文），但直接写在页面上。
+ */
 @Composable
-internal fun AgentContextUsageButton(
+internal fun contextUsageDisplay(
     usage: AgentContextUsageUi,
-    sendBlocked: Boolean = false,
-    popupMaxHeight: () -> Dp = { 360.dp },
-    modifier: Modifier = Modifier,
-    containerSize: Dp = ChatInputActionSize,
-    /**
-     * 进度环绘制直径，两个主题族都生效。
-     *
-     * Material 3 下官方 `CircularProgressIndicator` / `CircularWavyProgressIndicator`
-     * 会额外追加官方直径（圆形 40dp、波浪 48dp），但调用方这个 `size` 位于链上最外层，
-     * 会先把约束收紧，因此实际渲染以本参数为准（详见进度环分支内的注释）。
-     */
-    ringSize: Dp = ChatInputActionIconSize,
-    ringStrokeWidth: Dp = EtaDimens.SmallRingStroke,
-    /** 波浪样式（Material 3 Expressive）：模型回复中使用。 */
-    wavy: Boolean = false,
-) {
-    val menuState = rememberEtaMenuState()
-    val selectorState = rememberEtaMenuState()
-    val context = LocalContext.current
+    sendBlocked: Boolean,
+): ContextUsageDisplay {
     val telemetry = LocalAgentContextTelemetry.current
-    val owner = LocalConversationSubAgentEditor.current?.owner
-    var localSelectedTaskId by remember(owner) { mutableStateOf<String?>(null) }
-    val selectedTaskId = if (telemetry.onTaskSelected != null) telemetry.selectedTaskId else localSelectedTaskId
-    fun selectTask(id: String?) {
-        if (telemetry.onTaskSelected != null) telemetry.onTaskSelected.invoke(id) else localSelectedTaskId = id
-    }
-    val child = telemetry.children.firstOrNull { it.taskId == selectedTaskId }
-    LaunchedEffect(telemetry.children, selectedTaskId, owner) {
-        // Controlled selection belongs to the owner reducer: a refresh effect must not
-        // replay an old null selection over a newer explicit user choice.
-        if (telemetry.onTaskSelected == null && selectedTaskId != null && child == null) {
-            localSelectedTaskId = null
-        }
-    }
-    val displayedUsage = child?.cloudContextUsage() ?: usage
-    val selectedLabel = child?.contextLabel(context) ?: telemetry.mainModelName.ifBlank { stringResource(R.string.acm_main_agent) }
-    val progress = displayedUsage.progress
+    val context = LocalContext.current
     val locale = LocalConfiguration.current.locales[0]
+    val child = telemetry.children.firstOrNull { it.taskId == telemetry.selectedTaskId }
+    val displayedUsage = child?.cloudContextUsage() ?: usage
     val summary = child?.cloudContextSummary(context, locale) ?: formatContextUsage(
         usage = displayedUsage,
         noUsageText = stringResource(R.string.context_no_previous_usage),
@@ -481,110 +451,51 @@ internal fun AgentContextUsageButton(
         unknownText = stringResource(R.string.amp_unknown),
         locale = locale,
     )
-    val detail = when {
-        sendBlocked && child == null -> "$summary\n${stringResource(R.string.context_window_send_blocked)}"
-        child?.role == "video_generation" -> "${child.contextStatusLabel(context)}\n${stringResource(R.string.acm_video_no_context_stats)}"
-        child?.role == "image_generation" -> "${child.contextStatusLabel(context)}\n${stringResource(R.string.acm_image_no_context_stats)}"
-        child != null -> "$summary\n${child.contextStatusLabel(context)} · ${stringResource(R.string.acm_standalone_context)}"
-        else -> summary
-    }
-    val usageDescription = stringResource(
-        R.string.context_usage_description,
-        summary.replace('\n', ' '),
+    return ContextUsageDisplay(
+        label = child?.contextLabel(context)
+            ?: telemetry.mainModelName.ifBlank { stringResource(R.string.acm_main_agent) },
+        summary = summary.replace('\n', ' '),
+        blocked = sendBlocked && child == null,
     )
-    val keepIme = rememberKeepImeWhenOpeningMenu()
-    Box(modifier = modifier) {
-        ChatInputNonFocusableIconButton(
-            onClick = {
-                keepIme()
-                selectorState.dismiss()
-                menuState.onAnchorClick()
-            },
-            longClickLabel = stringResource(R.string.acm_select_context_target),
-            onLongClick = {
-                keepIme()
-                menuState.dismiss()
-                selectorState.onAnchorClick()
-            },
-            containerSize = containerSize,
-        ) {
-            val ringSemantics = Modifier.semantics {
-                contentDescription = "$selectedLabel · $usageDescription"
-            }
-            // 官方 Material 3 进度指示器：圆形 / 波浪，颜色只引用 colorScheme 角色。
-            //
-            // 官方圆形内部是 `Canvas(modifier.semantics{}.size(40.dp))`、
-            // 波浪是 `Spacer(modifier.size(48.dp)…​)`，都会在调用方 modifier 之后追加一个
-            // 官方直径。但 `Modifier.size()` 的语义是「把目标尺寸收敛进传入约束」
-            // （无条件覆盖的是 `requiredSize()`），而本链上调用方的 size 在最外层：
-            //   按钮 40dp 的 Box 会以 min=0/max=40 测量子节点
-            //   → 外层 size(ringSize) 把约束收紧成 [ringSize, ringSize]
-            //   → 内层官方 size(40) 再被 coerceIn 到 [ringSize, ringSize]
-            // 所以 ringSize **是生效的**，必须保留，否则环会按官方 40/48dp
-            // 顶到按钮边缘（波浪还会溢出）。
-            val scheme = MaterialTheme.colorScheme
-            val indicatorColor = when {
-                progress == null -> scheme.onSurfaceVariant
-                progress >= 0.95f -> scheme.error
-                progress >= 0.80f -> scheme.tertiary
-                else -> scheme.primary
-            }
-            if (wavy) {
-                val strokePx = with(androidx.compose.ui.platform.LocalDensity.current) {
-                    ringStrokeWidth.toPx()
-                }
-                CircularWavyProgressIndicator(
-                    progress = { progress ?: 0f },
-                    modifier = ringSemantics.size(ringSize),
-                    color = indicatorColor,
-                    trackColor = scheme.secondaryContainer,
-                    stroke = Stroke(width = strokePx),
-                    trackStroke = Stroke(width = strokePx),
-                )
-            } else {
-                M3CircularProgressIndicator(
-                    progress = { progress ?: 0f },
-                    modifier = ringSemantics.size(ringSize),
-                    color = indicatorColor,
-                    trackColor = scheme.secondaryContainer,
-                    strokeWidth = ringStrokeWidth,
-                )
-            }
-        }
-        // 官方 DropdownMenu：不抢焦点（保持输入法），菜单本体样式全部为官方默认值。
-        DropdownMenu(
-            expanded = menuState.expanded,
-            onDismissRequest = menuState::dismiss,
-        ) {
-            // 官方组标题自带 labelLarge 字阶，这里不再覆盖 style。
-            MenuDefaults.DropdownMenuGroupLabel {
-                M3Text(text = selectedLabel)
-            }
-            M3Text(
-                text = detail,
-                style = etaTextStyle(EtaType.Secondary),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(MenuDefaults.DropdownMenuSelectableItemContentPadding),
-            )
-        }
-        val targets =
-            listOf("${telemetry.mainModelName.ifBlank { stringResource(R.string.acm_main_agent) }}（${stringResource(R.string.acm_main_agent)}）") +
-                telemetry.children.map { "${it.contextLabel(context)} · ${it.contextStatusLabel(context)}" }
-        val selectedIndex = if (child == null) 0 else {
-            telemetry.children.indexOfFirst { it.taskId == selectedTaskId } + 1
-        }
-        DropdownMenu(
-            expanded = selectorState.expanded,
-            onDismissRequest = selectorState::dismiss,
-            modifier = Modifier.heightIn(max = popupMaxHeight()),
+}
+
+/**
+ * 上下文目标选择菜单：主代理 + 各子任务上下文。
+ *
+ * 由「上下文统计」文字长按触发，与旧进度环的长按语义一致。
+ */
+@Composable
+internal fun ContextTargetSelectorMenu(
+    telemetry: AgentContextTelemetry,
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+    popupMaxHeight: () -> Dp,
+) {
+    val context = LocalContext.current
+    val targets =
+        listOf("${telemetry.mainModelName.ifBlank { stringResource(R.string.acm_main_agent) }}（${stringResource(R.string.acm_main_agent)}）") +
+            telemetry.children.map { "${it.contextLabel(context)} · ${it.contextStatusLabel(context)}" }
+    val selectedIndex = if (telemetry.selectedTaskId == null) 0 else {
+        telemetry.children.indexOfFirst { it.taskId == telemetry.selectedTaskId } + 1
+    }
+    EtaMenuPopup(
+        expanded = expanded,
+        onDismissRequest = onDismiss,
+        modifier = Modifier.heightIn(max = popupMaxHeight()),
+    ) {
+        // 组内容可滚动：弹层高度受限，条目多时在组内滚动而不是把弹层撑高。
+        EtaMenuGroup(
+            index = 0,
+            count = 1,
+            modifier = Modifier.verticalScroll(rememberScrollState()),
         ) {
             MenuDefaults.DropdownMenuGroupLabel { M3Text(text = stringResource(R.string.acm_context_stats)) }
             targets.forEachIndexed { index, label ->
                 SelectableDropdownMenuItem(
                     selected = index == selectedIndex,
                     onClick = {
-                        selectTask(if (index == 0) null else telemetry.children[index - 1].taskId)
-                        selectorState.dismiss()
+                        telemetry.onTaskSelected?.invoke(if (index == 0) null else telemetry.children[index - 1].taskId)
+                        onDismiss()
                     },
                     text = {
                         M3Text(
@@ -594,6 +505,14 @@ internal fun AgentContextUsageButton(
                         )
                     },
                     shapes = MenuDefaults.itemShape(index, targets.size),
+                    // 选中项带 Check 前导图标，与「请求接口」那个下拉同款。
+                    selectedLeadingIcon = {
+                        Icon(
+                            Icons.Filled.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(MenuDefaults.LeadingIconSize),
+                        )
+                    },
                 )
             }
         }

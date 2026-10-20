@@ -19,7 +19,6 @@ import androidx.compose.material.icons.rounded.AddComment
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material3.ButtonGroupDefaults
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -44,6 +43,8 @@ import io.github.mangi.eta.ui.adaptive.EtaButtonStyle
 import io.github.mangi.eta.ui.adaptive.EtaConnectedGroupRow
 import io.github.mangi.eta.ui.adaptive.EtaIconButton
 import io.github.mangi.eta.ui.adaptive.EtaIconSize
+import io.github.mangi.eta.ui.adaptive.EtaMenuGroup
+import io.github.mangi.eta.ui.adaptive.EtaMenuPopup
 import io.github.mangi.eta.ui.adaptive.etaLabelStyle
 import io.github.mangi.eta.ui.components.ChatInputNonFocusableIconButton
 import io.github.mangi.eta.ui.haptics.TouchHaptics
@@ -71,11 +72,7 @@ internal fun Material3HomeTopBar(
     autoCompressEnabled: Boolean,
     isCompressingContext: Boolean,
     onToggleAutoCompress: (Boolean) -> Unit,
-    onCompressConversation: (
-        providerId: String?,
-        modelId: String?,
-        onFinished: (Boolean) -> Unit,
-    ) -> Unit,
+    onOpenCompressConversation: () -> Unit,
     onOpenSearchHistory: () -> Unit,
     onOpenTokenUsage: () -> Unit,
     onOpenSubAgentStatus: () -> Unit,
@@ -167,30 +164,32 @@ internal fun Material3HomeTopBar(
                                 .graphicsLayer { rotationZ = arrowRotation },
                         )
                     }
-                    DropdownMenu(
+                    EtaMenuPopup(
                         expanded = menuExpanded,
                         onDismissRequest = { menuExpanded = false },
                     ) {
-                        TopBarMenuItems(
-                            dismiss = { menuExpanded = false },
-                            onOpenTerminal = onOpenTerminal,
-                            onLaunchKimiWeb = onLaunchKimiWeb,
-                            kimiWebLabel = kimiWebLabel,
-                            canStopKimiWeb = canStopKimiWeb,
-                            onStopKimiWeb = onStopKimiWeb,
-                            onOpenBrowser = onOpenBrowser,
-                            onOpenWorkspace = onOpenWorkspace,
-                            onOpenVoiceSettings = onOpenVoiceSettings,
-                            autoCompressEnabled = autoCompressEnabled,
-                            isCompressingContext = isCompressingContext,
-                            onToggleAutoCompress = onToggleAutoCompress,
-                            onCompressConversation = onCompressConversation,
-                            onOpenSearchHistory = onOpenSearchHistory,
-                            onOpenTokenUsage = onOpenTokenUsage,
-                            onOpenSubAgentStatus = onOpenSubAgentStatus,
-                            canDeleteCurrentConversation = canDeleteCurrentConversation,
-                            onDeleteCurrentConversation = onDeleteCurrentConversation,
-                        )
+                        EtaMenuGroup(index = 0, count = 1) {
+                            TopBarMenuItems(
+                                dismiss = { menuExpanded = false },
+                                onOpenTerminal = onOpenTerminal,
+                                onLaunchKimiWeb = onLaunchKimiWeb,
+                                kimiWebLabel = kimiWebLabel,
+                                canStopKimiWeb = canStopKimiWeb,
+                                onStopKimiWeb = onStopKimiWeb,
+                                onOpenBrowser = onOpenBrowser,
+                                onOpenWorkspace = onOpenWorkspace,
+                                onOpenVoiceSettings = onOpenVoiceSettings,
+                                autoCompressEnabled = autoCompressEnabled,
+                                isCompressingContext = isCompressingContext,
+                                onToggleAutoCompress = onToggleAutoCompress,
+                                onOpenCompressConversation = onOpenCompressConversation,
+                                onOpenSearchHistory = onOpenSearchHistory,
+                                onOpenTokenUsage = onOpenTokenUsage,
+                                onOpenSubAgentStatus = onOpenSubAgentStatus,
+                                canDeleteCurrentConversation = canDeleteCurrentConversation,
+                                onDeleteCurrentConversation = onDeleteCurrentConversation,
+                            )
+                        }
                     }
                 }
             }

@@ -6,12 +6,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
@@ -37,6 +37,9 @@ import io.github.mangi.eta.data.repository.AssistantRepository
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.EtaMenuGroup
+import io.github.mangi.eta.ui.adaptive.EtaMenuItemShape
+import io.github.mangi.eta.ui.adaptive.EtaMenuPopup
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 import io.github.mangi.eta.ui.components.AssistantAvatar
@@ -45,7 +48,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.material3.Card
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -53,6 +55,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetValue
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.material3.Text as M3Text
 
@@ -98,6 +101,31 @@ internal fun AssistantPickerDialog(
                 enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
             ),
         ) {
+            val deleteTarget = deleteProfile
+            if (deleteTarget != null) {
+                // 确认在原面板内完成：不再在面板之上叠一层弹窗。
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .padding(bottom = 24.dp),
+                ) {
+                    AssistantDeleteConfirmPanel(
+                        profile = deleteTarget,
+                        canDelete = profiles.size > 1,
+                        onCancel = { deleteProfile = null },
+                        onConfirm = {
+                            deleteProfile = null
+                            scope.launch {
+                                withContext(Dispatchers.IO) {
+                                    AssistantRepository.delete(deleteTarget.id)
+                                    RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+                                }
+                            }
+                        },
+                    )
+                }
+            } else {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -105,21 +133,15 @@ internal fun AssistantPickerDialog(
                     .padding(bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth(),
+                // 关闭走面板下拉 / 点遮罩 / 返回键，不放右上角关闭按钮。
+                Box(
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    contentAlignment = Alignment.CenterStart,
                 ) {
                     M3Text(
                         text = stringResource(R.string.assistant_list_title),
                         style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.weight(1f),
                     )
-                    IconButton(onClick = onDismiss) {
-                        Icon(
-                            imageVector = Icons.Rounded.Close,
-                            contentDescription = stringResource(R.string.action_close),
-                        )
-                    }
                 }
                 AssistantSearchField(
                     query = searchQuery,
@@ -169,25 +191,56 @@ internal fun AssistantPickerDialog(
                     }
                 }
             }
+            }
         }
     }
+}
 
-    deleteProfile?.let { profile ->
-        AssistantDeleteDialog(
-            profile = profile,
-            canDelete = profiles.size > 1,
-            onDismiss = { deleteProfile = null },
-            onConfirm = {
-                val target = profile
-                deleteProfile = null
-                scope.launch {
-                    withContext(Dispatchers.IO) {
-                        AssistantRepository.delete(target.id)
-                        RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
-                    }
-                }
-            },
+/**
+ * 面板内的删除确认：与历史清理一致，在底部面板原位完成，不在面板上再叠弹窗。
+ */
+@Composable
+internal fun AssistantDeleteConfirmPanel(
+    profile: AssistantProfile,
+    canDelete: Boolean,
+    onCancel: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    val view = LocalView.current
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        M3Text(
+            text = stringResource(R.string.assistant_delete_title),
+            style = MaterialTheme.typography.titleLarge,
         )
+        M3Text(
+            text = stringResource(R.string.assistant_delete_body, profile.name),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+        ) {
+            TextButton(onClick = { TouchHaptics.click(view); onCancel() }) {
+                M3Text(stringResource(R.string.action_cancel))
+            }
+            TextButton(
+                enabled = canDelete,
+                onClick = { TouchHaptics.click(view); onConfirm() },
+            ) {
+                M3Text(
+                    text = stringResource(R.string.action_delete),
+                    color = if (canDelete) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                    },
+                )
+            }
+        }
     }
 }
 
@@ -245,7 +298,7 @@ internal fun AssistantProfileCard(
 /**
  * 助手行：KernelSU 式分段行 + 行尾官方三点菜单（与 Skills 页的技能行同一套交互）。
  *
- * 「复制 / 编辑 / 删除」收进 [DropdownMenu]，行本身只负责打开助手；删除仍需二次确认。
+ * 「复制 / 编辑 / 删除」收进官方 M3E 下拉菜单，行本身只负责打开助手；删除仍需二次确认。
  */
 @Composable
 internal fun AssistantRow(
@@ -287,49 +340,54 @@ internal fun AssistantRow(
                             contentDescription = stringResource(R.string.assistant_more_named, profile.name),
                         )
                     }
-                    DropdownMenu(
+                    EtaMenuPopup(
                         expanded = menuExpanded,
                         onDismissRequest = { menuExpanded = false },
                     ) {
-                        DropdownMenuItem(
-                            text = { M3Text(text = stringResource(R.string.ui_copy_4edd1d)) },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Rounded.ContentCopy,
-                                    contentDescription = null,
-                                )
-                            },
-                            onClick = {
-                                menuExpanded = false
-                                onCopy()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { M3Text(text = stringResource(R.string.ui_edit_a7f814)) },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Rounded.Edit,
-                                    contentDescription = null,
-                                )
-                            },
-                            onClick = {
-                                menuExpanded = false
-                                onEdit()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { M3Text(text = stringResource(R.string.action_delete)) },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Rounded.Delete,
-                                    contentDescription = null,
-                                )
-                            },
-                            onClick = {
-                                menuExpanded = false
-                                onDelete()
-                            },
-                        )
+                        EtaMenuGroup(index = 0, count = 1) {
+                            DropdownMenuItem(
+                                text = { M3Text(text = stringResource(R.string.ui_copy_4edd1d)) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Rounded.ContentCopy,
+                                        contentDescription = null,
+                                    )
+                                },
+                                shape = EtaMenuItemShape(index = 0, count = 3),
+                                onClick = {
+                                    menuExpanded = false
+                                    onCopy()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { M3Text(text = stringResource(R.string.ui_edit_a7f814)) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Edit,
+                                        contentDescription = null,
+                                    )
+                                },
+                                shape = EtaMenuItemShape(index = 1, count = 3),
+                                onClick = {
+                                    menuExpanded = false
+                                    onEdit()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { M3Text(text = stringResource(R.string.action_delete)) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Delete,
+                                        contentDescription = null,
+                                    )
+                                },
+                                shape = EtaMenuItemShape(index = 2, count = 3),
+                                onClick = {
+                                    menuExpanded = false
+                                    onDelete()
+                                },
+                            )
+                        }
                     }
                 }
             }

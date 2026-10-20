@@ -41,7 +41,7 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.config.InteractiveModePreference
-import io.github.mangi.eta.ui.CompressConversationDialog
+import io.github.mangi.eta.ui.adaptive.EtaMenuItemShape
 import io.github.mangi.eta.ui.components.EtaDropdownMenu
 import io.github.mangi.eta.ui.components.rememberEtaMenuState
 import io.github.mangi.eta.ui.components.rememberInteractiveModeEnabled
@@ -70,14 +70,10 @@ internal fun TopBarOverflowMenu(
     autoCompressEnabled: Boolean,
     isCompressingContext: Boolean = false,
     onToggleAutoCompress: (Boolean) -> Unit,
-    onCompressConversation: (
-        providerId: String?,
-        modelId: String?,
-        onFinished: (Boolean) -> Unit,
-    ) -> Unit = { _, _, done -> done(false) },
     onOpenSearchHistory: () -> Unit = {},
     onOpenTokenUsage: () -> Unit = {},
     onOpenSubAgentStatus: () -> Unit = {},
+    onOpenCompressConversation: () -> Unit = {},
     canDeleteCurrentConversation: Boolean = false,
     onDeleteCurrentConversation: () -> Unit = {},
 ) {
@@ -117,7 +113,7 @@ internal fun TopBarOverflowMenu(
                 autoCompressEnabled = autoCompressEnabled,
                 isCompressingContext = isCompressingContext,
                 onToggleAutoCompress = onToggleAutoCompress,
-                onCompressConversation = onCompressConversation,
+                onOpenCompressConversation = onOpenCompressConversation,
                 onOpenSearchHistory = onOpenSearchHistory,
                 onOpenTokenUsage = onOpenTokenUsage,
                 onOpenSubAgentStatus = onOpenSubAgentStatus,
@@ -147,11 +143,7 @@ internal fun TopBarMenuItems(
     autoCompressEnabled: Boolean,
     isCompressingContext: Boolean = false,
     onToggleAutoCompress: (Boolean) -> Unit,
-    onCompressConversation: (
-        providerId: String?,
-        modelId: String?,
-        onFinished: (Boolean) -> Unit,
-    ) -> Unit = { _, _, done -> done(false) },
+    onOpenCompressConversation: () -> Unit = {},
     onOpenSearchHistory: () -> Unit = {},
     onOpenTokenUsage: () -> Unit = {},
     onOpenSubAgentStatus: () -> Unit = {},
@@ -161,11 +153,11 @@ internal fun TopBarMenuItems(
     val interactiveModePreference = remember { InteractiveModePreference() }
     val interactiveModeEnabled by rememberInteractiveModeEnabled(interactiveModePreference)
     val view = LocalView.current
-    var showCompressDialog by remember { mutableStateOf(false) }
 
     DropdownMenuItem(
         modifier = CompactMenuItemModifier,
         contentPadding = CompactMenuItemPadding,
+        shape = EtaMenuItemShape(index = 0, count = 2),
         text = { Text(stringResource(R.string.action_search_history)) },
         leadingIcon = {
             Icon(
@@ -180,6 +172,7 @@ internal fun TopBarMenuItems(
     DropdownMenuItem(
         modifier = CompactMenuItemModifier,
         contentPadding = CompactMenuItemPadding,
+        shape = EtaMenuItemShape(index = 1, count = 2),
         text = { Text(stringResource(R.string.action_voice_settings)) },
         leadingIcon = {
             Icon(
@@ -194,6 +187,7 @@ internal fun TopBarMenuItems(
     DropdownMenuItem(
         modifier = CompactMenuItemModifier.testTag("top-bar-interactive-mode-row"),
         contentPadding = CompactMenuItemPadding,
+        shape = EtaMenuItemShape(index = 0, count = 1),
         text = { Text(stringResource(R.string.action_interactive_mode)) },
         leadingIcon = {
             Icon(
@@ -202,7 +196,7 @@ internal fun TopBarMenuItems(
                 modifier = Modifier.size(TopBarMenuIconSize),
             )
         },
-        trailingIcon = {
+        trailingContent = {
             Switch(
                 checked = interactiveModeEnabled,
                 onCheckedChange = { enabled ->
@@ -221,6 +215,7 @@ internal fun TopBarMenuItems(
     DropdownMenuItem(
         modifier = CompactMenuItemModifier,
         contentPadding = CompactMenuItemPadding,
+        shape = EtaMenuItemShape(index = 0, count = 5),
         text = { Text(stringResource(R.string.action_open_terminal)) },
         leadingIcon = {
             Icon(
@@ -234,6 +229,7 @@ internal fun TopBarMenuItems(
     DropdownMenuItem(
         modifier = CompactMenuItemModifier,
         contentPadding = CompactMenuItemPadding,
+        shape = EtaMenuItemShape(index = 1, count = 5),
         text = { Text(stringResource(R.string.action_open_browser)) },
         leadingIcon = {
             Icon(
@@ -247,6 +243,7 @@ internal fun TopBarMenuItems(
     DropdownMenuItem(
         modifier = CompactMenuItemModifier,
         contentPadding = CompactMenuItemPadding,
+        shape = EtaMenuItemShape(index = 2, count = 5),
         text = { Text(stringResource(R.string.action_browse_workspace_files)) },
         leadingIcon = {
             Icon(
@@ -260,6 +257,7 @@ internal fun TopBarMenuItems(
     DropdownMenuItem(
         modifier = CompactMenuItemModifier,
         contentPadding = CompactMenuItemPadding,
+        shape = EtaMenuItemShape(index = 3, count = 5),
         text = { Text(stringResource(R.string.action_sub_agent_status)) },
         leadingIcon = {
             Icon(
@@ -273,6 +271,7 @@ internal fun TopBarMenuItems(
     DropdownMenuItem(
         modifier = CompactMenuItemModifier,
         contentPadding = CompactMenuItemPadding,
+        shape = EtaMenuItemShape(index = 4, count = 5),
         text = { Text(kimiWebLabel) },
         leadingIcon = {
             Icon(
@@ -287,6 +286,7 @@ internal fun TopBarMenuItems(
     DropdownMenuItem(
         modifier = CompactMenuItemModifier,
         contentPadding = CompactMenuItemPadding,
+        shape = EtaMenuItemShape(index = 0, count = 3),
         text = { Text(stringResource(R.string.action_token_usage)) },
         leadingIcon = {
             Icon(
@@ -300,6 +300,7 @@ internal fun TopBarMenuItems(
     DropdownMenuItem(
         modifier = CompactMenuItemModifier,
         contentPadding = CompactMenuItemPadding,
+        shape = EtaMenuItemShape(index = 1, count = 3),
         enabled = !isCompressingContext,
         text = { Text(stringResource(R.string.action_compress_conversation)) },
         leadingIcon = {
@@ -309,15 +310,12 @@ internal fun TopBarMenuItems(
                 modifier = Modifier.size(TopBarMenuIconSize),
             )
         },
-        onClick = {
-            TouchHaptics.click(view)
-            dismiss()
-            showCompressDialog = true
-        },
+        onClick = { TouchHaptics.click(view); dismiss(); onOpenCompressConversation() },
     )
     DropdownMenuItem(
         modifier = CompactMenuItemModifier,
         contentPadding = CompactMenuItemPadding,
+        shape = EtaMenuItemShape(index = 2, count = 3),
         text = { Text(stringResource(R.string.action_auto_compress_context)) },
         leadingIcon = {
             Icon(
@@ -326,7 +324,7 @@ internal fun TopBarMenuItems(
                 modifier = Modifier.size(TopBarMenuIconSize),
             )
         },
-        trailingIcon = {
+        trailingContent = {
             Switch(
                 checked = autoCompressEnabled,
                 onCheckedChange = null,
@@ -342,6 +340,7 @@ internal fun TopBarMenuItems(
     DropdownMenuItem(
         modifier = CompactMenuItemModifier,
         contentPadding = CompactMenuItemPadding,
+        shape = EtaMenuItemShape(index = 0, count = 1),
         enabled = canDeleteCurrentConversation,
         text = {
             Text(
@@ -364,6 +363,7 @@ internal fun TopBarMenuItems(
         DropdownMenuItem(
             modifier = CompactMenuItemModifier,
             contentPadding = CompactMenuItemPadding,
+            shape = EtaMenuItemShape(index = 0, count = 1),
             text = { Text(stringResource(R.string.capability_kimi_stop)) },
             leadingIcon = {
                 Icon(
@@ -375,13 +375,6 @@ internal fun TopBarMenuItems(
             onClick = { TouchHaptics.click(view); dismiss(); onStopKimiWeb() },
         )
     }
-
-    CompressConversationDialog(
-        show = showCompressDialog,
-        isCompressing = isCompressingContext,
-        onDismiss = { showCompressDialog = false },
-        onConfirm = onCompressConversation,
-    )
 }
 
 @Composable

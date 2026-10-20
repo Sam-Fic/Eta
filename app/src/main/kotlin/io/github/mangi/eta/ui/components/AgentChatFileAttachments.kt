@@ -1,6 +1,7 @@
 package io.github.mangi.eta.ui.components
 
 import android.content.Intent
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -32,7 +33,6 @@ import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButtonDefaults
@@ -44,9 +44,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.core.content.FileProvider
+import io.github.mangi.eta.ui.adaptive.EtaMenuGroup
+import io.github.mangi.eta.ui.adaptive.EtaMenuItemShape
+import io.github.mangi.eta.ui.adaptive.EtaMenuPopup
 import io.github.mangi.eta.ui.adaptive.EtaType
 import io.github.mangi.eta.ui.adaptive.etaPrimary
 import io.github.mangi.eta.ui.adaptive.etaSurfaceContainerHigh
@@ -71,16 +76,16 @@ import io.github.mangi.eta.agent.model.AgentFileReferenceKind
 import io.github.mangi.eta.ui.model.PendingFileReferenceUi
 import androidx.compose.material3.Icon
 import androidx.compose.ui.window.PopupPositionProvider
+import java.io.File
 
 internal val ChatInputPopupMargin = 8.dp
 /** 主页 / 侧边栏按钮统一档：官方 Small 图标按钮容器（40dp），尺寸只引用 IconButtonDefaults 令牌。 */
 internal val ChatInputActionSize = IconButtonDefaults.smallContainerSize().height
-/** 输入区动作图标尺寸（24dp）。 */
-internal val ChatInputActionIconSize = 24.dp
 
-/** 附件动作集：系统选择器与绝对路径输入的统一入口，由 [rememberAgentAttachmentActions] 创建。 */
+/** 附件动作集：系统选择器、相机拍照与绝对路径输入的统一入口，由 [rememberAgentAttachmentActions] 创建。 */
 internal class AgentAttachmentActions(
     val pickImage: () -> Unit,
+    val takePhoto: () -> Unit,
     val pickVideo: () -> Unit,
     val pickFiles: () -> Unit,
     val pickFolder: () -> Unit,
@@ -89,7 +94,8 @@ internal class AgentAttachmentActions(
 
 /**
  * 创建附件动作集并托管「输入绝对路径」弹窗（官方 `AlertDialog`）。
- * 图片 / 视频选择成功后先持久化读取权限再回调；文件 / 文件夹 / 路径直接回调。
+ * 图片 / 视频选择成功后先持久化读取权限再回调；拍照先写入缓存目录的 FileProvider URI，
+ * 成功后按同一图片通路回调；文件 / 文件夹 / 路径直接回调。
  */
 @Composable
 internal fun rememberAgentAttachmentActions(
@@ -102,6 +108,23 @@ internal fun rememberAgentAttachmentActions(
     val context = LocalContext.current
     var showPathDialog by remember { mutableStateOf(false) }
     var pathInput by remember { mutableStateOf("") }
+    // 相机输出文件路径：拍照期间可能经历进程重建，用可保存的字符串持有，
+    // 结果回调时再按路径重建 FileProvider URI。
+    var cameraOutputPath by rememberSaveable { mutableStateOf<String?>(null) }
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture(),
+    ) { captured ->
+        val output = cameraOutputPath?.let(::File)
+        cameraOutputPath = null
+        if (captured && output != null) {
+            onAttachImage(
+                FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", output)
+                    .toString()
+            )
+        } else {
+            output?.delete()
+        }
+    }
     val photoPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(),
     ) { uris ->
@@ -188,6 +211,24 @@ internal fun rememberAgentAttachmentActions(
                 PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
             )
         },
+        takePhoto = {
+            val directory = File(context.cacheDir, "camera-captures").apply { mkdirs() }
+            val output = File(directory, chatImageFileName("image/jpeg"))
+            cameraOutputPath = output.absolutePath
+            runCatching {
+                cameraLauncher.launch(
+                    FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", output)
+                )
+            }.onFailure {
+                cameraOutputPath = null
+                output.delete()
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.attachment_camera_unavailable),
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+        },
         pickVideo = {
             videoPicker.launch(
                 PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)
@@ -264,19 +305,21 @@ internal fun AgentAttachmentPickerButton(
                 tint = LocalContentColor.current,
             )
         }
-        // Material 3 Expressive：官方 DropdownMenu + 官方 DropdownMenuItem，
-        // 行高 / 内边距 / 前置图标尺寸 / 行形状全部取官方默认值。
-        DropdownMenu(
+        // Material 3 Expressive：官方 DropdownMenuPopup + 官方 DropdownMenuGroup，
+        // 行高 / 内边距 / 前置图标尺寸 / 行形状 / 组形状全部取官方默认值。
+        EtaMenuPopup(
             expanded = menuState.expanded,
             onDismissRequest = menuState::dismiss,
         ) {
-            options.forEachIndexed { index, (label, optionIcon, action) ->
-                DropdownMenuItem(
-                    text = { M3Text(text = label) },
-                    leadingIcon = { Icon(imageVector = optionIcon, contentDescription = null) },
-                    shape = etaOfficialMenuItemShape(index, options.size),
-                    onClick = { runOption(action) },
-                )
+            EtaMenuGroup(index = 0, count = 1) {
+                options.forEachIndexed { index, (label, optionIcon, action) ->
+                    DropdownMenuItem(
+                        text = { M3Text(text = label) },
+                        leadingIcon = { Icon(imageVector = optionIcon, contentDescription = null) },
+                        shape = EtaMenuItemShape(index, options.size),
+                        onClick = { runOption(action) },
+                    )
+                }
             }
         }
     }

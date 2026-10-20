@@ -8,7 +8,6 @@ import androidx.compose.material.icons.rounded.DesignServices
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -24,6 +23,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.adaptive.EtaMenuGroup
+import io.github.mangi.eta.ui.adaptive.EtaMenuItemShape
+import io.github.mangi.eta.ui.adaptive.EtaMenuPopup
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 import io.github.mangi.eta.ui.adaptive.EtaSwitch
 import io.github.mangi.eta.ui.components.ItemDescriptionDialog
@@ -108,7 +110,7 @@ internal fun SkillSwitchRow(
     }
 }
 
-/** 技能行尾的官方溢出菜单：图标按钮 + [DropdownMenu]，形状、配色、行高与字阶全部使用官方默认值。 */
+/** 技能行尾的官方溢出菜单：图标按钮 + 官方 M3E 弹出窗口，形状、配色、行高与字阶全部使用官方默认值。 */
 @Composable
 private fun SkillOverflowMenu(
     contentDescription: String,
@@ -117,27 +119,32 @@ private fun SkillOverflowMenu(
     onDelete: (() -> Unit)?,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val itemCount = if (onDelete != null) 2 else 1
     Box {
         IconButton(onClick = { expanded = true }, enabled = enabled) {
             Icon(imageVector = Icons.Rounded.MoreHoriz, contentDescription = contentDescription)
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(
-                text = { androidx.compose.material3.Text(text = stringResource(R.string.ui_view_description)) },
-                onClick = {
-                    expanded = false
-                    onViewDescription()
-                },
-            )
-            onDelete?.let { delete ->
+        EtaMenuPopup(expanded = expanded, onDismissRequest = { expanded = false }) {
+            EtaMenuGroup(index = 0, count = 1) {
                 DropdownMenuItem(
-                    text = { androidx.compose.material3.Text(text = stringResource(R.string.ui_delete_3755f5)) },
-                    enabled = enabled,
+                    text = { androidx.compose.material3.Text(text = stringResource(R.string.ui_view_description)) },
+                    shape = EtaMenuItemShape(index = 0, count = itemCount),
                     onClick = {
                         expanded = false
-                        if (enabled) delete()
+                        onViewDescription()
                     },
                 )
+                onDelete?.let { delete ->
+                    DropdownMenuItem(
+                        text = { androidx.compose.material3.Text(text = stringResource(R.string.ui_delete_3755f5)) },
+                        enabled = enabled,
+                        shape = EtaMenuItemShape(index = 1, count = itemCount),
+                        onClick = {
+                            expanded = false
+                            if (enabled) delete()
+                        },
+                    )
+                }
             }
         }
     }

@@ -175,6 +175,7 @@ class AgentChatComposerProductionRegressionTest {
                         onAttachFolder = {}, onAttachFilePath = {}, onRemoveFileReference = {},
                         onEditMessage = {}, onCancelMessageEdit = {}, onDeleteMessage = {}, onRegenerateMessage = {},
                         onSuggestionClick = {}, onRunTraceClick = {}, onOpenBrowser = {}, onEditAssistant = {},
+                        onOpenModelProviders = {}, onOpenAssistants = {},
                         currentBrowserMessageId = null,
                     )
                 }

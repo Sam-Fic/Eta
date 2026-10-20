@@ -30,7 +30,6 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -83,6 +82,9 @@ import io.github.mangi.eta.agent.terminal.label
 import io.github.mangi.eta.agent.terminal.isLinux
 import io.github.mangi.eta.ui.adaptive.EtaConnectedGroupRow
 import io.github.mangi.eta.ui.adaptive.EtaConnectedIconAction
+import io.github.mangi.eta.ui.adaptive.EtaMenuGroup
+import io.github.mangi.eta.ui.adaptive.EtaMenuItemShape
+import io.github.mangi.eta.ui.adaptive.EtaMenuPopup
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 import io.github.mangi.eta.ui.app.TerminalBlockUi
@@ -317,7 +319,7 @@ private fun BlockList(
  *
  * - 右滑 = 复用命令（填入输入框），左滑 = 复制命令；`confirmValueChange` 返回 false，
  *   动作做完条目自动回弹——命令块由 store 持有，不能被真滑掉。
- * - 长按弹出官方 [DropdownMenu] 动作菜单（复制命令 / 复制输出 / 复用命令），
+ * - 长按弹出官方 M3E 动作菜单（复制命令 / 复制输出 / 复用命令），
  *   锚定在命令块本身，不使用底部 Bottom Sheet。
  * - 失败态不再手绘色条：退出码用官方 `Surface` 状态标签（errorContainer）呈现。
  */
@@ -360,7 +362,7 @@ private fun CommandBlock(
             EtaSegmentedColumn(modifier = Modifier.fillMaxWidth()) {
                 item(key = block.id) {
                     // 点击只承担官方涟漪（终端块没有“按下就去哪”的语义），
-                    // 长按打开官方 [DropdownMenu] 动作菜单；官方 SegmentedListItem 自带按压形变与选中态配色。
+                    // 长按打开官方 M3E 动作菜单；官方 SegmentedListItem 自带按压形变与选中态配色。
                     EtaSegmentedRow(
                         onClick = {},
                         onLongClick = { showActions = true },
@@ -494,8 +496,9 @@ private fun blockHeader(block: TerminalBlockUi): AnnotatedString {
 /**
  * 命令块动作菜单。
  *
- * M3E：官方 [DropdownMenu] 锚定在所挂的 Box（命令块）展开；条目用官方 [DropdownMenuItem]
- * + `MenuDefaults.itemShape` 分段形状，行高 / 字阶 / 颜色全用官方默认值。
+ * M3E：官方弹出窗口（[EtaMenuPopup]）锚定在所挂的 Box（命令块）展开；容器用官方
+ * [DropdownMenuGroup]，条目用官方 [DropdownMenuItem] + `MenuDefaults.itemShape` 分段形状，
+ * 行高 / 字阶 / 颜色全用官方默认值。
  */
 @Composable
 private fun BlockActionMenu(
@@ -510,42 +513,44 @@ private fun BlockActionMenu(
     val copiedCommandMessage = stringResource(R.string.terminal_copied_command)
     val copiedOutputMessage = stringResource(R.string.terminal_copied_output)
     val itemCount = 3
-    DropdownMenu(
+    EtaMenuPopup(
         expanded = expanded,
         onDismissRequest = onDismiss,
     ) {
-        BlockActionItem(
-            icon = Icons.Rounded.ContentCopy,
-            text = stringResource(R.string.terminal_copy_command),
-            shapeIndex = 0,
-            itemCount = itemCount,
-        ) {
-            TouchHaptics.click(view)
-            clipboard.setText(AnnotatedString(block.command))
-            onMessage(copiedCommandMessage)
-            onDismiss()
-        }
-        BlockActionItem(
-            icon = Icons.Rounded.Description,
-            text = stringResource(R.string.terminal_copy_output),
-            shapeIndex = 1,
-            itemCount = itemCount,
-            enabled = block.output.isNotEmpty(),
-        ) {
-            TouchHaptics.click(view)
-            clipboard.setText(AnnotatedString(ansiPlainText(block.output)))
-            onMessage(copiedOutputMessage)
-            onDismiss()
-        }
-        BlockActionItem(
-            icon = Icons.Rounded.Refresh,
-            text = stringResource(R.string.terminal_reinput),
-            shapeIndex = 2,
-            itemCount = itemCount,
-        ) {
-            TouchHaptics.click(view)
-            onReinput(block.command)
-            onDismiss()
+        EtaMenuGroup(index = 0, count = 1) {
+            BlockActionItem(
+                icon = Icons.Rounded.ContentCopy,
+                text = stringResource(R.string.terminal_copy_command),
+                shapeIndex = 0,
+                itemCount = itemCount,
+            ) {
+                TouchHaptics.click(view)
+                clipboard.setText(AnnotatedString(block.command))
+                onMessage(copiedCommandMessage)
+                onDismiss()
+            }
+            BlockActionItem(
+                icon = Icons.Rounded.Description,
+                text = stringResource(R.string.terminal_copy_output),
+                shapeIndex = 1,
+                itemCount = itemCount,
+                enabled = block.output.isNotEmpty(),
+            ) {
+                TouchHaptics.click(view)
+                clipboard.setText(AnnotatedString(ansiPlainText(block.output)))
+                onMessage(copiedOutputMessage)
+                onDismiss()
+            }
+            BlockActionItem(
+                icon = Icons.Rounded.Refresh,
+                text = stringResource(R.string.terminal_reinput),
+                shapeIndex = 2,
+                itemCount = itemCount,
+            ) {
+                TouchHaptics.click(view)
+                onReinput(block.command)
+                onDismiss()
+            }
         }
     }
 }
@@ -564,7 +569,7 @@ private fun BlockActionItem(
         onClick = onClick,
         enabled = enabled,
         text = { M3Text(text) },
-        shape = MenuDefaults.itemShape(index = shapeIndex, count = itemCount).shape,
+        shape = EtaMenuItemShape(index = shapeIndex, count = itemCount),
         leadingIcon = {
             Icon(
                 imageVector = icon,

@@ -1,9 +1,9 @@
 package io.github.mangi.eta.ui.components
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -14,10 +14,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.delegation.SubAgentTaskTier
+import io.github.mangi.eta.ui.adaptive.EtaMenuGroup
+import io.github.mangi.eta.ui.adaptive.EtaMenuItemShapes
+import io.github.mangi.eta.ui.adaptive.EtaMenuPopup
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 
 /** 统一风格的选择控件：官方 ListItem 承载容器、内外边距、排版、涟漪与禁用态。 */
@@ -63,38 +65,53 @@ internal fun SubAgentChoiceField(
     )
 }
 
-/** 紧凑菜单：宽度贴合最长标签、带描边、无投影。 */
+/**
+ * 子代理下拉菜单：官方 Expressive 弹层 + 官方分组（上下 2dp 紧凑边距的圆角容器）。
+ *
+ * [itemCount] 供条目推导自身形状，调用方需与实际条目数一致。
+ */
 @Composable
 internal fun SubAgentDropdownMenu(
     expanded: Boolean,
     onDismissRequest: () -> Unit,
+    itemCount: Int,
     modifier: Modifier = Modifier,
-    offset: DpOffset = DpOffset.Zero,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    // 官方 DropdownMenu 默认容器/形状/海拔/描边（MenuDefaults），不覆盖任何一项。
-    DropdownMenu(
+    EtaMenuPopup(
         expanded = expanded,
         onDismissRequest = onDismissRequest,
         modifier = modifier,
-        offset = offset,
     ) {
-        Column(Modifier.width(IntrinsicSize.Max).widthIn(min = 96.dp, max = 220.dp), content = content)
+        EtaMenuGroup(index = 0, count = 1) {
+            content()
+        }
     }
 }
 
-/** 选中态是官方 SelectableDropdownMenuItem 的背景 + 无障碍单选语义，不画对勾图标。 */
+/** 选中态是官方 SelectableDropdownMenuItem 的背景 + 无障碍单选语义，选中项带官方对勾前导图标。 */
 @Composable
-internal fun SubAgentSelectionItem(text: String, selected: Boolean, onClick: () -> Unit) {
+internal fun SubAgentSelectionItem(
+    text: String,
+    selected: Boolean,
+    index: Int,
+    count: Int,
+    onClick: () -> Unit,
+) {
     val view = LocalView.current
     // 官方 SelectableDropdownMenuItem 承担选中背景、涟漪、Role.RadioButton 语义与按压形变；
-    // 前导槽位留空，选中态不画对勾图标。
+    // 选中项的前导槽位放官方对勾图标（与「上下文压缩 → 请求接口」那个下拉同款）。
     SelectableDropdownMenuItem(
         selected = selected,
         onClick = { TouchHaptics.click(view); onClick() },
-        shapes = MenuDefaults.itemShapes(),
-        // 空的前导槽位：只保留官方选中背景与单选语义，不画对勾图标。
-        selectedLeadingIcon = {},
+        shapes = EtaMenuItemShapes(index, count),
+        selectedLeadingIcon = {
+            Icon(
+                imageVector = Icons.Filled.Check,
+                contentDescription = null,
+                modifier = Modifier.size(MenuDefaults.LeadingIconSize),
+            )
+        },
         text = {
             Text(
                 text = text,
@@ -146,11 +163,18 @@ internal fun SubAgentTaskTierButton(
         } else SubAgentChoiceField(label, tier?.label ?: stringResource(R.string.stt_unset), enabled, if (label == "任务分工") stringResource(R.string.stt_set_task_tier) else stringResource(R.string.stt_desc_set_for, label),
             onClick = { if (latestEnabled) { TouchHaptics.click(view); expanded = !expanded } })
         if (enabled) SubAgentDropdownMenu(
-            expanded, { expanded = false }, Modifier.selectableGroup(),
-            offset = if (compact) DpOffset(0.dp, (-(32 * SubAgentTaskTier.entries.size + 10)).dp) else DpOffset.Zero,
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            itemCount = SubAgentTaskTier.entries.size,
+            modifier = Modifier.selectableGroup(),
         ) {
-            SubAgentTaskTier.entries.forEach { option ->
-                SubAgentSelectionItem(option.label, option == tier) {
+            SubAgentTaskTier.entries.forEachIndexed { index, option ->
+                SubAgentSelectionItem(
+                    text = option.label,
+                    selected = option == tier,
+                    index = index,
+                    count = SubAgentTaskTier.entries.size,
+                ) {
                     if (latestEnabled) {
                         latestSelection(option)
                         expanded = false

@@ -8,18 +8,12 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.rememberTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -32,7 +26,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Path
@@ -51,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
+import io.github.mangi.eta.ui.adaptive.EtaMenuGroupSurface
 import kotlinx.coroutines.delay
 
 private val MenuCornerRadius = 16.dp
@@ -178,7 +172,10 @@ internal fun EtaDropdownMenu(
         properties = popupProperties,
     ) {
         CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
-            Column(
+            // 容器用官方 Expressive 分组（surfaceContainerLow + 官方组圆角 + 3dp shadow +
+            // 上下 2dp 紧凑内边距），与「上下文压缩 → 请求接口」那个下拉同款；
+            // 自定义的只有弹层定位与进出场动画。
+            Box(
                 modifier = Modifier
                     .graphicsLayer {
                         val progress = fraction.value
@@ -198,24 +195,12 @@ internal fun EtaDropdownMenu(
                         },
                         preferAbove = preferAbove,
                         cornerRadius = MenuCornerRadius,
-                    )
-                    .shadow(
-                        elevation = 8.dp,
-                        shape = RoundedCornerShape(MenuCornerRadius),
-                    )
-                    .background(
-                        color = MaterialTheme.colorScheme.surface,
-                        shape = RoundedCornerShape(MenuCornerRadius),
-                    )
-                    .border(
-                        width = 0.5.dp,
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
-                        shape = RoundedCornerShape(MenuCornerRadius),
-                    )
-                    .padding(vertical = 8.dp)
-                    .verticalScroll(rememberScrollState()),
-                content = content,
-            )
+                    ),
+            ) {
+                EtaMenuGroupSurface(scrollable = true) {
+                    content()
+                }
+            }
         }
     }
 }

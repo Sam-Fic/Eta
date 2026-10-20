@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -43,6 +44,7 @@ import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.RecordVoiceOver
@@ -53,12 +55,10 @@ import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.StopCircle
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FloatingToolbarDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -90,6 +90,7 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
@@ -115,6 +116,10 @@ import io.github.mangi.eta.agent.voice.VoiceModeState
 import io.github.mangi.eta.data.model.GptSpeedMode
 import io.github.mangi.eta.data.model.ReasoningEffort
 import io.github.mangi.eta.data.repository.ComposerQueueStore
+import io.github.mangi.eta.ui.adaptive.EtaMenuGroup
+import io.github.mangi.eta.ui.adaptive.EtaMenuGroupSpacing
+import io.github.mangi.eta.ui.adaptive.EtaMenuItemShape
+import io.github.mangi.eta.ui.adaptive.EtaMenuPopup
 import io.github.mangi.eta.ui.adaptive.EtaType
 import io.github.mangi.eta.ui.adaptive.etaTextStyle
 import io.github.mangi.eta.ui.haptics.TouchHaptics
@@ -150,7 +155,7 @@ internal fun rememberImeVisible(): Boolean {
  *
  * 结构（自左向右）：
  * 1. 「+」主操作（官方 `FilledIconButton`，primary／onPrimary）→ 附件与发送选项菜单
- *    （定时发送 / 保存草稿 / 分享、视频 / 文件 / 文件夹 / 输入路径）。
+ *    （定时发送 / 保存草稿 / 分享、拍照 / 视频 / 文件 / 文件夹 / 输入路径）。
  * 2. 图库（官方 Standard 图标按钮，`Icons.Rounded.PhotoLibrary`）→ 直接打开系统图片选择器。
  * 3. 「助手与模型」二合一入口（官方 Standard 图标按钮）→ 合并选择弹窗
  *    （助手 / 模型两个页签，底部为思考档位与上下文用量）。
@@ -167,7 +172,8 @@ internal fun rememberImeVisible(): Boolean {
  * 整个工具栏容器、容器色（官方 vibrant 变体：`primaryContainer` / `onPrimaryContainer`）、
  * 高度、内边距与进出场弹簧动效全部取官方 `HorizontalFloatingToolbar` 默认令牌；可点区域一律为官方 Material 3 组件
  * （`FilledIconButton` / `IconButton` / `FilledTonalIconButton` / `OutlinedIconButton`），
- * 菜单用官方 `DropdownMenu` + `DropdownMenuItem`，尺寸取 `IconButtonDefaults` 令牌，
+ * 菜单用 Material 3 Expressive 写法（官方 `DropdownMenuPopup` + `DropdownMenuGroup` +
+ * `DropdownMenuItem`），尺寸取 `IconButtonDefaults` 令牌，
  * 进出场动效一律取 `MaterialTheme.motionScheme` 的 Expressive 弹簧规格。
  *
  * 编辑态：左侧取消按钮替代整组入口，尾部仍为发送按钮。
@@ -226,6 +232,10 @@ internal fun Material3ComposerBody(
     onAttachFolder: (String) -> Unit,
     onAttachFilePath: (String) -> Unit,
     onEditAssistant: (String) -> Unit,
+    /** 从「模型与助手」弹窗进入模型配置页；入口浮层不显示该弹窗，默认空实现。 */
+    onOpenModelProviders: () -> Unit = {},
+    /** 从「模型与助手」弹窗进入助手管理页；入口浮层不显示该弹窗，默认空实现。 */
+    onOpenAssistants: () -> Unit = {},
     onAssistantSelected: (String) -> Unit,
     onModelSelected: (String, String) -> Unit,
     onReasoningEffortChange: (ReasoningEffort) -> Unit,
@@ -568,6 +578,8 @@ internal fun Material3ComposerBody(
         onDismiss = { showPickerSheet = false },
         assistantId = assistantId,
         onEditAssistant = onEditAssistant,
+        onOpenModelProviders = onOpenModelProviders,
+        onOpenAssistants = onOpenAssistants,
         onAssistantSelected = onAssistantSelected,
         modelPickerState = modelPickerState,
         isStreaming = isStreaming,
@@ -821,12 +833,15 @@ private fun M3ComposerCancelButton(onClick: () -> Unit, modifier: Modifier = Mod
 /**
  * 「+」主操作按钮：空闲态是官方标准图标按钮（透明容器，只有图标），展开附件与发送选项
  * 菜单后转为填充圆钮并带上主色（`primary`／`onPrimary`，与尾部「通话」按钮同一组色槽）。
- * 点击展开菜单：定时发送 / 存草稿 / 分享，以及视频 / 文件 / 文件夹 / 输入路径等附件项
+ * 点击展开菜单：定时发送 / 存草稿 / 分享，以及拍照 / 视频 / 文件 / 文件夹 / 输入路径等附件项
  * （动作由共享的 `rememberAgentAttachmentActions` 提供）。
  *
  * 菜单展开时「+」同时旋转 45° 成为「×」（关闭语义），收起时转回，旋转取官方 Expressive
  * 弹簧规格；图标本身是同一个 `Icons.Rounded.Add`，旋转由 `graphicsLayer` 承担。
- * 菜单用官方 `DropdownMenu` + `DropdownMenuItem`，行形状取官方 `MenuDefaults` 令牌。
+ *
+ * 菜单用 Material 3 Expressive 写法：官方 `DropdownMenuPopup` 承载弹层，菜单内容按
+ * 「对话操作」「附件来源」拆成两个官方 `DropdownMenuGroup`，组形状取 `MenuDefaults.groupShape`，
+ * 组间留官方 `MenuDefaults.GroupSpacing`；行形状仍取官方 `MenuDefaults` 令牌。
  */
 @Composable
 private fun M3ComposerAddButton(
@@ -865,6 +880,20 @@ private fun M3ComposerAddButton(
     )
     val view = LocalView.current
     val context = LocalContext.current
+    // 菜单分两组：对话操作 / 附件来源。条目用「文案资源 + 前置图标 + 动作」描述，
+    // 渲染时行形状按官方 `MenuDefaults` 令牌取（首项 leading、末项 trailing）。
+    val conversationEntries = listOf(
+        ComposerMenuEntry(R.string.composer_schedule_send, Icons.Rounded.Schedule, onScheduleSend),
+        ComposerMenuEntry(R.string.composer_save_draft, Icons.Rounded.Save, onSaveDraft),
+        ComposerMenuEntry(R.string.composer_share, Icons.Rounded.Share, onShare),
+    )
+    val attachmentEntries = listOf(
+        ComposerMenuEntry(R.string.attachment_take_photo, Icons.Rounded.PhotoCamera, actions.takePhoto),
+        ComposerMenuEntry(R.string.attachment_video, Icons.Rounded.Videocam, actions.pickVideo),
+        ComposerMenuEntry(R.string.attachment_file, Icons.Rounded.Description, actions.pickFiles),
+        ComposerMenuEntry(R.string.attachment_folder, Icons.Rounded.FolderOpen, actions.pickFolder),
+        ComposerMenuEntry(R.string.attachment_enter_path, Icons.Rounded.Link, actions.inputPath),
+    )
     Box {
         // 容器 / 内容色只由上面的渐变驱动，两种颜色之间平滑过渡。
         //
@@ -899,74 +928,40 @@ private fun M3ComposerAddButton(
                     .graphicsLayer { rotationZ = iconRotation },
             )
         }
-        DropdownMenu(
+        EtaMenuPopup(
             expanded = expanded,
             onDismissRequest = { onExpandedChange(false) },
         ) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.composer_schedule_send)) },
-                leadingIcon = { Icon(Icons.Rounded.Schedule, contentDescription = null) },
-                shape = etaOfficialMenuItemShape(0, ATTACHMENT_MENU_ITEM_COUNT),
-                onClick = {
-                    onExpandedChange(false)
-                    onScheduleSend()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.composer_save_draft)) },
-                leadingIcon = { Icon(Icons.Rounded.Save, contentDescription = null) },
-                shape = etaOfficialMenuItemShape(1, ATTACHMENT_MENU_ITEM_COUNT),
-                onClick = {
-                    onExpandedChange(false)
-                    onSaveDraft()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.composer_share)) },
-                leadingIcon = { Icon(Icons.Rounded.Share, contentDescription = null) },
-                shape = etaOfficialMenuItemShape(2, ATTACHMENT_MENU_ITEM_COUNT),
-                onClick = {
-                    onExpandedChange(false)
-                    onShare()
-                },
-            )
-            HorizontalDivider()
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.attachment_video)) },
-                leadingIcon = { Icon(Icons.Rounded.Videocam, contentDescription = null) },
-                shape = etaOfficialMenuItemShape(3, ATTACHMENT_MENU_ITEM_COUNT),
-                onClick = {
-                    onExpandedChange(false)
-                    actions.pickVideo()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.attachment_file)) },
-                leadingIcon = { Icon(Icons.Rounded.Description, contentDescription = null) },
-                shape = etaOfficialMenuItemShape(4, ATTACHMENT_MENU_ITEM_COUNT),
-                onClick = {
-                    onExpandedChange(false)
-                    actions.pickFiles()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.attachment_folder)) },
-                leadingIcon = { Icon(Icons.Rounded.FolderOpen, contentDescription = null) },
-                shape = etaOfficialMenuItemShape(5, ATTACHMENT_MENU_ITEM_COUNT),
-                onClick = {
-                    onExpandedChange(false)
-                    actions.pickFolder()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.attachment_enter_path)) },
-                leadingIcon = { Icon(Icons.Rounded.Link, contentDescription = null) },
-                shape = etaOfficialMenuItemShape(6, ATTACHMENT_MENU_ITEM_COUNT),
-                onClick = {
-                    onExpandedChange(false)
-                    actions.inputPath()
-                },
-            )
+            // 第一组：对话操作（定时发送 / 保存草稿 / 分享）。
+            EtaMenuGroup(index = 0, count = COMPOSER_MENU_GROUP_COUNT) {
+                conversationEntries.forEachIndexed { index, entry ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(entry.labelRes)) },
+                        leadingIcon = { Icon(entry.icon, contentDescription = null) },
+                        shape = EtaMenuItemShape(index, conversationEntries.size),
+                        onClick = {
+                            onExpandedChange(false)
+                            entry.action()
+                        },
+                    )
+                }
+            }
+            // 组与组之间是官方留白，不再是同一个容器里的一条分割线。
+            Spacer(Modifier.height(EtaMenuGroupSpacing))
+            // 第二组：附件来源（拍照 / 视频 / 文件 / 文件夹 / 输入路径）。
+            EtaMenuGroup(index = 1, count = COMPOSER_MENU_GROUP_COUNT) {
+                attachmentEntries.forEachIndexed { index, entry ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(entry.labelRes)) },
+                        leadingIcon = { Icon(entry.icon, contentDescription = null) },
+                        shape = EtaMenuItemShape(index, attachmentEntries.size),
+                        onClick = {
+                            onExpandedChange(false)
+                            entry.action()
+                        },
+                    )
+                }
+            }
         }
     }
 }
@@ -1041,8 +1036,15 @@ private fun M3ComposerPickerButton(
     }
 }
 
-/** 附件菜单条目数（定时发送 / 存草稿 / 分享 + 视频 / 文件 / 文件夹 / 输入路径）。 */
-private const val ATTACHMENT_MENU_ITEM_COUNT = 7
+/** 「+」菜单条目：文案资源 + 前置图标 + 点击动作。 */
+private data class ComposerMenuEntry(
+    val labelRes: Int,
+    val icon: ImageVector,
+    val action: () -> Unit,
+)
+
+/** 「+」菜单的分组数（对话操作 / 附件来源）。 */
+private const val COMPOSER_MENU_GROUP_COUNT = 2
 
 /**
  * 发送 / 停止 / 继续 按钮：按状态直接选用官方图标按钮

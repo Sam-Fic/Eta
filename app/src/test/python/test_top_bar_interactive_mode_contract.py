@@ -66,7 +66,9 @@ class TopBarInteractiveModeContractTest(unittest.TestCase):
     def setUpClass(cls):
         cls.menu = read("ui/app/TopBarOverflowMenu.kt")
         popup = cls.menu.index("EtaDropdownMenu(")
-        cls.content = cls.menu[popup:cls.menu.index("CompressConversationDialog(", popup)]
+        # 「压缩会话」已改为独立页面：菜单项集合的切片终点取 TopBarMenuItems 之后的
+        # MenuSectionDivider 定义（其后不再有随菜单打开的弹窗调用）。
+        cls.content = cls.menu[popup:cls.menu.index("private fun MenuSectionDivider(", popup)]
         cls.entries = []
         cls.sequence = []
         for match in re.finditer(r"\b(DropdownMenuItem|MenuSectionDivider)\(", cls.content):
@@ -220,7 +222,7 @@ class TopBarInteractiveModeContractTest(unittest.TestCase):
                      "canStopKimiWeb", "onStopKimiWeb", "onRefreshKimiWeb", "onOpenBrowser",
                      "onOpenWorkspace", "onOpenVoiceSettings",
                      "autoCompressEnabled", "isCompressingContext",
-                     "onToggleAutoCompress", "onCompressConversation", "onOpenSearchHistory",
+                     "onToggleAutoCompress", "onOpenCompressConversation", "onOpenSearchHistory",
                      "onOpenTokenUsage", "onOpenSubAgentStatus",
                      "canDeleteCurrentConversation", "onDeleteCurrentConversation"):
             with self.subTest(parameter=name):

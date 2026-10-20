@@ -1,8 +1,15 @@
 package io.github.mangi.eta.ui.components
 
+import androidx.compose.animation.core.AnimationVector
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.DecayAnimationSpec
 import androidx.compose.animation.core.FiniteAnimationSpec
-import androidx.compose.animation.core.exponentialDecay
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.TwoWayConverter
+import androidx.compose.animation.core.VectorizedAnimationSpec
+import androidx.compose.animation.core.VectorizedDecayAnimationSpec
+import androidx.compose.animation.core.VectorizedFiniteAnimationSpec
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.border
@@ -53,6 +60,7 @@ import androidx.compose.material.icons.rounded.ManageHistory
 import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Extension
@@ -63,12 +71,9 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.AddComment
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Badge
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonGroupDefaults
-import androidx.compose.material3.ButtonShapes
 import androidx.compose.material3.DismissibleNavigationDrawer
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -80,13 +85,14 @@ import androidx.compose.material3.IconButtonShapes
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Surface as M3Surface
 import androidx.compose.material3.Text as M3Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.ripple
+import androidx.compose.material3.ToggleButtonDefaults
+import androidx.compose.material3.ToggleButtonShapes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -102,8 +108,14 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import io.github.mangi.eta.ui.adaptive.EtaConnectedPosition
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.EtaExpressiveToggleButton
+import io.github.mangi.eta.ui.adaptive.EtaMorphChipShape
+import io.github.mangi.eta.ui.adaptive.EtaMenuGroup
+import io.github.mangi.eta.ui.adaptive.EtaMenuItemShape
+import io.github.mangi.eta.ui.adaptive.EtaMenuPopup
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedGap
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedGroupSpacing
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedItem
@@ -111,6 +123,7 @@ import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedTitleSpacing
 import io.github.mangi.eta.ui.adaptive.EtaTextField
 import io.github.mangi.eta.ui.adaptive.EtaType
+import io.github.mangi.eta.ui.adaptive.etaConnectedButtonShapes
 import io.github.mangi.eta.ui.adaptive.etaTextStyle
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.input.ImeAction
@@ -119,6 +132,7 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -127,9 +141,11 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -143,9 +159,11 @@ import io.github.mangi.eta.data.repository.AssistantRepository
 import io.github.mangi.eta.ui.model.ConversationFolderUi
 import io.github.mangi.eta.ui.model.searchResults
 import io.github.mangi.eta.ui.model.ConversationPaneUiState
+import io.github.mangi.eta.ui.model.UNCATEGORIZED_FOLDER_ID
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.model.ConversationSummaryUi
 import kotlin.math.abs
+import kotlin.math.sqrt
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import androidx.compose.material3.DropdownMenuItem
@@ -160,19 +178,22 @@ private object DrawerMetrics {
     const val CloseDurationMs = 200
     // 手势松手后的合拢速度下限（dp/s）。低于它算「拖着不放」，按位置判；高于它算甩，
     // 直接朝甩的方向定锚，速度越快越早到位——这是「跟手」的关键。
-    // 官方是 400dp/s，偏低：轻轻一拨就按位置判，容易出现已经甩很远却弹回去的割裂感。
-    const val SettleVelocityThresholdDp = 720
+    // 官方是 400dp/s；取 480 略高一点，避免列表里横向轻扫误关，正常甩动仍能直接命中。
+    const val SettleVelocityThresholdDp = 480
     // 位置阈值占全程的比例。官方 0.5 意味着拖过一半才松手。
     // 抽屉是「越长越全」的连续面板，稍微一拉就有反馈更符合预期。
-    const val SettlePositionalThreshold = 0.35f
-    // 惯性衰减的摩擦系数。只影响快滑时的「借惯性飞多远」：
-    // 数值越小衰减越快、飞得越近；越大越接近「滑脱手」。0.86f 接近 Android View 系统的摩擦。
-    const val SettleFriction = 0.86f
-    // 惯性投影的收敛速度（dp/s）。官方要求 >0，取极小值让惯性尽量用满。
-    const val SettleDecayVelocityThreshold = 0.01f
-    // 临界阻尼比（无回弹）与刚度，决定 settle 的「重量感」。
-    const val SettleDampingRatio = 1.0f
-    const val SettleStiffness = 420f
+    const val SettlePositionalThreshold = 0.32f
+    // 临界阻尼（无回弹）。全屏抽屉越过打开锚点会露出底下的主页，所以收敛不做回弹。
+    const val SettleDampingRatio = Spring.DampingRatioNoBouncy
+    // 松手收敛弹簧的刚度随甩动速度在 Slow..Fast 之间插值：
+    // 慢拖轻放用低刚度（柔和靠岸），快甩用高刚度（迅速到位，但仍是减速落地而不是硬截停）。
+    const val SettleStiffnessSlow = 520f
+    const val SettleStiffnessFast = 1600f
+    // 刚度插值对应的松手速度区间（dp/s）：低于 Soft 一律最软，高于 Firm 一律最硬。
+    const val SettleSoftVelocityDp = 100f
+    const val SettleFirmVelocityDp = 2000f
+    // 临界阻尼弹簧的初始速度超过 ω·剩余距离就会越过锚点；留 8% 余量，保证不露底。
+    const val SettleVelocityHeadroom = 0.92f
     val PaneHorizontalPadding = 16.dp
     val TopInset = 8.dp
     val AfterSearch = 12.dp
@@ -219,6 +240,10 @@ fun ConversationSidePaneScaffold(
     onCreateFolder: (String) -> Unit = {},
     onRenameFolder: (String, String) -> Unit = { _, _ -> },
     onDeleteFolder: (String) -> Unit = {},
+    onRestoreConversation: (String) -> Unit = {},
+    onConversationDeleteForever: (String) -> Unit = {},
+    onEmptyTrash: () -> Unit = {},
+    onOpenTrash: () -> Unit = {},
     selectedAssistantId: String = "",
     onSelectAssistant: (String) -> Unit,
     onEditAssistant: (String) -> Unit,
@@ -239,11 +264,12 @@ fun ConversationSidePaneScaffold(
     val drawerState = rememberDrawerState(
         initialValue = if (visible) DrawerValue.Open else DrawerValue.Closed,
     )
-    // 不能用 remember(drawerState) 只跑一次：DismissibleNavigationDrawer 内部有个
-    // SideEffect 会把自己的 open/close/anchored spec 覆写回官方值，我们得排在它之后
-    // 再补一次。SideEffect 每次成功组合后都会跑，正好覆盖这个顺序。
+    // 每次组合后重设一次：阈值/规格是 anchored state 上的可写字段，
+    // 重设可跟上 density 变化；M3 自带的 SideEffect 只改 open/close/anchored spec，
+    // 不碰手势收敛实际读取的那几项。
+    val density = LocalDensity.current
     SideEffect {
-        drawerState.applyEtaDrawerMotion()
+        drawerState.applyEtaDrawerMotion(density)
     }
     val drawerScope = rememberCoroutineScope()
     val currentVisible by rememberUpdatedState(visible)
@@ -343,8 +369,6 @@ fun ConversationSidePaneScaffold(
         // 只在真的越过瞬间触发一次（拿上一帧的 bool 做边沿检测），来回蹭不会连续震。
         // offset 语义：闭合锚点是「-面板宽度」，打开锚点是 0，
         // 所以「越过过半」等价于 |offset| < 面板宽度 / 2。
-        // density 是 @Composable getter，必须在组合期读取；LaunchedEffect 块里读不到。
-        val density = LocalDensity.current
         LaunchedEffect(drawerState, paneWidth, view, density) {
             val halfPanePx = with(density) { paneWidth.toPx() / 2f }
             var wasPastCommitLine by mutableStateOf(false)
@@ -388,6 +412,10 @@ fun ConversationSidePaneScaffold(
                     onCreateFolder = onCreateFolder,
                     onRenameFolder = onRenameFolder,
                     onDeleteFolder = onDeleteFolder,
+                    onRestoreConversation = onRestoreConversation,
+                    onConversationDeleteForever = onConversationDeleteForever,
+                    onEmptyTrash = onEmptyTrash,
+                    onOpenTrash = onOpenTrash,
                     selectedAssistantId = selectedAssistantId,
                     onSelectAssistant = onSelectAssistant,
                     onEditAssistant = onEditAssistant,
@@ -426,6 +454,10 @@ private fun ConversationPanePanel(
     onCreateFolder: (String) -> Unit = {},
     onRenameFolder: (String, String) -> Unit = { _, _ -> },
     onDeleteFolder: (String) -> Unit = {},
+    onRestoreConversation: (String) -> Unit = {},
+    onConversationDeleteForever: (String) -> Unit = {},
+    onEmptyTrash: () -> Unit = {},
+    onOpenTrash: () -> Unit = {},
     selectedAssistantId: String = "",
     onSelectAssistant: (String) -> Unit,
     onEditAssistant: (String) -> Unit,
@@ -466,6 +498,10 @@ private fun ConversationPanePanel(
         onCreateFolder = onCreateFolder,
         onRenameFolder = onRenameFolder,
         onDeleteFolder = onDeleteFolder,
+        onRestoreConversation = onRestoreConversation,
+        onConversationDeleteForever = onConversationDeleteForever,
+        onEmptyTrash = onEmptyTrash,
+        onOpenTrash = onOpenTrash,
         onOpenSettings = onOpenSettings,
         onOpenModelProviders = onOpenModelProviders,
         onOpenUsageStats = onOpenUsageStats,
@@ -546,6 +582,10 @@ private fun Material3ConversationPane(
     onCreateFolder: (String) -> Unit,
     onRenameFolder: (String, String) -> Unit,
     onDeleteFolder: (String) -> Unit,
+    onRestoreConversation: (String) -> Unit = {},
+    onConversationDeleteForever: (String) -> Unit = {},
+    onEmptyTrash: () -> Unit = {},
+    onOpenTrash: () -> Unit = {},
     onOpenSettings: () -> Unit,
     onOpenModelProviders: () -> Unit,
     onOpenUsageStats: () -> Unit,
@@ -560,6 +600,7 @@ private fun Material3ConversationPane(
     var createFolder by remember { mutableStateOf(false) }
     var folderToRename by remember { mutableStateOf<ConversationFolderUi?>(null) }
     var folderToDelete by remember { mutableStateOf<ConversationFolderUi?>(null) }
+    val view = LocalView.current
 
     M3Surface(
         modifier = modifier
@@ -618,8 +659,8 @@ private fun Material3ConversationPane(
             }
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 第二排：左侧可横向滚动的「聊天 / [文件夹…]」，右侧固定「新建文件夹」。
-            val chipCount = 1 + folders.size
+            // 第二排：左侧可横向滚动的「聊天 / 未分类 / [文件夹…]」，右侧固定「新建文件夹」。
+            val chipCount = 2 + folders.size
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -637,8 +678,17 @@ private fun Material3ConversationPane(
                         text = stringResource(R.string.drawer_chats_chip),
                         position = drawerGroupPosition(chipIndex++, chipCount),
                         selected = state.selectedFolderId == null,
+                        selectable = true,
                         leadingIcon = null,
                         onClick = { onSelectFolder(null) },
+                    )
+                    Material3DrawerChip(
+                        text = stringResource(R.string.drawer_uncategorized_chip),
+                        position = drawerGroupPosition(chipIndex++, chipCount),
+                        selected = state.selectedFolderId == UNCATEGORIZED_FOLDER_ID,
+                        selectable = true,
+                        leadingIcon = null,
+                        onClick = { onSelectFolder(UNCATEGORIZED_FOLDER_ID) },
                     )
                     folders.forEach { folder ->
                         var showMenu by remember(folder.id) { mutableStateOf(false) }
@@ -650,30 +700,32 @@ private fun Material3ConversationPane(
                                 onClick = { onSelectFolder(folder.id) },
                                 onLongClick = { showMenu = true },
                             )
-                            DropdownMenu(
+                            EtaMenuPopup(
                                 expanded = showMenu,
                                 onDismissRequest = { showMenu = false },
                             ) {
-                                DrawerActionMenuItem(
-                                    index = 0,
-                                    count = 2,
-                                    text = stringResource(R.string.action_rename),
-                                    icon = Icons.Rounded.Edit,
-                                    onClick = {
-                                        showMenu = false
-                                        folderToRename = folder
-                                    },
-                                )
-                                DrawerActionMenuItem(
-                                    index = 1,
-                                    count = 2,
-                                    text = stringResource(R.string.action_delete),
-                                    icon = Icons.Rounded.Delete,
-                                    onClick = {
-                                        showMenu = false
-                                        folderToDelete = folder
-                                    },
-                                )
+                                EtaMenuGroup(index = 0, count = 1) {
+                                    DrawerActionMenuItem(
+                                        index = 0,
+                                        count = 2,
+                                        text = stringResource(R.string.action_rename),
+                                        icon = Icons.Rounded.Edit,
+                                        onClick = {
+                                            showMenu = false
+                                            folderToRename = folder
+                                        },
+                                    )
+                                    DrawerActionMenuItem(
+                                        index = 1,
+                                        count = 2,
+                                        text = stringResource(R.string.action_delete),
+                                        icon = Icons.Rounded.Delete,
+                                        onClick = {
+                                            showMenu = false
+                                            folderToDelete = folder
+                                        },
+                                    )
+                                }
                             }
                         }
                     }
@@ -736,7 +788,7 @@ private fun Material3ConversationPane(
             }
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 底部：四个工具按钮（官方相连图标按钮组）+ 设置
+            // 底部：五个工具按钮（官方相连图标按钮组）+ 设置
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -764,12 +816,26 @@ private fun Material3ConversationPane(
                     icon = Icons.Rounded.BarChart,
                     contentDescription = stringResource(R.string.stats_page_title),
                     onClick = onOpenUsageStats,
+                    position = DrawerGroupPosition.Middle,
+                )
+                // 回收站入口：跳转独立页面（底部按钮组末位）。
+                Material3ConnectedIconButton(
+                    icon = Icons.Rounded.DeleteSweep,
+                    contentDescription = stringResource(R.string.drawer_trash_title),
+                    onClick = onOpenTrash,
                     position = DrawerGroupPosition.Trailing,
                 )
                 Spacer(modifier = Modifier.weight(1f))
+                // 设置入口：跟随相连按钮组同档配色（容器色 / 内容色）。
+                val (settingsContainerColor, settingsContentColor) =
+                    drawerConnectedGroupColors(selected = false)
                 FilledTonalIconButton(
                     onClick = onOpenSettings,
                     modifier = Modifier.size(IconButtonDefaults.smallContainerSize()),
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                        containerColor = settingsContainerColor,
+                        contentColor = settingsContentColor,
+                    ),
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Settings,
@@ -828,7 +894,6 @@ private fun Material3ConversationPane(
 
 /**
  * M3 抽屉：会话搜索框。
- *
  * 官方 `TextField`，胶囊形（`CircleShape`），隐藏下划线指示条；
  * 容器色、文字色、行高、内容内边距全部使用官方默认值，不自绘容器。
  * 清除按钮用官方 `IconButton`（原实现只画了一个不可点的关闭图标）。
@@ -920,55 +985,113 @@ private fun drawerGroupPosition(index: Int, count: Int): DrawerGroupPosition = w
 }
 
 /**
- * 官方相连按钮组形状（静止 + 按压），全部取自 `ButtonGroupDefaults`：
- * 外侧 `CornerFull`、内侧 8dp，按压时内圆角收到 4dp。
+ * 语音设置页 / 外观设置页同款的官方 `ToggleButtonShapes`，全部取自 `ButtonGroupDefaults`：
+ * 外侧 `CornerFull`、内侧 8dp，按压时内圆角收到 4dp，选中态 `checkedShape` 为
+ * `connectedButtonCheckedShape`（四角全大圆角）。
+ *
+ * 抽屉里可选中胶囊（第二排的「聊天 / 未分类」）恒为相连组的首 / 中 / 末位，
+ * `Single` 分支用官方单体形状令牌（`ToggleButtonDefaults.shape` 三件套）兜底。
  */
 @Composable
-private fun connectedButtonShapes(position: DrawerGroupPosition): ButtonShapes = when (position) {
-    DrawerGroupPosition.Single -> ButtonDefaults.shapes()
-    DrawerGroupPosition.Leading -> ButtonDefaults.shapes(
-        shape = ButtonGroupDefaults.connectedLeadingButtonShape,
-        pressedShape = ButtonGroupDefaults.connectedLeadingButtonPressShape,
+private fun drawerToggleButtonShapes(position: DrawerGroupPosition): ToggleButtonShapes = when (position) {
+    DrawerGroupPosition.Single -> ToggleButtonShapes(
+        ToggleButtonDefaults.shape,
+        ToggleButtonDefaults.pressedShape,
+        ToggleButtonDefaults.checkedShape,
     )
-    DrawerGroupPosition.Middle -> ButtonDefaults.shapes(
-        shape = ButtonGroupDefaults.connectedMiddleButtonShapes().shape,
-        pressedShape = ButtonGroupDefaults.connectedMiddleButtonPressShape,
+    DrawerGroupPosition.Leading -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+    DrawerGroupPosition.Middle -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+    DrawerGroupPosition.Trailing -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+}
+
+/** 抽屉的组内位置 → M3E 套件的相连位置（[etaConnectedButtonShapes] / [EtaMorphChipShape] 取后者的枚举）。 */
+private fun DrawerGroupPosition.toEtaConnectedPosition(): EtaConnectedPosition = when (this) {
+    DrawerGroupPosition.Single -> EtaConnectedPosition.Single
+    DrawerGroupPosition.Leading -> EtaConnectedPosition.Leading
+    DrawerGroupPosition.Middle -> EtaConnectedPosition.Middle
+    DrawerGroupPosition.Trailing -> EtaConnectedPosition.Trailing
+}
+
+/**
+ * 文件夹胶囊的形状：与同组官方 `ToggleButton` 完全同一套 morph —— 同一组形状
+ * （「连体位置形状 ↔ 选中全圆角胶囊」，按压时内侧圆角收到 4dp）配同一套官方规格
+ * （选中 `defaultSpatialSpec`、按压 `fastSpatialSpec`）逐帧插值。
+ *
+ * 文件夹胶囊要保留长按弹出「重命名 / 删除」菜单，手势必须留在 `combinedClickable` 上
+ * （官方 `ToggleButton` 内部的 `toggleable` 会先消费按下事件），所以形状自己喂；
+ * 形状与规格都和官方组件保持一致，因此切换同样是连续渐变。
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun rememberDrawerFolderChipShape(
+    position: DrawerGroupPosition,
+    selected: Boolean,
+    pressed: Boolean,
+): Shape {
+    val motionScheme = MaterialTheme.motionScheme
+    val selectionProgress by animateFloatAsState(
+        targetValue = if (selected) 1f else 0f,
+        animationSpec = motionScheme.defaultSpatialSpec<Float>(),
+        label = "DrawerChipSelection",
     )
-    DrawerGroupPosition.Trailing -> ButtonDefaults.shapes(
-        shape = ButtonGroupDefaults.connectedTrailingButtonShape,
-        pressedShape = ButtonGroupDefaults.connectedTrailingButtonPressShape,
+    val pressProgress by animateFloatAsState(
+        targetValue = if (pressed) 1f else 0f,
+        animationSpec = motionScheme.fastSpatialSpec<Float>(),
+        label = "DrawerChipPress",
     )
+    return EtaMorphChipShape(
+        selectionProgress = selectionProgress,
+        pressProgress = pressProgress,
+        position = position.toEtaConnectedPosition(),
+    )
+}
+
+/**
+ * 抽屉相连按钮组配色：与语音设置页 / 外观设置页同款（[EtaExpressiveToggleButton] 里的官方
+ * `ToggleButton` 默认档）—— 未选中 `surfaceContainerHighest` / `onSurface`，选中
+ * `primary` / `onPrimary`。
+ *
+ * 供组内非 `ToggleButton` 成员（文件夹胶囊的自绘容器、底部图标行、设置图标按钮）取同一套色。
+ */
+@Composable
+private fun drawerConnectedGroupColors(selected: Boolean): Pair<Color, Color> {
+    val scheme = MaterialTheme.colorScheme
+    return if (selected) {
+        scheme.primary to scheme.onPrimary
+    } else {
+        scheme.surfaceContainerHighest to scheme.onSurface
+    }
 }
 
 /** 官方相连图标按钮形状，与文字按钮组共用同一套 `ButtonGroupDefaults` 形状令牌。 */
 @Composable
 private fun connectedIconButtonShapes(position: DrawerGroupPosition): IconButtonShapes {
-    val shapes = connectedButtonShapes(position)
+    val shapes = etaConnectedButtonShapes(position.toEtaConnectedPosition())
     return IconButtonShapes(shape = shapes.shape, pressedShape = shapes.pressedShape)
 }
 
 /**
  * M3 抽屉：相连按钮组里的文字按钮。
  *
- * 官方 `Button`（选中）/ `FilledTonalButton`（未选中），高度、内容内边距、图标尺寸、
- * 字阶与按压形状全部取自 `ButtonDefaults` / `ButtonGroupDefaults`，不自定义。
+ * 可选中项（`selectable = true`，第二排的「聊天 / 未分类」）用语音设置页 / 外观设置页同款的
+ * [EtaExpressiveToggleButton]：官方 `ToggleButton` + 官方 `ButtonGroupDefaults` 连体形状，
+ * 选中 / 取消选中由官方组件内部对形状做 morph（`checkedShape` 已是四角全大圆角），
+ * 因此是连续渐变而不是闪现。
+ *
+ * 不可选中项（第一排动作按钮、独立「新建文件夹」）保持官方 `FilledTonalButton` + 官方连体形状
+ * （它们不切换选中态、也就没有形状变化），配色对齐到同一套官方档位。
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun Material3DrawerChip(
     text: String,
     position: DrawerGroupPosition,
-    selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    selected: Boolean = false,
+    selectable: Boolean = false,
     leadingIcon: ImageVector? = null,
-    // 未选中态的自定义容器色；不传时保持官方 FilledTonalButton 默认（secondaryContainer）。
-    containerColor: Color? = null,
 ) {
-    val shapes = connectedButtonShapes(position)
-    // 高度用官方 Small 按钮默认值（ButtonDefaults.MinHeight）：不覆盖高度，
-    // 让官方 Button 的 defaultMinSize 直接落在 Small 档，与主页 / 输入栏按钮同档。
-    val chipModifier = modifier
+    // 高度不覆盖，直接落在官方 Small 档（Button 与 ToggleButton 的 MinHeight 同档）。
     val content: @Composable RowScope.() -> Unit = {
         if (leadingIcon != null) {
             Icon(
@@ -984,26 +1107,25 @@ private fun Material3DrawerChip(
             overflow = TextOverflow.Ellipsis,
         )
     }
-    if (selected) {
-        Button(
-            onClick = onClick,
-            shapes = shapes,
-            modifier = chipModifier,
+    if (selectable) {
+        EtaExpressiveToggleButton(
+            checked = selected,
+            // 单选组：只在「被选中」时回调，点已选中项不会产生 uncheck 的中间态。
+            onCheckedChange = { checked -> if (checked) onClick() },
+            shapes = drawerToggleButtonShapes(position),
+            modifier = modifier.semantics { role = Role.RadioButton },
             content = content,
         )
     } else {
+        val (containerColor, contentColor) = drawerConnectedGroupColors(selected = false)
         FilledTonalButton(
             onClick = onClick,
-            shapes = shapes,
-            modifier = chipModifier,
-            colors = if (containerColor != null) {
-                ButtonDefaults.filledTonalButtonColors(
-                    containerColor = containerColor,
-                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                )
-            } else {
-                ButtonDefaults.filledTonalButtonColors()
-            },
+            shapes = etaConnectedButtonShapes(position.toEtaConnectedPosition()),
+            modifier = modifier,
+            colors = ButtonDefaults.filledTonalButtonColors(
+                containerColor = containerColor,
+                contentColor = contentColor,
+            ),
             content = content,
         )
     }
@@ -1012,10 +1134,11 @@ private fun Material3DrawerChip(
 /**
  * M3 抽屉：文件夹按钮（带长按菜单）。
  *
- * 容器外观由官方 `Surface` 提供（形状 / 容器色 / 内容色取自 `ButtonDefaults` 的
- * 按钮配色与 `ButtonGroupDefaults` 的相连形状，按压时切到官方按压形状）；
- * 手势层用官方 `Modifier.combinedClickable` + 官方 `ripple()`，以保留长按弹出
- * 重命名 / 删除菜单的既有交互。
+ * 容器外观由官方 `Surface` 提供：形状是与同组官方 `ToggleButton` 同套的
+ * [rememberDrawerFolderChipShape]，容器 / 内容色取与 [EtaExpressiveToggleButton] 同档的
+ * [drawerConnectedGroupColors]，高度与内容内边距用官方 `ToggleButtonDefaults` 令牌，
+ * 因此与相邻的可选中胶囊对齐；手势层用官方 `Modifier.combinedClickable` + 官方 `ripple()`，
+ * 以保留长按弹出重命名 / 删除菜单的既有交互。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -1026,41 +1149,39 @@ private fun Material3DrawerFolderChip(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
-    val shapes = connectedButtonShapes(position)
-    val colors = if (selected) {
-        ButtonDefaults.buttonColors()
-    } else {
-        ButtonDefaults.filledTonalButtonColors()
-    }
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
+    val morphShape = rememberDrawerFolderChipShape(position = position, selected = selected, pressed = pressed)
+    val (containerColor, contentColor) = drawerConnectedGroupColors(selected)
     M3Surface(
         modifier = Modifier
-            .heightIn(min = ButtonDefaults.MinHeight)
+            .heightIn(min = ToggleButtonDefaults.MinHeight)
             .combinedClickable(
                 interactionSource = interactionSource,
                 indication = ripple(
-                    color = colors.contentColor,
-                    focusRingShape = shapes.shape,
+                    color = contentColor,
+                    focusRingShape = morphShape,
                 ),
                 onClick = onClick,
                 onLongClick = onLongClick,
             ),
-        shape = if (pressed) shapes.pressedShape else shapes.shape,
-        color = colors.containerColor,
-        contentColor = colors.contentColor,
+        shape = morphShape,
+        color = containerColor,
+        contentColor = contentColor,
     ) {
         Row(
             modifier = Modifier.padding(
-                ButtonDefaults.contentPaddingFor(ButtonDefaults.MinHeight, hasStartIcon = true),
+                // 官方 ToggleButton 的 (height, hasStartIcon, hasEndIcon) 内容内边距：
+                // 有前置图标时前后内边距不对称，末位参数沿用官方默认值。
+                ToggleButtonDefaults.contentPaddingFor(ToggleButtonDefaults.MinHeight, true),
             ),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(ButtonDefaults.IconSpacing),
+            horizontalArrangement = Arrangement.spacedBy(ToggleButtonDefaults.IconSpacing),
         ) {
             Icon(
                 imageVector = Icons.Rounded.Folder,
                 contentDescription = null,
-                modifier = Modifier.size(ButtonDefaults.IconSize),
+                modifier = Modifier.size(ToggleButtonDefaults.IconSize),
             )
             M3Text(
                 text = text,
@@ -1076,8 +1197,9 @@ private fun Material3DrawerFolderChip(
 /**
  * M3 抽屉：底部工具行里的相连图标按钮。
  *
- * 官方 `FilledTonalIconButton` + 官方 `IconButtonShapes`，
- * 容器尺寸取 `IconButtonDefaults.smallContainerSize()`，图标取 `smallIconSize`。
+ * 官方 `FilledTonalIconButton` + 官方 `IconButtonShapes`（形状令牌与同组文字按钮共用），
+ * 容器尺寸取 `IconButtonDefaults.smallContainerSize()`、图标取 `smallIconSize`；
+ * 容器 / 内容色跟整块抽屉的连体按钮组同档。
  */
 @Composable
 private fun Material3ConnectedIconButton(
@@ -1086,10 +1208,15 @@ private fun Material3ConnectedIconButton(
     onClick: () -> Unit,
     position: DrawerGroupPosition,
 ) {
+    val (containerColor, contentColor) = drawerConnectedGroupColors(selected = false)
     FilledTonalIconButton(
         onClick = onClick,
         shapes = connectedIconButtonShapes(position),
         modifier = Modifier.size(IconButtonDefaults.smallContainerSize()),
+        colors = IconButtonDefaults.filledTonalIconButtonColors(
+            containerColor = containerColor,
+            contentColor = contentColor,
+        ),
     ) {
         Icon(
             imageVector = icon,
@@ -1099,7 +1226,7 @@ private fun Material3ConnectedIconButton(
     }
 }
 
-/** 官方下拉菜单项：形状取 `MenuDefaults.itemShape`，行高 / 字阶 / 颜色全用官方默认值。 */
+/** 官方下拉菜单项：形状取官方 `MenuDefaults.itemShape`，行高 / 字阶 / 颜色全用官方默认值。 */
 @Composable
 private fun DrawerActionMenuItem(
     index: Int,
@@ -1110,7 +1237,7 @@ private fun DrawerActionMenuItem(
 ) {
     DropdownMenuItem(
         text = { M3Text(text = text) },
-        shape = MenuDefaults.itemShape(index = index, count = count).shape,
+        shape = EtaMenuItemShape(index = index, count = count),
         leadingIcon = {
             Icon(
                 imageVector = icon,
@@ -1258,63 +1385,65 @@ private fun Material3ConversationRow(
                     )
                 }
 
-                DropdownMenu(
+                EtaMenuPopup(
                     expanded = showActionMenu,
                     onDismissRequest = { showActionMenu = false },
                 ) {
-                    DrawerActionMenuItem(
-                        index = 0,
-                        count = 5,
-                        text = stringResource(R.string.action_rename),
-                        icon = Icons.Rounded.Edit,
-                        onClick = {
-                            showActionMenu = false
-                            onRename()
-                        },
-                    )
-                    DrawerActionMenuItem(
-                        index = 1,
-                        count = 5,
-                        text = stringResource(
-                            if (conversation.isPinned) R.string.conversation_unpin
-                            else R.string.conversation_pin,
-                        ),
-                        icon = Icons.Rounded.PushPin,
-                        onClick = {
-                            showActionMenu = false
-                            onTogglePin()
-                        },
-                    )
-                    DrawerActionMenuItem(
-                        index = 2,
-                        count = 5,
-                        text = stringResource(R.string.conversation_export),
-                        icon = Icons.Rounded.Download,
-                        onClick = {
-                            showActionMenu = false
-                            onExport()
-                        },
-                    )
-                    DrawerActionMenuItem(
-                        index = 3,
-                        count = 5,
-                        text = stringResource(R.string.drawer_move_to_folder),
-                        icon = Icons.Rounded.Folder,
-                        onClick = {
-                            showActionMenu = false
-                            onMoveToFolder()
-                        },
-                    )
-                    DrawerActionMenuItem(
-                        index = 4,
-                        count = 5,
-                        text = stringResource(R.string.action_delete),
-                        icon = Icons.Rounded.Delete,
-                        onClick = {
-                            showActionMenu = false
-                            onDelete()
-                        },
-                    )
+                    EtaMenuGroup(index = 0, count = 1) {
+                        DrawerActionMenuItem(
+                            index = 0,
+                            count = 5,
+                            text = stringResource(R.string.action_rename),
+                            icon = Icons.Rounded.Edit,
+                            onClick = {
+                                showActionMenu = false
+                                onRename()
+                            },
+                        )
+                        DrawerActionMenuItem(
+                            index = 1,
+                            count = 5,
+                            text = stringResource(
+                                if (conversation.isPinned) R.string.conversation_unpin
+                                else R.string.conversation_pin,
+                            ),
+                            icon = Icons.Rounded.PushPin,
+                            onClick = {
+                                showActionMenu = false
+                                onTogglePin()
+                            },
+                        )
+                        DrawerActionMenuItem(
+                            index = 2,
+                            count = 5,
+                            text = stringResource(R.string.conversation_export),
+                            icon = Icons.Rounded.Download,
+                            onClick = {
+                                showActionMenu = false
+                                onExport()
+                            },
+                        )
+                        DrawerActionMenuItem(
+                            index = 3,
+                            count = 5,
+                            text = stringResource(R.string.drawer_move_to_folder),
+                            icon = Icons.Rounded.Folder,
+                            onClick = {
+                                showActionMenu = false
+                                onMoveToFolder()
+                            },
+                        )
+                        DrawerActionMenuItem(
+                            index = 4,
+                            count = 5,
+                            text = stringResource(R.string.conversation_move_to_trash),
+                            icon = Icons.Rounded.Delete,
+                            onClick = {
+                                showActionMenu = false
+                                onDelete()
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -1333,11 +1462,133 @@ private val DrawerCloseMotion: FiniteAnimationSpec<Float> = tween(
     easing = DrawerMotionEasing,
 )
 
-/** 松手后的收敛动画：临界阻尼 + 适度刚度，无回弹、不拖沓。 */
-private val DrawerSettleSpec: FiniteAnimationSpec<Float> = spring(
-    dampingRatio = DrawerMetrics.SettleDampingRatio,
-    stiffness = DrawerMetrics.SettleStiffness,
-)
+/**
+ * 松手后的收敛弹簧：刚度随甩动速度变化。
+ *
+ * 慢拖轻放用低刚度，柔和靠岸；快甩用高刚度，更快到位。
+ * 不管哪种速度，弹簧都会把残余速度平滑衰减到 0 再贴住锚点，
+ * 而不是「借惯性冲到锚点后被硬截停」——后者正是高速甩动时发直、发硬的来源。
+ *
+ * 临界阻尼下初始速度超过 ω·剩余距离就会越过锚点（全屏抽屉越过 0 位会露出主页），
+ * 所以按剩余距离给初始速度设了上限。
+ */
+internal class DrawerSettleSpringSpec(
+    private val density: Float,
+) : FiniteAnimationSpec<Float> {
+    override fun <V : AnimationVector> vectorize(
+        converter: TwoWayConverter<Float, V>,
+    ): VectorizedFiniteAnimationSpec<V> = object : VectorizedFiniteAnimationSpec<V> {
+        private var resolvedStiffness = Float.NaN
+        private var resolvedVelocity = Float.NaN
+        private var resolvedVelocityVector: V? = null
+        private var delegate: VectorizedAnimationSpec<V>? = null
+
+        private fun prepare(
+            initialValue: V,
+            targetValue: V,
+            initialVelocity: V,
+        ): VectorizedAnimationSpec<V> {
+            val from = converter.convertFromVector(initialValue)
+            val target = converter.convertFromVector(targetValue)
+            val distance = abs(target - from)
+            val rawVelocity = converter.convertFromVector(initialVelocity).takeIf { it.isFinite() } ?: 0f
+            val speedDp = abs(rawVelocity) / density
+            val speedFraction = (
+                (speedDp - DrawerMetrics.SettleSoftVelocityDp) /
+                    (DrawerMetrics.SettleFirmVelocityDp - DrawerMetrics.SettleSoftVelocityDp)
+                ).coerceIn(0f, 1f)
+            val stiffness = DrawerMetrics.SettleStiffnessSlow +
+                (DrawerMetrics.SettleStiffnessFast - DrawerMetrics.SettleStiffnessSlow) * speedFraction
+            val velocityLimit = DrawerMetrics.SettleVelocityHeadroom * sqrt(stiffness) * distance
+            val velocity = if (abs(rawVelocity) > velocityLimit) {
+                if (rawVelocity < 0f) -velocityLimit else velocityLimit
+            } else {
+                rawVelocity
+            }
+            if (delegate == null || stiffness != resolvedStiffness || velocity != resolvedVelocity) {
+                resolvedStiffness = stiffness
+                resolvedVelocity = velocity
+                resolvedVelocityVector = converter.convertToVector(velocity)
+                delegate = spring<Float>(
+                    dampingRatio = DrawerMetrics.SettleDampingRatio,
+                    stiffness = stiffness,
+                ).vectorize(converter)
+            }
+            return delegate!!
+        }
+
+        override fun getValueFromNanos(
+            playTimeNanos: Long,
+            initialValue: V,
+            targetValue: V,
+            initialVelocity: V,
+        ): V {
+            val animation = prepare(initialValue, targetValue, initialVelocity)
+            return animation.getValueFromNanos(
+                playTimeNanos,
+                initialValue,
+                targetValue,
+                resolvedVelocityVector!!,
+            )
+        }
+
+        override fun getVelocityFromNanos(
+            playTimeNanos: Long,
+            initialValue: V,
+            targetValue: V,
+            initialVelocity: V,
+        ): V {
+            val animation = prepare(initialValue, targetValue, initialVelocity)
+            return animation.getVelocityFromNanos(
+                playTimeNanos,
+                initialValue,
+                targetValue,
+                resolvedVelocityVector!!,
+            )
+        }
+
+        override fun getDurationNanos(
+            initialValue: V,
+            targetValue: V,
+            initialVelocity: V,
+        ): Long {
+            val animation = prepare(initialValue, targetValue, initialVelocity)
+            return animation.getDurationNanos(initialValue, targetValue, resolvedVelocityVector!!)
+        }
+    }
+}
+
+/**
+ * 松手收敛不走「惯性投影」，把投影目标固定为当前位置，foundation 因此总会回退到
+ * [DrawerSettleSpringSpec]。
+ *
+ * alpha29 的 `animateToWithDecay`：投影能越过目标锚点时，它直接跑衰减动画，并在到达
+ * 锚点的那一帧 `cancelAnimation()`。速度越快，被截断时残留的速度越大——刚好是最需要
+ * 柔和落地的地方，却是硬截停。把它交给弹簧，速度才会真正参与整段动画。
+ */
+private object DrawerNoFlingDecay : DecayAnimationSpec<Float> {
+    override fun <V : AnimationVector> vectorize(
+        converter: TwoWayConverter<Float, V>,
+    ): VectorizedDecayAnimationSpec<V> = object : VectorizedDecayAnimationSpec<V> {
+        override val absVelocityThreshold: Float = 1f
+
+        override fun getValueFromNanos(
+            playTimeNanos: Long,
+            initialValue: V,
+            initialVelocity: V,
+        ): V = initialValue
+
+        override fun getDurationNanos(initialValue: V, initialVelocity: V): Long = 0L
+
+        override fun getVelocityFromNanos(
+            playTimeNanos: Long,
+            initialValue: V,
+            initialVelocity: V,
+        ): V = initialVelocity
+
+        override fun getTargetValue(initialValue: V, initialVelocity: V): V = initialValue
+    }
+}
 
 /**
  * 抽屉动效调参（Material3 `DismissibleNavigationDrawer` + `AnchoredDraggableState`）。
@@ -1356,14 +1607,14 @@ private val DrawerSettleSpec: FiniteAnimationSpec<Float> = spring(
  * （不要改成 `Modifier.anchoredDraggable(flingBehavior = ...)`：那只有在
  * `usePreModifierChangeBehavior == false` 时才走得到，抽屉用不上。）
  *
- * `DismissibleNavigationDrawer` 每次成功组合还会用 `SideEffect` 把自己的
- * open/close/anchored 三个 spec 覆写回官方值，所以我们也得在每次组合后补一次，
- * 顺序排到那个 SideEffect 之后。
+ * `DismissibleNavigationDrawer` 的 `SideEffect` 每次组合都会把 DrawerState 自己的
+ * open/close/anchored 三个 spec 覆写回官方值，但这三个入口我们都不依赖：程序化开合
+ * 全部显式传 tween，手势松手读的是 anchored state 上这四项，M3 从不触碰。
+ * 宿主每次组合重设一次，顺带跟上 density 变化（弹簧刚度按 dp/s 换算）。
  *
  * 每一步都单独 `runCatching`：任何一项反射失败就跳过该项，整体退回官方行为，不会崩。
  */
 private object DrawerMotionSetters {
-    private val drawerStateClass = DrawerState::class.java
     private val anchoredClass = runCatching {
         Class.forName("androidx.compose.foundation.gestures.AnchoredDraggableState")
     }.getOrNull()
@@ -1374,20 +1625,16 @@ private object DrawerMotionSetters {
         Class.forName("kotlin.jvm.functions.Function0")
     }.getOrNull()
 
-    private val openSetter = method(drawerStateClass, "setOpenDrawerMotionSpec\$material3")
-    private val closeSetter = method(drawerStateClass, "setCloseDrawerMotionSpec\$material3")
-    private val anchoredSetter = method(drawerStateClass, "setAnchoredDraggableMotionSpec\$material3")
-    private val densityGetter = runCatching {
-        drawerStateClass.getMethod("getDensity\$androidx_compose_material3_material3")
-    }.getOrNull()
     private val anchoredField = runCatching {
-        drawerStateClass.getDeclaredField("anchoredDraggableState").apply { isAccessible = true }
+        DrawerState::class.java
+            .getDeclaredField("anchoredDraggableState")
+            .apply { isAccessible = true }
     }.getOrNull()
 
     private fun method(
         target: Class<*>,
         name: String,
-        arg: Class<*> = FiniteAnimationSpec::class.java,
+        arg: Class<*>,
     ) = runCatching { target.getMethod(name, arg) }.getOrNull()
 
     // 阈值和规格的 setter 在 AnchoredDraggableState 上，不在 DrawerState 上，别找错类。
@@ -1423,22 +1670,14 @@ private object DrawerMotionSetters {
         }
     }
 
-    fun apply(state: DrawerState) {
-        // 程序化开合（菜单按钮、选中会话）沿用原来的 tween，观感不变。
-        openSetter?.invoke(state, DrawerOpenMotion)
-        closeSetter?.invoke(state, DrawerCloseMotion)
-        // anchoredDraggableMotionSpec 是 snapTo/settle 这条程序化路径的兜底规格。
-        // 手势松手走的是 state.settle(velocity)（见类注释），读的是下面四个字段，
-        // 不吃这个；但为了 snapTo 和 settle(animationSpec) 这两个入口也一致，一并给上。
-        anchoredSetter?.invoke(state, DrawerSettleSpec)
-
+    fun apply(state: DrawerState, density: Density) {
         val anchored = anchoredField?.get(state) ?: return
-        runCatching {
-            positionalSetter?.invoke(anchored, positionalThresholdProxy())
-            velocitySetter?.invoke(anchored, velocityThresholdProxy(state))
-            snapSetter?.invoke(anchored, DrawerSettleSpec)
-            decaySetter?.invoke(anchored, decaySpec())
-        }
+        val settleSpec = DrawerSettleSpringSpec(density.density)
+        // 每一项单独兜底：某个 setter 缺失/签名漂移时，其余项仍然生效。
+        runCatching { positionalSetter?.invoke(anchored, positionalThresholdProxy()) }
+        runCatching { velocitySetter?.invoke(anchored, velocityThresholdProxy(density)) }
+        runCatching { snapSetter?.invoke(anchored, settleSpec) }
+        runCatching { decaySetter?.invoke(anchored, DrawerNoFlingDecay) }
     }
 
     /**
@@ -1465,12 +1704,9 @@ private object DrawerMotionSetters {
      * `velocityThreshold: () -> Float`，松手速度超过它就直接按甩的方向定锚，
      * 不再看位置。越大越「必须甩得够快」。
      */
-    private fun velocityThresholdProxy(state: DrawerState): Any {
+    private fun velocityThresholdProxy(density: Density): Any {
         val cls = function0Class ?: return Unit
-        val thresholdPx = runCatching {
-            val density = densityGetter?.invoke(state) as? Density
-            density?.let { with(it) { DrawerMetrics.SettleVelocityThresholdDp.dp.toPx() } }
-        }.getOrNull() ?: return Unit
+        val thresholdPx = with(density) { DrawerMetrics.SettleVelocityThresholdDp.dp.toPx() }
         return java.lang.reflect.Proxy.newProxyInstance(
             cls.classLoader,
             arrayOf(cls),
@@ -1481,21 +1717,10 @@ private object DrawerMotionSetters {
             }
         }
     }
-
-    /**
-     * `decayAnimationSpec` 决定快滑时能「借惯性飞多远」。官方把 decay 设成 NoOp，
-     * 速度完全不被投影利用。这里给一个指数衰减，快滑就能顺着惯性多滑一段。
-     * `absVelocityThreshold` 是官方要求 >0 的收敛速度，取一个极小值，
-     * 让惯性尽量用满、不要过早判定结束。
-     */
-    private fun decaySpec(): Any = exponentialDecay<Float>(
-        frictionMultiplier = DrawerMetrics.SettleFriction,
-        absVelocityThreshold = DrawerMetrics.SettleDecayVelocityThreshold,
-    )
 }
 
-private fun DrawerState.applyEtaDrawerMotion() {
-    DrawerMotionSetters.apply(this)
+private fun DrawerState.applyEtaDrawerMotion(density: Density) {
+    DrawerMotionSetters.apply(this, density)
 }
 
 internal data class ConversationDrawerGroup(
