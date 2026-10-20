@@ -397,7 +397,8 @@ private val SentFileChipSeamCorner = 4.dp
 /**
  * 文件 chip 的四角：整行当成一条横向的分段条，跟横排图片同一套规则——
  * 最左一个 chip 的左侧（上、下）保持大圆角；中间被夹住的四角全收成接缝小圆角；
- * 最右一个 chip 的右上角只在上面接了东西时收，右下角只在下面接了东西时收。
+ * 最右一个 chip 的右上角保持大圆角（顶边永远算自由边，上方就算有图片行，
+ * 收角也只收在图片行自己那一侧），右下角只在下面接了东西时收。
  *
  * FlowRow 会换行，这里只能按列表下标认首尾：只有末行铺满时「最右一个」才真贴在右缘，
  * 文件多到换行且末行没铺满时这一点会不准。
@@ -407,17 +408,14 @@ private fun sentFileChipShape(
     count: Int,
     largeCorner: Dp,
     seamCorner: Dp,
-    seamTopEnd: Dp? = null,
-    seamBottomEnd: Dp? = null,
-    connectsAbove: Boolean,
     connectsBelow: Boolean,
 ): Shape {
     val isFirst = index == 0
     val isLast = index == count - 1
     return RoundedCornerShape(
         topStart = if (isFirst) largeCorner else seamCorner,
-        topEnd = if (isLast && !connectsAbove) (seamTopEnd ?: largeCorner) else seamCorner,
-        bottomEnd = if (isLast && !connectsBelow) (seamBottomEnd ?: largeCorner) else seamCorner,
+        topEnd = if (isLast) largeCorner else seamCorner,
+        bottomEnd = if (isLast && !connectsBelow) largeCorner else seamCorner,
         bottomStart = if (isFirst) largeCorner else seamCorner,
     )
 }
@@ -429,9 +427,6 @@ internal fun SentFileReferenceFlow(
     modifier: Modifier = Modifier,
     largeCorner: Dp = SentFileChipCornerRadius,
     seamCorner: Dp = SentFileChipSeamCorner,
-    seamTopEnd: Dp? = null,
-    seamBottomEnd: Dp? = null,
-    connectsAbove: Boolean = false,
     connectsBelow: Boolean = false,
 ) {
     FlowRow(
@@ -445,9 +440,6 @@ internal fun SentFileReferenceFlow(
                 count = references.size,
                 largeCorner = largeCorner,
                 seamCorner = seamCorner,
-                seamTopEnd = seamTopEnd,
-                seamBottomEnd = seamBottomEnd,
-                connectsAbove = connectsAbove,
                 connectsBelow = connectsBelow,
             )
             Row(

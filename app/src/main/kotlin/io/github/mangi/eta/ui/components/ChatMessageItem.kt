@@ -679,6 +679,12 @@ private val UserBubbleAttachmentSeamCorner = 4.dp
 /** 附件行与气泡之间、以及附件行彼此之间的接缝缝宽：取设置页分段条目间距同档（2dp）。 */
 private val UserBubbleAttachmentGap = 2.dp
 
+/** 用户消息（气泡本体与附件行）的宽度上限：占聊天区宽度的比例。 */
+private const val UserBubbleWidthFraction = 0.82f
+
+/** 图片附件单张边长上限；多图时按可用宽度均分，保证每张一样大且整组放得下。 */
+private val UserBubbleImageMaxSide = 100.dp
+
 /** 四角半径（用户气泡与图片附件共用）。 */
 private data class CornerRadii(
     val topStart: Dp,
@@ -723,8 +729,8 @@ private fun userBubbleCorners(position: UserBubblePosition): CornerRadii = when 
  *
  * - 最左一张的左侧（上、下）保持大圆角；
  * - 中间被夹住的图片四角全收成接缝小圆角，上边下边都收；
- * - 最右一张的右上角是大圆角——图片行永远在附件栈最上面，上面没有东西可接，
- *   所以这里没有 connectsAbove 这一档（文件行有，见 sentFileChipShape）；
+ * - 最右一张的右上角是大圆角——顶边永远算自由边，收角只收在下面接着的东西那一侧
+ *   （跟文件行的 [sentFileChipShape] 同一套规则）；
  *   右下角则看下面是否接着文件行 / 气泡，接着就收成接缝，没接才是大圆角。
  */
 private fun userImageCorners(
@@ -904,11 +910,17 @@ private fun UserMessageBubble(
                 contentAlignment = Alignment.CenterEnd,
             ) {
                 Column(
-                    modifier = Modifier.widthIn(max = maxWidth * 0.82f),
+                    modifier = Modifier.widthIn(max = maxWidth * UserBubbleWidthFraction),
                     horizontalAlignment = Alignment.End,
                 ) {
                     if (message.images.isNotEmpty()) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        val imageCount = message.images.size
+                        // 一组图每张一律同尺寸：按宽度上限均分（扣掉相连间隙），再套 100dp 上限；
+                        // 图多时一起缩小，整组刚好放得下，不会被右缘裁掉。
+                        val imageWidth = maxWidth * UserBubbleWidthFraction -
+                            UserBubbleAttachmentGap * (imageCount - 1)
+                        val imageSide = (imageWidth / imageCount).coerceIn(0.dp, UserBubbleImageMaxSide)
+                        Row(horizontalArrangement = Arrangement.spacedBy(UserBubbleAttachmentGap)) {
                             message.images.forEachIndexed { index, dataUrl ->
                                 key(index, dataUrl, message.fullImageSourceAt(index)) {
                                     val bitmap = rememberDataUrlBitmap(
@@ -924,7 +936,7 @@ private fun UserMessageBubble(
                                     )
                                     Box(
                                         modifier = Modifier
-                                            .size(100.dp)
+                                            .size(imageSide)
                                             .clip(mediaShape)
                                             .background(chatSurfaceContainerColor()),
                                     ) {
@@ -974,7 +986,6 @@ private fun UserMessageBubble(
                             ),
                             largeCorner = UserBubbleCornerRadius,
                             seamCorner = UserBubbleAttachmentSeamCorner,
-                            connectsAbove = message.images.isNotEmpty(),
                             connectsBelow = joinsBubble,
                         )
                     }
@@ -1006,7 +1017,7 @@ private fun UserMessageBubble(
                 // 那不是 @Composable 作用域，直接读 `MaterialTheme.colorScheme` 会编译不过。
                 val bubbleStrokeColor = MaterialTheme.colorScheme.primary
                 val bubbleModifier = Modifier
-                    .widthIn(max = maxWidth * 0.82f)
+                    .widthIn(max = maxWidth * UserBubbleWidthFraction)
                     // 编辑态描边：整条轮廓（含右下角尾巴）一次描完，且必须挂在 clip 之外，
                     // 否则描边会被气泡形状裁掉、尾巴那一段永远缺一块。
                     .then(
