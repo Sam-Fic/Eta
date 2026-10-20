@@ -66,7 +66,10 @@ class SubAgentDiagnosticLoggingTest {
         }
         val setLogging: suspend (Boolean) -> Unit = { value ->
             SettingsDataStore.setFileLoggingEnabled(value)
-            withTimeout(5_000) {
+            // DataStore 落盘后才经 flow 投递到本收集协程，这一跳涉及真实磁盘 IO 与线程调度。
+            // 本地通常几十毫秒内完成，CI 高负载下偶发明显拉长；等待窗口取足够宽松的有界值，
+            // 避免把调度抖动误判成失败（若投递真的缺失，仍会在此超时失败）。
+            withTimeout(30_000) {
                 while (applied.receive() != value) { /* Await settings delivery, never sleep or poll files. */ }
             }
             assertEquals(value, AppFileLogger.isEnabled())
