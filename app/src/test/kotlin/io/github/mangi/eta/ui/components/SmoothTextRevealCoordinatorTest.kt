@@ -377,15 +377,60 @@ class SmoothTextRevealCoordinatorTest {
     }
 
     @Test
-    fun fadeDurationTracksRevealSpeedAndStaysBounded() {
-        // 静止速度下按六个字素的间隔折算，并封顶在 0.16 秒。
-        assertTrue(revealFadeDurationNanos(36f) in 159_000_000L..161_000_000L)
-        assertTrue(revealFadeDurationNanos(0f) in 159_000_000L..161_000_000L)
-        // 追赶很快时窗口跟着缩短，不会拖出一长串半透明文字。
-        assertTrue(revealFadeDurationNanos(240f) in 24_000_000L..26_000_000L)
-        // 速度越快，窗口越短。
-        assertTrue(revealFadeDurationNanos(240f) < revealFadeDurationNanos(60f))
-        assertTrue(revealFadeDurationNanos(60f) < revealFadeDurationNanos(36f))
+    fun perGlyphFadeDurationIsFixedNoMatterHowFastTextArrives() = runBlocking {
+        // 每个字的上浮与淡入时长是固定值，不随显现速度被压缩。
+        assertEquals(160_000_000L, REVEAL_FADE_NANOS)
+        val record = RevealRecord(RevealBlockKey(0)).apply {
+            boundaries = intArrayOf(0, 1, 2, 3, 4)
+            targetCount = 4f
+            progress = 4f
+            fadeDurationNanos = REVEAL_FADE_NANOS
+            // 四个字在同一帧出现：生成很快也不会让它们各自变得更短。
+            repeat(4) { fadeAppearNanos.addLast(0L) }
+        }
+        val snapshot = record.drawSnapshot
+        // 时长走到 1/4、1/2、3/4 时的不透明度按同一节奏递增。
+        record.lastFrameNanos = REVEAL_FADE_NANOS / 4
+        assertTrue("quarter=${snapshot.fadeAlpha(0)}", snapshot.fadeAlpha(0) in 0f..0.2f)
+        record.lastFrameNanos = REVEAL_FADE_NANOS / 2
+        assertTrue("half=${snapshot.fadeAlpha(0)}", snapshot.fadeAlpha(0) in 0.4f..0.6f)
+        record.lastFrameNanos = REVEAL_FADE_NANOS / 4 * 3
+        assertTrue("three quarters=${snapshot.fadeAlpha(0)}", snapshot.fadeAlpha(0) in 0.8f..1f)
+        record.lastFrameNanos = REVEAL_FADE_NANOS
+        assertEquals(1f, snapshot.fadeAlpha(0), 0f)
+    }
+
+    @Test
+    fun fastArrivalKeepsEarlierGlyphsFadingForTheirFullDuration() = runBlocking {
+        val coordinator = SmoothTextRevealCoordinator()
+        val key = RevealBlockKey(0)
+        attach(coordinator, key, "abcdefghijklmnopqrstuvwxyz0123456789")
+        val clock = TestFrameClock()
+        val job = launch(clock, start = CoroutineStart.UNDISPATCHED) { coordinator.runFrameClock() }
+        try {
+            // 一帧吃掉一大段积压：这批字素全部在同一帧出现。
+            clock.send(0L)
+            clock.send(50_000_000L)
+            yield()
+            val burst = coordinator.drawSnapshot(key)!!
+            assertTrue("burst progress=${burst.progress}", burst.progress >= 8f)
+            assertTrue(burst.liveFade)
+
+            // 再推 80ms：这批字素才走到固定时长的一半，仍在半透明渐变中，
+            // 不会因为生成很快就把它们的动画压缩掉。
+            clock.send(130_000_000L)
+            yield()
+            val halfway = coordinator.drawSnapshot(key)!!
+            assertEquals(0, halfway.fadeGlyphIndex)
+            assertTrue("alpha=${halfway.fadeAlpha(0)}", halfway.fadeAlpha(0) in 0.4f..0.6f)
+
+            // 超过固定时长后才全部退出淡入窗。
+            clock.send(400_000_000L)
+            yield()
+            assertTrue(coordinator.drawSnapshot(key)!!.fadeGlyphIndex > 0)
+        } finally {
+            job.cancelAndJoin()
+        }
     }
 
     private fun attach(

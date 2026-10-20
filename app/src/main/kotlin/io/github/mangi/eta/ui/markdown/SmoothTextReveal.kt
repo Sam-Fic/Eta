@@ -30,6 +30,7 @@ import java.util.Locale
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.max
+import kotlin.math.min
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -202,9 +203,7 @@ internal class SmoothTextRevealCoordinator {
                     current = 0f, target = totalBacklog,
                     elapsedSeconds = elapsedSeconds, totalBacklog = totalBacklog,
                 )
-                val fadeDurationNanos = io.github.mangi.eta.ui.components.revealFadeDurationNanos(
-                    io.github.mangi.eta.ui.components.smoothRevealSpeed(totalBacklog),
-                )
+                val fadeDurationNanos = io.github.mangi.eta.ui.components.REVEAL_FADE_NANOS
                 var frameAdvance = 0f
                 val newlyStarted = mutableSetOf<RevealBlockKey>()
                 for (record in records.values) {
@@ -219,7 +218,7 @@ internal class SmoothTextRevealCoordinator {
                     remainingAdvance = (remainingAdvance - advance).coerceAtLeast(0f)
                     frameAdvance += advance
                     if (advance > 0f) {
-                        // 本帧新跨过完整显现线的字素带上同一时刻与淡入时长，
+                        // 本帧新跨过完整显现线的字素带上同一出现时刻；淡入时长固定，
                         // 由帧时钟按真实经过时间驱动渐变与上浮。
                         record.fadeDurationNanos = fadeDurationNanos
                         record.noteRevealedGlyphs(frameNanos)
@@ -451,7 +450,13 @@ internal class SmoothTextRevealNode(
         }
     }
 
-    /** 窗口内的字素：越新出现的越透明、越靠下，随年龄一起淡入并升到最终位置。 */
+    /**
+     * 窗口内的字素：越新出现的越透明、越靠下，随年龄一起淡入并升到最终位置。
+     *
+     * 同一帧出现的字素不透明度与上浮量完全相同，合进一个图层一起画。淡入时长固定后，
+     * 文字生成再快，窗内也只是同时排下更多字素；每帧新建的图层数只跟窗内出现的帧数
+     * 有关，不会随生成速度线性增长。
+     */
     private fun ContentDrawScope.drawFadingGlyphs(snapshot: RevealDrawSnapshot) {
         val layout = snapshot.layoutResult
         val textLength = layout.layoutInput.text.length
@@ -459,44 +464,70 @@ internal class SmoothTextRevealNode(
         val startIndex = snapshot.fadeGlyphIndex.coerceIn(0, boundaries.lastIndex)
         val endIndex = (startIndex + snapshot.fadeSize).coerceIn(startIndex, boundaries.lastIndex)
         val contentScope = this
-        for (index in startIndex until endIndex) {
-            // 正在打的那一个字素只显现进度允许的比例，不能一次画满。
-            val coverage = (snapshot.progress - index).coerceIn(0f, 1f)
-            val alpha = snapshot.fadeAlpha(index) * coverage
-            if (alpha <= 0.001f) continue
-            val start = boundaries[index].coerceIn(0, textLength)
-            val end = boundaries[index + 1].coerceIn(start, textLength)
-            if (end <= start) continue
-            val path = layout.getPathForRange(start, end)
-            val bounds = path.getBounds()
-            if (bounds.width <= 0f || bounds.height <= 0f) continue
-            val line = layout.getLineForOffset(start.coerceAtMost((textLength - 1).coerceAtLeast(0)))
-            val lineHeight = (layout.getLineBottom(line) - layout.getLineTop(line)).coerceAtLeast(0f)
-            val rise = (1f - alpha) * FADE_RISE_LINE_FRACTION * lineHeight
-            // 这个节点没有外层裁剪，图层范围必须自己收在测量到的节点内，
-            // 否则带下坠的模糊边缘会浮出本块之外。
-            val layerTop = (bounds.top - rise).coerceAtLeast(0f)
-            val layerBottom = (bounds.bottom + rise).coerceAtMost(size.height)
+        var index = startIndex
+        while (index < endIndex) {
+            val alpha = fadeAlphaAt(snapshot, index)
+            if (alpha <= MIN_FADE_ALPHA) {
+                index += 1
+                continue
+            }
+            val paths = ArrayList<Path>(4)
+            var left = Float.MAX_VALUE
+            var top = Float.MAX_VALUE
+            var right = -Float.MAX_VALUE
+            var bottom = -Float.MAX_VALUE
+            var rise = 0f
+            var runEnd = index
+            while (runEnd < endIndex && fadeAlphaAt(snapshot, runEnd) == alpha) {
+                val start = boundaries[runEnd].coerceIn(0, textLength)
+                val end = boundaries[runEnd + 1].coerceIn(start, textLength)
+                runEnd += 1
+                if (end <= start) continue
+                val path = layout.getPathForRange(start, end)
+                val bounds = path.getBounds()
+                if (bounds.width <= 0f || bounds.height <= 0f) continue
+                paths += path
+                left = min(left, bounds.left)
+                top = min(top, bounds.top)
+                right = max(right, bounds.right)
+                bottom = max(bottom, bounds.bottom)
+                val line = layout.getLineForOffset(start.coerceAtMost((textLength - 1).coerceAtLeast(0)))
+                rise = max(
+                    rise,
+                    (1f - alpha) * FADE_RISE_LINE_FRACTION *
+                        (layout.getLineBottom(line) - layout.getLineTop(line)).coerceAtLeast(0f),
+                )
+            }
+            index = runEnd
+            if (paths.isEmpty()) continue
+            // 上浮会把字形探出原行；这个节点没有外层裁剪，图层范围必须自己收在
+            // 测量到的节点内，否则带下坠的模糊边缘会浮出本块之外。
+            val layerTop = (top - rise).coerceAtLeast(0f)
+            val layerBottom = (bottom + rise).coerceAtMost(size.height)
             if (layerBottom <= layerTop) continue
             alphaPaint.alpha = alpha
             drawContext.canvas.saveLayer(
                 Rect(
-                    left = bounds.left.coerceAtLeast(0f),
+                    left = left.coerceAtLeast(0f),
                     top = layerTop,
-                    right = bounds.right.coerceAtMost(size.width),
+                    right = right.coerceAtMost(size.width),
                     bottom = layerBottom,
                 ),
                 alphaPaint,
             )
             try {
                 translate(top = rise) {
-                    clipPath(path) { contentScope.drawContent() }
+                    paths.forEach { path -> clipPath(path) { contentScope.drawContent() } }
                 }
             } finally {
                 drawContext.canvas.restore()
             }
         }
     }
+
+    /** 淡入窗内某字素此刻的不透明度，含正在打的那一个字素只显现了一部分的比例。 */
+    private fun fadeAlphaAt(snapshot: RevealDrawSnapshot, index: Int): Float =
+        snapshot.fadeAlpha(index) * (snapshot.progress - index).coerceIn(0f, 1f)
 
     private fun ensurePaths(snapshot: RevealDrawSnapshot, fullCount: Int) {
         val layout = snapshot.layoutResult
@@ -722,3 +753,5 @@ private const val BASE_REVEAL_GRAPHEMES_PER_SECOND = 36f
 private const val TARGET_CATCH_UP_SECONDS = 0.20f
 /** 字素刚出现时相对最终位置的下沉比例（按行高衡量）。 */
 private const val FADE_RISE_LINE_FRACTION = 0.12f
+/** 低于这个不透明度的字素不再单独建层，直接跳过。 */
+private const val MIN_FADE_ALPHA = 0.001f
