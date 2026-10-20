@@ -1,5 +1,6 @@
 package io.github.mangi.eta.ui.components
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -13,7 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.layout
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -36,10 +37,13 @@ import io.github.mangi.eta.agent.model.ModelFeatureSelection
 import io.github.mangi.eta.data.model.ProviderSetting
 import io.github.mangi.eta.data.model.supportsGptSpeedBinding
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
-import io.github.mangi.eta.ui.TtsModelPickerDialog
-import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.EtaPageSurface
+import io.github.mangi.eta.ui.adaptive.EtaScaffold
+import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedGroupSpacing
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedRadioRow
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.model.AgentModelPickerProjector
@@ -145,21 +149,13 @@ internal fun resolveSubAgentProfileConfig(profile: SubAgentProfile, providers: L
 private class SubAgentResolvedDraftBinding(val providerId: String, val modelId: String, val role: String,
     val config: AgentModelClient.ModelConfig?)
 
-private fun Modifier.profileDialogScrollableBody(): Modifier = layout { measurable, constraints ->
-    // Reserve the title/actions, including in landscape; only the body scrolls.
-    val maximum = if (constraints.hasBoundedHeight) (constraints.maxHeight - 144.dp.roundToPx())
-        .coerceAtLeast(1).coerceAtMost(520.dp.roundToPx()) else 520.dp.roundToPx()
-    val placeable = measurable.measure(constraints.copy(minHeight = constraints.minHeight.coerceAtMost(maximum), maxHeight = maximum))
-    layout(placeable.width, placeable.height) { placeable.placeRelative(0, 0) }
-}
-
 /** 预设分组之间的垂直间距，与兄弟设置页的分段分组节奏一致。 */
 private val ProfileDialogGroupSpacing = 13.dp
 
 /**
- * 草稿弹窗的分段设置行：标题为正文（content），取值为次要行（supportingContent），
+ * 草稿表单的分段设置行：标题为正文（content），取值为次要行（supportingContent），
  * 尾部前缀箭头。与兄弟页面的 [EtaSegmentedRow] 形态保持一致，行内不再自绘字段描边，
- * 因此窄弹窗下取值也不会被标题挤成逐字折行。
+ * 因此窄屏下取值也不会被标题挤成逐字折行。
  *
  * 轻触反馈由 [EtaSegmentedRow] 自己触发，调用方**不要**在 onClick 里再写 TouchHaptics。
  */
@@ -224,6 +220,11 @@ private fun SubAgentDraftSettingRow(
     }
 }
 
+/** 配置表单的二级选择页；都留在同一页面表面内，不再叠对话框。 */
+private enum class ProfileDraftSubPage { MODEL, THINKING, ROLE, TIER, RESOLUTION }
+
+private data class DraftChoice<T>(val value: T, val label: String)
+
 @Composable
 internal fun SubAgentProfileConfigDialog(
     session: SubAgentProfileDraftSession,
@@ -247,9 +248,7 @@ internal fun SubAgentProfileConfigDialog(
     val context = LocalContext.current
     val draft = session.draft
     val usable = session.canCommit(currentEditor, enabled) && !session.submitting
-    var modelPicker by remember(session) { mutableStateOf(false) }
-    var thinkingPicker by remember(session) { mutableStateOf(false) }
-    var choices by remember(session) { mutableStateOf<String?>(null) }
+    var subPage by remember(session) { mutableStateOf<ProfileDraftSubPage?>(null) }
     // Resolve outside the write lock. A produceState result must carry its original selection:
     // API-model aliases must not make a stale selection look like the current draft binding.
     val resolved by produceState<SubAgentResolvedDraftBinding?>(null, draft.providerId, draft.modelId, draft.role, providers) {
@@ -264,7 +263,7 @@ internal fun SubAgentProfileConfigDialog(
         // Do not discard a manual/pending pool edit during a transient lookup of the same binding.
         if (!resolutionPending) session.bindParallel(boundConfig)
     }
-    LaunchedEffect(usable) { if (!usable) { modelPicker = false; thinkingPicker = false; choices = null } }
+    LaunchedEffect(usable) { if (!usable) subPage = null }
     // Require the resolved role-compatible binding AND the selected record's actual GPT capability.
     // The preference key is the selection ID, never boundConfig.model (an API alias).
     val speedProvider = providers.singleOrNull { it.id == draft.providerId && it.isEnabled }
@@ -292,181 +291,395 @@ internal fun SubAgentProfileConfigDialog(
     val dismiss = { session.dismiss(); latestDismiss() }
     // Back/outside taps cannot abandon an in-flight commit. Saved/owner invalidation still close.
     val userDismiss = { if (!session.submitting) dismiss() }
+    val pageTitle = if (session.expectedProfile == null) stringResource(R.string.sap_add_profile)
+        else stringResource(R.string.sap_profile_config)
+    BackHandler(enabled = subPage != null) { subPage = null }
+    // 二级选择页会替换主表单的组合；滚动位置提在页面之上，返回时仍停在原来的设置行。
+    val formScroll = rememberScrollState()
     CompositionLocalProvider(LocalRippleConfiguration provides etaRippleConfiguration()) {
         WithoutPressRipple {
-            // This form is also opened from a Compose Dialog. OverlayDialog registers
-            // content in a Scaffold host, which can be absent or behind that parent window.
-            // EtaDialog 在自己的模态窗口里呈现同一份表单。
-            EtaDialog(show = true, title = if (session.expectedProfile == null) stringResource(R.string.sap_add_profile) else stringResource(R.string.sap_profile_config),
-                onDismissRequest = userDismiss,
-                actions = {
-                    // 兄弟弹窗统一的动作区：右对齐文字按钮由 EtaDialogActions 提供。
-                    EtaDialogActions(
-                        confirmText = stringResource(R.string.action_confirm),
-                        cancelText = stringResource(R.string.action_cancel),
-                        confirmEnabled = ready && !session.submitting,
-                        cancelEnabled = !session.submitting,
-                        onCancel = { userDismiss() },
-                        onConfirm = {
-                            if (ready && !session.submitting && session.canCommit(latestEditor, latestEnabled)) {
-                                // Snapshot every argument before suspension; callbacks never retarget another opening.
-                                val capturedDraft = session.draft.copy(name = session.name.trim())
-                                val capturedTicket = session.openToken
-                                val capturedExpected = session.expectedProfile
-                                val capturedApplication = session.expectedApplicationToken
-                                val capturedParallel = session.parallelChange()
-                                session.submitting = true
-                                session.error = null
-                                scope.launch {
-                                    try {
-                                        val result = session.editor.commitProfileDraft(capturedDraft, capturedExpected,
-                                            capturedApplication, capturedParallel, canCommit = {
-                                                session.canCommit(latestEditor, latestEnabled, capturedTicket)
-                                            })
-                                        if (result is ConversationSubAgentPreferences.WriteResult.Saved &&
-                                            session.isCurrent(latestEditor, latestEnabled)) {
-                                            TouchHaptics.click(view)
-                                            dismiss()
-                                        } else if (session.isCurrent(latestEditor, latestEnabled)) {
-                                            session.error = context.getString(R.string.sap_not_saved)
+            EtaPageSurface(onDismissRequest = userDismiss) {
+                val page = subPage
+                if (page == null) {
+                    EtaScaffold(
+                        title = pageTitle,
+                        onBack = userDismiss,
+                        modifier = Modifier.fillMaxSize().imePadding(),
+                        bottomBar = {
+                            Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
+                                EtaDialogActions(
+                                    modifier = Modifier.navigationBarsPadding().imePadding()
+                                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                                    confirmText = stringResource(R.string.action_confirm),
+                                    cancelText = stringResource(R.string.action_cancel),
+                                    confirmEnabled = ready && !session.submitting,
+                                    cancelEnabled = !session.submitting,
+                                    onCancel = { userDismiss() },
+                                    onConfirm = {
+                                        if (ready && !session.submitting && session.canCommit(latestEditor, latestEnabled)) {
+                                            // Snapshot every argument before suspension; callbacks never retarget another opening.
+                                            val capturedDraft = session.draft.copy(name = session.name.trim())
+                                            val capturedTicket = session.openToken
+                                            val capturedExpected = session.expectedProfile
+                                            val capturedApplication = session.expectedApplicationToken
+                                            val capturedParallel = session.parallelChange()
+                                            session.submitting = true
+                                            session.error = null
+                                            scope.launch {
+                                                try {
+                                                    val result = session.editor.commitProfileDraft(capturedDraft, capturedExpected,
+                                                        capturedApplication, capturedParallel, canCommit = {
+                                                            session.canCommit(latestEditor, latestEnabled, capturedTicket)
+                                                        })
+                                                    if (result is ConversationSubAgentPreferences.WriteResult.Saved &&
+                                                        session.isCurrent(latestEditor, latestEnabled)) {
+                                                        TouchHaptics.click(view)
+                                                        dismiss()
+                                                    } else if (session.isCurrent(latestEditor, latestEnabled)) {
+                                                        session.error = context.getString(R.string.sap_not_saved)
+                                                    }
+                                                } catch (cancelled: CancellationException) { throw cancelled }
+                                                  catch (_: Exception) { session.error = context.getString(R.string.sap_save_failed) }
+                                                finally { session.submitting = false }
+                                            }
                                         }
-                                    } catch (cancelled: CancellationException) { throw cancelled }
-                                      catch (_: Exception) { session.error = context.getString(R.string.sap_save_failed) }
-                                    finally { session.submitting = false }
-                                }
-                            }
-                        },
-                    )
-                }) {
-                Column(Modifier.fillMaxWidth().profileDialogScrollableBody().verticalScroll(rememberScrollState())) {
-                    EtaFormTextField(session.name, { if (usable) session.name = it.take(80) }, hint = nameHint,
-                        singleLine = true, enabled = usable,
-                        modifier = Modifier.fillMaxWidth().padding(bottom = ProfileDialogGroupSpacing))
-                    // 分段列表：启用开关与各设置行同处一组，首末项自动获得外圆角、行间留缝。
-                    EtaSegmentedColumn(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = ProfileDialogGroupSpacing),
-                    ) {
-                        item(key = "enable") {
-                            // 官方 Switch 只呈现状态，整行切换由分段行的点击承载。
-                            EtaSegmentedRow(
-                                modifier = Modifier.fillMaxWidth(),
-                                enabled = usable,
-                                onClick = { session.edit { it.copy(enabled = !draft.enabled) } },
-                                trailingContent = { Switch(checked = draft.enabled, enabled = usable, onCheckedChange = null) },
-                            ) {
-                                Text(stringResource(R.string.sap_enable))
-                            }
-                        }
-                        item(key = "model") {
-                            SubAgentDraftSettingRow(stringResource(R.string.sap_model),
-                                boundConfig?.let { it.modelDisplayName.ifBlank { it.model } }
-                                    ?: if (draft.modelId.isBlank()) stringResource(R.string.sap_select_model) else stringResource(R.string.sap_model_unavailable),
-                                Icons.Rounded.ViewInAr, stringResource(R.string.sap_draft_model), usable,
-                                badge = boundConfig?.providerName,
-                                onClick = { if (usable) modelPicker = true },
-                                onLongClick = { if (usable && canThink) thinkingPicker = true })
-                        }
-                        if (canEditSpeed) item(key = "speed") {
-                            SubAgentDraftSettingRow(stringResource(R.string.sap_gpt_speed), gptSpeedDisplayName(draft.gptSpeedForModel()),
-                                Icons.Rounded.Speed, stringResource(R.string.sap_draft_gpt_speed), usable, onClick = {
-                                    session.edit { profile ->
-                                        if (profile.providerId != draft.providerId || profile.modelId != draft.modelId || profile.role != draft.role) profile
-                                        else profile.copy(gptSpeedByModel = profile.gptSpeedByModel +
-                                            (SubAgentProfile.modelReasoningKey(profile.providerId, profile.modelId) to profile.gptSpeedForModel().next()))
-                                    }
-                                })
-                        }
-                        item(key = "role") {
-                            SubAgentDraftSettingRow(stringResource(R.string.sap_role), draft.roleLabel,
-                                Icons.AutoMirrored.Rounded.Assignment, stringResource(R.string.sap_draft_role), usable,
-                                onClick = { if (usable) choices = "role" })
-                        }
-                        if (draft.supportsTaskTier) item(key = "tier") {
-                            SubAgentDraftSettingRow(stringResource(R.string.sap_task_tier), draft.tier?.label ?: stringResource(R.string.sap_tier_unset),
-                                Icons.Rounded.AccountTree, stringResource(R.string.sap_draft_tier), usable,
-                                onClick = { if (usable) choices = "tier" })
-                        }
-                        if (draft.role == "image_generation") item(key = "resolution") {
-                            SubAgentDraftSettingRow(stringResource(R.string.sap_default_resolution),
-                                draft.imageResolution?.let(ImageResolutionTier::label) ?: stringResource(R.string.sap_follow_endpoint),
-                                Icons.Rounded.Image, stringResource(R.string.sap_draft_resolution), usable && boundConfig != null,
-                                onClick = { if (usable) choices = "resolution" })
-                        }
-                        item(key = "thinking") {
-                            SubAgentDraftSettingRow(stringResource(R.string.sap_thinking), thinkingLabel,
-                                Icons.Rounded.AutoAwesome, stringResource(R.string.sap_draft_thinking), usable && canThink,
-                                onClick = { if (usable && canThink) thinkingPicker = true })
-                        }
-                    }
-                    EtaFormTextField(session.parallelValue, { if (usable) session.editParallel(it) },
-                        hint = stringResource(R.string.sap_parallel_hint), singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        enabled = usable && boundConfig != null, modifier = Modifier.fillMaxWidth())
-                    if (!session.parallelIsValid()) Text(stringResource(R.string.sap_parallel_invalid), color = MaterialTheme.colorScheme.error)
-                    Text(stringResource(R.string.sap_parallel_note),
-                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 8.dp))
-                    session.error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp)) }
-                    val editorState = session.editor.state
-                    if (editorState is SubAgentEditorState.Error) {
-                        Text(stringResource(R.string.sap_config_error, editorState.reason), color = MaterialTheme.colorScheme.error)
-                        TextButton(enabled = !session.submitting, onClick = onRetry) { Text(stringResource(R.string.sap_retry_restore_draft)) }
-                    }
-                }
-            }
-            if (usable && modelPicker) {
-                val all = AgentModelPickerProjector.project(providers, draft.providerId, draft.modelId)
-                val models = all.copy(providerGroups = all.providerGroups.map { group ->
-                    group.copy(models = group.models.filter { draft.acceptsModel(it.supportsImageGeneration, it.supportsVideoGeneration) })
-                }.filter { it.models.isNotEmpty() })
-                TtsModelPickerDialog(models, true, { modelPicker = false }, { provider, model ->
-                    if (session.canCommit(latestEditor, latestEnabled)) session.selectModel(ModelFeatureSelection(true, provider, model))
-                    modelPicker = false
-                }, stringResource(R.string.sap_select_model_for, draft.name), onClearSelection = {
-                    if (session.canCommit(latestEditor, latestEnabled)) session.selectModel(ModelFeatureSelection(true, "", ""))
-                    modelPicker = false
-                }, highlightSelection = true)
-            }
-            if (usable && thinkingPicker && canThink && effective != null) {
-                val binding = draft
-                ThinkingEffortPickerDialog(true, effective, efforts.ifEmpty { listOf(effective) }, { thinkingPicker = false }, { next ->
-                    if (session.canCommit(latestEditor, latestEnabled) && next in efforts &&
-                        session.draft.providerId == binding.providerId && session.draft.modelId == binding.modelId && session.draft.role == binding.role)
-                        session.edit { it.copy(reasoning = next) }
-                }, description = stringResource(R.string.sap_draft_only_note) + if (draft.isMedia) stringResource(R.string.sap_tier_endpoint_note) else "")
-            }
-            if (usable) choices?.let { field ->
-                val options: List<Pair<String?, String>> = when (field) {
-                    "role" -> listOf("implementation" to stringResource(R.string.sap_role_impl), "review" to stringResource(R.string.sap_role_review), "image_generation" to stringResource(R.string.sap_role_image), "video_generation" to stringResource(R.string.sap_role_video))
-                    "tier" -> listOf(null to stringResource(R.string.sap_tier_unset)) + SubAgentTaskTier.entries.map { it.wireValue to it.label }
-                    else -> listOf(null to stringResource(R.string.sap_follow_endpoint)) + ImageResolutionTier.values.filter { !verifiedGrok || it in setOf("low", "high") }.map { it to ImageResolutionTier.label(it) }
-                }
-                EtaDialog(show = true, title = when (field) { "role" -> stringResource(R.string.sap_role); "tier" -> stringResource(R.string.sap_task_tier); else -> stringResource(R.string.sap_default_resolution) },
-                    onDismissRequest = { choices = null },
-                    actions = {
-                        Column(Modifier.fillMaxWidth().profileDialogScrollableBody().verticalScroll(rememberScrollState())) {
-                            options.forEach { (value, label) ->
-                                // 官方单选列表项：选中态与无障碍单选语义都由 ListItem 提供。
-                                ListItem(
-                                    selected = when (field) {
-                                        "role" -> draft.role == value
-                                        "tier" -> draft.tier == SubAgentTaskTier.fromWireValue(value.orEmpty())
-                                        else -> draft.imageResolution == value
                                     },
-                                    onClick = {
-                                        session.edit { profile -> when (field) {
-                                            "role" -> profile.withRole(requireNotNull(value))
-                                            "tier" -> if (profile.supportsTaskTier) profile.copy(tier = SubAgentTaskTier.fromWireValue(value.orEmpty())) else profile
-                                            else -> if (profile.role == "image_generation") profile.copy(imageResolution = value) else profile
-                                        } }
-                                        choices = null
-                                    },
-                                    // 可交互/单选重载的正文参数名是 content（不是 headlineContent）。
-                                    content = { Text(label) },
                                 )
                             }
+                        },
+                    ) { padding, scrollConnection, _ ->
+                        Column(
+                            Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
+                                .nestedScroll(scrollConnection)
+                                .verticalScroll(formScroll)
+                                .padding(horizontal = 16.dp)
+                                .padding(bottom = 16.dp),
+                        ) {
+                            EtaFormTextField(session.name, { if (usable) session.name = it.take(80) }, hint = nameHint,
+                                singleLine = true, enabled = usable,
+                                modifier = Modifier.fillMaxWidth().padding(bottom = ProfileDialogGroupSpacing))
+                            // 分段列表：启用开关与各设置行同处一组，首末项自动获得外圆角、行间留缝。
+                            EtaSegmentedColumn(
+                                modifier = Modifier.fillMaxWidth().padding(bottom = ProfileDialogGroupSpacing),
+                            ) {
+                                item(key = "enable") {
+                                    // 官方 Switch 只呈现状态，整行切换由分段行的点击承载。
+                                    EtaSegmentedRow(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        enabled = usable,
+                                        onClick = { session.edit { it.copy(enabled = !draft.enabled) } },
+                                        trailingContent = { Switch(checked = draft.enabled, enabled = usable, onCheckedChange = null) },
+                                    ) {
+                                        Text(stringResource(R.string.sap_enable))
+                                    }
+                                }
+                                item(key = "model") {
+                                    SubAgentDraftSettingRow(stringResource(R.string.sap_model),
+                                        boundConfig?.let { it.modelDisplayName.ifBlank { it.model } }
+                                            ?: if (draft.modelId.isBlank()) stringResource(R.string.sap_select_model) else stringResource(R.string.sap_model_unavailable),
+                                        Icons.Rounded.ViewInAr, stringResource(R.string.sap_draft_model), usable,
+                                        badge = boundConfig?.providerName,
+                                        onClick = { if (usable) subPage = ProfileDraftSubPage.MODEL },
+                                        onLongClick = { if (usable && canThink) subPage = ProfileDraftSubPage.THINKING })
+                                }
+                                if (canEditSpeed) item(key = "speed") {
+                                    SubAgentDraftSettingRow(stringResource(R.string.sap_gpt_speed), gptSpeedDisplayName(draft.gptSpeedForModel()),
+                                        Icons.Rounded.Speed, stringResource(R.string.sap_draft_gpt_speed), usable, onClick = {
+                                            session.edit { profile ->
+                                                if (profile.providerId != draft.providerId || profile.modelId != draft.modelId || profile.role != draft.role) profile
+                                                else profile.copy(gptSpeedByModel = profile.gptSpeedByModel +
+                                                    (SubAgentProfile.modelReasoningKey(profile.providerId, profile.modelId) to profile.gptSpeedForModel().next()))
+                                            }
+                                        })
+                                }
+                                item(key = "role") {
+                                    SubAgentDraftSettingRow(stringResource(R.string.sap_role), draft.roleLabel,
+                                        Icons.AutoMirrored.Rounded.Assignment, stringResource(R.string.sap_draft_role), usable,
+                                        onClick = { if (usable) subPage = ProfileDraftSubPage.ROLE })
+                                }
+                                if (draft.supportsTaskTier) item(key = "tier") {
+                                    SubAgentDraftSettingRow(stringResource(R.string.sap_task_tier), draft.tier?.label ?: stringResource(R.string.sap_tier_unset),
+                                        Icons.Rounded.AccountTree, stringResource(R.string.sap_draft_tier), usable,
+                                        onClick = { if (usable) subPage = ProfileDraftSubPage.TIER })
+                                }
+                                if (draft.role == "image_generation") item(key = "resolution") {
+                                    SubAgentDraftSettingRow(stringResource(R.string.sap_default_resolution),
+                                        draft.imageResolution?.let(ImageResolutionTier::label) ?: stringResource(R.string.sap_follow_endpoint),
+                                        Icons.Rounded.Image, stringResource(R.string.sap_draft_resolution), usable && boundConfig != null,
+                                        onClick = { if (usable) subPage = ProfileDraftSubPage.RESOLUTION })
+                                }
+                                item(key = "thinking") {
+                                    SubAgentDraftSettingRow(stringResource(R.string.sap_thinking), thinkingLabel,
+                                        Icons.Rounded.AutoAwesome, stringResource(R.string.sap_draft_thinking), usable && canThink,
+                                        onClick = { if (usable && canThink) subPage = ProfileDraftSubPage.THINKING })
+                                }
+                            }
+                            EtaFormTextField(session.parallelValue, { if (usable) session.editParallel(it) },
+                                hint = stringResource(R.string.sap_parallel_hint), singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                enabled = usable && boundConfig != null, modifier = Modifier.fillMaxWidth())
+                            if (!session.parallelIsValid()) Text(stringResource(R.string.sap_parallel_invalid), color = MaterialTheme.colorScheme.error)
+                            Text(stringResource(R.string.sap_parallel_note),
+                                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(vertical = 8.dp))
+                            session.error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp)) }
+                            val editorState = session.editor.state
+                            if (editorState is SubAgentEditorState.Error) {
+                                Text(stringResource(R.string.sap_config_error, editorState.reason), color = MaterialTheme.colorScheme.error)
+                                TextButton(enabled = !session.submitting, onClick = onRetry) { Text(stringResource(R.string.sap_retry_restore_draft)) }
+                            }
                         }
-                    }) {
+                    }
+                } else {
+                    when (page) {
+                        ProfileDraftSubPage.MODEL -> SubAgentDraftModelPage(
+                            draft = draft,
+                            providers = providers,
+                            usable = usable,
+                            title = stringResource(R.string.sap_select_model_for, draft.name),
+                            onBack = { subPage = null },
+                            onCommit = { selection ->
+                                if (session.canCommit(latestEditor, latestEnabled)) {
+                                    session.selectModel(selection ?: ModelFeatureSelection(true, "", ""))
+                                }
+                                subPage = null
+                            },
+                        )
+                        ProfileDraftSubPage.THINKING -> SubAgentDraftChoicePage(
+                            title = stringResource(R.string.sap_thinking),
+                            description = stringResource(R.string.sap_draft_only_note) +
+                                if (draft.isMedia) stringResource(R.string.sap_tier_endpoint_note) else "",
+                            choices = efforts.map { DraftChoice(it, it.displayName) },
+                            isSelected = { it == effective },
+                            enabled = usable,
+                            onBack = { subPage = null },
+                            onSelected = { next ->
+                                if (session.canCommit(latestEditor, latestEnabled) && next in efforts) {
+                                    session.edit { it.copy(reasoning = next) }
+                                }
+                                subPage = null
+                            },
+                        )
+                        ProfileDraftSubPage.ROLE -> {
+                            val choices = listOf(
+                                "implementation" to stringResource(R.string.sap_role_impl),
+                                "review" to stringResource(R.string.sap_role_review),
+                                "image_generation" to stringResource(R.string.sap_role_image),
+                                "video_generation" to stringResource(R.string.sap_role_video),
+                            ).map { DraftChoice<String?>(it.first, it.second) }
+                            SubAgentDraftChoicePage(
+                                title = stringResource(R.string.sap_role),
+                                choices = choices,
+                                isSelected = { draft.role == it },
+                                enabled = usable,
+                                onBack = { subPage = null },
+                                onSelected = { value ->
+                                    if (session.canCommit(latestEditor, latestEnabled)) {
+                                        session.edit { profile -> profile.withRole(requireNotNull(value)) }
+                                    }
+                                    subPage = null
+                                },
+                            )
+                        }
+                        ProfileDraftSubPage.TIER -> {
+                            val choices = (listOf<SubAgentTaskTier?>(null) + SubAgentTaskTier.entries)
+                                .map { DraftChoice(it, it?.label ?: stringResource(R.string.sap_tier_unset)) }
+                            SubAgentDraftChoicePage(
+                                title = stringResource(R.string.sap_task_tier),
+                                choices = choices,
+                                isSelected = { draft.tier == it },
+                                enabled = usable,
+                                onBack = { subPage = null },
+                                onSelected = { tier ->
+                                    if (session.canCommit(latestEditor, latestEnabled)) {
+                                        session.edit { profile -> if (profile.supportsTaskTier) profile.copy(tier = tier) else profile }
+                                    }
+                                    subPage = null
+                                },
+                            )
+                        }
+                        ProfileDraftSubPage.RESOLUTION -> {
+                            val choices = (listOf<String?>(null) + ImageResolutionTier.values
+                                .filter { !verifiedGrok || it in setOf("low", "high") })
+                                .map { DraftChoice(it, it?.let(ImageResolutionTier::label) ?: stringResource(R.string.sap_follow_endpoint)) }
+                            SubAgentDraftChoicePage(
+                                title = stringResource(R.string.sap_default_resolution),
+                                choices = choices,
+                                isSelected = { draft.imageResolution == it },
+                                enabled = usable && boundConfig != null,
+                                onBack = { subPage = null },
+                                onSelected = { value ->
+                                    if (session.canCommit(latestEditor, latestEnabled)) {
+                                        session.edit { profile ->
+                                            if (profile.role == "image_generation") profile.copy(imageResolution = value) else profile
+                                        }
+                                    }
+                                    subPage = null
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** 草稿模型选择页：搜索 + 按供应商分组单选，确认后才写入草稿。 */
+@Composable
+private fun SubAgentDraftModelPage(
+    draft: SubAgentProfile,
+    providers: List<ProviderSetting>,
+    usable: Boolean,
+    title: String,
+    onBack: () -> Unit,
+    onCommit: (ModelFeatureSelection?) -> Unit,
+) {
+    var query by remember { mutableStateOf("") }
+    var pendingProviderId by remember { mutableStateOf(draft.providerId.takeIf { it.isNotBlank() }) }
+    var pendingModelId by remember { mutableStateOf(draft.modelId.takeIf { it.isNotBlank() }) }
+    val all = remember(providers, draft.providerId, draft.modelId) {
+        val projected = AgentModelPickerProjector.project(providers, draft.providerId, draft.modelId)
+        projected.copy(providerGroups = projected.providerGroups.map { group ->
+            group.copy(models = group.models.filter { draft.acceptsModel(it.supportsImageGeneration, it.supportsVideoGeneration) })
+        }.filter { it.models.isNotEmpty() })
+    }
+    val groups = remember(all, query) {
+        val needle = query.trim()
+        if (needle.isEmpty()) all.providerGroups else all.providerGroups.mapNotNull { group ->
+            val providerMatch = group.providerName.contains(needle, ignoreCase = true)
+            val models = if (providerMatch) group.models
+                else group.models.filter { it.displayName.contains(needle, ignoreCase = true) || it.id.contains(needle, ignoreCase = true) }
+            if (models.isEmpty()) null else group.copy(models = models)
+        }
+    }
+    val hasPending = pendingModelId != null
+    EtaScaffoldPage(
+        title = title,
+        onBack = onBack,
+        modifier = Modifier.imePadding(),
+        bottomBar = {
+            Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
+                EtaDialogActions(
+                    modifier = Modifier.navigationBarsPadding().imePadding()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    confirmText = stringResource(R.string.action_confirm),
+                    cancelText = stringResource(R.string.action_cancel),
+                    confirmEnabled = usable,
+                    cancelEnabled = usable,
+                    onCancel = onBack,
+                    onConfirm = {
+                        onCommit(
+                            if (hasPending) ModelFeatureSelection(true, pendingProviderId.orEmpty(), pendingModelId.orEmpty())
+                            else null,
+                        )
+                    },
+                )
+            }
+        },
+    ) {
+        item(key = "search") {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                placeholder = { Text(stringResource(R.string.ui_search_model_df5586)) },
+                leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                singleLine = true,
+            )
+        }
+        item(key = "none") {
+            EtaSegmentedColumn(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                    .padding(bottom = EtaSegmentedGroupSpacing),
+            ) {
+                item(key = "none-row") {
+                    EtaSegmentedRadioRow(
+                        title = stringResource(R.string.tts_none),
+                        selected = !hasPending,
+                        onClick = {
+                            pendingProviderId = null
+                            pendingModelId = null
+                        },
+                    )
+                }
+            }
+        }
+        if (groups.isEmpty()) {
+            item(key = "empty") {
+                Text(
+                    text = stringResource(R.string.page_no_matching_model_found_ae7e96),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(16.dp),
+                )
+            }
+        }
+        groups.forEach { group ->
+            item(key = "group-${group.providerId}") {
+                EtaSegmentedColumn(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                        .padding(bottom = EtaSegmentedGroupSpacing),
+                    title = group.providerName,
+                ) {
+                    group.models.forEach { model ->
+                        item(key = "${model.providerId}/${model.id}") {
+                            EtaSegmentedRadioRow(
+                                title = model.displayName,
+                                selected = pendingProviderId == model.providerId && pendingModelId == model.id,
+                                onClick = {
+                                    pendingProviderId = model.providerId
+                                    pendingModelId = model.id
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** 草稿的通用单选页：点选即写入并返回表单。 */
+@Composable
+private fun <T> SubAgentDraftChoicePage(
+    title: String,
+    choices: List<DraftChoice<T>>,
+    isSelected: (T) -> Boolean,
+    enabled: Boolean,
+    onBack: () -> Unit,
+    onSelected: (T) -> Unit,
+    description: String? = null,
+) {
+    EtaScaffoldPage(
+        title = title,
+        onBack = onBack,
+        modifier = Modifier.imePadding(),
+    ) {
+        description?.takeIf { it.isNotBlank() }?.let { text ->
+            item(key = "description") {
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
+        }
+        item(key = "choices") {
+            EtaSegmentedColumn(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                    .padding(bottom = EtaSegmentedGroupSpacing),
+            ) {
+                choices.forEach { choice ->
+                    item(key = choice.label) {
+                        EtaSegmentedRadioRow(
+                            title = choice.label,
+                            selected = isSelected(choice.value),
+                            enabled = enabled,
+                            onClick = { onSelected(choice.value) },
+                        )
+                    }
                 }
             }
         }

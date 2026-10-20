@@ -16,10 +16,12 @@ class SubAgentProfileDialogContractTest(unittest.TestCase):
             self.assertNotIn(forbidden, text)
         for required in ('editor.newProfileDraft()', 'editor.changeProfileModel(it, selection)',
                          'profile.withRole(requireNotNull(value))', 'AgentModelPickerProjector.project(',
-                         'TtsModelPickerDialog(', 'ThinkingEffortPickerDialog(', 'EtaFormTextField(',
+                         'EtaFormTextField(',
                          'if (draft.supportsTaskTier)', 'if (draft.role == "image_generation")'):
             self.assertIn(required, text)
-        self.assertNotIn('OutlinedTextField(', text)
+        # 表单字段统一用 EtaFormTextField；唯一的 OutlinedTextField 是模型子页的搜索框。
+        self.assertEqual(text.count('OutlinedTextField('), 1)
+        self.assertIn('value = query', text)
 
     def test_gpt_speed_edit_is_local_and_keyed_by_current_provider_selection(self):
         text = self.source('ui/components/SubAgentProfileConfigDialog.kt')
@@ -117,14 +119,17 @@ class SubAgentProfileDialogContractTest(unittest.TestCase):
 
     def test_window_dialog_works_without_scaffold_and_scrolls_body_not_actions(self):
         text = self.source('ui/components/SubAgentProfileConfigDialog.kt')
-        # M3-only：宿主弹窗走自适应 EtaDialog（官方 AlertDialog），表单与嵌套选择各一份。
-        self.assertIn('import io.github.mangi.eta.ui.adaptive.EtaDialog', text)
-        self.assertEqual(text.count('EtaDialog(show = true'), 2)  # form + nested choices
+        # 子代理配置改走整页：页面外壳 + 固定动作区，正文单独滚动。
+        self.assertIn('import io.github.mangi.eta.ui.adaptive.EtaPageSurface', text)
+        self.assertIn('import io.github.mangi.eta.ui.adaptive.EtaScaffold', text)
+        self.assertIn('EtaPageSurface(onDismissRequest = userDismiss)', text)
+        self.assertIn('.verticalScroll(formScroll)', text)
+        self.assertIn('EtaDialogActions(', text)
+        self.assertNotIn('EtaDialog(show = true', text)
         self.assertNotIn('WindowDialog(', text)
         self.assertNotIn('OverlayDialog(', text)
         self.assertNotIn('renderInRootScaffold', text)
-        for required in ('profileDialogScrollableBody().verticalScroll(',
-                         'EtaDialogActions(',
+        for required in ('EtaDialogActions(',
                          'CompositionLocalProvider(LocalRippleConfiguration provides etaRippleConfiguration())',
                          'WithoutPressRipple'):
             self.assertIn(required, text)

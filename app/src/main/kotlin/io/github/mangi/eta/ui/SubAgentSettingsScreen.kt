@@ -58,6 +58,7 @@ import io.github.mangi.eta.agent.delegation.SubAgentPreset
 import io.github.mangi.eta.agent.delegation.SubAgentProfile
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.ui.adaptive.EtaExtendedFab
+import io.github.mangi.eta.ui.adaptive.EtaMenuItemShape
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedItemContainer
@@ -208,10 +209,15 @@ internal fun SubAgentSettingsScreen(
                                                         if (editable) { TouchHaptics.click(view); groupMenuExpanded = true }
                                                     },
                                                 ) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.sas_group_more_for, preset.name)) }
-                                                if (editable) SubAgentDropdownMenu(groupMenuExpanded, { groupMenuExpanded = false }) {
+                                                if (editable) SubAgentDropdownMenu(
+                                                    expanded = groupMenuExpanded,
+                                                    onDismissRequest = { groupMenuExpanded = false },
+                                                    itemCount = 2,
+                                                ) {
                                                     DropdownMenuItem(
                                                         text = { Text(stringResource(R.string.spa_rename_group)) },
                                                         leadingIcon = { Icon(Icons.Rounded.Edit, null) },
+                                                        shape = EtaMenuItemShape(index = 0, count = 2),
                                                         onClick = {
                                                             groupMenuExpanded = false
                                                             if (editable) { name = preset.name; rename = preset }
@@ -220,6 +226,7 @@ internal fun SubAgentSettingsScreen(
                                                     DropdownMenuItem(
                                                         text = { Text(stringResource(R.string.spa_delete_group), color = MaterialTheme.colorScheme.error) },
                                                         leadingIcon = { Icon(Icons.Rounded.DeleteOutline, null, tint = MaterialTheme.colorScheme.error) },
+                                                        shape = EtaMenuItemShape(index = 1, count = 2),
                                                         onClick = {
                                                             groupMenuExpanded = false
                                                             if (editable) delete = preset
@@ -371,17 +378,15 @@ private fun SubAgentPresetDetail(editor: ConversationSubAgentEditor, groupName: 
                                             )
                                         }
                                         item(key = "${profile.id}-settings") {
-                                            // 设置块与标题行同组：容器提供 surfaceBright 底色与分段形状，
-                                            // 内部行不再自绘底色（见 SubAgentSettingRow）。
-                                            EtaSegmentedItemContainer {
-                                                SubAgentProfileRow(
-                                                    profile = profile,
-                                                    providers = providers,
-                                                    enabled = editable,
-                                                    settings = true,
-                                                    draftAllowed = true,
-                                                )
-                                            }
+                                            // 设置块自渲染分段列：每行独立分段、行间留缝（见 SubAgentProfileRow），
+                                            // 行自带 surfaceBright 底色，不再包 EtaSegmentedItemContainer。
+                                            SubAgentProfileRow(
+                                                profile = profile,
+                                                providers = providers,
+                                                enabled = editable,
+                                                settings = true,
+                                                draftAllowed = true,
+                                            )
                                         }
                                     }
                                 }
@@ -476,13 +481,20 @@ private fun SubAgentProfileHeaderRow(
                     IconButton(enabled = editable, onClick = {
                         if (editable) { TouchHaptics.click(view); menuExpanded = true }
                     }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.sas_more_for, profile.name)) }
-                    if (editable) SubAgentDropdownMenu(menuExpanded, { menuExpanded = false }) {
+                    if (editable) SubAgentDropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false },
+                        itemCount = 3,
+                    ) {
                         DropdownMenuItem(text = { Text(stringResource(R.string.sas_configure)) }, leadingIcon = { Icon(Icons.Rounded.Tune, null) },
+                            shape = EtaMenuItemShape(index = 0, count = 3),
                             onClick = { menuExpanded = false; onConfigure() })
                         DropdownMenuItem(text = { Text(stringResource(R.string.action_rename)) }, leadingIcon = { Icon(Icons.Rounded.Edit, null) },
+                            shape = EtaMenuItemShape(index = 1, count = 3),
                             onClick = { menuExpanded = false; onRename() })
                         DropdownMenuItem(text = { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) },
                             leadingIcon = { Icon(Icons.Rounded.DeleteOutline, null, tint = MaterialTheme.colorScheme.error) },
+                            shape = EtaMenuItemShape(index = 2, count = 3),
                             onClick = { menuExpanded = false; onDelete() })
                     }
                 }

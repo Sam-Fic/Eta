@@ -138,28 +138,35 @@ class SubAgentPresetUiContractTest(unittest.TestCase):
 
     def test_dialog_has_adaptive_body_and_one_state_dependent_left_action_in_fixed_footer(self):
         dialog = self.source('ui/components/ConversationCollaborationDialog.kt')
-        body, footer = dialog.split('// Fixed footer:', 1)
+        # 页面结构：固定动作区在 bottomBar，正文在脚手架内容区并单独滚动。
+        _, rest = dialog.split('bottomBar = {', 1)
+        footer, body = rest.split(') { padding, scrollConnection, _ ->', 1)
         for resource in ('R.string.ccd_use_current_config', 'R.string.ccd_switch_group'):
             with self.subTest(resource=resource):
                 self.assertNotIn(f'stringResource({resource})', body)
                 self.assertEqual(footer.count(f'stringResource({resource})'), 1)
-        for needle in ('Row(Modifier.fillMaxWidth()', 'heightIn(min = 48.dp)',
+        for needle in ('Modifier.fillMaxWidth()', 'heightIn(min = 48.dp)',
                        'verticalAlignment = Alignment.CenterVertically',
                        'horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)',
                        'if (choosing && current != null', 'else if (!choosing && panelEditor != null)',
                        'popup.isCurrent(ticket, popup)', 'latestCanChange && latestChoosing && editor.enabled',
                        'panelEnabled && panelEditor.enabled', '!latestChoosing',
-                       'Text(stringResource(R.string.action_done))', 'TouchHaptics.click(view)'):
+                       'Text(stringResource(R.string.action_done))', 'TouchHaptics.click(view)',
+                       'testTag("subagent-collaboration-footer")'):
             self.assertIn(needle, footer)
         self.assertNotIn('verticalScroll(', footer)
         self.assertNotIn('applyPreset(', footer)
         self.assertNotIn('setEnabled(', footer)
-        for needle in ('.weight(1f, fill = false)', '.verticalScroll(',
+        for needle in ('.nestedScroll(scrollConnection)', '.verticalScroll(',
                        'appliedPresetName?.let', 'panelEditor.setEnabled(it)',
-                       'Text(stringResource(R.string.ccd_auto_delegation))', 'Switch(checked = panelConfig?.enabled'):
+                       'Text(stringResource(R.string.ccd_auto_delegation))', 'Switch(checked = panelConfig?.enabled',
+                       'testTag("subagent-collaboration-body")'):
             self.assertIn(needle, body)
-        # 自适应宽高交给官方 ModalBottomSheet（形状/拖拽把手/安全区默认值），不再手写上限或屏幕高度算术。
-        for gone in ('widthIn(max = 480.dp)', 'heightIn(max =', 'LocalConfiguration.current.screenHeightDp'):
+        # 整页承载：外壳与顶栏交给官方页面组件，不再手写上限或屏幕高度算术。
+        self.assertIn('EtaPageSurface(onDismissRequest = onDismiss)', dialog)
+        self.assertIn('EtaScaffold(', dialog)
+        for gone in ('widthIn(max = 480.dp)', 'heightIn(max =', 'LocalConfiguration.current.screenHeightDp',
+                     'ModalBottomSheet('):
             self.assertNotIn(gone, dialog)
         for forbidden in ('OverlayDialog(', 'requiredHeight(', 'fillMaxHeight('):
             self.assertNotIn(forbidden, dialog)

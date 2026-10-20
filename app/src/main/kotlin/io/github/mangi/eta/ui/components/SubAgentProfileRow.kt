@@ -2,16 +2,22 @@ package io.github.mangi.eta.ui.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Assignment
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
@@ -24,6 +30,10 @@ import io.github.mangi.eta.agent.model.ModelFeatureSelection
 import io.github.mangi.eta.data.model.ProviderSetting
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 import io.github.mangi.eta.ui.TtsModelPickerDialog
+import io.github.mangi.eta.ui.adaptive.EtaDialog
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedRadioRow
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.model.AgentModelPickerProjector
 
@@ -66,55 +76,86 @@ internal fun SubAgentProfileRow(profile: SubAgentProfile, providers: List<Provid
     LaunchedEffect(profile.providerId, profile.modelId) { thinkingPicker = false }
     Column(verticalArrangement = Arrangement.spacedBy(if (settings) 0.dp else 12.dp)) {
         if (settings) {
-            SubAgentSettingRow(stringResource(R.string.sap_model), config?.let { it.modelDisplayName.ifBlank { it.model } }
-                ?: if (profile.modelId.isBlank()) stringResource(R.string.sap_select_model) else stringResource(R.string.sap_model_unavailable),
-                Icons.Rounded.ViewInAr, stringResource(R.string.spr_model_for, profile.name), enabled = usable, badge = config?.providerName,
-                onClick = { if (currentUsable) { TouchHaptics.click(view); modelPicker = true } },
-                onLongClick = { if (currentUsable && canThink) { thinkingPicker = true } },
-                trailing = { SubAgentGptSpeedButton(profile, providers, usable) })
-            Box(Modifier.fillMaxWidth()) {
-                SubAgentSettingRow(stringResource(R.string.sap_role), profile.roleLabel, Icons.AutoMirrored.Rounded.Assignment,
-                    stringResource(R.string.spr_select_role_for, profile.name), enabled = usable, dropdown = true,
-                    onClick = { if (currentUsable) { TouchHaptics.click(view); rolePicker = !rolePicker } })
-                Box(Modifier.align(Alignment.CenterEnd).size(40.dp)) {
-                    if (usable) SubAgentDropdownMenu(rolePicker, { rolePicker = false }, Modifier.selectableGroup()) {
-                        listOf("implementation" to stringResource(R.string.sap_role_impl), "review" to stringResource(R.string.sap_role_review), "image_generation" to stringResource(R.string.sap_role_image), "video_generation" to stringResource(R.string.sap_role_video)).forEach { (role, label) ->
-                            SubAgentSelectionItem(label, profile.role == role) {
-                                if (currentUsable) editor?.updateProfile(profile.id) { it.withRole(role) }
-                                rolePicker = false
-                            }
-                        }
-                    }
+            // 设置块自渲染 KernelSU 式分段列：每行独立分段、行间留缝露出页面背景，
+            // 与主表单弹窗的分段列表同一套内核；行内保持「标签左、取值右」的既有对齐布局。
+            EtaSegmentedColumn(Modifier.fillMaxWidth()) {
+                item(key = "model") {
+                    SubAgentSettingsRow(
+                        stringResource(R.string.sap_model), config?.let { it.modelDisplayName.ifBlank { it.model } }
+                            ?: if (profile.modelId.isBlank()) stringResource(R.string.sap_select_model) else stringResource(R.string.sap_model_unavailable),
+                        Icons.Rounded.ViewInAr, stringResource(R.string.spr_model_for, profile.name), enabled = usable, badge = config?.providerName,
+                        onClick = { if (currentUsable) modelPicker = true },
+                        onLongClick = { if (currentUsable && canThink) thinkingPicker = true },
+                        trailing = { SubAgentGptSpeedButton(profile, providers, usable) })
                 }
-            }
-            if (profile.supportsTaskTier) {
-                Box(Modifier.fillMaxWidth()) {
-                    SubAgentSettingRow(stringResource(R.string.sap_task_tier), profile.tier?.label ?: stringResource(R.string.sap_tier_unset), Icons.Rounded.AccountTree,
-                        stringResource(R.string.spr_set_tier_for, profile.name), enabled = usable, dropdown = true,
-                        onClick = { if (currentUsable) { TouchHaptics.click(view); tierPicker = !tierPicker } })
-                    Box(Modifier.align(Alignment.CenterEnd).size(40.dp)) {
-                        if (usable) SubAgentDropdownMenu(tierPicker, { tierPicker = false }, Modifier.selectableGroup()) {
-                            (listOf<SubAgentTaskTier?>(null) + SubAgentTaskTier.entries).forEach { tier ->
-                                SubAgentSelectionItem(tier?.label ?: stringResource(R.string.sap_tier_unset), profile.tier == tier) {
-                                    if (currentUsable) editor?.updateProfile(profile.id) { latest ->
-                                        if (latest.supportsTaskTier) latest.copy(tier = tier) else latest
+                item(key = "role") {
+                    Box(Modifier.fillMaxWidth()) {
+                        SubAgentSettingsRow(stringResource(R.string.sap_role), profile.roleLabel, Icons.AutoMirrored.Rounded.Assignment,
+                            stringResource(R.string.spr_select_role_for, profile.name), enabled = usable, dropdown = true,
+                            onClick = { if (currentUsable) rolePicker = !rolePicker })
+                        Box(Modifier.align(Alignment.CenterEnd).size(40.dp)) {
+                            if (usable) SubAgentDropdownMenu(
+                                expanded = rolePicker,
+                                onDismissRequest = { rolePicker = false },
+                                itemCount = 4,
+                                modifier = Modifier.selectableGroup(),
+                            ) {
+                                listOf("implementation" to stringResource(R.string.sap_role_impl), "review" to stringResource(R.string.sap_role_review), "image_generation" to stringResource(R.string.sap_role_image), "video_generation" to stringResource(R.string.sap_role_video)).forEachIndexed { index, (role, label) ->
+                                    SubAgentSelectionItem(
+                                        text = label,
+                                        selected = profile.role == role,
+                                        index = index,
+                                        count = 4,
+                                    ) {
+                                        if (currentUsable) editor?.updateProfile(profile.id) { it.withRole(role) }
+                                        rolePicker = false
                                     }
-                                    tierPicker = false
                                 }
                             }
                         }
                     }
                 }
+                if (profile.supportsTaskTier) item(key = "tier") {
+                    Box(Modifier.fillMaxWidth()) {
+                        SubAgentSettingsRow(stringResource(R.string.sap_task_tier), profile.tier?.label ?: stringResource(R.string.sap_tier_unset), Icons.Rounded.AccountTree,
+                            stringResource(R.string.spr_set_tier_for, profile.name), enabled = usable, dropdown = true,
+                            onClick = { if (currentUsable) tierPicker = !tierPicker })
+                        Box(Modifier.align(Alignment.CenterEnd).size(40.dp)) {
+                            if (usable) SubAgentDropdownMenu(
+                                expanded = tierPicker,
+                                onDismissRequest = { tierPicker = false },
+                                itemCount = SubAgentTaskTier.entries.size + 1,
+                                modifier = Modifier.selectableGroup(),
+                            ) {
+                                (listOf<SubAgentTaskTier?>(null) + SubAgentTaskTier.entries).forEachIndexed { index, tier ->
+                                    SubAgentSelectionItem(
+                                        text = tier?.label ?: stringResource(R.string.sap_tier_unset),
+                                        selected = profile.tier == tier,
+                                        index = index,
+                                        count = SubAgentTaskTier.entries.size + 1,
+                                    ) {
+                                        if (currentUsable) editor?.updateProfile(profile.id) { latest ->
+                                            if (latest.supportsTaskTier) latest.copy(tier = tier) else latest
+                                        }
+                                        tierPicker = false
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                if (profile.role == "image_generation") item(key = "resolution") {
+                    SubAgentSettingsRow(stringResource(R.string.sap_default_resolution), profile.imageResolution?.let(io.github.mangi.eta.agent.model.ImageResolutionTier::label) ?: stringResource(R.string.sap_follow_endpoint),
+                        Icons.Rounded.ViewInAr, stringResource(R.string.spr_set_resolution_for, profile.name), enabled = usable && config != null,
+                        onClick = { if (currentUsable && config != null) resolutionPicker = true })
+                }
+                item(key = "thinking") {
+                    SubAgentSettingsRow(stringResource(R.string.sap_thinking), thinkingLabel,
+                        Icons.Rounded.AutoAwesome, stringResource(R.string.spr_adjust_thinking_for, profile.name), enabled = usable && canThink,
+                        onClick = { if (currentUsable && canThink) thinkingPicker = true })
+                }
+                addParallelLimitItem(profile, config, usable)
             }
-            if (profile.role == "image_generation") {
-                SubAgentSettingRow(stringResource(R.string.sap_default_resolution), profile.imageResolution?.let(io.github.mangi.eta.agent.model.ImageResolutionTier::label) ?: stringResource(R.string.sap_follow_endpoint),
-                    Icons.Rounded.ViewInAr, stringResource(R.string.spr_set_resolution_for, profile.name), enabled = usable && config != null,
-                    onClick = { if (currentUsable && config != null) { TouchHaptics.click(view); resolutionPicker = true } })
-            }
-            SubAgentSettingRow(stringResource(R.string.sap_thinking), thinkingLabel,
-                Icons.Rounded.AutoAwesome, stringResource(R.string.spr_adjust_thinking_for, profile.name), enabled = usable && canThink,
-                onClick = { if (currentUsable && canThink) { TouchHaptics.click(view); thinkingPicker = true } })
-            SubAgentParallelLimitRow(profile, config, usable)
         } else {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 // 官方可交互 ListItem：点击、长按、涟漪、Role.Button 语义、按压形变、禁用态与内边距
@@ -175,29 +216,39 @@ internal fun SubAgentProfileRow(profile: SubAgentProfile, providers: List<Provid
             io.github.mangi.eta.agent.model.RequestBodyMerge.mergeCustomBody(body, config.customBody)
             io.github.mangi.eta.agent.model.GrokImageProfile.applies(config.baseUrl, config.model, body)
         }.getOrDefault(false)
-        AlertDialog(onDismissRequest = { resolutionPicker = false }, title = { Text(stringResource(R.string.sap_default_resolution)) },
-            text = { Column {
-                Text(stringResource(R.string.spr_resolution_note) +
-                    if (verifiedGrok) stringResource(R.string.spr_resolution_grok) else stringResource(R.string.spr_resolution_generic))
-                (listOf<String?>(null) + io.github.mangi.eta.agent.model.ImageResolutionTier.values).forEach { tier ->
-                    val allowed = !verifiedGrok || tier == null || tier in setOf("low", "high")
-                    // 官方单选列表项：选中态、无障碍单选语义与按压反馈全部由 ListItem 提供。
-                    ListItem(
-                        selected = profile.imageResolution == tier,
-                        enabled = usable && allowed,
-                        onClick = {
-                            if (currentUsable) editor?.updateProfile(profile.id) { latest ->
-                                if (latest.providerId == profile.providerId && latest.modelId == profile.modelId && latest.role == "image_generation") latest.copy(imageResolution = tier) else latest
-                            }
-                            resolutionPicker = false
-                        },
-                        // 可交互/单选重载的正文参数名是 content（不是 headlineContent）。
-                        content = {
-                            Text(tier?.let(io.github.mangi.eta.agent.model.ImageResolutionTier::label) ?: stringResource(R.string.sap_follow_endpoint))
-                        },
-                    )
+        EtaDialog(show = true, title = stringResource(R.string.sap_default_resolution),
+            onDismissRequest = { resolutionPicker = false }) {
+            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+                Text(
+                    text = stringResource(R.string.spr_resolution_note) +
+                        if (verifiedGrok) stringResource(R.string.spr_resolution_grok) else stringResource(R.string.spr_resolution_generic),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 13.dp),
+                )
+                // 与主表单「默认分辨率」二级弹窗同一套 KernelSU 式分段单选列表：
+                // 首末项自动外圆角、行间留缝，选中态与单选语义由 EtaSegmentedRadioRow 承载。
+                EtaSegmentedColumn(Modifier.fillMaxWidth()) {
+                    (listOf<String?>(null) + io.github.mangi.eta.agent.model.ImageResolutionTier.values).forEach { tier ->
+                        val allowed = !verifiedGrok || tier == null || tier in setOf("low", "high")
+                        item(key = tier ?: "endpoint") {
+                            EtaSegmentedRadioRow(
+                                title = tier?.let(io.github.mangi.eta.agent.model.ImageResolutionTier::label)
+                                    ?: stringResource(R.string.sap_follow_endpoint),
+                                selected = profile.imageResolution == tier,
+                                enabled = usable && allowed,
+                                onClick = {
+                                    if (currentUsable) editor?.updateProfile(profile.id) { latest ->
+                                        if (latest.providerId == profile.providerId && latest.modelId == profile.modelId && latest.role == "image_generation") latest.copy(imageResolution = tier) else latest
+                                    }
+                                    resolutionPicker = false
+                                },
+                            )
+                        }
+                    }
                 }
-            } }, confirmButton = { TextButton(onClick = { resolutionPicker = false }) { Text(stringResource(R.string.action_close)) } })
+            }
+        }
     }
     if (usable && modelPicker) {
         val all = AgentModelPickerProjector.project(providers, profile.providerId, profile.modelId)
@@ -223,4 +274,76 @@ internal fun SubAgentProfileRow(profile: SubAgentProfile, providers: List<Provid
         }, description = stringResource(R.string.spr_thinking_desc, profile.name) +
             if (profile.isMedia) stringResource(R.string.spr_thinking_endpoint) else "")
     }
+}
+
+/**
+ * 设置态分段行：标签固定宽度在左、取值紧随其后（保持详情页既有的水平对齐序列），
+ * 尾部可挂额外控件（如 GPT 速度 Chip）、badge 与箭头。
+ *
+ * 分段底色、首末形状与轻触反馈均由 [EtaSegmentedRow] 承载，与主表单弹窗的分段行
+ * 同一套内核；轻触反馈由行自己触发，调用方**不要**在 onClick 里再写 TouchHaptics。
+ */
+@Composable
+internal fun SubAgentSettingsRow(
+    label: String,
+    value: String,
+    icon: ImageVector,
+    description: String,
+    enabled: Boolean = true,
+    dropdown: Boolean = false,
+    badge: String? = null,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null,
+) {
+    EtaSegmentedRow(
+        modifier = Modifier.fillMaxWidth().semantics { contentDescription = description },
+        onClick = onClick,
+        onLongClick = onLongClick,
+        enabled = enabled,
+        leadingContent = {
+            Icon(icon, null, tint = MaterialTheme.colorScheme.onSurface)
+        },
+        trailingContent = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                trailing?.invoke()
+                Icon(
+                    if (dropdown) Icons.Rounded.ExpandMore else Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                    null, tint = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        },
+        content = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    text = label,
+                    modifier = Modifier.widthIn(min = 72.dp, max = 100.dp),
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (!badge.isNullOrBlank()) {
+                    Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceContainerHighest) {
+                        Text(
+                            text = badge,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                            style = MaterialTheme.typography.labelMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                Text(
+                    text = value,
+                    modifier = Modifier.weight(1f, fill = false),
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        },
+    )
 }

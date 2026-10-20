@@ -354,12 +354,11 @@ class ConversationCollaborationDialogTest {
             .assert(hasAnyAncestor(hasTestTag("subagent-collaboration-footer"))).fetchSemanticsNode().boundsInRoot
         val footer = compose.onNodeWithTag("subagent-collaboration-footer").fetchSemanticsNode().boundsInRoot
         val body = compose.onNodeWithTag("subagent-collaboration-body").fetchSemanticsNode().boundsInRoot
-        val card = compose.onNodeWithTag("subagent-collaboration-card").fetchSemanticsNode().boundsInRoot
         assertTrue("footer actions must not overlap", left.right <= done.left)
         assertTrue("footer actions must be horizontally aligned", kotlin.math.abs(left.center.y - done.center.y) < 1f)
         assertTrue("scrolling body must end above footer", body.bottom <= footer.top)
-        assertTrue("left action must remain in the card", left.left >= card.left && left.bottom <= card.bottom)
-        assertTrue("done action must remain in the card", done.right <= card.right && done.bottom <= card.bottom)
+        assertTrue("left action must remain in the footer", left.left >= footer.left && left.bottom <= footer.bottom)
+        assertTrue("done action must remain in the footer", done.right <= footer.right && done.bottom <= footer.bottom)
     }
 
     @Test
@@ -370,15 +369,9 @@ class ConversationCollaborationDialogTest {
         val revision = fixture.repository.revision(fixture.owner).value
         compose.setSubAgentContent(fixture) { ConversationCollaborationDialog(true, false, {}, {}) }
         assertFooterAligned("使用当前配置")
-        // M3E sheet 头部+空态+底部实测约 320dp；仍须明显小于全屏（480dp 视口）。
-        assertTrue("empty content must not force a tall card",
-            compose.onNodeWithTag("subagent-collaboration-card").getUnclippedBoundsInRoot().let { it.bottom - it.top < 400.dp })
         compose.onNodeWithText("切换子代理组").assertDoesNotExist()
         compose.onNodeWithText("使用当前配置").performClick()
         assertFooterAligned("切换子代理组")
-        // M3E sheet 头部+空态+底部实测约 320dp；仍须明显小于全屏（480dp 视口）。
-        assertTrue("empty content must not force a tall card",
-            compose.onNodeWithTag("subagent-collaboration-card").getUnclippedBoundsInRoot().let { it.bottom - it.top < 400.dp })
         compose.onNodeWithText("使用当前配置").assertDoesNotExist()
         compose.onNodeWithText("自动委派").assertIsDisplayed()
         compose.runOnIdle {

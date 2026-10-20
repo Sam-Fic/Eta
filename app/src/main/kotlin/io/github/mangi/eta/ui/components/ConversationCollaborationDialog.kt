@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
@@ -26,6 +27,8 @@ import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.delegation.ConversationSubAgentPreferences
 import io.github.mangi.eta.data.repository.ProviderRepository
+import io.github.mangi.eta.ui.adaptive.EtaPageSurface
+import io.github.mangi.eta.ui.adaptive.EtaScaffold
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedItemContainer
 import io.github.mangi.eta.ui.haptics.TouchHaptics
@@ -99,16 +102,68 @@ internal fun ConversationCollaborationDialog(
     val panelState = panelEditor?.observe()
     val panelConfig = (panelState as? SubAgentEditorState.Loaded)?.config
     val panelEnabled = canChange && panelEditor?.enabled == true && panelConfig != null
-    // 弹窗观感：外壳、头部、空态与动作区都按官方 Expressive 形态呈现。
+    // 页面观感：独立顶栏 + 可滚动正文 + 固定动作区。
     CompositionLocalProvider(LocalRippleConfiguration provides etaRippleConfiguration()) {
         WithoutPressRipple {
-            // 走官方 [ModalBottomSheet]：拖拽把手、遮罩、圆角与底部安全区都由组件提供。
-            CollaborationDialogShell(
-                title = stringResource(R.string.ccd_title),
-                onDismissRequest = onDismiss,
-            ) {
-                Column(Modifier.fillMaxWidth().weight(1f, fill = false).testTag("subagent-collaboration-body")
+            EtaPageSurface(onDismissRequest = onDismiss) {
+                EtaScaffold(
+                    title = stringResource(R.string.ccd_title),
+                    onBack = onDismiss,
+                    modifier = Modifier.fillMaxSize().imePadding(),
+                    bottomBar = {
+                        Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
+                            Row(
+                                Modifier.fillMaxWidth()
+                                    .navigationBarsPadding()
+                                    .imePadding()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                                    .heightIn(min = 48.dp)
+                                    .testTag("subagent-collaboration-footer"),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                            ) {
+                                if (choosing && current != null && editor != null && chooserPopup != null) {
+                                    val (popup, ticket) = chooserPopup
+                                    TextButton(enabled = canChange, modifier = Modifier.semantics { onClick {
+                                        if (popup.isCurrent(ticket, popup) && latestOwnerMatches() && !latestTaskRunning &&
+                                            latestCanChange && latestChoosing && editor.enabled) {
+                                            TouchHaptics.click(view)
+                                            chooserOverride = false
+                                        }
+                                        true
+                                    } }, onClick = {
+                                        if (popup.isCurrent(ticket, popup) && latestOwnerMatches() && !latestTaskRunning &&
+                                            latestCanChange && latestChoosing && editor.enabled) {
+                                            TouchHaptics.click(view)
+                                            chooserOverride = false
+                                        }
+                                    }) { Text(stringResource(R.string.ccd_use_current_config)) }
+                                } else if (!choosing && panelEditor != null) {
+                                    TextButton(enabled = panelEnabled, modifier = Modifier.semantics { onClick {
+                                        if (panelEnabled && panelEditor.enabled && latestOwnerMatches() && !latestTaskRunning && !latestChoosing) {
+                                            TouchHaptics.click(view)
+                                            chooserOverride = true
+                                        }
+                                        true
+                                    } }, onClick = {
+                                        if (panelEnabled && panelEditor.enabled && latestOwnerMatches() && !latestTaskRunning && !latestChoosing) {
+                                            TouchHaptics.click(view)
+                                            chooserOverride = true
+                                        }
+                                    }) { Text(stringResource(R.string.ccd_switch_group)) }
+                                }
+                                TextButton(enabled = !taskRunning, onClick = {
+                                    if (latestOwnerMatches() && !latestTaskRunning) { TouchHaptics.click(view); onDismiss() }
+                                }) { Text(stringResource(R.string.action_done)) }
+                            }
+                        }
+                    },
+                ) { padding, scrollConnection, _ ->
+                Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
+                    .testTag("subagent-collaboration-body")
+                    .nestedScroll(scrollConnection)
                     .verticalScroll(key(editor, choosing, current?.presetApplicationToken) { rememberScrollState() })
+                    .padding(horizontal = 16.dp)
                     .padding(bottom = 8.dp).alpha(if (canChange) 1f else 0.38f)) {
                     when (state) {
                         is SubAgentEditorState.Error -> {
@@ -229,100 +284,10 @@ internal fun ConversationCollaborationDialog(
                         }
                     }
                 }
-                // Fixed footer: changing the chooser state never requires scrolling past the cards.
-                Row(Modifier.fillMaxWidth().padding(top = 4.dp).heightIn(min = 48.dp).testTag("subagent-collaboration-footer"),
-                    verticalAlignment = Alignment.CenterVertically,
-                    // 动作区右对齐（官方对话框动作形态）。
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-                    if (choosing && current != null && editor != null && chooserPopup != null) {
-                        val (popup, ticket) = chooserPopup
-                        TextButton(enabled = canChange, modifier = Modifier.semantics { onClick {
-                            if (popup.isCurrent(ticket, popup) && latestOwnerMatches() && !latestTaskRunning &&
-                                latestCanChange && latestChoosing && editor.enabled) {
-                                TouchHaptics.click(view)
-                                chooserOverride = false
-                            }
-                            true
-                        } }, onClick = {
-                            if (popup.isCurrent(ticket, popup) && latestOwnerMatches() && !latestTaskRunning &&
-                                latestCanChange && latestChoosing && editor.enabled) {
-                                TouchHaptics.click(view)
-                                chooserOverride = false
-                            }
-                        }) { Text(stringResource(R.string.ccd_use_current_config)) }
-                    } else if (!choosing && panelEditor != null) {
-                        TextButton(enabled = panelEnabled, modifier = Modifier.semantics { onClick {
-                            if (panelEnabled && panelEditor.enabled && latestOwnerMatches() && !latestTaskRunning && !latestChoosing) {
-                                TouchHaptics.click(view)
-                                chooserOverride = true
-                            }
-                            true
-                        } }, onClick = {
-                            if (panelEnabled && panelEditor.enabled && latestOwnerMatches() && !latestTaskRunning && !latestChoosing) {
-                                TouchHaptics.click(view)
-                                chooserOverride = true
-                            }
-                        }) { Text(stringResource(R.string.ccd_switch_group)) }
-                    }
-                    TextButton(enabled = !taskRunning, onClick = {
-                        if (latestOwnerMatches() && !latestTaskRunning) { TouchHaptics.click(view); onDismiss() }
-                    }) { Text(stringResource(R.string.action_done)) }
-                }
             }
         }
     }
 }
-
-/**
- * 弹窗外壳：官方 [ModalBottomSheet]，拖拽把手、遮罩、圆角与底部安全区都由组件提供，
- * 高度随内容增长、超出屏幕再由正文自己滚动。
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun CollaborationDialogShell(
-    title: String,
-    onDismissRequest: () -> Unit,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    ModalBottomSheet(
-        onDismissRequest = onDismissRequest,
-        // 与「助手与模型」选择器一致：只保留 Hidden↔Expanded 两态，不进半展开。
-        sheetState = rememberBottomSheetState(
-            initialValue = SheetValue.Hidden,
-            enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
-        ),
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 24.dp).testTag("subagent-collaboration-card"),
-        ) {
-            ExpressiveCollaborationHeader(title)
-            content()
-        }
-    }
-}
-
-/**
- * M3E 头部：色调圆底图标 + 标题，与官方对话框的 icon/title 层级一致。
- */
-@Composable
-private fun ExpressiveCollaborationHeader(title: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Surface(
-            modifier = Modifier.size(40.dp),
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.secondaryContainer,
-            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-        ) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.Hub, contentDescription = null, modifier = Modifier.size(22.dp))
-            }
-        }
-        Text(title, style = MaterialTheme.typography.titleLarge)
-    }
 }
 
 /**
