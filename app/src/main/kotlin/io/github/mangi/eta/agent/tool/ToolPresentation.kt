@@ -144,6 +144,7 @@ internal object ToolPresentation {
         "eta_manage_models" -> R.string.tool_eta_manage_models
         "eta_manage_subagents" -> R.string.tool_eta_manage_subagents
         "eta_manage_history" -> R.string.tool_eta_manage_history
+        "semantic_search_media" -> R.string.tool_semantic_search_media
         else -> null
     }
 
@@ -225,6 +226,7 @@ internal object ToolPresentation {
         "search_call_history" -> Icons.Rounded.Phone
         "ask_user", "search_messages" -> Icons.Rounded.ChatBubble
         "search_media", "search_qq_chat_images", "search_wechat_chat_images" -> Icons.Rounded.Image
+        "semantic_search_media" -> Icons.Rounded.TravelExplore
         "search_audio" -> Icons.Rounded.MusicNote
         "search_recordings", "search_coloros_recordings", "search_recording_summaries" -> Icons.Rounded.Mic
         "search_files" -> Icons.Rounded.FolderOpen

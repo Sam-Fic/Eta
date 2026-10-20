@@ -10,6 +10,7 @@ import io.github.mangi.eta.data.model.ModelSource
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -333,6 +334,128 @@ class EtaDatabaseMigrationTest {
     fun bothVersion29VariantsMigrateWithoutLosingReceipts() {
         for ((cloud, delivery) in listOf(true to false, false to true, true to true)) {
             checkReceiptMigration(29, cloud, delivery)
+        }
+    }
+
+    @Test
+    fun migration34To35AddsMediaTablesAndPreservesExistingData() {
+        val context = RuntimeEnvironment.getApplication() as Context
+        val databaseName = "migration-34-35-${UUID.randomUUID()}.db"
+        val helper = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name(databaseName)
+                .callback(
+                    object : SupportSQLiteOpenHelper.Callback(34) {
+                        override fun onCreate(db: SupportSQLiteDatabase) {
+                            db.execSQL(
+                                "CREATE TABLE conversations (id TEXT NOT NULL, title TEXT NOT NULL, " +
+                                    "thinking_enabled INTEGER NOT NULL, history_json TEXT NOT NULL, " +
+                                    "created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY(id))"
+                            )
+                            db.execSQL(
+                                "INSERT INTO conversations " +
+                                    "(id, title, thinking_enabled, history_json, created_at, updated_at) " +
+                                    "VALUES ('conv-keep', '保留的对话', 0, '[]', 1, 1)"
+                            )
+                        }
+
+                        override fun onUpgrade(
+                            db: SupportSQLiteDatabase,
+                            oldVersion: Int,
+                            newVersion: Int,
+                        ) = Unit
+                    },
+                )
+                .build(),
+        )
+        try {
+            val database = helper.writableDatabase
+            EtaDatabase.MIGRATION_34_35.migrate(database)
+            // 幂等：重复执行不得报错（所有 CREATE 均带 IF NOT EXISTS）。
+            EtaDatabase.MIGRATION_34_35.migrate(database)
+
+            val tables = database.query("SELECT name FROM sqlite_master WHERE type = 'table'")
+                .use { cursor ->
+                    buildSet { while (cursor.moveToNext()) add(cursor.getString(0)) }
+                }
+            assertTrue("media_index 表缺失：$tables", "media_index" in tables)
+            assertTrue("media_source 表缺失：$tables", "media_source" in tables)
+
+            val indices = database.query("SELECT name FROM sqlite_master WHERE type = 'index'")
+                .use { cursor ->
+                    buildSet { while (cursor.moveToNext()) add(cursor.getString(0)) }
+                }
+            assertTrue("index_media_index_kind 缺失", "index_media_index_kind" in indices)
+            assertTrue("index_media_index_modified_at 缺失", "index_media_index_modified_at" in indices)
+
+            val mediaIndexColumns = database.query("PRAGMA table_info(media_index)").use { cursor ->
+                val nameIndex = cursor.getColumnIndex("name")
+                val pkIndex = cursor.getColumnIndex("pk")
+                buildMap {
+                    while (cursor.moveToNext()) {
+                        put(cursor.getString(nameIndex), cursor.getInt(pkIndex))
+                    }
+                }
+            }
+            assertEquals(
+                setOf(
+                    "source_key", "model_id", "vector_dim", "kind", "display_name", "mime",
+                    "size_bytes", "modified_at", "content_hash", "duration_ms", "width", "height",
+                    "frame_time_ms", "thumb_path", "vector", "indexed_at",
+                ),
+                mediaIndexColumns.keys,
+            )
+            // 复合主键 (source_key, model_id, vector_dim) 及其顺序决定 Upsert 语义，必须保持。
+            assertEquals(
+                mapOf("source_key" to 1, "model_id" to 2, "vector_dim" to 3),
+                mediaIndexColumns.filterValues { it > 0 },
+            )
+
+            val mediaSourceColumns = database.query("PRAGMA table_info(media_source)").use { cursor ->
+                val nameIndex = cursor.getColumnIndex("name")
+                buildSet { while (cursor.moveToNext()) add(cursor.getString(nameIndex)) }
+            }
+            assertEquals(
+                setOf("id", "type", "uri", "label", "enabled", "last_scan_at", "item_count"),
+                mediaSourceColumns,
+            )
+
+            // 旧数据不受影响。
+            val retained = database.query("SELECT title FROM conversations WHERE id = 'conv-keep'")
+                .use { cursor ->
+                    check(cursor.moveToFirst())
+                    cursor.getString(0)
+                }
+            assertEquals("保留的对话", retained)
+
+            // 新表可写：BLOB 向量与可空列往返正确。
+            val payload = byteArrayOf(0x00, 0x3C, 0xFF.toByte())
+            database.execSQL(
+                "INSERT INTO media_index (source_key, model_id, vector_dim, kind, display_name, mime, " +
+                    "size_bytes, modified_at, content_hash, vector, indexed_at) " +
+                    "VALUES ('content://media/1', 'model-1', 768, 'image', 'a.png', 'image/png', " +
+                    "10, 20, 'hash', ?, 30)",
+                arrayOf<Any>(payload),
+            )
+            database.execSQL(
+                "INSERT INTO media_source (id, type, uri, label, enabled, item_count) " +
+                    "VALUES ('workspace', 'workspace', '', '终端工作区', 1, 0)"
+            )
+            val roundTrip = database.query("SELECT vector, duration_ms FROM media_index").use { cursor ->
+                check(cursor.moveToFirst())
+                cursor.getBlob(0) to cursor.isNull(1)
+            }
+            assertArrayEquals(payload, roundTrip.first)
+            assertTrue(roundTrip.second)
+            val source = database.query("SELECT enabled, last_scan_at FROM media_source").use { cursor ->
+                check(cursor.moveToFirst())
+                cursor.getInt(0) to cursor.isNull(1)
+            }
+            assertEquals(1, source.first)
+            assertTrue(source.second)
+        } finally {
+            helper.close()
+            context.deleteDatabase(databaseName)
         }
     }
 

@@ -24,8 +24,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RuntimeInFlightEventEntity::class,
         SkillRegistryEntity::class,
         McpServerEntity::class,
+        MediaIndexEntity::class,
+        MediaSourceEntity::class,
     ],
-    version = 34,
+    version = 35,
     exportSchema = false,
 )
 internal abstract class EtaDatabase : RoomDatabase() {
@@ -34,6 +36,7 @@ internal abstract class EtaDatabase : RoomDatabase() {
     abstract fun runtimeRunDao(): RuntimeRunDao
     abstract fun skillDao(): SkillDao
     abstract fun mcpServerDao(): McpServerDao
+    abstract fun mediaIndexDao(): MediaIndexDao
 
     companion object {
         @Volatile
@@ -75,6 +78,7 @@ internal abstract class EtaDatabase : RoomDatabase() {
                         MIGRATION_31_32,
                         MIGRATION_32_33,
                         MIGRATION_33_34,
+                        MIGRATION_34_35,
                     )
                     .fallbackToDestructiveMigration(dropAllTables = true)
                     .build()
@@ -212,6 +216,45 @@ internal abstract class EtaDatabase : RoomDatabase() {
         // 会话回收站：deleted_at 非空表示在回收站里，等待恢复或永久清理。
         internal val MIGRATION_33_34 = Migration(33, 34) { database ->
             database.execSQL("ALTER TABLE conversations ADD COLUMN deleted_at INTEGER")
+        }
+
+        // 媒体语义搜索：仅新建 media_index / media_source 两表，不动既有数据。
+        internal val MIGRATION_34_35 = Migration(34, 35) { database ->
+            database.execSQL(
+                "CREATE TABLE IF NOT EXISTS media_index (" +
+                    "source_key TEXT NOT NULL, " +
+                    "model_id TEXT NOT NULL, " +
+                    "vector_dim INTEGER NOT NULL, " +
+                    "kind TEXT NOT NULL, " +
+                    "display_name TEXT NOT NULL, " +
+                    "mime TEXT NOT NULL, " +
+                    "size_bytes INTEGER NOT NULL, " +
+                    "modified_at INTEGER NOT NULL, " +
+                    "content_hash TEXT NOT NULL, " +
+                    "duration_ms INTEGER, " +
+                    "width INTEGER, " +
+                    "height INTEGER, " +
+                    "frame_time_ms INTEGER, " +
+                    "thumb_path TEXT, " +
+                    "vector BLOB NOT NULL, " +
+                    "indexed_at INTEGER NOT NULL, " +
+                    "PRIMARY KEY(source_key, model_id, vector_dim))"
+            )
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_media_index_kind ON media_index(kind)")
+            database.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_media_index_modified_at ON media_index(modified_at)"
+            )
+            database.execSQL(
+                "CREATE TABLE IF NOT EXISTS media_source (" +
+                    "id TEXT NOT NULL, " +
+                    "type TEXT NOT NULL, " +
+                    "uri TEXT NOT NULL, " +
+                    "label TEXT NOT NULL, " +
+                    "enabled INTEGER NOT NULL, " +
+                    "last_scan_at INTEGER, " +
+                    "item_count INTEGER NOT NULL, " +
+                    "PRIMARY KEY(id))"
+            )
         }
 
         internal val MIGRATION_30_31 = Migration(30, 31) { database ->

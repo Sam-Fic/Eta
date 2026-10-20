@@ -175,6 +175,8 @@ dependencies {
 
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
+    // 本地多模态 Embedding（EmbeddingGemma 2 运行时）；Google Maven。
+    implementation(libs.litertlm.android)
     ksp(libs.room.compiler)
 
     // OkHttp：替代 HttpURLConnection，支持 SSE

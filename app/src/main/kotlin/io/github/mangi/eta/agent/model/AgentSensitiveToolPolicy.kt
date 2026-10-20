@@ -44,6 +44,8 @@ internal object AgentSensitiveToolPolicy {
         "search_personal_orders",
         "search_qq_chat_images",
         "search_wechat_chat_images",
+        // 结果包含用户本机媒体的文件名与路径；原始结果不进入持久会话。
+        "semantic_search_media",
         "read_image",
         "set_setting",
         "memory_get",

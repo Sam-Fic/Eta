@@ -60,6 +60,10 @@
 -keep class com.k2fsa.sherpa.ncnn.** { *; }
 -keep class com.k2fsa.sherpa.onnx.** { *; }
 
+# LiteRT-LM（本地多模态 Embedding 运行时）：JNI 与反射按上游类名查找引擎/配置类。
+-keep class com.google.ai.edge.litertlm.** { *; }
+-dontwarn com.google.ai.edge.litertlm.**
+
 # app_process 按字面类名启动只读探针，R8 看不到 shell 字符串里的引用。
 # 保留 CLI 入口 public static void main(String[])，以及探针会执行到的 vd 类，避免 release 裁剪或改名。
 -keep class vd.android.ReadOnlyProbe {

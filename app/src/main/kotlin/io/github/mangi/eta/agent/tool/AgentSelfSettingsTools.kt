@@ -49,6 +49,7 @@ internal class AgentSelfSettingsTools {
         Prefs.Keys.AGENT_DEVICE_SENSITIVE_READ_TOOLS,
         Prefs.Keys.AGENT_DEVICE_SENSITIVE_ACTION_TOOLS,
         Prefs.Keys.AGENT_SELF_SETTINGS_TOOLS,
+        Prefs.Keys.AGENT_MEDIA_SEARCH_TOOLS,
     )
 
     private val settings: List<EtaSetting> = listOf(
@@ -57,6 +58,7 @@ internal class AgentSelfSettingsTools {
         EtaSetting(Prefs.Keys.AGENT_DEVICE_DIRECT_TOOLS, "设备直达工具", Kind.SWITCH, Area.TOOLS),
         EtaSetting(Prefs.Keys.AGENT_DEVICE_SENSITIVE_READ_TOOLS, "敏感信息读取", Kind.SWITCH, Area.TOOLS),
         EtaSetting(Prefs.Keys.AGENT_DEVICE_SENSITIVE_ACTION_TOOLS, "敏感设备操作", Kind.SWITCH, Area.TOOLS),
+        EtaSetting(Prefs.Keys.AGENT_MEDIA_SEARCH_TOOLS, "媒体语义搜索", Kind.SWITCH, Area.TOOLS),
         EtaSetting(Prefs.Keys.AGENT_TTS_AUTO_READ, "回复自动朗读", Kind.SWITCH, Area.SPEECH),
         EtaSetting(
             Prefs.Keys.AGENT_TTS_STREAM_SYNTH, "边生成边朗读", Kind.SWITCH, Area.SPEECH,

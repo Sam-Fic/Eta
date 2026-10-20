@@ -15,6 +15,7 @@ import io.github.mangi.eta.agent.device.DeviceControlUnavailableException
 import io.github.mangi.eta.agent.device.RootAccess
 import io.github.mangi.eta.agent.device.RootShellDeviceController
 import io.github.mangi.eta.agent.device.BoundedRootCommandExecutor
+import io.github.mangi.eta.agent.model.AgentMediaSearchToolCatalog
 import io.github.mangi.eta.agent.model.AgentModelClient
 import io.github.mangi.eta.agent.model.AgentScreenObservationContract
 import io.github.mangi.eta.agent.model.AgentSelfSettingsToolCatalog
@@ -90,6 +91,9 @@ internal class AgentLocalTools(
     private val selfSettingsToolsEnabled: () -> Boolean = {
         Prefs.isEnabled(Prefs.Keys.AGENT_SELF_SETTINGS_TOOLS)
     },
+    private val mediaSearchToolsEnabled: () -> Boolean = {
+        Prefs.isEnabled(Prefs.Keys.AGENT_MEDIA_SEARCH_TOOLS)
+    },
     private val memoryToolsEnabled: (() -> Boolean)? = null,
     private val screenshotExcludedPackages: () -> Set<String> = { emptySet() },
     private val screenObservationProvider: (
@@ -162,6 +166,7 @@ internal class AgentLocalTools(
     private val selfModelTools = AgentSelfModelTools(context)
     private val selfSubAgentTools = AgentSelfSubAgentTools(agentConversationId)
     private val selfHistoryTools = AgentSelfHistoryTools(context, agentConversationId)
+    private val mediaSearchTools = AgentMediaSearchTools(context)
     private val terminalController = RootShellTerminalController(
         processSupervisor = io.github.mangi.eta.agent.terminal.ShellProcessSupervisor(skillsDirectoryProvider = { runSkillsRoot }),
         logger = logger,
@@ -493,6 +498,7 @@ internal class AgentLocalTools(
                 AgentSelfSettingsToolCatalog.MANAGE_MODELS -> textResult(selfSettingsTool { selfModelTools.execute(args) })
                 AgentSelfSettingsToolCatalog.MANAGE_SUBAGENTS -> textResult(selfSettingsTool { selfSubAgentTools.execute(args) })
                 AgentSelfSettingsToolCatalog.MANAGE_HISTORY -> textResult(selfSettingsTool { selfHistoryTools.execute(args) })
+                AgentMediaSearchToolCatalog.SEARCH_MEDIA -> textResult(mediaSearchTool { mediaSearchTools.execute(args) })
                 else -> textResult(
                     errorResult(
                         code = "UNKNOWN_TOOL",
@@ -542,6 +548,14 @@ internal class AgentLocalTools(
     private fun selfSettingsTool(block: () -> String): String {
         if (!selfSettingsToolsEnabled()) {
             return errorResult("SELF_SETTINGS_TOOLS_DISABLED", "应用自身配置工具已关闭，本次未执行")
+        }
+        return block()
+    }
+
+    /** 媒体语义搜索工具的统一门禁：关闭开关后模型重放旧调用也直接拒绝。 */
+    private fun mediaSearchTool(block: () -> String): String {
+        if (!mediaSearchToolsEnabled()) {
+            return errorResult("MEDIA_SEARCH_TOOLS_DISABLED", "媒体语义搜索工具已关闭，本次未执行")
         }
         return block()
     }

@@ -50,6 +50,7 @@ internal object AgentRequestOverhead {
             skillGitHubInstall = true,
             memoryTools = memoryContext.enabled,
             selfSettingsTools = Prefs.isEnabled(Prefs.Keys.AGENT_SELF_SETTINGS_TOOLS),
+            mediaSearchTools = Prefs.isEnabled(Prefs.Keys.AGENT_MEDIA_SEARCH_TOOLS),
             capabilities = capabilities,
         )
         for (index in 0 until additionalTools.length()) {

@@ -15,6 +15,7 @@ internal object AgentToolCatalog {
         skillGitHubInstall: Boolean = false,
         memoryTools: Boolean = false,
         selfSettingsTools: Boolean = true,
+        mediaSearchTools: Boolean = false,
         capabilities: AgentToolCapabilities = AgentToolCapabilities(rootAvailable = true),
     ): JSONArray =
         capabilities.project(JSONArray().also { tools ->
@@ -37,6 +38,7 @@ internal object AgentToolCatalog {
             )
             if (memoryTools) AgentMemoryToolCatalog.appendTo(tools)
             if (selfSettingsTools) AgentSelfSettingsToolCatalog.appendTo(tools)
+            if (mediaSearchTools) AgentMediaSearchToolCatalog.appendTo(tools)
             if (terminalTools) {
                 AgentFileVisionToolCatalog.appendTo(tools)
                 AgentTerminalToolCatalog.appendTo(tools)

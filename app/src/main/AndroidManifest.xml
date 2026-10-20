@@ -26,6 +26,13 @@
         android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- 媒体语义搜索：按需申请的媒体读权限，Android 14+ 支持部分授权（VISUAL_USER_SELECTED）。 -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
+    <!-- 媒体语义索引前台服务：熄屏/退后台时持局部唤醒锁跑完扫描与嵌入。 -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <permission
         android:name="io.github.mangi.eta.permission.CONTROL_ACCESSIBILITY_PROTECTION"
@@ -223,6 +230,15 @@
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="User-initiated interactive terminals, local Linux services and device automation tasks" />
+        </service>
+
+        <service
+            android:name=".agent.media.index.MediaIndexService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Offline media semantic indexing of local photos, videos and documents" />
         </service>
 
         <service

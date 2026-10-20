@@ -3,4 +3,5 @@
     <cache-path name="updates" path="updates/" />
     <cache-path name="browser_shares" path="browser-shares/" />
     <cache-path name="chat_files" path="chat-files/" />
+    <cache-path name="camera_captures" path="camera-captures/" />
 </paths>
