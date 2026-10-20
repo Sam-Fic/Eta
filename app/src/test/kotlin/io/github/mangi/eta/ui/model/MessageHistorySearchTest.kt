@@ -1,6 +1,10 @@
 package io.github.mangi.eta.ui.model
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MessageHistorySearchTest {
@@ -63,5 +67,53 @@ class MessageHistorySearchTest {
             roleLabels = roles,
         )
         assertEquals(emptyList<MessageSearchHit>(), hits)
+    }
+
+    @Test
+    fun titleMatchCarriesNoMessageTarget() {
+        val hit = searchConversationTitle("c1", "翻译请求", "翻译", "标题")
+        assertNotNull(hit)
+        assertEquals("c1", hit!!.conversationId)
+        assertEquals("翻译请求", hit.conversationTitle)
+        assertEquals("", hit.messageId)
+        assertEquals("标题", hit.roleLabel)
+        assertTrue(hit.isTitleMatch)
+        assertEquals(MessageSearchHitKind.Title, hit.kind)
+    }
+
+    @Test
+    fun titleMatchIsCaseInsensitiveAndExcerptsAroundTheNeedle() {
+        val hit = searchConversationTitle("c1", "Weekly Report", "weekly", "Title")
+        assertNotNull(hit)
+        assertTrue(hit!!.snippet.contains("Weekly Report"))
+    }
+
+    @Test
+    fun titleMatchSkipsBlankTitlesAndNonMatchingQueries() {
+        assertNull(searchConversationTitle("c1", "   ", "报告", "标题"))
+        assertNull(searchConversationTitle("c1", "翻译请求", "日程", "标题"))
+        assertNull(searchConversationTitle("c1", "翻译请求", "  ", "标题"))
+    }
+
+    @Test
+    fun bodyMatchesAreNotTitleMatches() {
+        val hits = searchConversationMessages(
+            conversations = mapOf(
+                "c" to AgentChatUiState(
+                    messages = listOf(UserMessageUi(id = "u1", content = "翻译请求")),
+                    input = "",
+                    isStreaming = false,
+                    thinkingEnabled = false,
+                ),
+            ),
+            titles = mapOf("c" to "会话标题"),
+            updatedAt = mapOf("c" to 1L),
+            query = "翻译",
+            unnamedTitle = "Untitled",
+            roleLabels = roles,
+        )
+        assertEquals(1, hits.size)
+        assertFalse(hits.first().isTitleMatch)
+        assertEquals(MessageSearchHitKind.Message, hits.first().kind)
     }
 }

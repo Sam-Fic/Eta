@@ -46,11 +46,18 @@ enum class ConversationModeUi {
     Automation,
 }
 
+/** Sentinel [ConversationPaneUiState.selectedFolderId] value: show only conversations not filed into any folder. */
+const val UNCATEGORIZED_FOLDER_ID: String = "\$uncategorized"
+
+/**
+ * null = 「聊天」tab：包含所有对话；[UNCATEGORIZED_FOLDER_ID] = 未分类：仅未归入文件夹的对话；
+ * 其余为具体文件夹 id：仅该文件夹下的对话。
+ */
 fun List<ConversationSummaryUi>.filterForFolder(selectedFolderId: String?): List<ConversationSummaryUi> =
-    if (selectedFolderId == null) {
-        filter { it.folderId.isNullOrBlank() }
-    } else {
-        filter { it.folderId == selectedFolderId }
+    when (selectedFolderId) {
+        null -> this
+        UNCATEGORIZED_FOLDER_ID -> filter { it.folderId.isNullOrBlank() }
+        else -> filter { it.folderId == selectedFolderId }
     }
 
 /** Always derive from the complete folder list, never from the previous search results. */

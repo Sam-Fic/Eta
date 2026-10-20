@@ -23,12 +23,21 @@ import io.github.mangi.eta.ui.model.MessageSearchHit
 private const val HISTORY_KEY = "messages"
 
 /**
+ * 列表键：标题命中与正文命中不能撞键（标题命中没有消息 id）。
+ */
+private fun MessageSearchHit.listKey(): String =
+    if (isTitleMatch) "title:$conversationId" else "$conversationId:$messageId"
+
+/**
  * 独立搜索页：从顶栏溢出菜单「搜索记录」跳入，整页即搜索。
  *
  * 顶栏是「返回钮 + 透明底搜索框 + 清除按钮」（官方 [EtaSearchPage]），进入即自动聚焦弹键盘；
  * 未输入时有查询记录、无记录才显示官方 Empty state，不复制宿主页内容。检索是挂起调用
  * （会话可能尚未装载，需回落到存档扫描），所以结果由本页自己持有：零尺寸的副作用条目
  * 按搜索词重启检索，结果回来后触发列表重建；点按命中行即跳到对应消息并退出本页。
+ *
+ * 命中分两类：会话标题命中（展示标题本身，点开只切会话）与消息正文命中（展示命中片段，
+ * 点开跳到那条消息）。命中词在结果行里高亮标出，标题、片段与摘要里的出现都算。
  */
 @Composable
 internal fun MessageSearchScreen(
@@ -60,15 +69,18 @@ internal fun MessageSearchScreen(
                 }
             } else {
                 results.forEachIndexed { index, hit ->
-                    item(key = "${hit.conversationId}:${hit.messageId}") {
+                    item(key = hit.listKey()) {
                         EtaSegmentedItem(index = index, count = results.size) {
                             EtaClickableRow(
-                                title = hit.snippet,
-                                summary = if (showConversationTitle) {
+                                // 标题命中直接展示会话标题，正文命中展示命中片段。
+                                title = if (hit.isTitleMatch) hit.conversationTitle else hit.snippet,
+                                summary = if (showConversationTitle && !hit.isTitleMatch) {
                                     "${hit.conversationTitle} · ${hit.roleLabel}"
                                 } else {
                                     hit.roleLabel
                                 },
+                                // 命中词在标题、片段与摘要里都标出来：一眼能看出为什么命中。
+                                highlight = query,
                                 onClick = { onOpenHit(hit) },
                                 modifier = Modifier.padding(
                                     start = EtaGroupHorizontalPadding,

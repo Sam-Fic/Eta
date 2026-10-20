@@ -151,6 +151,7 @@ private fun settingsSearchEntries(taskBackendInstalled: Boolean?): List<Settings
     val groupRuntimeEnvironment = stringResource(R.string.settings_runtime_environment)
     val groupSystemTakeover = stringResource(R.string.settings_system_takeover)
     val groupPermissions = stringResource(R.string.ui_permissions_560165)
+    val groupAbout = stringResource(R.string.ui_about_bed172)
     return buildList {
         // ── LLM 提供商 ──────────────────────────────────────────
         add(
@@ -285,15 +286,6 @@ private fun settingsSearchEntries(taskBackendInstalled: Boolean?): List<Settings
                 action = SettingsSearchAction.Route(AppRoute.Haptics),
             ),
         )
-        add(
-            SettingsSearchEntry(
-                title = stringResource(R.string.ui_about_bed172),
-                summary = null,
-                icon = Icons.Rounded.Info,
-                group = groupGeneral,
-                action = SettingsSearchAction.Route(AppRoute.About),
-            ),
-        )
 
         // ── Agent 工具能力 ──────────────────────────────────────
         add(
@@ -384,6 +376,17 @@ private fun settingsSearchEntries(taskBackendInstalled: Boolean?): List<Settings
                 icon = Icons.Rounded.AccessibilityNew,
                 group = groupPermissions,
                 action = SettingsSearchAction.AccessibilitySettings,
+            ),
+        )
+
+        // ── 关于（与主页一致，固定收尾）───────────────────────────
+        add(
+            SettingsSearchEntry(
+                title = stringResource(R.string.ui_about_bed172),
+                summary = stringResource(R.string.app_name),
+                icon = Icons.Rounded.Info,
+                group = groupAbout,
+                action = SettingsSearchAction.Route(AppRoute.About),
             ),
         )
     }

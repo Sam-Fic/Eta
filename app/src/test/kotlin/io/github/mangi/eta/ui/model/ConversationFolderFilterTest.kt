@@ -12,8 +12,13 @@ class ConversationFolderFilterTest {
     )
 
     @Test
-    fun unfiledViewHidesFolderedConversations() {
-        assertEquals(listOf("a", "c"), chats.filterForFolder(null).map { it.id })
+    fun chatsViewShowsAllConversations() {
+        assertEquals(listOf("a", "b", "c", "d"), chats.filterForFolder(null).map { it.id })
+    }
+
+    @Test
+    fun uncategorizedViewHidesFolderedConversations() {
+        assertEquals(listOf("a", "c"), chats.filterForFolder(UNCATEGORIZED_FOLDER_ID).map { it.id })
     }
 
     @Test

@@ -102,6 +102,8 @@ fun EtaSwitchRow(
  * @param showChevron 是否在尾部显示箭头（展开型条目通常自带尾部图标，可置 false）。
  * @param leading 前导内容（图标等）；走分段行的 `leadingContent`。
  * @param contentPadding 覆盖默认内边距。
+ * @param highlight 命中词（如搜索关键词）；标题与摘要里的命中片段会被标色加粗，
+ *        没有命中时按原文渲染。
  *
  * 轻触反馈由本行自己触发，调用方**不要**在 `onClick` 里再写
  * `TouchHaptics.click`，否则会叠成两次。`endActions` / `bottomAction`
@@ -120,10 +122,13 @@ fun EtaClickableRow(
     showChevron: Boolean = true,
     leading: (@Composable () -> Unit)? = null,
     contentPadding: PaddingValues? = null,
+    highlight: String? = null,
 ) {
     val view = LocalView.current
     // 显式类型：let 返回嵌套 lambda 时推断器会落到 Nothing?。
     val hapticClick: (() -> Unit)? = onClick?.let { click -> { TouchHaptics.click(view); click() } }
+    val titleText = highlightedText(title, highlight)
+    val summaryText = summary?.let { highlightedText(it, highlight) }
     val trailingContent: (@Composable () -> Unit)? = if (endActions != null || showChevron) {
         {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -151,8 +156,8 @@ fun EtaClickableRow(
                 colors = etaSegmentedRowColors(),
                 leadingContent = leading,
                 // 同 EtaSwitchRow：标题/摘要交给官方 ListItem 令牌，不再显式覆盖。
-                content = { Text(text = title) },
-                supportingContent = summary?.let { { Text(text = it) } },
+                content = { Text(text = titleText) },
+                supportingContent = summaryText?.let { { Text(text = it) } },
                 trailingContent = trailingContent,
                 contentPadding = contentPadding ?: ListItemDefaults.ContentPadding,
             )
@@ -164,8 +169,8 @@ fun EtaClickableRow(
                 colors = etaSegmentedRowColors(),
                 leadingContent = leading,
                 // 同 EtaSwitchRow：标题/摘要交给官方 ListItem 令牌，不再显式覆盖。
-                content = { Text(text = title) },
-                supportingContent = summary?.let { { Text(text = it) } },
+                content = { Text(text = titleText) },
+                supportingContent = summaryText?.let { { Text(text = it) } },
                 trailingContent = trailingContent,
                 contentPadding = contentPadding ?: ListItemDefaults.ContentPadding,
             )
