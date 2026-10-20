@@ -26,7 +26,7 @@ class MediaDocxExtractionTest {
     fun docxTextExtractsTextRunsAndParagraphBreaks() {
         val xml = """
             <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-            <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+            <w:document $WORD_NAMESPACE>
               <w:body>
                 <w:p><w:r><w:t>Hello </w:t></w:r><w:r><w:t>world</w:t></w:r></w:p>
                 <w:p><w:r><w:t>第二段正文</w:t></w:r></w:p>
@@ -40,7 +40,7 @@ class MediaDocxExtractionTest {
     @Test
     fun docxTextIgnoresMarkupWhitespaceAndNonTextElements() {
         val xml = """
-            <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+            <w:document $WORD_NAMESPACE>
               <w:body>
                 <w:p>
                   <w:pPr><w:jc w:val="center"/></w:pPr>
@@ -59,7 +59,12 @@ class MediaDocxExtractionTest {
     @Test
     fun docxTextTruncatesToCharacterBudget() {
         val longText = "字".repeat(MediaExtraction.MAX_DOCUMENT_CHARS + 500)
-        val xml = """<w:document><w:body><w:p><w:r><w:t>$longText</w:t></w:r></w:p></w:body></w:document>"""
+        // 生产解析器开启命名空间处理，夹具必须声明 w 前缀，否则解析即失败。
+        val xml = """
+            <w:document $WORD_NAMESPACE>
+              <w:body><w:p><w:r><w:t>$longText</w:t></w:r></w:p></w:body>
+            </w:document>
+        """.trimIndent()
         assertEquals(MediaExtraction.MAX_DOCUMENT_CHARS, MediaExtraction.docxText(xml).length)
         // 显式小上限同样生效。
         assertEquals(10, MediaExtraction.docxText(xml, limit = 10).length)
@@ -67,12 +72,16 @@ class MediaDocxExtractionTest {
 
     @Test
     fun docxTextReturnsEmptyForDocumentWithoutTextRuns() {
-        assertEquals("", MediaExtraction.docxText("<w:document/>"))
+        assertEquals("", MediaExtraction.docxText("<w:document $WORD_NAMESPACE/>"))
     }
 
     @Test
     fun docxTextFromZipReadsWordDocumentXmlEntry() {
-        val xml = """<w:document><w:body><w:p><w:r><w:t>正文</w:t></w:r></w:p></w:body></w:document>"""
+        val xml = """
+            <w:document $WORD_NAMESPACE>
+              <w:body><w:p><w:r><w:t>正文</w:t></w:r></w:p></w:body>
+            </w:document>
+        """.trimIndent()
         val zipBytes = zipOf(
             "[Content_Types].xml" to "<Types/>".toByteArray(),
             "word/document.xml" to xml.toByteArray(),
@@ -112,5 +121,10 @@ class MediaDocxExtractionTest {
             }
         }
         return out.toByteArray()
+    }
+
+    private companion object {
+        /** WordprocessingML 命名空间声明；生产侧 [MediaExtraction.docxText] 按命名空间解析，夹具必须声明前缀。 */
+        const val WORD_NAMESPACE = "xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\""
     }
 }

@@ -58,6 +58,8 @@ class EtaBackupMediaIndexTest {
         EtaDatabase.closeForTests()
         context.deleteDatabase("eta.db")
         File(context.filesDir, "backup-restore").deleteRecursively()
+        // 记忆存储与 .memory-locks 下的 .deleted 标记跨用例残留会让后续导出抛「助手已删除」；整棵目录一并清掉。
+        File(context.filesDir, "memory").deleteRecursively()
         AgentExecutionService.endBackupMaintenance()
         Prefs.initLocal(context)
         val prefs = requireNotNull(Prefs.localAgentPreferences())
@@ -65,7 +67,9 @@ class EtaBackupMediaIndexTest {
         check(ConversationSubAgentPreferences(prefs).resetLegacyConfigurationOnce())
         SettingsDataStore.init(context)
         ProviderRepository.init(context)
-        AgentMemoryRepository.init(context)
+        // 单例缓存（rootDir/stores）必须按本用例的 filesDir 重新绑定，否则会读到上个用例留下的
+        // .deleted 标记，导出随即抛「助手已删除，记忆操作未执行」。
+        AgentMemoryRepository.resetForTests(context)
         AssistantRepository.init(context)
         McpServerRepository.init(context)
         MediaIndexTestFixtures.resetModelStore()
@@ -78,6 +82,8 @@ class EtaBackupMediaIndexTest {
     @After
     fun tearDown() {
         File(context.filesDir, "backup-restore").deleteRecursively()
+        // 用例写入的 .deleted 标记同样要清掉，避免后续用例（同沙箱复用 filesDir）读到残留。
+        File(context.filesDir, "memory").deleteRecursively()
         AgentExecutionService.endBackupMaintenance()
         MediaIndexTestFixtures.resetModelStore()
         EtaDatabase.closeForTests()

@@ -156,7 +156,7 @@ internal fun ModelPickerRadioRow(
  * 模型选择弹窗中的可选项（对勾版）：左侧不放单选按钮，改为选中行行尾显示对勾，
  * 选中态由整行底色 + 对勾共同承担（与 [ModelPickerRadioRow] 共用分段行外观与轻触反馈）。
  *
- * 由输入区「Assistant & model」底部弹窗的模型列表使用。
+ * 由输入区「Model & assistant」底部弹窗的模型列表使用。
  */
 @Composable
 internal fun ModelPickerCheckRow(

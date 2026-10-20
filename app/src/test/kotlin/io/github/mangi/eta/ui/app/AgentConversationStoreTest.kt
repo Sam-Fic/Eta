@@ -20,6 +20,7 @@ import io.github.mangi.eta.ui.model.ThinkingMessageUi
 import io.github.mangi.eta.ui.model.TokenUsageUi
 import io.github.mangi.eta.ui.model.ToolActivityMessageUi
 import io.github.mangi.eta.ui.model.ToolActivityStatusUi
+import io.github.mangi.eta.ui.model.UNCATEGORIZED_FOLDER_ID
 import io.github.mangi.eta.ui.model.ConversationFolderUi
 import io.github.mangi.eta.ui.model.UserMessageUi
 import org.junit.Assert.assertEquals
@@ -633,7 +634,9 @@ class AgentConversationStoreTest {
         state.createConversation()
         val id = requireNotNull(state.conversationPaneState.selectedConversationId)
         assertEquals(folder, state.conversationPaneState.conversations.single().folderId)
-        state.selectFolder(null)
+        // 语义与生产 UI 对齐：null 是包含全部对话的「聊天」tab，
+        // 表示「未分类」的哨兵值是 UNCATEGORIZED_FOLDER_ID，只有它会把已归档对话筛掉。
+        state.selectFolder(UNCATEGORIZED_FOLDER_ID)
         assertTrue(state.conversationPaneState.conversations.isEmpty())
         state.selectFolder(folder)
         assertEquals(id, state.conversationPaneState.conversations.single().id)

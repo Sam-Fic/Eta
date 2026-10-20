@@ -1542,8 +1542,6 @@
   <string name="provider_oauth_sign_in_failed">登入失敗</string>
   <string name="provider_oauth_need_sign_in">請先使用 OpenAI Codex 登入</string>
   <string name="ui_compress_request_api">請求介面</string>
-  <string name="ui_compress_endpoint_hint">僅用於摘要，不影響正常對話。</string>
-  <string name="ui_compress_endpoint_help">如何選擇介面</string>
   <string name="ui_compress_models_loading">正在載入模型……</string>
   <string name="ui_auto_compress_context_summary">達到門檻時，自動摘要較早對話。</string>
   <string name="settings_model_features">模型功能</string>

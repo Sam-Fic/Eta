@@ -2,6 +2,7 @@ package io.github.mangi.eta.data.repository
 
 import android.content.Context
 import android.util.AtomicFile
+import androidx.annotation.VisibleForTesting
 import io.github.mangi.eta.data.datastore.SettingsDataStore
 import io.github.mangi.eta.data.model.AssistantPrompt
 import io.github.mangi.eta.data.model.AssistantStorage
@@ -337,6 +338,20 @@ internal object AgentMemoryRepository {
         if (!::rootDir.isInitialized) {
             rootDir = context.applicationContext.filesDir
             migrateLegacyMemory()
+        }
+    }
+
+    /**
+     * 测试专用：把单例缓存的根目录重新绑定到当前用例的 filesDir，并丢弃已缓存的存储器。
+     *
+     * Robolectric 每个用例都会替换 Application/filesDir，而 rootDir 与 stores 是静态缓存；
+     * 若沿用首个用例的旧目录，就会读到旧目录里遗留的 .deleted 标记，导出随即抛「助手已删除，记忆操作未执行」。
+     */
+    @VisibleForTesting
+    fun resetForTests(context: Context) {
+        synchronized(lock) {
+            rootDir = context.applicationContext.filesDir
+            stores.clear()
         }
     }
 

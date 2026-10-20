@@ -57,10 +57,10 @@ class M3ComposerToolbarLayoutTest {
         val voiceStateHolder = mutableStateOf(VoiceModeState())
         val imeVisible = mutableStateOf(false)
         compose.setComposerContent(field, voiceStateHolder, imeVisible = imeVisible)
-        // 空输入：左侧三个入口（+ / 相机 / 助手与模型）都在，尾部还没有发送按钮。
+        // 空输入：左侧三个入口（+ / 相机 / 模型与助手）都在，尾部还没有发送按钮。
         compose.onNodeWithContentDescription("Add attachment").assertExists()
         compose.onNodeWithContentDescription("Image").assertExists()
-        compose.onNodeWithContentDescription("Assistant & model").assertExists()
+        compose.onNodeWithContentDescription("Model & assistant").assertExists()
         compose.onNodeWithContentDescription("Send").assertDoesNotExist()
         val expandedActionsFieldWidth = fieldWidth()
         // 左侧三个按钮贴底：官方工具栏内容 Row 是顶对齐（Row 默认 Alignment.Top），
@@ -78,7 +78,7 @@ class M3ComposerToolbarLayoutTest {
         )
         val addBounds = compose.onNodeWithContentDescription("Add attachment")
             .fetchSemanticsNode().boundsInRoot
-        listOf("Add attachment", "Image", "Assistant & model").forEach { description ->
+        listOf("Add attachment", "Image", "Model & assistant").forEach { description ->
             val buttonBounds = compose.onNodeWithContentDescription(description)
                 .fetchSemanticsNode().boundsInRoot
             assertEquals(
@@ -111,7 +111,7 @@ class M3ComposerToolbarLayoutTest {
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Add attachment").assertExists()
         compose.onNodeWithContentDescription("Image").assertExists()
-        compose.onNodeWithContentDescription("Assistant & model").assertExists()
+        compose.onNodeWithContentDescription("Model & assistant").assertExists()
         compose.onNodeWithContentDescription("Send").assertExists()
         assertEquals(
             "键盘收起时动作组不收起，输入框宽度不变",
@@ -125,7 +125,7 @@ class M3ComposerToolbarLayoutTest {
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Add attachment").assertDoesNotExist()
         compose.onNodeWithContentDescription("Image").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Assistant & model").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Model & assistant").assertDoesNotExist()
         compose.onNodeWithContentDescription("Send").assertExists()
         assertTrue(
             "输入框展开后应比动作组可见时更宽",
@@ -195,7 +195,7 @@ class M3ComposerToolbarLayoutTest {
             0.5f,
         )
         // 多行时左侧三个按钮必须与发送按钮同底（贴底下沉），而不是停在输入框竖直中间。
-        listOf("Add attachment", "Image", "Assistant & model").forEach { description ->
+        listOf("Add attachment", "Image", "Model & assistant").forEach { description ->
             val buttonBounds = compose.onNodeWithContentDescription(description)
                 .fetchSemanticsNode().boundsInRoot
             assertEquals(

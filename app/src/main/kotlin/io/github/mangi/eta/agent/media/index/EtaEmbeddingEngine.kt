@@ -1,5 +1,6 @@
 package io.github.mangi.eta.agent.media.index
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.os.SystemClock
 import android.util.Half
@@ -267,6 +268,8 @@ internal object EmbeddingBackendPolicy {
  * 向量与 Float16 BLOB 的互转：存储用半精度（省一半空间），读取后还原 Float 参与点积。
  */
 internal object Float16VectorCodec {
+    // 半精度位型统一走 android.util.Half（已存索引的兼容基线）；lint HalfFloat 检查对此处正确用法误报，按误报抑制。
+    @SuppressLint("HalfFloat")
     fun encode(vector: FloatArray): ByteArray {
         val bytes = ByteArray(vector.size * 2)
         vector.forEachIndexed { index, value ->
@@ -277,6 +280,7 @@ internal object Float16VectorCodec {
         return bytes
     }
 
+    @SuppressLint("HalfFloat")
     fun decode(bytes: ByteArray): FloatArray {
         require(bytes.size % 2 == 0) { "Float16 向量字节数必须为偶数" }
         return FloatArray(bytes.size / 2) { index ->

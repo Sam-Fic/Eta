@@ -85,6 +85,7 @@ class AgentToolRequirementsTest {
         terminalTools = true, browserTools = true, deviceDirectTools = true,
         deviceSensitiveReadTools = true, deviceSensitiveActionTools = true,
         skillGitHubDiscovery = true, skillGitHubInstall = true, memoryTools = true,
+        mediaSearchTools = true,
         capabilities = AgentToolCapabilities(rootAvailable = root, virtualDisplay = virtualDisplay),
     )
 
