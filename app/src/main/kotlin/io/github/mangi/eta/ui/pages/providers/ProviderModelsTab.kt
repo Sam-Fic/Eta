@@ -17,9 +17,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -37,6 +40,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text as MaterialText
 import androidx.compose.runtime.Composable
@@ -50,7 +54,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
@@ -81,6 +84,9 @@ import io.github.mangi.eta.ui.adaptive.EtaCard
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
+import io.github.mangi.eta.ui.adaptive.EtaPageSurface
+import io.github.mangi.eta.ui.adaptive.EtaPickerSheet
+import io.github.mangi.eta.ui.adaptive.EtaScaffold
 import io.github.mangi.eta.ui.adaptive.EtaSectionTitle
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedCheckboxRow
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedGap
@@ -102,31 +108,6 @@ private val allReasoningEffortTiers = listOf(
     ReasoningEffort.XHIGH,
     ReasoningEffort.MAX,
 )
-
-private val modelDialogBodyMaxHeight = 520.dp
-private val modelDialogChromeHeight = 112.dp
-
-private fun Modifier.modelDialogScrollableBody(): Modifier = layout { measurable, constraints ->
-    // 从弹窗实际约束中为标题、间距和操作栏让出空间，避免横屏时底部按钮被内容挤出边界。
-    val fallbackMaxHeight = modelDialogBodyMaxHeight.roundToPx()
-    val reservedHeight = modelDialogChromeHeight.roundToPx()
-    val maxHeight = if (constraints.hasBoundedHeight) {
-        (constraints.maxHeight - reservedHeight)
-            .coerceAtLeast(1)
-            .coerceAtMost(fallbackMaxHeight)
-    } else {
-        fallbackMaxHeight
-    }
-    val placeable = measurable.measure(
-        constraints.copy(
-            minHeight = constraints.minHeight.coerceAtMost(maxHeight),
-            maxHeight = maxHeight,
-        ),
-    )
-    layout(placeable.width, placeable.height) {
-        placeable.place(0, 0)
-    }
-}
 
 internal fun contextWindowInputError(
     value: String,
@@ -491,7 +472,7 @@ internal fun ProviderModelsTab(
     }
 
     editingModel?.let { model ->
-        ModelEditDialog(
+        ModelEditPage(
             model = model,
             isNew = isCreatingModel,
             isSaving = isMutatingModel,
@@ -500,7 +481,7 @@ internal fun ProviderModelsTab(
                 if (!isMutatingModel) editingModel = null
             },
             onSubmit = { updated ->
-                if (isMutatingModel) return@ModelEditDialog
+                if (isMutatingModel) return@ModelEditPage
                 scope.launch {
                     isMutatingModel = true
                     editorError = null
@@ -841,7 +822,7 @@ private fun ModelListItem(
 }
 
 @Composable
-private fun ModelEditDialog(
+private fun ModelEditPage(
     model: Model,
     isNew: Boolean,
     isSaving: Boolean,
@@ -926,30 +907,39 @@ private fun ModelEditDialog(
         },
     )
 
-    // 自适应弹窗：M3 → 官方 AlertDialog。正文自带限高滚动容器。
-    EtaDialog(
-        show = true,
-        title = if (isNew) context.getString(R.string.page_add_model_532a64) else context.getString(R.string.page_edit_model_29e31e),
-        onDismissRequest = { if (!isSaving) onDismiss() },
-        actions = {
-            EtaDialogActions(
-                confirmText = if (isSaving) context.getString(R.string.page_saving_d70d42) else context.getString(R.string.page_save_fadf24),
-                confirmEnabled = !isSaving &&
-                    displayName.isNotBlank() &&
-                    modelId.isNotBlank() &&
-                    contextError == null,
-                cancelEnabled = !isSaving,
-                onCancel = onDismiss,
-                onConfirm = { onSubmit(updated()) },
-            )
-        },
-    ) {
-        Column {
+    val dismissPage = { if (!isSaving) onDismiss() }
+    // 多字段编辑已超出弹窗的决策语义：改为整屏页面，动作固定在底部，正文由 Scaffold 统一滚动。
+    EtaPageSurface(onDismissRequest = dismissPage) {
+        EtaScaffold(
+            title = if (isNew) context.getString(R.string.page_add_model_532a64) else context.getString(R.string.page_edit_model_29e31e),
+            onBack = dismissPage,
+            modifier = Modifier.fillMaxSize().imePadding(),
+            bottomBar = {
+                Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
+                    EtaDialogActions(
+                        modifier = Modifier.navigationBarsPadding().imePadding()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        confirmText = if (isSaving) context.getString(R.string.page_saving_d70d42) else context.getString(R.string.page_save_fadf24),
+                        confirmEnabled = !isSaving &&
+                            displayName.isNotBlank() &&
+                            modelId.isNotBlank() &&
+                            contextError == null,
+                        cancelEnabled = !isSaving,
+                        onCancel = onDismiss,
+                        onConfirm = { onSubmit(updated()) },
+                    )
+                }
+            },
+        ) { padding, scrollConnection, _ ->
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .modelDialogScrollableBody()
-                    .verticalScroll(rememberScrollState()),
+                    .fillMaxSize()
+                    .padding(padding)
+                    .consumeWindowInsets(padding)
+                    .nestedScroll(scrollConnection)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 16.dp),
             ) {
                 ProviderField(
                     value = displayName,
@@ -1124,112 +1114,98 @@ private fun RemoteModelPickDialog(
         }
     }
     fun keyOf(model: Model) = model.modelId.trim().lowercase()
-    // 自适应弹窗：M3 → 官方 AlertDialog。正文自带限高滚动容器。
-    EtaDialog(
-        show = true,
+    // 远端模型通常很多：底部面板承载搜索、全选与分段多选列表，动作固定在面板尾部。
+    EtaPickerSheet(
         title = stringResource(R.string.provider_remote_pick_title),
-        onDismissRequest = onDismiss,
+        onDismiss = onDismiss,
+        query = query,
+        onQueryChange = { query = it },
+        searchPlaceholder = stringResource(R.string.ui_search_model_df5586),
         actions = {
-            EtaDialogActions(
-                confirmText = stringResource(R.string.provider_remote_add),
-                confirmEnabled = selectedKeys.isNotEmpty(),
-                onCancel = onDismiss,
-                onConfirm = { onConfirm(models.filter { keyOf(it) in selectedKeys }) },
-            )
+            TextButton(onClick = onDismiss) {
+                MaterialText(stringResource(R.string.action_cancel))
+            }
+            TextButton(
+                enabled = selectedKeys.isNotEmpty(),
+                onClick = { onConfirm(models.filter { keyOf(it) in selectedKeys }) },
+            ) {
+                MaterialText(stringResource(R.string.provider_remote_add))
+            }
         },
     ) {
-        Column {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .modelDialogScrollableBody(),
-            ) {
-                // 搜索框与「全选 / 反选 / 计数」行随列表滚动，信息架构与供应商列表页保持一致。
-                item(key = "search") {
-                    ProviderSearchField(
-                        query = query,
-                        onQueryChange = { query = it },
-                        placeholder = stringResource(R.string.ui_search_model_df5586),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-                item(key = "toolbar") {
-                    val view = LocalView.current
-                    val onSelectAll = {
-                        TouchHaptics.click(view)
-                        selectedKeys = selectedKeys + visible.map(::keyOf)
-                    }
-                    val onInvert = {
-                        TouchHaptics.click(view)
-                        val visibleKeys = visible.map(::keyOf).toSet()
-                        selectedKeys = (selectedKeys - visibleKeys) + (visibleKeys - selectedKeys)
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        // M3：官方 TextButton。
-                        TextButton(onClick = onSelectAll) {
-                            MaterialText(stringResource(R.string.provider_remote_select_all))
-                        }
-                        TextButton(onClick = onInvert) {
-                            MaterialText(stringResource(R.string.provider_remote_invert))
-                        }
-                        Spacer(Modifier.weight(1f))
-                        MaterialText(
-                            "${selectedKeys.size}/${models.size}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-                if (visible.isEmpty()) {
-                    item(key = "empty") {
-                        ListEmptyState(
-                            title = stringResource(R.string.page_no_matching_model_found_ae7e96),
-                        )
-                    }
-                } else {
-                    itemsIndexed(
-                        items = visible,
-                        key = { _, model -> keyOf(model) },
-                    ) { index, model ->
-                        val key = keyOf(model)
-                        // 分段条目：首/末项由官方分段形状收外圆角，行间 2dp 露出背景缝隙
-                        //（与供应商列表页的 `EtaSegmentedItem` 用法一致）。
-                        EtaSegmentedItem(index = index, count = visible.size) {
-                            EtaSegmentedCheckboxRow(
-                                checked = key in selectedKeys,
-                                onCheckedChange = { on: Boolean ->
-                                    selectedKeys = if (on) selectedKeys + key else selectedKeys - key
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(
-                                        bottom = if (index == visible.lastIndex) 0.dp else EtaSegmentedGap,
-                                    ),
-                                content = {
+        val view = LocalView.current
+        val onSelectAll = {
+            TouchHaptics.click(view)
+            selectedKeys = selectedKeys + visible.map(::keyOf)
+        }
+        val onInvert = {
+            TouchHaptics.click(view)
+            val visibleKeys = visible.map(::keyOf).toSet()
+            selectedKeys = (selectedKeys - visibleKeys) + (visibleKeys - selectedKeys)
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // M3：官方 TextButton。
+            TextButton(onClick = onSelectAll) {
+                MaterialText(stringResource(R.string.provider_remote_select_all))
+            }
+            TextButton(onClick = onInvert) {
+                MaterialText(stringResource(R.string.provider_remote_invert))
+            }
+            Spacer(Modifier.weight(1f))
+            MaterialText(
+                "${selectedKeys.size}/${models.size}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (visible.isEmpty()) {
+            ListEmptyState(
+                title = stringResource(R.string.page_no_matching_model_found_ae7e96),
+            )
+        } else {
+            LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 520.dp)) {
+                itemsIndexed(
+                    items = visible,
+                    key = { _, model -> keyOf(model) },
+                ) { index, model ->
+                    val key = keyOf(model)
+                    // 分段条目：首/末项由官方分段形状收外圆角，行间 2dp 露出背景缝隙
+                    //（与供应商列表页的 `EtaSegmentedItem` 用法一致）。
+                    EtaSegmentedItem(index = index, count = visible.size) {
+                        EtaSegmentedCheckboxRow(
+                            checked = key in selectedKeys,
+                            onCheckedChange = { on: Boolean ->
+                                selectedKeys = if (on) selectedKeys + key else selectedKeys - key
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(
+                                    bottom = if (index == visible.lastIndex) 0.dp else EtaSegmentedGap,
+                                ),
+                            content = {
+                                MaterialText(
+                                    model.displayName.ifBlank { model.modelId },
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            },
+                            supportingContent = if (model.displayName.isNotBlank() && model.displayName != model.modelId) {
+                                {
                                     MaterialText(
-                                        model.displayName.ifBlank { model.modelId },
+                                        model.modelId,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
                                     )
-                                },
-                                supportingContent = if (model.displayName.isNotBlank() && model.displayName != model.modelId) {
-                                    {
-                                        MaterialText(
-                                            model.modelId,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                        )
-                                    }
-                                } else {
-                                    null
-                                },
-                            )
-                        }
+                                }
+                            } else {
+                                null
+                            },
+                        )
                     }
                 }
             }

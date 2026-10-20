@@ -3,13 +3,17 @@ package io.github.mangi.eta.ui.screens.mcp
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Add
@@ -47,6 +51,8 @@ import io.github.mangi.eta.ui.adaptive.EtaDialogActions
 import io.github.mangi.eta.ui.adaptive.EtaExtendedFab
 import io.github.mangi.eta.ui.adaptive.EtaGroupHorizontalPadding
 import io.github.mangi.eta.ui.adaptive.EtaNoticeText
+import io.github.mangi.eta.ui.adaptive.EtaPageSurface
+import io.github.mangi.eta.ui.adaptive.EtaScaffold
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedGroupSpacing
@@ -64,6 +70,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton as M3IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text as M3Text
 
 
@@ -135,20 +142,18 @@ internal fun McpServersScreen(
         }
     }
 
-    EtaDialog(
-        show = showAdd,
-        title = stringResource(R.string.mcp_add_server),
-        onDismissRequest = { if (!working) showAdd = false },
-        actions = {
-            EtaDialogActions(
-                confirmText = if (working) {
-                    stringResource(R.string.mcp_connecting)
-                } else {
-                    stringResource(R.string.mcp_add_server)
-                },
-                confirmEnabled = !working,
-                onCancel = { showAdd = false },
-                onConfirm = {
+    if (showAdd) {
+        McpAddServerPage(
+            name = name,
+            url = url,
+            token = token,
+            working = working,
+            error = error,
+            onNameChange = { name = it },
+            onUrlChange = { url = it },
+            onTokenChange = { token = it },
+            onDismiss = { if (!working) showAdd = false },
+            onSubmit = {
                     val normalizedName = name.trim()
                     val normalizedUrl = url.trim()
                     error = when {
@@ -191,44 +196,88 @@ internal fun McpServersScreen(
                             error = it.message ?: resources.getString(R.string.mcp_connection_failed)
                         }
                     }
-                },
-            )
-        },
-    ) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 520.dp)
-                .verticalScroll(rememberScrollState()),
-        ) {
-            McpTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = stringResource(R.string.mcp_server_name),
-                enabled = !working,
-            )
-            McpTextField(
-                value = url,
-                onValueChange = { url = it },
-                label = stringResource(R.string.mcp_server_url),
-                enabled = !working,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-            )
-            McpTextField(
-                value = token,
-                onValueChange = { token = it },
-                label = stringResource(R.string.mcp_bearer_optional),
-                enabled = !working,
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            )
-            error?.let {
-                M3Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error,
+            },
+        )
+    }
+}
+
+@Composable
+private fun McpAddServerPage(
+    name: String,
+    url: String,
+    token: String,
+    working: Boolean,
+    error: String?,
+    onNameChange: (String) -> Unit,
+    onUrlChange: (String) -> Unit,
+    onTokenChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onSubmit: () -> Unit,
+) {
+    val dismissPage = { if (!working) onDismiss() }
+    // 添加服务器需要连接测试与错误回显，属于完整表单而非一次决策：整屏承载，动作固定底部。
+    EtaPageSurface(onDismissRequest = dismissPage) {
+        EtaScaffold(
+            title = stringResource(R.string.mcp_add_server),
+            onBack = dismissPage,
+            modifier = Modifier.fillMaxSize().imePadding(),
+            bottomBar = {
+                Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
+                    EtaDialogActions(
+                        modifier = Modifier.navigationBarsPadding().imePadding()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        confirmText = if (working) {
+                            stringResource(R.string.mcp_connecting)
+                        } else {
+                            stringResource(R.string.mcp_add_server)
+                        },
+                        confirmEnabled = !working,
+                        cancelEnabled = !working,
+                        onCancel = onDismiss,
+                        onConfirm = onSubmit,
+                    )
+                }
+            },
+        ) { padding, scrollConnection, _ ->
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .consumeWindowInsets(padding)
+                    .nestedScroll(scrollConnection)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 16.dp),
+            ) {
+                McpTextField(
+                    value = name,
+                    onValueChange = onNameChange,
+                    label = stringResource(R.string.mcp_server_name),
+                    enabled = !working,
                 )
+                McpTextField(
+                    value = url,
+                    onValueChange = onUrlChange,
+                    label = stringResource(R.string.mcp_server_url),
+                    enabled = !working,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                )
+                McpTextField(
+                    value = token,
+                    onValueChange = onTokenChange,
+                    label = stringResource(R.string.mcp_bearer_optional),
+                    enabled = !working,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                )
+                error?.let {
+                    M3Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
             }
         }
     }

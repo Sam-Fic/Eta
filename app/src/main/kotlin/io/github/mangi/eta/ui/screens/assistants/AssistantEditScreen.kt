@@ -6,6 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -32,6 +33,7 @@ import io.github.mangi.eta.data.repository.AgentMemoryRepository
 import io.github.mangi.eta.data.repository.AgentMemoryStore
 import io.github.mangi.eta.data.repository.AssistantRepository
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
+import io.github.mangi.eta.ui.adaptive.EtaDimens
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedItemContainer
@@ -199,7 +201,7 @@ internal fun AssistantEditScreen(
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
                 title = stringResource(R.string.assistant_identity),
             ) {
-                item {
+                item(surface = false) {
                     // KernelSU 式无边框输入行，直接作为分段行（与其它设置二级页一致）。
                     AssistantField(
                         value = name,
@@ -214,7 +216,7 @@ internal fun AssistantEditScreen(
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
                 title = stringResource(R.string.assistant_prompt_title),
             ) {
-                item {
+                item(surface = false) {
                     AssistantField(
                         value = prompt,
                         onValueChange = { prompt = it },
@@ -227,48 +229,52 @@ internal fun AssistantEditScreen(
             }
         }
         item(key = "memory") {
-            EtaSegmentedColumn(
+            Column(
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
-                title = stringResource(R.string.ui_memory_b55ff5),
             ) {
-                item {
-                    EtaSwitchRow(
-                        title = stringResource(R.string.ui_enable_memory_4b69b7),
-                        summary = stringResource(R.string.assistant_memory_summary),
-                        checked = memoryEnabled,
-                        onCheckedChange = {
-                            memoryEnabled = it
-                            persistAssistantToggles(nextMemory = it)
-                        },
-                        enabled = !saving,
-                    )
-                }
-                item {
-                    // MEMORY.md 超限时用支持文案（supportingContent）承载错误提示。
-                    val memorySupporting: (@Composable () -> Unit)? = if (memoryOverLimit) {
-                        {
-                            M3Text(
-                                text = stringResource(R.string.memory_over_limit),
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
-                    } else {
-                        null
+                EtaSegmentedColumn(
+                    // 开关卡与下方的 MEMORY.md 编辑框是两种不同表面：按 M3E 的元素间距留 8dp，
+                    // 不把编辑框挤进分段列表的 2dp 接缝里。
+                    modifier = Modifier.padding(bottom = EtaDimens.SpaceSm),
+                    title = stringResource(R.string.ui_memory_b55ff5),
+                ) {
+                    item {
+                        EtaSwitchRow(
+                            title = stringResource(R.string.ui_enable_memory_4b69b7),
+                            summary = stringResource(R.string.assistant_memory_summary),
+                            checked = memoryEnabled,
+                            onCheckedChange = {
+                                memoryEnabled = it
+                                persistAssistantToggles(nextMemory = it)
+                            },
+                            enabled = !saving,
+                        )
                     }
-                    AssistantField(
-                        value = memoryDraft,
-                        onValueChange = { memoryDraft = it },
-                        label = "MEMORY.md",
-                        useLabelAsPlaceholder = true,
-                        singleLine = false,
-                        minLines = 6,
-                        maxLines = 12,
-                        monospace = true,
-                        isError = memoryOverLimit,
-                        supportingContent = memorySupporting,
-                    )
                 }
+                // MEMORY.md 超限时用支持文案（supportingContent）承载错误提示。
+                val memorySupporting: (@Composable () -> Unit)? = if (memoryOverLimit) {
+                    {
+                        M3Text(
+                            text = stringResource(R.string.memory_over_limit),
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                } else {
+                    null
+                }
+                AssistantField(
+                    value = memoryDraft,
+                    onValueChange = { memoryDraft = it },
+                    label = "MEMORY.md",
+                    useLabelAsPlaceholder = true,
+                    singleLine = false,
+                    minLines = 6,
+                    maxLines = 12,
+                    monospace = true,
+                    isError = memoryOverLimit,
+                    supportingContent = memorySupporting,
+                )
             }
         }
         item(key = "skills") {

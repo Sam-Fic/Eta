@@ -5,14 +5,18 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Environment
 import android.provider.Settings
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
@@ -28,6 +32,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.Folder
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.terminal.AlpineEnvironmentPaths
 import io.github.mangi.eta.agent.terminal.LinuxDistribution
@@ -51,8 +58,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text as M3Text
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedGap
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedItem
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 
 /**
@@ -100,6 +110,31 @@ internal fun SharedFoldersScreen(
     }
 
     LaunchedEffect(Unit) { refreshSources(mounts) }
+
+    BackHandler(enabled = showPicker) { showPicker = false }
+
+    if (showPicker) {
+        SharedFolderPickerPage(
+            context = context,
+            supervisor = shellSupervisor,
+            existing = mounts,
+            extraForbiddenRoots = rootfsPaths,
+            onBack = { showPicker = false },
+            onConfirm = { source, name ->
+                val updated = mounts + SharedFolderMount(name = name, sourcePath = source)
+                if (SharedFolderMounts.save(updated)) {
+                    mounts = updated
+                    refreshSources(updated)
+                    showPicker = false
+                    true
+                } else {
+                    notice = context.getString(R.string.shared_folders_error_save)
+                    false
+                }
+            },
+        )
+        return
+    }
 
     EtaScaffoldPage(
         title = stringResource(R.string.shared_folders_title),
@@ -187,26 +222,6 @@ internal fun SharedFoldersScreen(
         }
     }
 
-    if (showPicker) {
-        SharedFolderPickerDialog(
-            context = context,
-            supervisor = shellSupervisor,
-            existing = mounts,
-            extraForbiddenRoots = rootfsPaths,
-            onDismiss = { showPicker = false },
-            onConfirm = { source, name ->
-                val updated = mounts + SharedFolderMount(name = name, sourcePath = source)
-                if (SharedFolderMounts.save(updated)) {
-                    mounts = updated
-                    refreshSources(updated)
-                    showPicker = false
-                } else {
-                    notice = context.getString(R.string.shared_folders_error_save)
-                }
-            },
-        )
-    }
-
     removeTarget?.let { target ->
         EtaDialog(
             show = true,
@@ -273,18 +288,18 @@ private fun probeSources(
 }
 
 /**
- * 目录选择弹层使用当前可用身份枚举目录；普通模式受 App 文件权限限制，
- * Root 模式可以访问系统目录。公共存储授权在进入弹层前按需申请。
+ * 目录选择页：使用当前可用身份枚举目录；普通模式受 App 文件权限限制，
+ * Root 模式可以访问系统目录。公共存储授权在进入本页前按需申请。
  * 确认时挂载的是当前已列出内容的目录（path）；路径输入框只用于跳转。
  */
 @Composable
-private fun SharedFolderPickerDialog(
+private fun SharedFolderPickerPage(
     context: Context,
     supervisor: ShellProcessSupervisor,
     existing: List<SharedFolderMount>,
     extraForbiddenRoots: List<String>,
-    onDismiss: () -> Unit,
-    onConfirm: (sourcePath: String, name: String) -> Unit,
+    onBack: () -> Unit,
+    onConfirm: (sourcePath: String, name: String) -> Boolean,
 ) {
     var path by remember { mutableStateOf("/sdcard") }
     var pathInput by remember { mutableStateOf("/sdcard") }
@@ -299,6 +314,7 @@ private fun SharedFolderPickerDialog(
         path = normalized
         pathInput = normalized
         browseError = null
+        formError = null
         if (!nameTouched) nameInput = SharedFolderMounts.defaultName(normalized)
     }
 
@@ -325,54 +341,98 @@ private fun SharedFolderPickerDialog(
         }
     }
 
-    EtaDialog(
-        show = true,
+    val submit = {
+        val sourceError = SharedFolderMounts.validateSource(path, existing, extraForbiddenRoots)
+        val errorText = when (sourceError) {
+            SharedFolderMounts.SourceError.INVALID_PATH ->
+                context.getString(R.string.shared_folders_error_path_invalid)
+            SharedFolderMounts.SourceError.FORBIDDEN_ROOT ->
+                context.getString(R.string.shared_folders_error_path_forbidden)
+            SharedFolderMounts.SourceError.DUPLICATE ->
+                context.getString(R.string.shared_folders_error_path_duplicate)
+            null -> when (SharedFolderMounts.validateName(nameInput, existing)) {
+                SharedFolderMounts.NameError.INVALID ->
+                    context.getString(R.string.shared_folders_error_name_invalid)
+                SharedFolderMounts.NameError.DUPLICATE ->
+                    context.getString(R.string.shared_folders_error_name_duplicate)
+                null -> if (existing.size >= SharedFolderMounts.MAX_MOUNTS) {
+                    context.getString(
+                        R.string.shared_folders_error_limit,
+                        SharedFolderMounts.MAX_MOUNTS,
+                    )
+                } else {
+                    null
+                }
+            }
+        }
+        if (errorText != null) {
+            formError = errorText
+        } else if (!onConfirm(path, nameInput.trim())) {
+            formError = context.getString(R.string.shared_folders_error_save)
+        }
+    }
+
+    val parentAvailable = path != "/"
+    val directories = entries.orEmpty()
+    val rowCount = directories.size + if (parentAvailable) 1 else 0
+    EtaScaffoldPage(
         title = stringResource(R.string.shared_folders_picker_title),
-        onDismissRequest = onDismiss,
-        actions = {
-            EtaDialogActions(
-                confirmText = stringResource(R.string.shared_folders_add),
-                onCancel = onDismiss,
-                onConfirm = {
-                    val sourceError = SharedFolderMounts.validateSource(path, existing, extraForbiddenRoots)
-                    val errorText = when (sourceError) {
-                        SharedFolderMounts.SourceError.INVALID_PATH ->
-                            context.getString(R.string.shared_folders_error_path_invalid)
-                        SharedFolderMounts.SourceError.FORBIDDEN_ROOT ->
-                            context.getString(R.string.shared_folders_error_path_forbidden)
-                        SharedFolderMounts.SourceError.DUPLICATE ->
-                            context.getString(R.string.shared_folders_error_path_duplicate)
-                        null -> when (SharedFolderMounts.validateName(nameInput, existing)) {
-                            SharedFolderMounts.NameError.INVALID ->
-                                context.getString(R.string.shared_folders_error_name_invalid)
-                            SharedFolderMounts.NameError.DUPLICATE ->
-                                context.getString(R.string.shared_folders_error_name_duplicate)
-                            null -> if (existing.size >= SharedFolderMounts.MAX_MOUNTS) {
-                                context.getString(
-                                    R.string.shared_folders_error_limit,
-                                    SharedFolderMounts.MAX_MOUNTS,
-                                )
-                            } else {
-                                null
-                            }
+        onBack = onBack,
+        listState = rememberLazyListState(),
+        bottomBar = {
+            Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .imePadding()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                ) {
+                    M3Text(
+                        text = stringResource(R.string.shared_folders_selected_source, path),
+                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    ) {
+                        val nameLabel = stringResource(R.string.shared_folders_name_label)
+                        androidx.compose.material3.OutlinedTextField(
+                            value = nameInput,
+                            onValueChange = {
+                                nameInput = it
+                                nameTouched = true
+                                formError = null
+                            },
+                            modifier = Modifier.weight(1f),
+                            label = { M3Text(nameLabel) },
+                            singleLine = true,
+                        )
+                        androidx.compose.material3.TextButton(onClick = submit) {
+                            M3Text(stringResource(R.string.shared_folders_add))
                         }
                     }
-                    if (errorText != null) {
-                        formError = errorText
-                    } else {
-                        onConfirm(path, nameInput.trim())
+                    formError?.let { error ->
+                        EtaText(
+                            text = error,
+                            style = EtaTextStyle.Footnote,
+                            color = terminalErrorColor(),
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
                     }
-                },
-            )
+                }
+            }
         },
     ) {
-        Column {
+        item(key = "path") {
             val pathLabel = stringResource(R.string.shared_folders_path_label)
             // 官方 OutlinedTextField + keyboardActions(onGo)。
             androidx.compose.material3.OutlinedTextField(
                 value = pathInput,
                 onValueChange = { pathInput = it },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 label = { M3Text(pathLabel) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
@@ -381,63 +441,64 @@ private fun SharedFolderPickerDialog(
                     fontFamily = FontFamily.Monospace,
                 ),
             )
-            browseError?.let { error ->
+        }
+        browseError?.let { error ->
+            item(key = "browse-error") {
                 EtaText(
                     text = error,
                     style = EtaTextStyle.Footnote,
                     color = terminalErrorColor(),
-                    modifier = Modifier.padding(top = 4.dp),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 )
             }
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 240.dp)
-                    .padding(top = 8.dp),
-            ) {
-                if (path != "/") {
-                    item(key = "..") {
+        }
+        if (entries == null) {
+            item(key = "loading") {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
+                ) {
+                    androidx.compose.material3.CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                    )
+                    M3Text(
+                        text = stringResource(R.string.spc_reading),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        } else {
+            if (parentAvailable) {
+                item(key = "..") {
+                    EtaSegmentedItem(index = 0, count = rowCount) {
                         PickerRow(
                             label = "../",
+                            parent = true,
+                            modifier = Modifier.padding(horizontal = 16.dp).padding(
+                                bottom = if (rowCount > 1) EtaSegmentedGap else 0.dp,
+                            ),
                             onClick = {
                                 navigateTo(path.trimEnd('/').substringBeforeLast('/').ifBlank { "/" })
                             },
                         )
                     }
                 }
-                items(entries.orEmpty(), key = { it }) { entry ->
+            }
+            itemsIndexed(directories, key = { _, entry -> entry }) { index, entry ->
+                val position = index + if (parentAvailable) 1 else 0
+                EtaSegmentedItem(index = position, count = rowCount) {
                     PickerRow(
                         label = entry,
+                        parent = false,
+                        modifier = Modifier.padding(horizontal = 16.dp).padding(
+                            bottom = if (position == rowCount - 1) 0.dp else EtaSegmentedGap,
+                        ),
                         onClick = { navigateTo(path.trimEnd('/') + "/" + entry) },
                     )
                 }
-            }
-            TerminalMonoText(
-                text = androidx.compose.ui.text.AnnotatedString(
-                    stringResource(R.string.shared_folders_selected_source, path),
-                ),
-                modifier = Modifier.padding(top = 8.dp),
-            )
-            val nameLabel = stringResource(R.string.shared_folders_name_label)
-            androidx.compose.material3.OutlinedTextField(
-                value = nameInput,
-                onValueChange = {
-                    nameInput = it
-                    nameTouched = true
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                label = { M3Text(nameLabel) },
-                singleLine = true,
-            )
-            formError?.let { error ->
-                EtaText(
-                    text = error,
-                    style = EtaTextStyle.Footnote,
-                    color = terminalErrorColor(),
-                    modifier = Modifier.padding(top = 4.dp),
-                )
             }
         }
     }
@@ -445,10 +506,22 @@ private fun SharedFolderPickerDialog(
 
 /** 目录选择行：KernelSU 式分段行。 */
 @Composable
-private fun PickerRow(label: String, onClick: () -> Unit) {
+private fun PickerRow(
+    label: String,
+    parent: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
     EtaSegmentedRow(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
+        leadingContent = {
+            androidx.compose.material3.Icon(
+                imageVector = if (parent) Icons.Rounded.ArrowUpward else Icons.Rounded.Folder,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        },
         content = {
             M3Text(
                 text = label,

@@ -12,7 +12,6 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -47,6 +46,7 @@ import kotlinx.coroutines.delay
  *
  * 面板外壳、遮罩、拖拽把手、圆角、容器色与底部安全区全部来自官方 [ModalBottomSheet]；
  * 顶部操作为官方 [IconButton]，分隔线为官方 [HorizontalDivider]，正文为官方可滚动可选择 [Text]。
+ * 关闭走面板下拉 / 点遮罩 / 返回键，不在右上角放关闭按钮。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -127,18 +127,6 @@ internal fun ContextCompactedSummarySheet(
                             )
                         }
                     }
-                }
-                IconButton(
-                    onClick = {
-                        TouchHaptics.click(view)
-                        onDismiss()
-                    },
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Close,
-                        contentDescription = stringResource(R.string.action_close),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                 }
             }
             HorizontalDivider()

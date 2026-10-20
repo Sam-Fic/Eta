@@ -2,13 +2,22 @@ package io.github.mangi.eta.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.adaptive.EtaDialog
@@ -17,6 +26,10 @@ import io.github.mangi.eta.ui.adaptive.EtaTextStyle
 import androidx.compose.material3.Text as M3Text
 import androidx.compose.material3.TextButton as M3TextButton
 
+/** 超过该长度或行数的说明改为面板阅读；短文仍保留弹窗的轻量决策语义。 */
+private const val DescriptionSheetMinChars = 320
+private const val DescriptionSheetMinLines = 8
+
 @Composable
 internal fun ItemDescriptionDialog(
     title: String,
@@ -24,6 +37,12 @@ internal fun ItemDescriptionDialog(
     onDismiss: () -> Unit,
     summary: String? = null,
 ) {
+    val prefersSheet = description.length >= DescriptionSheetMinChars ||
+        description.count { it == '\n' } >= DescriptionSheetMinLines
+    if (prefersSheet) {
+        ItemDescriptionSheet(title, description, summary, onDismiss)
+        return
+    }
     EtaDialog(
         show = true,
         title = title,
@@ -49,6 +68,57 @@ internal fun ItemDescriptionDialog(
                 modifier = Modifier.fillMaxWidth()
                     .verticalScroll(rememberScrollState()),
             )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ItemDescriptionSheet(
+    title: String,
+    description: String,
+    summary: String?,
+    onDismiss: () -> Unit,
+) {
+    // 长说明按阅读面处理：整高面板 + 可选择正文，避免在 360dp 的弹窗里反复滚动。
+    // 关闭走面板下拉 / 点遮罩 / 返回键，不放右上角关闭按钮。
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Column(Modifier.fillMaxWidth().fillMaxHeight(0.88f)) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.Center,
+            ) {
+                M3Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                summary?.takeIf(String::isNotBlank)?.let {
+                    M3Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            HorizontalDivider()
+            Column(
+                modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
+            ) {
+                SelectionContainer {
+                    M3Text(
+                        text = description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(24.dp),
+                    )
+                }
+            }
         }
     }
 }
