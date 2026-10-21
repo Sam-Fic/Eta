@@ -2331,6 +2331,15 @@
   <string name="media_remove_index_done">已移出索引 %1$d 項</string>
   <string name="media_delete_files_done">已刪除 %1$d 個檔案</string>
   <string name="media_delete_files_partial">已刪除 %1$d 個檔案，%2$d 個失敗：%3$s</string>
+  <string name="media_action_move_to">移動到…</string>
+  <string name="media_action_copy_to">複製到…</string>
+  <string name="media_move_title">將所選 %1$d 個檔案移動到「%2$s」？</string>
+  <string name="media_copy_title">將所選 %1$d 個檔案複製到「%2$s」？</string>
+  <string name="media_move_summary">原檔案會移動到所選資料夾並離開原位置；移出掃描範圍的項目會在下一輪索引前暫時從結果中消失。</string>
+  <string name="media_copy_summary">新副本會寫入所選資料夾；原檔案保留原位並繼續留在索引中。</string>
+  <string name="media_move_done">已移動 %1$d 項</string>
+  <string name="media_copy_done">已複製 %1$d 項</string>
+  <string name="media_batch_partial">成功 %1$d 項，%2$d 項失敗：%3$s</string>
   <string name="media_threshold_label">匹配度閾值</string>
   <string name="media_threshold_hidden">已隱藏 %1$d 條低於閾值的結果</string>
   <string name="media_settings_title">媒體語義搜尋</string>

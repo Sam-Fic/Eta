@@ -6,6 +6,8 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.DocumentsContract
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -60,6 +62,9 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.media.index.EmbeddingModelStore
+import io.github.mangi.eta.agent.media.index.MediaFileOps
+import io.github.mangi.eta.agent.media.index.MediaFileOps.MediaDir
+import io.github.mangi.eta.agent.media.index.MediaFileOps.MediaTarget
 import io.github.mangi.eta.agent.media.index.MediaSearchService
 import io.github.mangi.eta.data.db.EtaDatabase
 import io.github.mangi.eta.data.db.MediaKind
@@ -144,6 +149,35 @@ internal fun MediaSearchScreen(
     var selectedKeys by remember { mutableStateOf(setOf<String>()) }
     var confirmDeleteFiles by remember { mutableStateOf(false) }
     var batchBusy by remember { mutableStateOf(false) }
+    // 批量移动/复制：先由目录选择器拿目标文件夹，再二次确认；两者齐备才弹确认框。
+    var pendingOperation by remember { mutableStateOf<MediaFileOps.Op?>(null) }
+    var pendingTargetDir by remember { mutableStateOf<MediaDir?>(null) }
+
+    // 目标文件夹选择：SAF tree uri，落盘持久化授权后进二次确认。
+    val dirPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri == null) {
+            pendingOperation = null
+            pendingTargetDir = null
+            return@rememberLauncherForActivityResult
+        }
+        scope.launch {
+            // 读写都尝试，读成功即可复制；写权限决定能否在目标树内新建 / 移动文件。
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                    )
+                }.recoverCatching {
+                    context.contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                    )
+                }
+            }
+            pendingTargetDir = MediaDir(treeUri = uri.toString())
+        }
+    }
 
     LaunchedEffect(Unit) {
         status = runCatching { MediaSearchService.status(context) }.getOrNull()
@@ -253,6 +287,45 @@ internal fun MediaSearchScreen(
                 },
                 Toast.LENGTH_LONG,
             ).show()
+            runSearch()
+        }
+    }
+
+    /**
+     * 批量移动到 / 复制到目标文件夹：逐条执行（单项失败不中断），完成后退出多选并刷新结果
+     * （move 的条目已不在原处，刷新后自然消失；copy 的副本由下一轮增量索引发现）。
+     */
+    fun runBatchToTarget(operation: MediaFileOps.Op, targetDir: MediaDir) {
+        val targets = selectedHits.map { MediaTarget.from(it) }
+        if (targets.isEmpty() || batchBusy) return
+        scope.launch {
+            batchBusy = true
+            val outcome = withContext(Dispatchers.IO) {
+                MediaFileOps.runBatch(context, targets, targetDir, operation)
+            }
+            batchBusy = false
+            selectionMode = false
+            selectedKeys = emptySet()
+            val failed = outcome.failed
+            val message = if (failed.isEmpty()) {
+                context.getString(
+                    if (operation == MediaFileOps.Op.MOVE) {
+                        R.string.media_move_done
+                    } else {
+                        R.string.media_copy_done
+                    },
+                    outcome.succeeded.size,
+                )
+            } else {
+                // 失败只报条数与首个原因，足够定位方向；完整清单由 AI 工具的结构化输出承担。
+                context.getString(
+                    R.string.media_batch_partial,
+                    outcome.succeeded.size,
+                    failed.size,
+                    failed.first().message,
+                )
+            }
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
             runSearch()
         }
     }
@@ -518,6 +591,18 @@ internal fun MediaSearchScreen(
                         hits.map { it.sourceKey }.toSet()
                     }
                 },
+                onMoveTo = {
+                    TouchHaptics.click(view)
+                    pendingTargetDir = null
+                    pendingOperation = MediaFileOps.Op.MOVE
+                    dirPicker.launch(null)
+                },
+                onCopyTo = {
+                    TouchHaptics.click(view)
+                    pendingTargetDir = null
+                    pendingOperation = MediaFileOps.Op.COPY
+                    dirPicker.launch(null)
+                },
                 onRemoveFromIndex = {
                     TouchHaptics.click(view)
                     runRemoveFromIndex()
@@ -552,6 +637,58 @@ internal fun MediaSearchScreen(
                         runDeleteFiles()
                     },
                     destructive = true,
+                )
+            },
+        )
+    }
+
+    // 移动/复制同理：选好目标文件夹后再确认一次，标题带文件数与目标文件夹名。
+    val batchOperation = pendingOperation
+    val batchTargetDir = pendingTargetDir
+    if (batchOperation != null && batchTargetDir != null) {
+        val targetLabel = directoryLabel(context, batchTargetDir)
+        EtaDialog(
+            show = true,
+            title = stringResource(
+                if (batchOperation == MediaFileOps.Op.MOVE) {
+                    R.string.media_move_title
+                } else {
+                    R.string.media_copy_title
+                },
+                selectedHits.size,
+                targetLabel,
+            ),
+            summary = stringResource(
+                if (batchOperation == MediaFileOps.Op.MOVE) {
+                    R.string.media_move_summary
+                } else {
+                    R.string.media_copy_summary
+                },
+            ),
+            onDismissRequest = {
+                pendingOperation = null
+                pendingTargetDir = null
+            },
+            actions = {
+                EtaDialogActions(
+                    confirmText = stringResource(
+                        if (batchOperation == MediaFileOps.Op.MOVE) {
+                            R.string.media_action_move_to
+                        } else {
+                            R.string.media_action_copy_to
+                        },
+                    ),
+                    onCancel = {
+                        pendingOperation = null
+                        pendingTargetDir = null
+                    },
+                    onConfirm = {
+                        val operation = batchOperation
+                        val target = batchTargetDir
+                        pendingOperation = null
+                        pendingTargetDir = null
+                        runBatchToTarget(operation, target)
+                    },
                 )
             },
         )
@@ -683,7 +820,7 @@ private fun MediaThresholdRow(
 
 /**
  * 多选批量操作栏：底部悬浮（[EtaCard]），显示已选数量；
- * 全选/取消全选、移出索引与删除文件（破坏性文案按统一约定走 error 色）。
+ * 操作顺序：移动到 / 复制到 / 移出索引 / 删除文件（破坏性操作靠右，文案走 error 色）。
  */
 @Composable
 private fun MediaSelectionBar(
@@ -691,6 +828,8 @@ private fun MediaSelectionBar(
     allSelected: Boolean,
     busy: Boolean,
     onSelectAll: () -> Unit,
+    onMoveTo: () -> Unit,
+    onCopyTo: () -> Unit,
     onRemoveFromIndex: () -> Unit,
     onDeleteFiles: () -> Unit,
     onExit: () -> Unit,
@@ -726,6 +865,23 @@ private fun MediaSelectionBar(
                 }
                 TextButton(onClick = onExit, enabled = !busy) {
                     Text(stringResource(R.string.media_action_exit_select))
+                }
+            }
+            // 四个操作分两行：非破坏性的「移动到 / 复制到」在上，破坏性的「移出索引 / 删除文件」在下。
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(
+                    onClick = onMoveTo,
+                    enabled = selectedCount > 0 && !busy,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(stringResource(R.string.media_action_move_to))
+                }
+                TextButton(
+                    onClick = onCopyTo,
+                    enabled = selectedCount > 0 && !busy,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(stringResource(R.string.media_action_copy_to))
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -889,6 +1045,32 @@ private fun openHit(context: Context, hit: MediaSearchService.Hit) {
             Toast.LENGTH_LONG,
         ).show()
     }
+}
+
+/**
+ * 目标文件夹展示名：绝对路径取末级目录名；SAF tree uri 从 tree document id（`primary:DCIM/Camera`）
+ * 解出末段，查询不到再回落 DISPLAY_NAME / 末段路径。
+ */
+private fun directoryLabel(context: Context, dir: MediaDir): String {
+    dir.path?.let { path ->
+        return File(path).name.ifEmpty { path }
+    }
+    val uri = dir.treeUri?.let { runCatching { Uri.parse(it) }.getOrNull() } ?: return ""
+    val fromDocumentId = runCatching {
+        Uri.decode(DocumentsContract.getTreeDocumentId(uri))
+            .substringAfterLast('/')
+            .substringAfterLast(':')
+    }.getOrNull()
+    if (!fromDocumentId.isNullOrBlank()) return fromDocumentId
+    return runCatching {
+        context.contentResolver.query(
+            uri,
+            arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME),
+            null,
+            null,
+            null,
+        )?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+    }.getOrNull()?.takeIf { it.isNotBlank() } ?: uri.lastPathSegment.orEmpty()
 }
 
 /**
