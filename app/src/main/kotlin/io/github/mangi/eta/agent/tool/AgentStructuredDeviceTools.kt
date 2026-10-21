@@ -19,12 +19,16 @@ import android.provider.Settings
 import android.view.KeyEvent
 import io.github.mangi.eta.agent.device.BoundedRootCommandExecutor
 import io.github.mangi.eta.agent.device.RootAccess
+import io.github.mangi.eta.agent.mobileactions.MobileActionsEngine
+import io.github.mangi.eta.agent.mobileactions.MobileActionsModelStore
 import io.github.mangi.eta.agent.model.AgentModelClient
 import io.github.mangi.eta.core.AgentLogger
 import io.github.mangi.eta.agent.device.AgentNotificationHistoryService
 import io.github.mangi.eta.data.repository.NotificationHistoryRepository
 import java.util.Calendar
 import java.util.Locale
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -58,6 +62,7 @@ internal class AgentStructuredDeviceTools(
             "top_storage_apps" -> text(topStorageApps(args))
             "media_control" -> text(mediaControl(args))
             "set_volume" -> text(setVolume(args))
+            "device_actions" -> text(runMobileActions(args))
             "get_setting" -> sensitive(getSetting(args))
             "wifi_credentials" -> sensitive(wifiCredentials(args))
             "recent_notifications" -> sensitive(recentNotifications(args))
@@ -657,6 +662,55 @@ internal class AgentStructuredDeviceTools(
         JSONObject().put("ok", false).put("code", code).put("message", message).toString()
 
     private fun text(content: String) = AgentModelClient.ToolResult(content)
+
+    /**
+     * 端侧模型执行：把英文指令交给本机 FunctionGemma，由它挑选动作并真实执行。
+     *
+     * 工具执行线程与终端/文件工具同口径（后台线程），因此这里可以阻塞等待模型返回；
+     * 缺模型、缺参数、模型失败都转成结构化错误，让模型如实汇报而不是假装完成。
+     */
+    private fun runMobileActions(args: JSONObject): String {
+        val instruction = args.optString("instruction").trim()
+        if (instruction.isEmpty()) {
+            return JSONObject()
+                .put("ok", false)
+                .put("code", "INVALID_ARGUMENT")
+                .put("message", "缺少英文指令，本次未执行")
+                .toString()
+        }
+        if (MobileActionsModelStore.modelFile(context) == null) {
+            return JSONObject()
+                .put("ok", false)
+                .put("code", "MODEL_NOT_DOWNLOADED")
+                .put("message", "端侧动作模型未下载；请先在「设置 → 端侧动作模型」下载后再试，本次未执行")
+                .toString()
+        }
+        val events = runBlocking {
+            MobileActionsEngine.run(context, instruction).toList()
+        }
+        val actions = JSONArray()
+        var reply = ""
+        var failure = ""
+        for (event in events) {
+            when (event) {
+                MobileActionsEngine.Event.Preparing -> Unit
+                is MobileActionsEngine.Event.Action -> actions.put(
+                    JSONObject()
+                        .put("action", event.action.javaClass.simpleName)
+                        .put("ok", event.outcome.ok)
+                        .put("message", event.outcome.message),
+                )
+                is MobileActionsEngine.Event.Reply -> reply = event.text
+                is MobileActionsEngine.Event.Failure -> failure = event.message
+            }
+        }
+        return JSONObject()
+            .put("ok", failure.isEmpty())
+            .put("actions", actions)
+            .put("reply", reply)
+            .put("message", failure)
+            .toString()
+    }
 
     private fun sensitive(content: String) =
         AgentModelClient.ToolResult(content = content, sensitive = true)

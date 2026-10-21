@@ -12,6 +12,7 @@ import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.AccountTree
 import androidx.compose.material.icons.rounded.AdminPanelSettings
 import androidx.compose.material.icons.rounded.Build
+import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.AdsClick
 import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.Apps
@@ -146,6 +147,7 @@ internal object ToolPresentation {
         "eta_manage_history" -> R.string.tool_eta_manage_history
         "eta_configure_mcp" -> R.string.tool_eta_configure_mcp
         "semantic_search_media" -> R.string.tool_semantic_search_media
+        "device_actions" -> R.string.tool_device_actions
         else -> null
     }
 
@@ -210,6 +212,7 @@ internal object ToolPresentation {
         "media_control" -> Icons.Rounded.PlayArrow
         "text_to_speech" -> Icons.Rounded.RecordVoiceOver
         "set_volume" -> Icons.AutoMirrored.Rounded.VolumeUp
+        "device_actions" -> Icons.Rounded.Bolt
         "top_memory_apps" -> Icons.Rounded.Layers
         "top_storage_apps" -> Icons.Rounded.Layers
         "read_sms_code" -> Icons.Rounded.Key

@@ -166,6 +166,14 @@ sealed interface AppRoute {
     /** 媒体语义搜索设置页：模型下载、扫描范围确认与索引构建。 */
     @Serializable
     data object MediaIndexSettings : AppRoute
+
+    /** 端侧设备动作模型设置页：双源下载、令牌、推理后端。 */
+    @Serializable
+    data object MobileActionsSettings : AppRoute
+
+    /** 端侧设备动作试用页：指令 → 本地函数调用 → 真实执行。 */
+    @Serializable
+    data object MobileActions : AppRoute
 }
 
 @Serializable

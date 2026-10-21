@@ -478,6 +478,8 @@ private fun titleForRoute(route: AppRoute?, currentConversationTitle: String? = 
     is AppRoute.AssistantEdit -> stringResource(R.string.assistant_edit_title)
     is AppRoute.MediaSearch -> stringResource(R.string.media_search_title)
     is AppRoute.MediaIndexSettings -> stringResource(R.string.media_settings_title)
+    is AppRoute.MobileActionsSettings -> stringResource(R.string.mobile_actions_settings_title)
+    is AppRoute.MobileActions -> stringResource(R.string.mobile_actions_screen_title)
     null -> stringResource(R.string.app_name)
 }
 

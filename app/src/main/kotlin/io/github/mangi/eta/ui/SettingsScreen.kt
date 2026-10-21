@@ -29,6 +29,7 @@ import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.Memory
+import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Compress
 import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.RecordVoiceOver
@@ -255,6 +256,18 @@ internal fun SettingsScreen(
                     SettingsProviderEntry(currentProviderId, currentModelId) {
                         onNavigate(AppRoute.ModelProviders)
                     }
+                }
+                row {
+                    EtaClickableRow(
+                        title = stringResource(R.string.mobile_actions_settings_title),
+                        summary = stringResource(R.string.mobile_actions_settings_summary),
+                        leading = {
+                            PreferenceIcon(
+                                icon = Icons.Rounded.TouchApp,
+                            )
+                        },
+                        onClick = { onNavigate(AppRoute.MobileActionsSettings) },
+                    )
                 }
             }
 

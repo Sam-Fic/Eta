@@ -701,6 +701,7 @@ internal class AgentTraceFormatter(
             "top_storage_apps" to (R.string.trace_dev_top_storage_apps to "查看存储占用排行"),
             "media_control" to (R.string.trace_dev_media_control to "控制媒体播放"),
             "set_volume" to (R.string.trace_dev_set_volume to "调整音量"),
+            "device_actions" to (R.string.trace_dev_device_actions to "端侧动作执行"),
             "get_setting" to (R.string.trace_dev_get_setting to "读取系统设置"),
             "wifi_credentials" to (R.string.trace_dev_wifi_credentials to "读取 Wi-Fi 密码"),
             "recent_notifications" to (R.string.trace_dev_recent_notifications to "读取最近通知"),

@@ -119,6 +119,8 @@ import io.github.mangi.eta.ui.screens.mcp.McpServerDetailScreen
 import io.github.mangi.eta.ui.screens.mcp.McpServersScreen
 import io.github.mangi.eta.ui.screens.memory.AgentMemoryScreen
 import io.github.mangi.eta.ui.screens.permissions.PermissionHealthScreen
+import io.github.mangi.eta.ui.screens.settings.MobileActionsScreen
+import io.github.mangi.eta.ui.screens.settings.MobileActionsSettingsScreen
 import io.github.mangi.eta.ui.screens.skills.AgentSkillsScreen
 import io.github.mangi.eta.ui.screens.stats.UsageStatsScreen
 import io.github.mangi.eta.ui.screens.terminal.DaemonTasksScreen
@@ -1046,6 +1048,18 @@ fun AgentAppRoot(
             composable<AppRoute.MediaIndexSettings> {
                 io.github.mangi.eta.ui.screens.settings.MediaIndexSettingsScreen(
                     onNavigate = { route -> pushRoute(route) },
+                    onBack = ::popRoute,
+                )
+            }
+            composable<AppRoute.MobileActionsSettings> {
+                MobileActionsSettingsScreen(
+                    onNavigate = { route -> pushRoute(route) },
+                    onBack = ::popRoute,
+                )
+            }
+            composable<AppRoute.MobileActions> {
+                MobileActionsScreen(
+                    onOpenSettings = { pushRoute(AppRoute.MobileActionsSettings) },
                     onBack = ::popRoute,
                 )
             }

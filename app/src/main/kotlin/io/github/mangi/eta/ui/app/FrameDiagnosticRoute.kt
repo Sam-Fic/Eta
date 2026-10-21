@@ -56,4 +56,6 @@ internal fun AppRoute.frameDiagnosticPage(): FrameDiagnosticPage = when (this) {
     AppRoute.TerminalDaemonTasks -> FrameDiagnosticPage.Terminal
     AppRoute.MediaSearch -> FrameDiagnosticPage.Settings
     AppRoute.MediaIndexSettings -> FrameDiagnosticPage.Settings
+    AppRoute.MobileActionsSettings -> FrameDiagnosticPage.Settings
+    AppRoute.MobileActions -> FrameDiagnosticPage.Settings
 }

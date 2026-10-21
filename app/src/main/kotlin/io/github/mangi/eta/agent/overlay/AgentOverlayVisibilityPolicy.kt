@@ -109,5 +109,6 @@ internal object AgentOverlayVisibilityPolicy {
     )
 
     private val entrySurfaceDismissalTools =
-        foregroundOperationTools + setOf("set_alarm", "set_timer")
+        // 端侧动作可能拉起系统应用（联系人/日历/邮件/地图），与闹钟计时器同样需要让位。
+        foregroundOperationTools + setOf("set_alarm", "set_timer", "device_actions")
 }

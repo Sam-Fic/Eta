@@ -69,6 +69,10 @@
         android:networkSecurityConfig="@xml/network_security_config"
         android:roundIcon="@mipmap/ic_launcher_round">
 
+    <!-- LiteRT-LM GPU 后端经 OpenCL / vndksupport 访问显卡；缺失时自动回退 CPU，不阻断安装。 -->
+    <uses-native-library android:name="libOpenCL.so" android:required="false" />
+    <uses-native-library android:name="libvndksupport.so" android:required="false" />
+
         <!-- Opt-in local shell profiling; does not enable debugging or start a profiler. -->
         <profileable android:shell="true" />
 

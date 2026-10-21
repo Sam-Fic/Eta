@@ -84,3 +84,9 @@
 # 全限定名反射解析；R8 混淆改名后会抛
 # "Cannot find class with name <fqcn>"（启动即闪退）。保留整个路由包的类名。
 -keep class io.github.mangi.eta.ui.navigation.** { *; }
+
+# ── 端侧设备动作模型 ─────────────────────────────────────────────────────────
+# 工具函数名/注解由 LiteRT-LM 在运行时通过 kotlin-reflect 读取（KClasses.getFunctions），
+# 混淆改名或裁剪注解会让模型调用不到工具。
+-keep class io.github.mangi.eta.agent.mobileactions.MobileActionsToolSet { *; }
+-keepattributes RuntimeVisibleAnnotations,RuntimeVisibleParameterAnnotations,AnnotationDefault

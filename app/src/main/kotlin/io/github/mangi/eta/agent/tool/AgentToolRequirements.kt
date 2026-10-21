@@ -33,6 +33,7 @@ internal object AgentToolRequirements {
             "replace_text", "clear_text", "set_clipboard", "get_clipboard", "paste_text",
             "wait", "wait_for_text", "wait_for_package", "open_system_panel",
             "set_alarm", "set_timer", "device_status", "media_control", "set_volume",
+            "device_actions",
             "search_notification_history", "recent_app_activity", "app_usage_summary",
             "get_current_location", "get_device_environment", "memory_get", "memory_write",
             "skills_list", "skills_read", "skills_read_resource", "skills_list_curated",
