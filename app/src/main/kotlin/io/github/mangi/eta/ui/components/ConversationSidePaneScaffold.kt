@@ -1,5 +1,10 @@
 package io.github.mangi.eta.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.core.AnimationVector
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.DecayAnimationSpec
@@ -125,6 +130,8 @@ import io.github.mangi.eta.ui.adaptive.EtaTextField
 import io.github.mangi.eta.ui.adaptive.EtaType
 import io.github.mangi.eta.ui.adaptive.etaConnectedButtonShapes
 import io.github.mangi.eta.ui.adaptive.etaTextStyle
+import io.github.mangi.eta.ui.layout.LocalPageContentWidth
+import io.github.mangi.eta.ui.layout.rememberIsWideScreen
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.focus.FocusRequester
@@ -165,14 +172,22 @@ import io.github.mangi.eta.ui.model.ConversationSummaryUi
 import kotlin.math.abs
 import kotlin.math.sqrt
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.material3.Icon
 
 private object DrawerMetrics {
     val PaneMaxWidth = 320.dp
     val PaneWidthFraction = 0.78f
+    // 宽屏（平板横屏）按 M3 side sheet 规格：固定宽度，上限 360dp，
+    // 窗口刚过 600dp 时按比例收窄；停靠时与对话并排，手势打开时叠在对话之上。
+    val SideSheetMaxWidth = 360.dp
+    val SideSheetWidthFraction = 0.46f
+    val SideSheetCornerRadius = 16.dp
     val DrawerCornerRadius = 24.dp
     const val OpenDurationMs = 220
     const val CloseDurationMs = 200
@@ -261,8 +276,12 @@ fun ConversationSidePaneScaffold(
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
     val view = LocalView.current
+    // 宽屏（平板横屏）只有并排一种形态：侧栏固定停在左侧，对话列被挤窄，永远不覆盖、不压暗。
+    // 因此宽屏下抽屉完全不参与，只有窄屏才用它做全屏平推侧栏。
+    val isWide = rememberIsWideScreen()
     val drawerState = rememberDrawerState(
-        initialValue = if (visible) DrawerValue.Open else DrawerValue.Closed,
+        // 宽屏没有抽屉；窄屏保留按展开态恢复。
+        initialValue = if (visible && !isWide) DrawerValue.Open else DrawerValue.Closed,
     )
     // 每次组合后重设一次：阈值/规格是 anchored state 上的可写字段，
     // 重设可跟上 density 变化；M3 自带的 SideEffect 只改 open/close/anchored spec，
@@ -277,30 +296,43 @@ fun ConversationSidePaneScaffold(
     val currentOnDismiss by rememberUpdatedState(onDismiss)
     var drawerBlocksIme by remember { mutableStateOf(visible) }
 
-    // 选中会话即收起侧栏回到聊天主页，与「新建对话」/历史搜索命中的行为一致。
+    // 窄屏的侧栏是全屏覆盖形态，选中会话 / 新建会话后必须收起才能看到对话，
     // 走后缀动画而不是瞬时合上：和手滑关闭同一条缓动，观感一致。
-    // 这里不涉及导航入栈，不会出现底部按钮切页那种整页重组卡顿。
-    val selectConversationAndClosePane: (String) -> Unit = { conversationId ->
-        onConversationSelected(conversationId)
-        drawerScope.launch {
-            if (drawerState.targetValue != DrawerValue.Closed ||
-                drawerState.currentValue != DrawerValue.Closed
-            ) {
-                @Suppress("DEPRECATION")
-                drawerState.animateTo(
-                    targetValue = DrawerValue.Closed,
-                    anim = DrawerCloseMotion,
-                )
+    // 宽屏是并排布局，侧栏留在原地，切换到哪条、新建几条都不影响它开着。
+    val closePaneIfCovering: () -> Unit = {
+        if (!isWide) {
+            drawerScope.launch {
+                if (drawerState.targetValue != DrawerValue.Closed ||
+                    drawerState.currentValue != DrawerValue.Closed
+                ) {
+                    @Suppress("DEPRECATION")
+                    drawerState.animateTo(
+                        targetValue = DrawerValue.Closed,
+                        anim = DrawerCloseMotion,
+                    )
+                }
             }
         }
     }
 
-    LaunchedEffect(visible) {
+    val selectConversation: (String) -> Unit = { conversationId ->
+        onConversationSelected(conversationId)
+        closePaneIfCovering()
+    }
+
+    val createConversationInPane: () -> Unit = {
+        onNewConversation()
+        closePaneIfCovering()
+    }
+
+    LaunchedEffect(visible, isWide) {
+        // 宽屏只做并排停靠，根本不组抽屉，也就没有要驱动的开合动作。
+        if (isWide) return@LaunchedEffect
+        // 窄屏：抽屉就是侧栏本体，直接按 expanded 开合（保留原有推平与缓动）。
         val target = if (visible) DrawerValue.Open else DrawerValue.Closed
         if (drawerState.targetValue == target) return@LaunchedEffect
         if (!visible && drawerState.currentValue == DrawerValue.Open) {
             // 程序化收起（新建对话、返回键等）：抽屉是完全打开的，瞬时合上。
-            // 手势收回时 currentValue 会先变成 Closed，这里不会走到。
             drawerState.snapTo(target)
             return@LaunchedEffect
         }
@@ -311,8 +343,12 @@ fun ConversationSidePaneScaffold(
         )
     }
 
-    LaunchedEffect(drawerState) {
+    LaunchedEffect(drawerState, isWide) {
+        // 宽屏没有抽屉，手势/回写都不成立。
+        if (isWide) return@LaunchedEffect
+        // 丢掉首次发射：首次组合时抽屉按展开态恢复，不能被当成刚被划回而误收。
         snapshotFlow { drawerState.currentValue to drawerState.isAnimationRunning }
+            .drop(1)
             .collectLatest { (value, running) ->
                 // 快滑时 currentValue 会在 settle 开始就切换。立刻改 visible 会让
                 // 聊天页在惯性动画中间整页重组，看起来就是顿一下。
@@ -326,6 +362,7 @@ fun ConversationSidePaneScaffold(
     }
 
     LaunchedEffect(visible) {
+        // 并排停靠时抽屉是合上的，但侧栏仍在屏幕上，所以同样要挡住 IME 的可见性判断。
         drawerBlocksIme = visible
     }
 
@@ -355,15 +392,19 @@ fun ConversationSidePaneScaffold(
     )
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        // Material 3 Expressive 的侧边栏是全屏态：铺满宽度、直角；走「平移推动」，
-        // 侧栏把页面推走，而不是盖在页面上再压暗。
-        val paneWidth = maxWidth
-        val drawerShape = AbsoluteRoundedCornerShape(
-            topLeft = 0.dp,
-            topRight = 0.dp,
-            bottomRight = 0.dp,
-            bottomLeft = 0.dp,
-        )
+        // 紧凑窗口：Material 3 Expressive 的侧边栏是全屏态——铺满宽度、直角；
+        // 走「平移推动」，侧栏把页面推走，而不是盖在页面上再压暗。
+        // 宽屏（平板横屏）：固定宽度的 side sheet，且只做并排停靠，不提供覆盖形态。
+        // 分支条件与上面几个 effect 共用 isWide，避免两处判定来源不一致。
+        val widePane = isWide
+        val paneWidth = if (widePane) {
+            minOf(DrawerMetrics.SideSheetMaxWidth, maxWidth * DrawerMetrics.SideSheetWidthFraction)
+        } else {
+            maxWidth
+        }
+        // 两种形态都是通高、贴边：宽屏并排时侧栏是 standard side sheet，窄屏是整屏平推，
+        // 都不需要圆角。
+        val drawerShape = DockedPaneShape
         // 拖过「过半」那条线时给一次轻触反馈。抽屉只有开/合两个锚点，手指感受不到
         // 卡位，加一道振动手感才知道自己已经决定了松手后的归宿。
         // 只在真的越过瞬间触发一次（拿上一帧的 bool 做边沿检测），来回蹭不会连续震。
@@ -385,26 +426,19 @@ fun ConversationSidePaneScaffold(
             }
         }
         CompositionLocalProvider(LocalConversationDrawerBlocksIme provides drawerBlocksIme) {
-        // 平推（非覆盖）：侧栏占据左侧 paneWidth，聊天页整体右移同样的距离，不加遮罩、不压暗。
-        // 手势收敛与锚点仍交给 Material3 的 Dismissible 实现，只是内容被推走而不是被盖住。
-        DismissibleNavigationDrawer(
-            drawerState = drawerState,
-            gesturesEnabled = backHandlerEnabled,
-            modifier = Modifier.fillMaxSize(),
-            drawerContent = {
+        val paneContent: @Composable (AbsoluteRoundedCornerShape, Boolean, Dp) -> Unit =
+            { shape, focusSearch, panelWidth ->
                 ConversationPanePanel(
                     state = state,
-                    width = paneWidth,
-                    drawerShape = drawerShape,
-                    enableSearchFocus = visible &&
-                        drawerState.currentValue == DrawerValue.Open &&
-                        !drawerState.isAnimationRunning,
+                    width = panelWidth,
+                    drawerShape = shape,
+                    enableSearchFocus = focusSearch,
                     onSearchChange = onSearchChange,
-                    onConversationSelected = selectConversationAndClosePane,
+                    onConversationSelected = selectConversation,
                     onConversationRename = onConversationRename,
                     onConversationDelete = onConversationDelete,
                     onMoveConversationToFolder = onMoveConversationToFolder,
-                    onNewConversation = onNewConversation,
+                    onNewConversation = createConversationInPane,
                     onConversationTogglePin = onConversationTogglePin,
                     onConversationExport = onConversationExport,
                     onOpenManageChats = onOpenManageChats,
@@ -427,9 +461,48 @@ fun ConversationSidePaneScaffold(
                     onOpenPermissions = onOpenPermissions,
                     modifier = Modifier.fillMaxHeight(),
                 )
-            },
-        ) {
-            content()
+            }
+        if (widePane) {
+            // 宽屏（平板横屏）只有并排一种形态：侧栏站在左侧、对话列被挤窄到右边，
+            // 不压暗、不覆盖，也不开抽屉（所以这里既没有遮罩也没有取动手势）。
+            Row(modifier = Modifier.fillMaxSize()) {
+                AnimatedVisibility(
+                    visible = visible,
+                    // 左缘固定、向右长出来（收起时反向收回），与侧栏的贴边位置一致。
+                    enter = expandHorizontally(DockedPaneWidthMotion, expandFrom = Alignment.Start) +
+                        fadeIn(DockedPaneMotion),
+                    exit = shrinkHorizontally(DockedPaneWidthMotion, shrinkTowards = Alignment.Start) +
+                        fadeOut(DockedPaneMotion),
+                ) {
+                    // 并排布局里侧栏是 M3 standard side sheet：站在页面旁边，因此是直角、无浮起感。
+                    paneContent(DockedPaneShape, visible, paneWidth)
+                }
+                BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                    // 被侧栏挤窄后内容列按剩余宽度重新算居中留白，而不是继续按整窗宽度算。
+                    CompositionLocalProvider(LocalPageContentWidth provides maxWidth) {
+                        content()
+                    }
+                }
+            }
+        } else {
+            // 平推（非覆盖）：侧栏占据左侧 paneWidth，聊天页整体右移同样的距离，不加遮罩、不压暗。
+            // 手势收敛与锚点仍交给 Material3 的 Dismissible 实现，只是内容被推走而不是被盖住。
+            DismissibleNavigationDrawer(
+                drawerState = drawerState,
+                gesturesEnabled = backHandlerEnabled,
+                modifier = Modifier.fillMaxSize(),
+                drawerContent = {
+                    paneContent(
+                        drawerShape,
+                        visible &&
+                            drawerState.currentValue == DrawerValue.Open &&
+                            !drawerState.isAnimationRunning,
+                        paneWidth,
+                    )
+                },
+            ) {
+                content()
+            }
         }
         }
     }
@@ -1460,6 +1533,25 @@ private val DrawerOpenMotion: FiniteAnimationSpec<Float> = tween(
 private val DrawerCloseMotion: FiniteAnimationSpec<Float> = tween(
     durationMillis = DrawerMetrics.CloseDurationMs,
     easing = DrawerMotionEasing,
+)
+
+/** 宽屏停靠侧栏的展开 / 收起：与抽屉同一套缓动，避免两种打开方式手感不一致。 */
+private val DockedPaneMotion: FiniteAnimationSpec<Float> = tween(
+    durationMillis = DrawerMetrics.OpenDurationMs,
+    easing = DrawerMotionEasing,
+)
+
+private val DockedPaneWidthMotion: FiniteAnimationSpec<IntSize> = tween(
+    durationMillis = DrawerMetrics.OpenDurationMs,
+    easing = DrawerMotionEasing,
+)
+
+/** 停靠侧栏是 station side sheet：贴着页面站好，直角、无投影。 */
+private val DockedPaneShape = AbsoluteRoundedCornerShape(
+    topLeft = 0.dp,
+    topRight = 0.dp,
+    bottomRight = 0.dp,
+    bottomLeft = 0.dp,
 )
 
 /**

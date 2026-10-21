@@ -75,6 +75,9 @@ internal fun AgentAppShell(
     isConversationPaneOpen: Boolean,
     onBack: () -> Unit,
     onOpenConversationPane: () -> Unit,
+    // 汉堡按钮用：宽屏下是开关（并排展开 / 收回），与「手势打开」的 onOpen 不能混用，
+    // 否则抽屉内部回写打开状态时会把开关再翻一次。
+    onToggleConversationPane: () -> Unit = onOpenConversationPane,
     onDismissConversationPane: () -> Unit,
     onSearchConversations: (String) -> Unit,
     onNewConversation: () -> Unit,
@@ -180,7 +183,7 @@ internal fun AgentAppShell(
                             route = currentRoute,
                             scrollBehavior = scrollBehavior,
                             onBack = onBack,
-                            onOpenConversationPane = onOpenConversationPane,
+                            onOpenConversationPane = onToggleConversationPane,
                             onNewConversation = onNewConversation,
                             onRenameCurrentConversation = {
                                 val pane = conversationPaneState

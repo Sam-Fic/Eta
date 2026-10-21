@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -54,6 +55,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.layout.rememberPageContentSidePadding
 import kotlinx.coroutines.delay
 
 /**
@@ -175,6 +177,7 @@ fun EtaSearchScaffold(
             }
         },
     ) { innerPadding ->
+        val sidePadding = rememberPageContentSidePadding()
         LazyColumn(
             state = listState,
             modifier = Modifier
@@ -184,6 +187,8 @@ fun EtaSearchScaffold(
                 // 是透明的，视口一旦伸进去，滚动内容就会从标签缝隙里透出来——看着像标签变透明、
                 // 内容和标签重叠。把视口整体压到顶栏之下，这块区域始终是干净的页面底色。
                 .padding(top = innerPadding.calculateTopPadding()),
+            // 宽屏下结果列居中限宽，列表本体仍铺满全宽，两侧不留滚动死区。
+            contentPadding = PaddingValues(start = sidePadding, end = sidePadding),
         ) {
             content()
             if (bottomSpacer) {

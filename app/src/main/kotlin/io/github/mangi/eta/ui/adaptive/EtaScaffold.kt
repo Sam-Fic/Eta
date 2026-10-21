@@ -36,6 +36,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.layout.rememberPageContentSidePadding
 
 /**
  * 二级列表页骨架：标准 [Scaffold] + [LargeFlexibleTopAppBar] + [LazyColumn]。
@@ -135,6 +136,8 @@ private fun EtaMaterialScaffoldPage(
 ) {
     // 大标题随滚动折叠成单行顶栏（M3 LargeTopAppBar）。
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
+    // 宽屏下内容列居中限宽：列表仍铺满全宽，只把条目收进最大宽度内。
+    val sidePadding = rememberPageContentSidePadding()
     Scaffold(
         modifier = modifier.fillMaxSize(),
         // KernelSU 式：整页背景与顶栏同用 surfaceContainer，分段条目（surfaceBright）浮在其上。
@@ -175,6 +178,8 @@ private fun EtaMaterialScaffoldPage(
                 Box(
                     modifier = Modifier.padding(
                         bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+                        // 宽屏下 FAB 跟着收进内容列右缘，不飘到屏幕最右。
+                        end = sidePadding,
                     ),
                 ) {
                     fab()
@@ -187,7 +192,11 @@ private fun EtaMaterialScaffoldPage(
             modifier = listModifier
                 .fillMaxSize()
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
-            contentPadding = PaddingValues(top = innerPadding.calculateTopPadding()),
+            contentPadding = PaddingValues(
+                top = innerPadding.calculateTopPadding(),
+                start = sidePadding,
+                end = sidePadding,
+            ),
         ) {
             content()
             item(key = "eta_bottom_spacer") {
@@ -234,6 +243,8 @@ private fun EtaMaterialScaffold(
     content: @Composable (PaddingValues, NestedScrollConnection, Dp) -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
+    // 宽屏下内容列居中限宽：自定义内容也要与列表页保持同一条内容边界。
+    val sidePadding = rememberPageContentSidePadding()
     Scaffold(
         modifier = modifier.fillMaxSize(),
         // KernelSU 式：整页背景与顶栏同用 surfaceContainer，分段条目（surfaceBright）浮在其上。
@@ -264,7 +275,7 @@ private fun EtaMaterialScaffold(
         },
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize()) {
-            content(paddingValues, scrollBehavior.nestedScrollConnection, 0.dp)
+            content(paddingValues, scrollBehavior.nestedScrollConnection, sidePadding)
         }
     }
 }

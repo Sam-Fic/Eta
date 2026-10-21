@@ -431,10 +431,11 @@ fun AgentAppRoot(
         agentState.selectConversation(conversationId)
     }
 
+    // 新建会话不在这里收起侧栏：宽屏并排时侧栏要留着方便连续操作，
+    // 窄屏全屏侧栏由 ConversationSidePaneScaffold 自己收起。
     fun createConversation() {
         focusManager.clearFocus()
         agentState.createConversation()
-        conversationPaneOpen = false
     }
 
     @Composable
@@ -458,7 +459,9 @@ fun AgentAppRoot(
             },
             isConversationPaneOpen = conversationPaneOpen,
             onBack = { popRoute() },
+            // 手势打开只负责「置为展开」；汉堡按钮单独走 toggle，两者不能共用同一个回调。
             onOpenConversationPane = { conversationPaneOpen = true },
+            onToggleConversationPane = { conversationPaneOpen = !conversationPaneOpen },
             onDismissConversationPane = { conversationPaneOpen = false },
             onSearchConversations = { query -> agentState.updateSearchQuery(query) },
             onNewConversation = { createConversation() },
