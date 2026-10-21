@@ -2,6 +2,9 @@ package io.github.mangi.eta.agent.tool
 
 import android.content.Context
 import io.github.mangi.eta.agent.media.index.EmbeddingModelStore
+import io.github.mangi.eta.agent.media.index.MediaFileOps
+import io.github.mangi.eta.agent.media.index.MediaFileOps.MediaDir
+import io.github.mangi.eta.agent.media.index.MediaFileOps.MediaTarget
 import io.github.mangi.eta.agent.media.index.MediaIndexer
 import io.github.mangi.eta.agent.media.index.MediaIndexService
 import io.github.mangi.eta.agent.media.index.MediaSearchService
@@ -30,6 +33,8 @@ internal class AgentMediaSearchTools(private val context: Context) {
                 "list_sources" -> listSources()
                 "index_status" -> indexStatus()
                 "reindex" -> reindex()
+                "set_threshold" -> setThreshold(args)
+                "batch_act" -> batchAct(args)
                 else -> error("INVALID_ARGUMENT", "action 取值无效：$action")
             }
         } catch (cancellation: CancellationException) {
@@ -181,6 +186,99 @@ internal class AgentMediaSearchTools(private val context: Context) {
             .toString()
     }
 
+    /**
+     * 持久化用户偏好阈值（与检索页滑杆同一 prefs key）：后续 search / batch_act 省略
+     * min_score 时按这个值过滤，AI 不必每次重复传参。
+     */
+    private fun setThreshold(args: JSONObject): String {
+        if (!args.has("min_score")) {
+            return error("INVALID_ARGUMENT", "action=set_threshold 需要 min_score（0–1）")
+        }
+        val raw = args.optDouble("min_score", Double.NaN)
+        if (raw.isNaN()) return error("INVALID_ARGUMENT", "min_score 需为数字")
+        val value = raw.toFloat().coerceIn(0f, 1f)
+        EmbeddingModelStore.setSearchMinScore(context, value)
+        return JSONObject()
+            .put("ok", true)
+            .put("action", "set_threshold")
+            .put("min_score", value.toDouble())
+            .toString()
+    }
+
+    /**
+     * 对检索结果批量移动/复制：显式 source_keys 优先，省略时按 query 现场检索取命中。
+     * 逐项执行、单项失败不中断，返回成功 / 失败清单供模型继续处理。
+     */
+    private suspend fun batchAct(args: JSONObject): String {
+        val wire = args.optString("operation").trim()
+        val operation = when (wire) {
+            MediaFileOps.Op.MOVE.wire -> MediaFileOps.Op.MOVE
+            MediaFileOps.Op.COPY.wire -> MediaFileOps.Op.COPY
+            else -> return error("INVALID_ARGUMENT", "operation 取值无效：$wire（可选 move / copy）")
+        }
+        val targetRaw = args.optString("target_dir").trim()
+        if (targetRaw.isEmpty()) {
+            return error("TARGET_REQUIRED", "action=batch_act 需要 target_dir（SAF tree uri 或绝对路径）")
+        }
+        val targetDir = MediaDir.parse(targetRaw)
+            ?: return error("TARGET_REQUIRED", "target_dir 需为 SAF tree uri（content://…/tree/…）或绝对路径")
+        // 参数先于就绪状态校验，保证非法 kinds / 来源缺省一律报 INVALID_ARGUMENT。
+        val kinds = parseKinds(args)
+        val minScore = parseMinScore(args)
+        val spec = MediaFileOps.parseBatchSourceSpec(
+            sourceKeys = parseSourceKeys(args),
+            query = args.optString("query"),
+        ) ?: return error("INVALID_ARGUMENT", "action=batch_act 需要 source_keys 或 query（二选一）")
+        val sources = when (spec.mode) {
+            MediaFileOps.BatchSourceMode.SOURCE_KEYS -> spec.keys.mapNotNull { MediaTarget.parse(it) }
+            MediaFileOps.BatchSourceMode.QUERY -> {
+                notReady()?.let { return it }
+                MediaSearchService.search(
+                    context,
+                    query = spec.query,
+                    kinds = kinds,
+                    limit = parseBatchLimit(args),
+                    minScore = minScore,
+                ).hits.map { MediaTarget.from(it) }
+            }
+        }
+        if (sources.isEmpty()) {
+            return error("INVALID_ARGUMENT", "没有可操作的结果：source_keys 为空或检索无命中")
+        }
+        val batch = MediaFileOps.runBatch(context, sources, targetDir, operation)
+        val succeeded = JSONArray().also { array ->
+            batch.succeeded.forEach { item ->
+                array.put(
+                    JSONObject()
+                        .put("source_key", item.sourceKey)
+                        .put("new_uri", item.newUri ?: JSONObject.NULL)
+                        .put("new_path", item.newPath ?: JSONObject.NULL),
+                )
+            }
+        }
+        val failed = JSONArray().also { array ->
+            batch.failed.forEach { item ->
+                array.put(
+                    JSONObject()
+                        .put("source_key", item.sourceKey)
+                        .put("code", item.code)
+                        .put("message", item.message),
+                )
+            }
+        }
+        return JSONObject()
+            .put("ok", true)
+            .put("action", "batch_act")
+            .put("operation", operation.wire)
+            .put("target_dir", targetRaw)
+            .put("count", batch.total)
+            .put("succeeded_count", batch.succeeded.size)
+            .put("failed_count", batch.failed.size)
+            .put("succeeded", succeeded)
+            .put("failed", failed)
+            .toString()
+    }
+
     /** 未就绪时返回结构化错误，就绪时返回 null。 */
     private suspend fun notReady(): String? {
         val status = MediaSearchService.status(context)
@@ -212,12 +310,33 @@ internal class AgentMediaSearchTools(private val context: Context) {
     private fun parseLimit(args: JSONObject): Int =
         if (args.has("limit")) args.optInt("limit", 10).coerceIn(1, 50) else DEFAULT_LIMIT
 
-    /** 匹配度阈值：schema 限 0–1，越界收敛；缺省 0（不过滤）。 */
+    /** batch_act 现场检索的条数：默认 20，上限 50。 */
+    private fun parseBatchLimit(args: JSONObject): Int =
+        if (args.has("limit")) args.optInt("limit", DEFAULT_BATCH_LIMIT).coerceIn(1, 50) else DEFAULT_BATCH_LIMIT
+
+    /** batch_act 的 source_keys：去空白、保留顺序（去重交给 MediaFileOps.parseBatchSourceSpec）。 */
+    private fun parseSourceKeys(args: JSONObject): List<String> {
+        val raw = args.optJSONArray("source_keys") ?: return emptyList()
+        return (0 until raw.length()).mapNotNull { index ->
+            raw.optString(index).trim().takeIf { it.isNotEmpty() }
+        }
+    }
+
+    /**
+     * 匹配度阈值：schema 限 0–1，越界收敛；省略时用 set_threshold 持久化的用户偏好
+     * （与检索页滑杆同一 key），从未设置过则为 0（不过滤）。
+     */
     private fun parseMinScore(args: JSONObject): Float =
-        if (args.has("min_score")) args.optDouble("min_score", 0.0).toFloat().coerceIn(0f, 1f) else 0f
+        if (args.has("min_score")) {
+            args.optDouble("min_score", 0.0).toFloat().coerceIn(0f, 1f)
+        } else {
+            EmbeddingModelStore.searchMinScore(context)
+        }
 
     private fun hitJson(hit: MediaSearchService.Hit): JSONObject {
         val item = JSONObject()
+            // source_key 是索引主键，也是 batch_act 引用结果做移动/复制的唯一凭据。
+            .put("source_key", hit.sourceKey)
             .put("kind", hit.kind.wire)
             .put("display_name", hit.displayName)
             .put("mime", hit.mime)
@@ -245,5 +364,6 @@ internal class AgentMediaSearchTools(private val context: Context) {
 
     private companion object {
         const val DEFAULT_LIMIT = 10
+        const val DEFAULT_BATCH_LIMIT = 20
     }
 }

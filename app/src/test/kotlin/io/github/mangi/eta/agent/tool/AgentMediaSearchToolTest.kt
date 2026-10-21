@@ -26,7 +26,7 @@ import org.robolectric.annotation.Config
 /**
  * `semantic_search_media` 工具的 schema 契约与参数校验单测。
  *
- * 覆盖：schema（工具名 / required / action 枚举 5 项 / kinds 枚举 / limit 边界）、
+ * 覆盖：schema（工具名 / required / action 枚举 7 项 / kinds 枚举 / limit 边界）、
  * 非法参数的结构化错误（ok=false + code）、索引未就绪的 MEDIA_INDEX_NOT_READY 两个分支、
  * find_similar 的纯向量检索路径（不触发推理，可用构造向量端到端验证）。
  * search 的成功路径需要 LiteRT 推理，不在纯 JVM 覆盖范围。
@@ -92,7 +92,14 @@ class AgentMediaSearchToolTest {
 
         val properties = parameters.getJSONObject("properties")
         assertEquals(
-            JSONArray().put("search").put("find_similar").put("list_sources").put("index_status").put("reindex"),
+            JSONArray()
+                .put("search")
+                .put("find_similar")
+                .put("list_sources")
+                .put("index_status")
+                .put("reindex")
+                .put("set_threshold")
+                .put("batch_act"),
             properties.getJSONObject("action").getJSONArray("enum"),
         )
         assertEquals(
@@ -102,8 +109,16 @@ class AgentMediaSearchToolTest {
         val limit = properties.getJSONObject("limit")
         assertEquals(1, limit.getInt("minimum"))
         assertEquals(50, limit.getInt("maximum"))
+        // 批量管理参数名与执行器读取的字段逐一对应；operation 只有 move / copy。
+        assertEquals("string", properties.getJSONObject("operation").getString("type"))
+        assertEquals(JSONArray().put("move").put("copy"), properties.getJSONObject("operation").getJSONArray("enum"))
+        assertEquals("string", properties.getJSONObject("target_dir").getString("type"))
+        assertEquals("array", properties.getJSONObject("source_keys").getString("type"))
         // 错误码契约写进描述，模型才知道引导用户去设置页而不是编造结果。
         assertTrue(function.getString("description").contains("MEDIA_INDEX_NOT_READY"))
+        // 链式用法示例：结果里的 source_key 直接喂给 batch_act。
+        assertTrue(function.getString("description").contains("source_key"))
+        assertTrue(function.getString("description").contains("batch_act"))
     }
 
     @Test
@@ -203,6 +218,8 @@ class AgentMediaSearchToolTest {
         }
         // 按点积降序：同向 > 正交 > 反向；参考项自身不进结果。
         assertEquals(listOf("same.png", "other.png", "opposite.png"), names)
+        // 每条结果都带 source_key，模型才能引用结果做批量操作。
+        assertTrue(response.getJSONArray("results").getJSONObject(0).has("source_key"))
 
         // limit 越界按 1..50 收敛：limit=0 至少返回 1 条，且只返回最相似的那条。
         val limited = execute("action" to "find_similar", "reference" to "/ref.png", "limit" to 0)
