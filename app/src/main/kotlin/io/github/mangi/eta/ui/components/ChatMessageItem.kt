@@ -1002,6 +1002,9 @@ private fun UserMessageBubble(
                 val bubbleSurface = Modifier
                     .clip(bubbleShape)
                     .background(bubbleBg)
+                // 描边色必须在组合期取好：`drawWithContent` 的 lambda 跑在 DrawScope 里，
+                // 那不是 @Composable 作用域，直接读 `MaterialTheme.colorScheme` 会编译不过。
+                val bubbleStrokeColor = MaterialTheme.colorScheme.primary
                 val bubbleModifier = Modifier
                     .widthIn(max = maxWidth * 0.82f)
                     // 编辑态描边：整条轮廓（含右下角尾巴）一次描完，且必须挂在 clip 之外，
@@ -1012,7 +1015,7 @@ private fun UserMessageBubble(
                                 drawContent()
                                 drawPath(
                                     path = userBubbleOutlinePath(corners, isGroupTail),
-                                    color = MaterialTheme.colorScheme.primary,
+                                    color = bubbleStrokeColor,
                                     style = Stroke(width = 1.dp.toPx()),
                                 )
                             }
