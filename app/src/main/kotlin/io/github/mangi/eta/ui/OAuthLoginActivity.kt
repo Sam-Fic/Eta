@@ -71,7 +71,8 @@ class OAuthLoginActivity : ComponentActivity() {
         web.settings.domStorageEnabled = true
         web.settings.databaseEnabled = true
         web.settings.javaScriptCanOpenWindowsAutomatically = true
-        web.settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+        // OAuth 供应商全部走 https；禁混合内容，避免登录页的 http 子资源请求被注入或窃听。
+        web.settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
         val defaultUa = WebSettings.getDefaultUserAgent(this)
         web.settings.userAgentString = defaultUa.replace("; wv", "").replace(" Version/4.0", "")
         web.webViewClient = object : WebViewClient() {
