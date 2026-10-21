@@ -15,6 +15,7 @@ internal object AgentSelfSettingsToolCatalog {
     const val MANAGE_MODELS = "eta_manage_models"
     const val MANAGE_SUBAGENTS = "eta_manage_subagents"
     const val MANAGE_HISTORY = "eta_manage_history"
+    const val CONFIGURE_MCP = "eta_configure_mcp"
 
     fun appendTo(tools: JSONArray) {
         tools
@@ -432,6 +433,120 @@ internal object AgentSelfSettingsToolCatalog {
                                     JSONObject()
                                         .put("type", "boolean")
                                         .put("description", "list_conversations only: true lists the trash instead of the normal history."),
+                                ),
+                        )
+                        .put("required", JSONArray().put("action")),
+                ),
+            )
+            .put(
+                AgentToolSchema.function(
+                    name = CONFIGURE_MCP,
+                    description = "Configure the MCP servers of Eta, the assistant app you are running: the remote tool servers " +
+                        "it connects to and which of their tools are offered. " +
+                        "action=list returns every server with its endpoint, state and tools, and needs no other field. " +
+                        "add connects a new server: pass name and url, and, only when the endpoint needs a key, a token together with authorization=bearer. " +
+                        "update changes one existing server; only pass the fields the user asked about. " +
+                        "delete removes a server together with its stored key, and refresh reconnects one server to read its current tool list. " +
+                        "set_tool turns a single tool of a server on or off, while enable_all or tools chooses which tools a new or updated server offers. " +
+                        "server accepts an id, a displayed name or the exact url. " +
+                        "Keys are stored as secrets and are never echoed back, so after a change report the server name rather than the key. " +
+                        "Only change what the user actually asked for, and state the result in your reply. " +
+                        "Every change applies from the next reply, not to the answer you are writing now.",
+                    parameters = JSONObject()
+                        .put("type", "object")
+                        .put(
+                            "properties",
+                            JSONObject()
+                                .put(
+                                    "action",
+                                    JSONObject()
+                                        .put("type", "string")
+                                        .put(
+                                            "enum",
+                                            JSONArray()
+                                                .put("list")
+                                                .put("add")
+                                                .put("update")
+                                                .put("delete")
+                                                .put("refresh")
+                                                .put("set_tool"),
+                                        )
+                                        .put("description", "Required. What to do with a server or one of its tools."),
+                                )
+                                .put(
+                                    "server",
+                                    JSONObject()
+                                        .put("type", "string")
+                                        .put("maxLength", 200)
+                                        .put("description", "Server id, displayed name or exact url. Required by every action except list and add."),
+                                )
+                                .put(
+                                    "name",
+                                    JSONObject()
+                                        .put("type", "string")
+                                        .put("maxLength", 120)
+                                        .put("description", "add and update only: the name shown for this server."),
+                                )
+                                .put(
+                                    "url",
+                                    JSONObject()
+                                        .put("type", "string")
+                                        .put("maxLength", 500)
+                                        .put("description", "add and update only: the MCP endpoint, for example https://example.com/mcp."),
+                                )
+                                .put(
+                                    "token",
+                                    JSONObject()
+                                        .put("type", "string")
+                                        .put("maxLength", 500)
+                                        .put("description", "add and update only: secret key for that endpoint. Omit it to keep the stored one, pass an empty string to clear it."),
+                                )
+                                .put(
+                                    "authorization",
+                                    JSONObject()
+                                        .put("type", "string")
+                                        .put("enum", JSONArray().put("none").put("bearer"))
+                                        .put("description", "add and update only: bearer sends the token as an Authorization header. Default none, or bearer when a non-empty token is passed."),
+                                )
+                                .put(
+                                    "protocol",
+                                    JSONObject()
+                                        .put("type", "string")
+                                        .put("enum", JSONArray().put("auto").put("latest").put("legacy"))
+                                        .put("description", "add and update only: which MCP revision to speak. Default auto, which negotiates."),
+                                )
+                                .put(
+                                    "is_enabled",
+                                    JSONObject()
+                                        .put("type", "boolean")
+                                        .put("description", "add and update only: false keeps the server stored but stops offering its tools."),
+                                )
+                                .put(
+                                    "enable_all",
+                                    JSONObject()
+                                        .put("type", "boolean")
+                                        .put("description", "add and update only: true offers every tool the server reports."),
+                                )
+                                .put(
+                                    "tools",
+                                    JSONObject()
+                                        .put("type", "array")
+                                        .put("maxItems", 60)
+                                        .put("items", JSONObject().put("type", "string").put("maxLength", 200))
+                                        .put("description", "add and update only: exact tool names to offer. A name the server does not report fails the call."),
+                                )
+                                .put(
+                                    "tool",
+                                    JSONObject()
+                                        .put("type", "string")
+                                        .put("maxLength", 200)
+                                        .put("description", "set_tool only: the tool name or title to turn on or off."),
+                                )
+                                .put(
+                                    "enabled",
+                                    JSONObject()
+                                        .put("type", "boolean")
+                                        .put("description", "set_tool only: true offers the tool, false hides it. Default true."),
                                 ),
                         )
                         .put("required", JSONArray().put("action")),

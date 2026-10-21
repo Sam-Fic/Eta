@@ -18,6 +18,7 @@ class AgentSelfSettingsToolCatalogTest {
             AgentSelfSettingsToolCatalog.MANAGE_MODELS,
             AgentSelfSettingsToolCatalog.MANAGE_SUBAGENTS,
             AgentSelfSettingsToolCatalog.MANAGE_HISTORY,
+            AgentSelfSettingsToolCatalog.CONFIGURE_MCP,
         ).forEach { name -> assertTrue("$name missing", name in tools.toolNames()) }
 
         val manage = tools.function(AgentSelfSettingsToolCatalog.MANAGE_MODELS)
@@ -149,6 +150,52 @@ class AgentSelfSettingsToolCatalogTest {
     }
 
     @Test
+    fun mcpConfigurationCoversServersSecretsAndToolSwitches() {
+        val configure = catalog().function(AgentSelfSettingsToolCatalog.CONFIGURE_MCP)
+        assertEquals(
+            listOf("list", "add", "update", "delete", "refresh", "set_tool"),
+            configure.properties().getJSONObject("action").getJSONArray("enum").stringValues(),
+        )
+        assertEquals(listOf("action"), configure.parameters().requiredNames())
+
+        val properties = configure.properties()
+        val server = properties.getJSONObject("server")
+        assertEquals("string", server.getString("type"))
+        // server 只用于定位，不能进必填，否则 add 会被卡住。
+        assertFalse(configure.parameters().requiredNames().contains("server"))
+        assertTrue(server.getString("description").contains("id"))
+        assertTrue(server.getString("description").contains("url"))
+
+        assertEquals(
+            listOf("none", "bearer"),
+            properties.getJSONObject("authorization").getJSONArray("enum").stringValues(),
+        )
+        assertEquals(
+            listOf("auto", "latest", "legacy"),
+            properties.getJSONObject("protocol").getJSONArray("enum").stringValues(),
+        )
+        // 密钥字段的措辞必须点明是密钥，且说明留空 / 缺省两种语义。
+        val token = properties.getJSONObject("token").getString("description")
+        assertTrue(token.contains("secret"))
+        assertTrue(token.contains("empty string"))
+
+        assertEquals("string", properties.getJSONObject("url").getString("type"))
+        assertEquals("string", properties.getJSONObject("name").getString("type"))
+        assertEquals("string", properties.getJSONObject("tool").getString("type"))
+
+        assertEquals("boolean", properties.getJSONObject("is_enabled").getString("type"))
+        assertEquals("boolean", properties.getJSONObject("enable_all").getString("type"))
+        assertEquals("boolean", properties.getJSONObject("enabled").getString("type"))
+        assertTrue(properties.getJSONObject("enabled").getString("description").contains("set_tool"))
+
+        assertEquals("array", properties.getJSONObject("tools").getString("type"))
+        assertEquals("string", properties.getJSONObject("tools").getJSONObject("items").getString("type"))
+        assertEquals(60, properties.getJSONObject("tools").getInt("maxItems"))
+
+        assertTrue(configure.getString("description").contains("next reply"))
+    }
+
+    @Test
     fun selfSettingsToolsAreAFeatureFlagThatDefaultsToOn() {
         val names = catalog().toolNames()
         assertTrue(names.containsAll(SELF_TOOLS))
@@ -191,6 +238,7 @@ class AgentSelfSettingsToolCatalogTest {
             AgentSelfSettingsToolCatalog.MANAGE_MODELS,
             AgentSelfSettingsToolCatalog.MANAGE_SUBAGENTS,
             AgentSelfSettingsToolCatalog.MANAGE_HISTORY,
+            AgentSelfSettingsToolCatalog.CONFIGURE_MCP,
         )
     }
 }

@@ -97,6 +97,39 @@ internal object AgentSkillToolCatalog {
                         ),
                 ),
             )
+            .put(
+                AgentToolSchema.function(
+                    name = "skills_install_local",
+                    description = "Install a Skill from a directory on this phone, such as a folder the user downloaded, an unzipped archive, or a path inside the workspace. The directory must hold exactly one Skill (one SKILL.md); if it holds several, the result lists their directories so one can be retried. Reading public storage requires all-files access. Installation does not run bundled scripts, and the installed Skill becomes available next turn.",
+                    parameters = JSONObject()
+                        .put("type", "object")
+                        .put(
+                            "properties",
+                            JSONObject()
+                                .put(
+                                    "directory",
+                                    JSONObject()
+                                        .put("type", "string")
+                                        .put("maxLength", 1_000)
+                                        .put("description", "Absolute phone path such as /sdcard/Download/my-skill, or a workspace path such as minis://workspace/my-skill."),
+                                )
+                                .put(
+                                    "replaceExisting",
+                                    JSONObject()
+                                        .put("type", "boolean")
+                                        .put("description", "Set true only when retrying one replaceable SKILL_CONFLICT for the same directory and id."),
+                                )
+                                .put(
+                                    "expectedReplacementId",
+                                    JSONObject()
+                                        .put("type", "string")
+                                        .put("maxLength", 500)
+                                        .put("description", "Required when replaceExisting is true. Copy the exact id from the prior SKILL_CONFLICT result of the same directory; never infer it."),
+                                ),
+                        )
+                        .put("required", JSONArray().put("directory")),
+                ),
+            )
         if (githubDiscovery) appendGitHubDiscoveryTools(tools)
         if (githubInstall) appendGitHubInstallTool(tools)
     }

@@ -36,8 +36,8 @@ internal object AgentToolRequirements {
             "search_notification_history", "recent_app_activity", "app_usage_summary",
             "get_current_location", "get_device_environment", "memory_get", "memory_write",
             "skills_list", "skills_read", "skills_read_resource", "skills_list_curated",
-            "skills_inspect_github", "skills_install_from_github",
-            "eta_get_settings", "eta_set_settings", "eta_manage_models", "eta_manage_subagents", "eta_manage_history",
+            "skills_inspect_github", "skills_install_from_github", "skills_install_local",
+            "eta_get_settings", "eta_set_settings", "eta_manage_models", "eta_manage_subagents", "eta_manage_history", "eta_configure_mcp",
             "semantic_search_media",
         )
         register(

@@ -376,6 +376,135 @@ class AgentLocalSkillInstallIntegrationTest {
         tools.close()
     }
 
+    @Test
+    fun localDirectorySkillInstallsThroughTheToolAndBecomesAvailableNextTurn() {
+        val context = RuntimeEnvironment.getApplication() as Context
+        val skillsRoot = temporaryFolder.newFolder("local-skills")
+        val indexService = SkillIndexService(context, skillsRoot)
+        val tools = AgentLocalTools(
+            context = context,
+            logger = NoOpLogger,
+            skillPackageInstaller = SkillPackageInstaller(skillsRoot, indexService),
+            skillIndexService = indexService,
+            skillLoader = SkillLoader(skillsRoot),
+            skillResourceReader = SkillResourceReader(skillsRoot),
+        )
+        val sourceDirectory = temporaryFolder.newFolder("downloads")
+        val skillDirectory = File(sourceDirectory, "phone-skill")
+        writeSkill(skillDirectory, "phone-skill", "SKILL.md content for the phone Skill.")
+        File(skillDirectory, "references/guide.md").apply {
+            parentFile?.mkdirs()
+            writeText("guide")
+        }
+
+        val result = JSONObject(
+            tools.execute(
+                AgentModelClient.ToolCall(
+                    id = "install-local",
+                    name = "skills_install_local",
+                    argumentsJson = JSONObject()
+                        .put("directory", skillDirectory.absolutePath)
+                        .toString(),
+                ),
+            ).content,
+        )
+
+        assertTrue(result.toString(), result.getBoolean("ok"))
+        assertEquals("local", result.getString("source"))
+        assertEquals("next_turn", result.getString("available"))
+        assertFalse(result.getBoolean("scriptsExecuted"))
+        assertEquals(
+            "phone-skill",
+            result.getJSONArray("installed").getJSONObject(0).getString("id"),
+        )
+
+        val sameTurnList = JSONObject(
+            tools.execute(AgentModelClient.ToolCall("list-local", "skills_list", "{}")).content,
+        )
+        assertEquals(0, sameTurnList.getInt("count"))
+        tools.close()
+
+        val nextTurnEntries = indexService.listSkillsForManagement(forceRefresh = true)
+            .filter { it.id == "phone-skill" && it.installed }
+        val nextTurnTools = AgentLocalTools(
+            context = context,
+            logger = NoOpLogger,
+            skillIndexService = indexService,
+            skillLoader = SkillLoader(skillsRoot),
+            skillResourceReader = SkillResourceReader(skillsRoot),
+            runAvailableSkillIds = setOf("phone-skill"),
+            runSkillEntries = nextTurnEntries,
+        )
+        val nextTurnRead = JSONObject(
+            nextTurnTools.execute(
+                AgentModelClient.ToolCall(
+                    "read-local",
+                    "skills_read",
+                    JSONObject().put("skillId", "phone-skill").toString(),
+                ),
+            ).content,
+        )
+        assertTrue(nextTurnRead.toString(), nextTurnRead.getBoolean("ok"))
+        nextTurnTools.close()
+    }
+
+    @Test
+    fun localDirectoryWithSeveralSkillsListsCandidatesWithoutInstallingAnything() {
+        val context = RuntimeEnvironment.getApplication() as Context
+        val skillsRoot = temporaryFolder.newFolder("multi-local-skills")
+        val indexService = SkillIndexService(context, skillsRoot)
+        val tools = AgentLocalTools(
+            context = context,
+            logger = NoOpLogger,
+            skillPackageInstaller = SkillPackageInstaller(skillsRoot, indexService),
+            skillIndexService = indexService,
+            skillLoader = SkillLoader(skillsRoot),
+            skillResourceReader = SkillResourceReader(skillsRoot),
+        )
+        val sourceDirectory = temporaryFolder.newFolder("multi-downloads")
+        writeSkill(File(sourceDirectory, "one"), "one", "First local Skill.")
+        writeSkill(File(sourceDirectory, "two"), "two", "Second local Skill.")
+
+        val result = JSONObject(
+            tools.execute(
+                AgentModelClient.ToolCall(
+                    id = "install-multi",
+                    name = "skills_install_local",
+                    argumentsJson = JSONObject()
+                        .put("directory", sourceDirectory.absolutePath)
+                        .toString(),
+                ),
+            ).content,
+        )
+
+        assertFalse(result.toString(), result.getBoolean("ok"))
+        assertEquals("MULTIPLE_SKILLS_FOUND", result.getString("code"))
+        assertEquals(2, result.getJSONArray("candidates").length())
+        assertEquals(
+            File(sourceDirectory, "one").absolutePath,
+            result.getJSONArray("candidates").getJSONObject(0).getString("directory"),
+        )
+        assertTrue(
+            indexService.listSkillsForManagement(forceRefresh = true)
+                .none { it.id == "one" || it.id == "two" },
+        )
+        tools.close()
+    }
+
+    private fun writeSkill(directory: File, name: String, description: String) {
+        directory.mkdirs()
+        File(directory, "SKILL.md").writeText(
+            """
+            ---
+            name: $name
+            description: $description
+            ---
+
+            # $name
+            """.trimIndent(),
+        )
+    }
+
     private fun githubClient(requestedUrls: MutableList<String>): OkHttpClient =
         OkHttpClient.Builder()
             .addInterceptor { chain ->

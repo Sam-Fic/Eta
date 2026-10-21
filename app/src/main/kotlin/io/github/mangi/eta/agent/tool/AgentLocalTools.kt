@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Environment
 import java.io.File
 import android.os.SystemClock
 import io.github.mangi.eta.agent.browser.AgentBrowserSession
@@ -23,6 +24,7 @@ import io.github.mangi.eta.agent.model.AgentSensitiveToolPolicy
 import io.github.mangi.eta.agent.overlay.AgentHapticFeedback
 import io.github.mangi.eta.agent.overlay.GestureIndicator
 import io.github.mangi.eta.agent.runtime.AgentAppContext
+import io.github.mangi.eta.agent.skill.SkillArchiveInspectionResult
 import io.github.mangi.eta.agent.skill.SkillCompatibilityChecker
 import io.github.mangi.eta.agent.skill.SkillIndexEntry
 import io.github.mangi.eta.agent.skill.SkillIndexService
@@ -166,6 +168,7 @@ internal class AgentLocalTools(
     private val selfModelTools = AgentSelfModelTools(context)
     private val selfSubAgentTools = AgentSelfSubAgentTools(agentConversationId)
     private val selfHistoryTools = AgentSelfHistoryTools(context, agentConversationId)
+    private val selfMcpTools = AgentSelfMcpTools(context)
     private val mediaSearchTools = AgentMediaSearchTools(context)
     private val terminalController = RootShellTerminalController(
         processSupervisor = io.github.mangi.eta.agent.terminal.ShellProcessSupervisor(skillsDirectoryProvider = { runSkillsRoot }),
@@ -493,11 +496,13 @@ internal class AgentLocalTools(
                 "skills_list_curated" -> textResult(skillsListCurated())
                 "skills_inspect_github" -> textResult(skillsInspectGitHub(args))
                 "skills_install_from_github" -> textResult(skillsInstallFromGitHub(args))
+                "skills_install_local" -> textResult(skillsInstallLocal(args))
                 AgentSelfSettingsToolCatalog.GET_SETTINGS -> textResult(selfSettingsTool { selfSettingsTools.list() })
                 AgentSelfSettingsToolCatalog.SET_SETTINGS -> textResult(selfSettingsTool { selfSettingsTools.set(args) })
                 AgentSelfSettingsToolCatalog.MANAGE_MODELS -> textResult(selfSettingsTool { selfModelTools.execute(args) })
                 AgentSelfSettingsToolCatalog.MANAGE_SUBAGENTS -> textResult(selfSettingsTool { selfSubAgentTools.execute(args) })
                 AgentSelfSettingsToolCatalog.MANAGE_HISTORY -> textResult(selfSettingsTool { selfHistoryTools.execute(args) })
+                AgentSelfSettingsToolCatalog.CONFIGURE_MCP -> textResult(selfSettingsTool { selfMcpTools.execute(args) })
                 AgentMediaSearchToolCatalog.SEARCH_MEDIA -> textResult(mediaSearchTool { mediaSearchTools.execute(args) })
                 else -> textResult(
                     errorResult(
@@ -1548,6 +1553,150 @@ internal class AgentLocalTools(
                     selectedPaths = selectedPaths,
                 )
             }
+        }
+    }
+
+    /**
+     * 安装手机本地目录中的一个 Skill。目录必须只包含一个 SKILL.md；
+     * 发现多个时返回各自目录，由模型选定目录后重试。
+     */
+    private fun skillsInstallLocal(args: JSONObject): String {
+        val installer = skillPackageInstaller
+            ?: return errorResult("SKILL_INSTALLER_UNAVAILABLE", "Skill 安装器未初始化")
+        val requestedDirectory = args.optString("directory").trim()
+        if (requestedDirectory.isEmpty()) {
+            throw InvalidToolArgumentException("directory is required")
+        }
+        val replaceExisting = args.optBoolean("replaceExisting", false)
+        val expectedReplacementId = args.optString("expectedReplacementId").trim()
+        if (!replaceExisting && expectedReplacementId.isNotEmpty()) {
+            return errorResult("INVALID_SELECTION", "仅替换现有用户 Skill 时可指定 expectedReplacementId")
+        }
+        // minis://、/workspace 与 /var/minis 先还原成宿主路径，其余手机路径原样使用。
+        val resolvedDirectory = runCatching {
+            io.github.mangi.eta.agent.terminal.LinuxGuestPathResolver
+                .resolveForApp(context, requestedDirectory)
+        }.getOrDefault(requestedDirectory)
+        localSkillStorageError(resolvedDirectory)?.let { code ->
+            return errorResult(
+                code,
+                "读取手机公共存储需要「所有文件访问」权限，请先在系统设置中授予后再重试",
+            )
+        }
+        val directory = File(resolvedDirectory)
+        if (!directory.isDirectory) {
+            return errorResult("LOCAL_DIRECTORY_NOT_FOUND", "找不到目录：$requestedDirectory")
+        }
+        if (!directory.canRead()) {
+            return errorResult("LOCAL_DIRECTORY_NOT_READABLE", "无法读取目录：$requestedDirectory")
+        }
+        val candidates = when (val inspection = installer.inspectLocalDirectory(directory, closed::get)) {
+            is SkillArchiveInspectionResult.Failure ->
+                return errorResult(inspection.error.code.name, inspection.error.message)
+            is SkillArchiveInspectionResult.Success -> inspection.candidates
+        }
+        if (candidates.size > 1) {
+            val listed = JSONArray()
+            candidates.forEach { candidate ->
+                listed.put(
+                    JSONObject()
+                        .put("id", candidate.id)
+                        .put("name", candidate.name)
+                        .put("description", candidate.description)
+                        .put("directory", localCandidateDirectory(resolvedDirectory, candidate.relativePath)),
+                )
+            }
+            return JSONObject()
+                .put("ok", false)
+                .put("code", "MULTIPLE_SKILLS_FOUND")
+                .put("message", "该目录包含 ${candidates.size} 个 Skill；请从 candidates 中选择一个目录，作为 directory 重试")
+                .put("directory", resolvedDirectory)
+                .put("candidates", listed)
+                .toString()
+        }
+        val candidate = candidates.single()
+        if (replaceExisting && expectedReplacementId != candidate.id) {
+            return errorResult(
+                "INVALID_SELECTION",
+                "expectedReplacementId 与目录中的 Skill 不一致：${candidate.id}",
+            )
+        }
+        val result = installer.installLocalDirectory(
+            directory = directory,
+            replaceUserSkill = replaceExisting,
+            expectedReplacementId = expectedReplacementId.takeIf { replaceExisting },
+            isCancelled = closed::get,
+        )
+        return localInstallResult(result, resolvedDirectory)
+    }
+
+    /** 公共存储目录需要「所有文件访问」权限；应用私有目录与工作区路径不需要。 */
+    private fun localSkillStorageError(resolvedDirectory: String): String? {
+        val publicish = resolvedDirectory.startsWith("/storage/") ||
+            resolvedDirectory.startsWith("/sdcard") ||
+            resolvedDirectory.startsWith("/mnt/sdcard")
+        return if (publicish && !Environment.isExternalStorageManager()) "STORAGE_ACCESS_REQUIRED" else null
+    }
+
+    private fun localCandidateDirectory(root: String, relativePath: String): String {
+        val base = root.trimEnd('/')
+        return if (relativePath.isBlank() || relativePath == ".") base else "$base/$relativePath"
+    }
+
+    private fun localInstallResult(result: SkillInstallResult, directory: String): String = when (result) {
+        is SkillInstallResult.Success -> {
+            pendingSkillConflict.set(null)
+            val installed = JSONArray()
+            result.installed.forEach { skill ->
+                mutatedSkillIds += SkillParser.normalizeSkillLookup(skill.id)
+                installed.put(
+                    JSONObject()
+                        .put("id", skill.id)
+                        .put("name", skill.name),
+                )
+            }
+            val enableResult = runCatching {
+                AssistantRepository.enableSkills(result.installed.map { it.id }, memoryAssistantId)
+            }
+            JSONObject()
+                .put("ok", true)
+                .put("source", "local")
+                .put("directory", directory)
+                .put("installed", installed)
+                .put("available", if (enableResult.isSuccess) "next_turn" else "installed_not_enabled")
+                .put("enabled", enableResult.isSuccess)
+                .put("enableError", if (enableResult.isSuccess) JSONObject.NULL else "ASSISTANT_ENABLE_FAILED")
+                .put("scriptsExecuted", false)
+                .put("message", if (enableResult.isSuccess) "Skill 已安装并启用，新版本从下一轮任务开始可用；本轮已批准的旧快照不变，安装过程未执行脚本"
+                    else "Skill 文件已安装，但未能为本轮所属助手启用；请在该助手设置中检查。安装过程未执行脚本")
+                .toString()
+        }
+        is SkillInstallResult.Conflict -> {
+            val conflicts = JSONArray()
+            result.conflicts.forEach { conflict ->
+                conflicts.put(
+                    JSONObject()
+                        .put("id", conflict.id)
+                        .put("name", conflict.name)
+                        .put("replaceAllowed", conflict.replaceAllowed),
+                )
+            }
+            val replaceable = result.conflicts.singleOrNull()?.takeIf { it.replaceAllowed }
+            JSONObject()
+                .put("ok", false)
+                .put("code", "SKILL_CONFLICT")
+                .put("message", "Skill 已存在；可替换的单个用户 Skill 可用相同 directory 加上 replaceExisting=true 与 expectedReplacementId 重试，内置 Skill 不可覆盖")
+                .put("source", "local")
+                .put("directory", directory)
+                .put("expectedReplacementId", replaceable?.id ?: JSONObject.NULL)
+                .put("conflicts", conflicts)
+                .toString()
+        }
+        is SkillInstallResult.Failure -> {
+            if (result.error.code == SkillInstallErrorCode.COMMIT_FAILED) {
+                skillTreeMutationUncertain.set(true)
+            }
+            errorResult(result.error.code.name, result.error.message)
         }
     }
 

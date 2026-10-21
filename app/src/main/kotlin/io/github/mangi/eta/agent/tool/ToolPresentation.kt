@@ -144,6 +144,7 @@ internal object ToolPresentation {
         "eta_manage_models" -> R.string.tool_eta_manage_models
         "eta_manage_subagents" -> R.string.tool_eta_manage_subagents
         "eta_manage_history" -> R.string.tool_eta_manage_history
+        "eta_configure_mcp" -> R.string.tool_eta_configure_mcp
         "semantic_search_media" -> R.string.tool_semantic_search_media
         else -> null
     }
@@ -246,10 +247,12 @@ internal object ToolPresentation {
         "eta_manage_models" -> Icons.Rounded.SmartToy
         "eta_manage_subagents" -> SubAgents
         "eta_manage_history" -> Icons.Rounded.History
+        "eta_configure_mcp" -> Icons.Rounded.Extension
         "skills_list", "skills_list_curated" -> Icons.AutoMirrored.Rounded.MenuBook
         "skills_read", "skills_read_resource" -> Icons.Rounded.Description
         "skills_inspect_github" -> Icons.Rounded.Code
         "skills_install_from_github" -> Icons.Rounded.Download
+        "skills_install_local" -> Icons.Rounded.FolderOpen
         else -> if (toolId.startsWith("mcp_")) Icons.Rounded.Extension else FallbackIcon
     }
 

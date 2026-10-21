@@ -606,6 +606,7 @@
   <string name="tool_eta_manage_models">配置Eta模型</string>
   <string name="tool_eta_manage_subagents">配置Eta子代理</string>
   <string name="tool_eta_manage_history">配置Eta历史会话</string>
+  <string name="tool_eta_configure_mcp">配置Eta的MCP服务</string>
   <string name="tool_semantic_search_media">语义搜索媒体</string>
   <string name="tool_group_media_search">媒体语义搜索</string>
   <string name="state_eta_itself">Eta 自身</string>
@@ -619,6 +620,8 @@
   <string name="tool_ui_eta_manage_subagents_summary">创建、修改并应用 Eta 自己使用的子代理组。</string>
   <string name="tool_ui_eta_manage_history">配置Eta历史会话</string>
   <string name="tool_ui_eta_manage_history_summary">创建分类文件夹，并重命名、移动、置顶或删除 Eta 保存的对话。</string>
+  <string name="tool_ui_eta_configure_mcp">配置Eta的MCP服务</string>
+  <string name="tool_ui_eta_configure_mcp_summary">新增、修改或删除 Eta 自己连接的 MCP 工具服务，并开关其中的工具。</string>
   <string name="tool_ui_semantic_search_media">语义搜索媒体</string>
   <string name="tool_ui_semantic_search_media_summary">用离线索引按语义检索本机的图片、视频和文件。</string>
   <string name="settings_self_settings_tools">应用自身配置工具</string>

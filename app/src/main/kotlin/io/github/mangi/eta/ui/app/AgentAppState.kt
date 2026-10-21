@@ -7736,6 +7736,7 @@ internal fun buildToolsState(context: Context): AgentToolsUiState =
                     ToolItemUi("eta_manage_models", context.getString(R.string.tool_ui_eta_manage_models), context.getString(R.string.tool_ui_eta_manage_models_summary)),
                     ToolItemUi("eta_manage_subagents", context.getString(R.string.tool_ui_eta_manage_subagents), context.getString(R.string.tool_ui_eta_manage_subagents_summary)),
                     ToolItemUi("eta_manage_history", context.getString(R.string.tool_ui_eta_manage_history), context.getString(R.string.tool_ui_eta_manage_history_summary)),
+                    ToolItemUi("eta_configure_mcp", context.getString(R.string.tool_ui_eta_configure_mcp), context.getString(R.string.tool_ui_eta_configure_mcp_summary)),
                 ),
             ),
             ToolGroupUi(

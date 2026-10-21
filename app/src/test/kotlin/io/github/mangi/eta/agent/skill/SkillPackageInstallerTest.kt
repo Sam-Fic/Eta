@@ -81,6 +81,67 @@ class SkillPackageInstallerTest {
     }
 
     @Test
+    fun localDirectoryInstallsSingleSkillAndReportsEmptyDirectories() {
+        val fixture = fixture("local-directory")
+        val empty = temporaryFolder.newFolder("empty-directory")
+
+        assertFailureCode(
+            fixture.installer.installLocalDirectory(empty),
+            SkillInstallErrorCode.NO_SKILL_FOUND,
+        )
+        val emptyInspection = fixture.installer.inspectLocalDirectory(empty)
+        val emptyFailure = emptyInspection as SkillArchiveInspectionResult.Failure
+        assertEquals(SkillInstallErrorCode.NO_SKILL_FOUND, emptyFailure.error.code)
+
+        val skillDirectory = File(empty, "nested/dir-demo").also { it.mkdirs() }
+        File(skillDirectory, "SKILL.md")
+            .writeBytes(skill("dir-demo", "Install from a local directory."))
+        File(skillDirectory, "references/guide.md").apply {
+            parentFile?.mkdirs()
+            writeText("guide")
+        }
+
+        val inspection = fixture.installer.inspectLocalDirectory(empty)
+        val candidates = (inspection as SkillArchiveInspectionResult.Success).candidates
+        assertEquals(listOf("dir-demo"), candidates.map { it.id })
+        assertEquals("nested/dir-demo", candidates.single().relativePath)
+
+        val result = fixture.installer.installLocalDirectory(empty)
+
+        val success = result as SkillInstallResult.Success
+        assertEquals(listOf("dir-demo"), success.installed.map { it.id })
+        assertEquals("guide", File(fixture.skillsRoot, "dir-demo/references/guide.md").readText())
+        val indexed = fixture.service.listSkillsForManagement(forceRefresh = true)
+            .single { it.id == "dir-demo" }
+        assertEquals(USER_SKILL_SOURCE, indexed.source)
+        assertTrue(indexed.enabled)
+    }
+
+    @Test
+    fun localDirectoryRejectsSeveralSkillsAndKeepsTheInstalledVersion() {
+        val fixture = fixture("local-directory-multiple")
+        val existing = File(fixture.skillsRoot, "stable/SKILL.md")
+        existing.parentFile?.mkdirs()
+        existing.writeBytes(skill("stable", "Keep the installed version."))
+        val directory = temporaryFolder.newFolder("two-skills")
+        File(directory, "one/SKILL.md").apply { parentFile?.mkdirs() }
+            .writeBytes(skill("one", "First skill."))
+        File(directory, "two/SKILL.md").apply { parentFile?.mkdirs() }
+            .writeBytes(skill("two", "Second skill."))
+
+        assertFailureCode(
+            fixture.installer.installLocalDirectory(directory),
+            SkillInstallErrorCode.MULTIPLE_SKILLS_FOUND,
+        )
+        val inspection = fixture.installer.inspectLocalDirectory(directory)
+        val candidates = (inspection as SkillArchiveInspectionResult.Success).candidates
+        assertEquals(setOf("one", "two"), candidates.map { it.id }.toSet())
+        assertTrue(existing.readText().contains("Keep the installed version"))
+        assertFalse(File(fixture.skillsRoot, "one").exists())
+        assertFalse(File(fixture.skillsRoot, "two").exists())
+    }
+
+    @Test
     fun repositoryInspectionAndExplicitBatchSelectionUseRepositoryRelativePaths() {
         val fixture = fixture("repository-batch")
         val archive = zip(

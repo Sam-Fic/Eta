@@ -595,6 +595,7 @@
   <string name="tool_eta_manage_models">Configure Eta models</string>
   <string name="tool_eta_manage_subagents">Manage Eta sub-agents</string>
   <string name="tool_eta_manage_history">Manage Eta chat history</string>
+  <string name="tool_eta_configure_mcp">Configure Eta MCP servers</string>
   <string name="tool_semantic_search_media">Semantic media search</string>
   <string name="tool_group_media_search">Media semantic search</string>
   <string name="state_eta_itself">Eta itself</string>
@@ -608,6 +609,8 @@
   <string name="tool_ui_eta_manage_subagents_summary">Create, edit and apply the sub-agent groups Eta itself uses.</string>
   <string name="tool_ui_eta_manage_history">Manage Eta chat history</string>
   <string name="tool_ui_eta_manage_history_summary">Create folders and rename, move, pin or delete the conversations Eta stores.</string>
+  <string name="tool_ui_eta_configure_mcp">Configure Eta MCP servers</string>
+  <string name="tool_ui_eta_configure_mcp_summary">Add, change or remove the MCP tool servers Eta itself connects to, and switch their tools on or off.</string>
   <string name="tool_ui_semantic_search_media">Semantic media search</string>
   <string name="tool_ui_semantic_search_media_summary">Search photos, videos and files on this device by meaning, using an offline embedding index.</string>
   <string name="settings_self_settings_tools">Eta self-configuration tools</string>

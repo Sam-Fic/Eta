@@ -69,6 +69,23 @@ class SkillInstallToolCatalogTest {
         assertTrue(function.getString("description").contains("next turn"))
     }
 
+    @Test
+    fun `local install tool is always visible and only requires a directory`() {
+        val base = AgentToolCatalog.build(false, false)
+        assertTrue("skills_install_local" in base.toolNames())
+        val function = base.function("skills_install_local")
+        val parameters = function.getJSONObject("parameters")
+        val properties = parameters.getJSONObject("properties")
+
+        assertEquals("string", properties.getJSONObject("directory").getString("type"))
+        assertEquals(1_000, properties.getJSONObject("directory").getInt("maxLength"))
+        assertEquals("boolean", properties.getJSONObject("replaceExisting").getString("type"))
+        assertEquals("string", properties.getJSONObject("expectedReplacementId").getString("type"))
+        assertEquals(500, properties.getJSONObject("expectedReplacementId").getInt("maxLength"))
+        assertEquals(setOf("directory"), parameters.requiredNames())
+        assertTrue(function.getString("description").contains("next turn"))
+    }
+
     private fun JSONArray.toolNames(): Set<String> =
         (0 until length()).mapTo(mutableSetOf()) { index ->
             getJSONObject(index).getJSONObject("function").getString("name")
