@@ -20,7 +20,7 @@ Eta不只是聊天框。把你自己的模型接到手机上：它可以调系�
 
 支持 **Android 14 及以上**。App 本体不限品牌，基础功能不用 Root。Root 和 LSPosed 能再打开系统访问与助手入口，具体取决于授权和 ROM。
 
-[下载 APK](https://github.com/Sam-Fic/Eta/releases/latest) · [快速开始](#快速开始) · [QQ 群](https://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=QZmmrmSQqSAyI8Mo5NHAMc9l6TejcBrw&authKey=mQrh5avqMDc09GunNdtCmuN5tk9UynOekkjHxfuKPjhN4ELWBMJN5edaYw51UXbQ&noverify=0&group_code=735910197) · [Telegram](https://t.me/+6JhB2iRjjDExYWM1)
+[下载 APK](https://github.com/Sam-Fic/Eta/releases/latest) · [快速开始](#快速开始)
 
 ## 界面预览
 

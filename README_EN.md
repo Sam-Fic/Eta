@@ -20,7 +20,7 @@ It is based on [Eta](https://github.com/Mangi-11/Eta). Upstream built the agent 
 
 Requires **Android 14 or later**. The app is not brand-locked; core features work without root. Root and LSPosed unlock more system access and assistant integration, depending on permission and ROM support.
 
-[Download APK](https://github.com/Sam-Fic/Eta/releases/latest) · [Getting started](#getting-started) · [QQ group](https://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=QZmmrmSQqSAyI8Mo5NHAMc9l6TejcBrw&authKey=mQrh5avqMDc09GunNdtCmuN5tk9UynOekkjHxfuKPjhN4ELWBMJN5edaYw51UXbQ&noverify=0&group_code=735910197) · [Telegram](https://t.me/+6JhB2iRjjDExYWM1)
+[Download APK](https://github.com/Sam-Fic/Eta/releases/latest) · [Getting started](#getting-started)
 
 ## See it in action
 
