@@ -46,12 +46,14 @@ internal class AgentMediaSearchTools(private val context: Context) {
         if (query.isEmpty()) return error("INVALID_ARGUMENT", "action=search 需要 query")
         // 参数先于就绪状态校验，保证非法 kinds 一律报 INVALID_ARGUMENT。
         val kinds = parseKinds(args)
+        val minScore = parseMinScore(args)
         notReady()?.let { return it }
         val result = MediaSearchService.search(
             context,
             query = query,
             kinds = kinds,
             limit = parseLimit(args),
+            minScore = minScore,
         )
         return JSONObject()
             .put("ok", true)
@@ -61,6 +63,7 @@ internal class AgentMediaSearchTools(private val context: Context) {
             .put("dim", result.dim)
             .put("count", result.hits.size)
             .put("total_candidates", result.totalCandidates)
+            .put("min_score", minScore.toDouble())
             .put("results", JSONArray().also { array -> result.hits.forEach { array.put(hitJson(it)) } })
             .toString()
     }
@@ -208,6 +211,10 @@ internal class AgentMediaSearchTools(private val context: Context) {
 
     private fun parseLimit(args: JSONObject): Int =
         if (args.has("limit")) args.optInt("limit", 10).coerceIn(1, 50) else DEFAULT_LIMIT
+
+    /** 匹配度阈值：schema 限 0–1，越界收敛；缺省 0（不过滤）。 */
+    private fun parseMinScore(args: JSONObject): Float =
+        if (args.has("min_score")) args.optDouble("min_score", 0.0).toFloat().coerceIn(0f, 1f) else 0f
 
     private fun hitJson(hit: MediaSearchService.Hit): JSONObject {
         val item = JSONObject()

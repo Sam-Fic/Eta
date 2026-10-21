@@ -100,12 +100,16 @@ internal object MediaSearchService {
      * 入库是「每视频一行平均向量」，命中视频后可选做二段时刻精排（[refineMoments]）：
      * 重新抽帧逐帧比对，把最高分帧的时刻回填到 [Hit.frameTimeMs]。
      * 精排条数与重抽帧预算按 [IndexModeProfile] 取值（全力档 top-5 / 低耗档 top-3）。
+     *
+     * [minScore] 为匹配度阈值：rank 之后按 [applyMinScore] 过滤，低于阈值的命中不返回；
+     * 0（默认）表示不过滤。
      */
     suspend fun search(
         context: Context,
         query: String,
         kinds: Set<MediaKind> = emptySet(),
         limit: Int = 10,
+        minScore: Float = 0f,
         refineMoments: Boolean = true,
     ): SearchResult = withContext(Dispatchers.IO) {
         val app = context.applicationContext
@@ -119,8 +123,8 @@ internal object MediaSearchService {
         // 二段精排预算按索引模式取值：全力档 top-5，低耗档 top-3（逐帧嵌入较贵）。
         val profile = IndexModeProfile.forMode(EmbeddingModelStore.indexMode(app))
         var refined = 0
-        val hits = ranked
-            .map { (row, score) -> hitOf(app, row, score) }
+        // 阈值过滤放在精排之前：被过滤掉的命中不占用重抽帧预算。
+        val hits = applyMinScore(ranked.map { (row, score) -> hitOf(app, row, score) }, minScore)
             .map { hit ->
                 val shouldRefine = refineMoments &&
                     hit.kind == MediaKind.VIDEO &&
@@ -223,6 +227,14 @@ internal object MediaSearchService {
         kinds: Set<MediaKind> = emptySet(),
         limit: Int = 10,
     ): List<Pair<MediaIndexEntity, Float>> = vectorIndex.search(query, rows, kinds, limit)
+
+    /**
+     * 纯函数：按匹配度阈值过滤命中。[minScore] <= 0 表示不过滤；等于阈值的命中保留
+     * （边界含等于）；过滤不改变原有排序。GUI 阈值滑块的即时过滤与 [search] 的
+     * 服务端过滤共用本函数，保证「用户看到的」与「AI 拿到的」口径一致。
+     */
+    internal fun applyMinScore(hits: List<Hit>, minScore: Float): List<Hit> =
+        if (minScore <= 0f) hits else hits.filter { it.score >= minScore }
 
     internal fun dot(a: FloatArray, b: FloatArray): Float {
         var sum = 0f

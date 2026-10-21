@@ -19,7 +19,8 @@ internal object AgentMediaSearchToolCatalog {
                 name = SEARCH_MEDIA,
                 description = "Search the user's local media and documents by natural language " +
                     "(photos, videos and files indexed on-device with a multimodal embedding model, fully offline). " +
-                    "action=search finds items matching the query; kinds filters by media type and limit caps the result count (default 10). " +
+                    "action=search finds items matching the query; kinds filters by media type and limit caps the result count (default 10); " +
+                    "min_score drops hits below the given similarity threshold. " +
                     "action=find_similar finds items similar to one reference item, given its content_uri or path from a previous result. " +
                     "action=list_sources lists configured scan scopes with their counts. " +
                     "action=index_status reports index size, model and whether the index is usable. " +
@@ -76,6 +77,18 @@ internal object AgentMediaSearchToolCatalog {
                                     .put("minimum", 1)
                                     .put("maximum", 50)
                                     .put("description", "Max results for search/find_similar. Default 10."),
+                            )
+                            .put(
+                                "min_score",
+                                JSONObject()
+                                    .put("type", "number")
+                                    .put("minimum", 0)
+                                    .put("maximum", 1)
+                                    .put(
+                                        "description",
+                                        "action=search only: minimum similarity threshold in [0, 1]; " +
+                                            "hits below it are not returned. Default 0 (no filter).",
+                                    ),
                             ),
                     )
                     .put("required", JSONArray().put("action")),

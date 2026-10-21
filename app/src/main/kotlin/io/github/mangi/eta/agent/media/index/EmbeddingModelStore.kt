@@ -210,12 +210,38 @@ internal object EmbeddingModelStore {
         prefs(context).edit().putString("backend", backend.wire).apply()
     }
 
+    /**
+     * 模型是否已下载（廉价检查：文件存在 + 字节数相符，不重算 SHA-256）：
+     * 供 [MediaIndexAutoUpdate] 的守卫（[MediaIndexAutoUpdate.dueReason]）在主线程调用；
+     * 完整哈希校验由索引管线（[modelFile]）负责。
+     */
+    fun modelDownloaded(context: Context): Boolean {
+        val model = EmbeddingModelCatalog.model(
+            prefs(context).getString("model", null),
+            lowMemory = lowMemoryDevice(context),
+        )
+        val asset = model.assets.firstOrNull() ?: return false
+        val file = File(directory(context, model), asset.name)
+        return file.isFile && file.length() == asset.bytes
+    }
+
     /** 索引模式偏好；缺省 [IndexMode.DEFAULT]（低耗后台）。切档即时落库，下一轮索引起生效。 */
     fun indexMode(context: Context): IndexMode =
         IndexMode.from(prefs(context).getString("index_mode", null))
 
     fun setIndexMode(context: Context, mode: IndexMode) {
         prefs(context).edit().putString("index_mode", mode.wire).apply()
+    }
+
+    /**
+     * 检索页匹配度阈值偏好：低于该相似度的命中不显示；0（默认）表示不过滤。
+     * 进检索页时恢复上次调节的阈值（[MediaSearchService.applyMinScore] 同口径）。
+     */
+    fun searchMinScore(context: Context): Float =
+        prefs(context).getFloat("search_min_score", 0f).coerceIn(0f, 1f)
+
+    fun setSearchMinScore(context: Context, minScore: Float) {
+        prefs(context).edit().putFloat("search_min_score", minScore.coerceIn(0f, 1f)).apply()
     }
 
     internal fun valid(file: File, asset: EmbeddingModelCatalog.Asset): Boolean = runCatching {

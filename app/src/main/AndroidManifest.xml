@@ -33,6 +33,8 @@
     <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
     <!-- 媒体语义索引前台服务：熄屏/退后台时持局部唤醒锁跑完扫描与嵌入。 -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- 媒体语义索引自动更新：开机后补排周期闹钟（AlarmManager 闹钟重启后丢失）。 -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <permission
         android:name="io.github.mangi.eta.permission.CONTROL_ACCESSIBILITY_PROTECTION"
@@ -396,6 +398,15 @@
         <receiver
             android:name=".ui.components.ScheduledSendReceiver"
             android:exported="false" />
+
+        <!-- 媒体语义索引自动更新：定时闹钟到点跑一轮；开机后补排周期闹钟。 -->
+        <receiver
+            android:name=".agent.media.index.MediaIndexAutoUpdateReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
     </application>
 

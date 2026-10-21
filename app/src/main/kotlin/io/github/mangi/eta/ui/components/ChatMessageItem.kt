@@ -96,12 +96,14 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.layout.onSizeChanged
@@ -764,6 +766,76 @@ private fun DrawScope.drawUserBubbleTail(color: Color) {
     drawPath(path, color)
 }
 
+/**
+ * 气泡的整体轮廓：圆角矩形，组尾时右下角再接上那条小尾巴，拼成一条连续闭合的路径。
+ *
+ * 编辑态的描边必须沿这条轮廓走。只描圆角矩形的话，右下角的尾巴整条没被描到（描边缺口），
+ * 圆角矩形的右缘还会在尾巴内部留下一条多余的竖线——因为尾巴是从右缘往外凸的，
+ * 那一段右缘在合并后的轮廓里属于内部。
+ */
+private fun DrawScope.userBubbleOutlinePath(
+    corners: CornerRadii,
+    withTail: Boolean,
+): Path {
+    val w = size.width
+    val h = size.height
+    val maxR = minOf(w, h) / 2f
+    val ts = corners.topStart.toPx().coerceAtMost(maxR)
+    val te = corners.topEnd.toPx().coerceAtMost(maxR)
+    val bs = corners.bottomStart.toPx().coerceAtMost(maxR)
+    val be = corners.bottomEnd.toPx().coerceAtMost(maxR)
+    val tw = 5.dp.toPx()
+    val th = 8.dp.toPx()
+    val rTop = 4.dp.toPx()
+    val rBot = UserBubbleInnerCorner.toPx()
+    val tailTop = h - th
+    return Path().apply {
+        // 顺时针一圈：上缘 → 右上角 → 右缘（组尾时绕进尾巴）→ 下缘 → 左下角 → 左缘 → 左上角。
+        moveTo(ts, 0f)
+        lineTo(w - te, 0f)
+        if (te > 0f) {
+            arcTo(Rect(w - te * 2f, 0f, w, te * 2f), -90f, 90f, false)
+        } else {
+            lineTo(w, 0f)
+        }
+        if (withTail) {
+            lineTo(w, tailTop)
+            lineTo(w + tw - rTop, tailTop)
+            if (rTop > 0f) {
+                arcTo(Rect(w + tw - rTop * 2f, tailTop, w + tw, tailTop + rTop * 2f), -90f, 90f, false)
+            } else {
+                lineTo(w + tw, tailTop)
+            }
+            lineTo(w + tw, h - rBot)
+            if (rBot > 0f) {
+                arcTo(Rect(w + tw - rBot * 2f, h - rBot * 2f, w + tw, h), 0f, 90f, false)
+            } else {
+                lineTo(w + tw, h)
+            }
+        } else {
+            lineTo(w, h - be)
+            if (be > 0f) {
+                arcTo(Rect(w - be * 2f, h - be * 2f, w, h), 0f, 90f, false)
+            } else {
+                lineTo(w, h)
+            }
+        }
+        lineTo(bs, h)
+        if (bs > 0f) {
+            arcTo(Rect(0f, h - bs * 2f, bs * 2f, h), 90f, 90f, false)
+        } else {
+            lineTo(0f, h)
+        }
+        lineTo(0f, ts)
+        if (ts > 0f) {
+            arcTo(Rect(0f, 0f, ts * 2f, ts * 2f), 180f, 90f, false)
+        } else {
+            lineTo(0f, 0f)
+        }
+        close()
+    }
+}
+
 @Composable
 private fun UserMessageBubble(
     message: UserMessageUi,
@@ -913,9 +985,7 @@ private fun UserMessageBubble(
         // 气泡本体：半透明 primary 底、按组内位置的连续圆角、右对齐、0.82 宽度上限。
         if (hasBubbleBody) {
             BoxWithConstraints(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .then(if (isGroupTail) Modifier.clickable { actionsRevealed = !actionsRevealed } else Modifier),
+                modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.CenterEnd,
             ) {
                 val corners = if (joinsBubble) {
@@ -934,14 +1004,29 @@ private fun UserMessageBubble(
                     .background(bubbleBg)
                 val bubbleModifier = Modifier
                     .widthIn(max = maxWidth * 0.82f)
-                    .then(if (isGroupTail) Modifier.drawBehind { drawUserBubbleTail(bubbleBg) } else Modifier)
-                    .then(bubbleSurface)
+                    // 编辑态描边：整条轮廓（含右下角尾巴）一次描完，且必须挂在 clip 之外，
+                    // 否则描边会被气泡形状裁掉、尾巴那一段永远缺一块。
                     .then(
                         if (isEditing) {
-                            Modifier.border(
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                                shape = bubbleShape,
-                            )
+                            Modifier.drawWithContent {
+                                drawContent()
+                                drawPath(
+                                    path = userBubbleOutlinePath(corners, isGroupTail),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    style = Stroke(width = 1.dp.toPx()),
+                                )
+                            }
+                        } else {
+                            Modifier
+                        },
+                    )
+                    .then(if (isGroupTail) Modifier.drawBehind { drawUserBubbleTail(bubbleBg) } else Modifier)
+                    .then(bubbleSurface)
+                    // 展开 / 收起操作行的按压区只覆盖气泡本身：接在 clip 之后，官方涟漪
+                    // （LocalIndication）会一起被裁到气泡形状上，不再是整行宽的直角高亮块。
+                    .then(
+                        if (isGroupTail) {
+                            Modifier.clickable { actionsRevealed = !actionsRevealed }
                         } else {
                             Modifier
                         },

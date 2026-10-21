@@ -63,7 +63,6 @@ import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Surface
@@ -806,7 +805,8 @@ private fun voicePhaseText(state: VoiceModeState): String = when {
 
 /**
  * 编辑态下的“取消编辑”按钮：占据工具栏左侧入口位置（与发送按钮对称），官方
- * 色调图标按钮（尺寸/图标/水波纹/按压形变均为官方默认）。
+ * 色调图标按钮（尺寸/图标/水波纹/按压形变均为官方默认），容器色取官方
+ * `tertiaryContainer` / `onTertiaryContainer` 角色（覆盖官方 tonal 默认的 secondaryContainer）。
  *
  * [modifier] 供调用方传入 `Modifier.align(Alignment.Bottom)`（配 8dp 底内边距）：
  * 官方工具栏内容 Row 是顶对齐，不显式对齐会相对输入框偏高；贴底后与尾部发送按钮同一条基线，
@@ -821,6 +821,10 @@ private fun M3ComposerCancelButton(onClick: () -> Unit, modifier: Modifier = Mod
             onClick()
         },
         modifier = modifier.size(IconButtonDefaults.smallContainerSize()),
+        colors = IconButtonDefaults.filledTonalIconButtonColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+            contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+        ),
     ) {
         Icon(
             imageVector = Icons.Rounded.Close,
@@ -831,8 +835,7 @@ private fun M3ComposerCancelButton(onClick: () -> Unit, modifier: Modifier = Mod
 }
 
 /**
- * 「+」主操作按钮：空闲态是官方标准图标按钮（透明容器，只有图标），展开附件与发送选项
- * 菜单后转为填充圆钮并带上主色（`primary`／`onPrimary`，与尾部「通话」按钮同一组色槽）。
+ * 「+」主操作按钮：无底板的标准图标（只有图标、按下无涟漪 / 色块），展开附件与发送选项菜单。
  * 点击展开菜单：定时发送 / 存草稿 / 分享，以及拍照 / 视频 / 文件 / 文件夹 / 输入路径等附件项
  * （动作由共享的 `rememberAgentAttachmentActions` 提供）。
  *
@@ -858,26 +861,6 @@ private fun M3ComposerAddButton(
         animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "composer_add_icon_rotation",
     )
-    // 变色（透明空闲态 ↔ primary 展开态）不硬切：容器色与内容色各自沿官方
-    // Expressive 弹簧平滑渐变。
-    //
-    // 颜色随主题自动适配（深 / 浅色模式都取自 MaterialTheme.colorScheme，非写死）：
-    //  - 空闲态：容器透明；图标取工具栏的内容色 `onPrimaryContainer`（同排「图库 / 助手与模型」
-    //    标准 IconButton 的图标即取此色，见 LocalContentColor），在深浅色下与工具栏（vibrant
-    //    primaryContainer）都保持一致对比度。
-    //  - 展开态：容器 `primary`、图标 `onPrimary`，与尾部「通话」按钮同一组色槽。
-    // 两端都用明确颜色，animateColorAsState 才能稳定插值。
-    val idleContentColor = LocalContentColor.current
-    val containerColor by animateColorAsState(
-        targetValue = if (expanded) MaterialTheme.colorScheme.primary else Color.Transparent,
-        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
-        label = "composer_add_container_color",
-    )
-    val contentColor by animateColorAsState(
-        targetValue = if (expanded) MaterialTheme.colorScheme.onPrimary else idleContentColor,
-        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
-        label = "composer_add_content_color",
-    )
     val view = LocalView.current
     val context = LocalContext.current
     // 菜单分两组：对话操作 / 附件来源。条目用「文案资源 + 前置图标 + 动作」描述，
@@ -895,16 +878,13 @@ private fun M3ComposerAddButton(
         ComposerMenuEntry(R.string.attachment_enter_path, Icons.Rounded.Link, actions.inputPath),
     )
     Box {
-        // 容器 / 内容色只由上面的渐变驱动，两种颜色之间平滑过渡。
-        //
-        // 这里刻意不走官方 `IconButton`（它带 `ripple` 水波纹，按压瞬间会叠加一层高亮，
-        // 与渐变一起造成“闪烁”）；改为纯背景绘制 + `clickable(indication = null)`，
-        // 按下没有任何额外高亮 / 涟漪，颜色变化只剩渐变这一条来源。
+        // 这里刻意不走官方 `IconButton`（它带 `ripple` 水波纹，按下会浮出一层高亮），
+        // 也不用任何容器色：改为无底板的圆形点击区 + `clickable(indication = null)`，
+        // 按下既没有涟漪也没有色块，只剩图标本身的 45° 旋转反馈。
         Box(
             modifier = Modifier
                 .size(IconButtonDefaults.smallContainerSize())
                 .clip(CircleShape)
-                .background(containerColor, CircleShape)
                 .focusProperties { canFocus = false }
                 .semantics {
                     role = Role.Button
@@ -922,7 +902,6 @@ private fun M3ComposerAddButton(
             Icon(
                 imageVector = Icons.Rounded.Add,
                 contentDescription = null,
-                tint = contentColor,
                 modifier = Modifier
                     .size(IconButtonDefaults.smallIconSize)
                     .graphicsLayer { rotationZ = iconRotation },

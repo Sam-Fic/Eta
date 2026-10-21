@@ -111,6 +111,12 @@ class EtaApp : Application(), XposedServiceHelper.OnServiceListener {
                 }
             }
         }
+        // 媒体语义索引自动更新：完整运行时初始化之后再跑（启动开关 + 重排定时闹钟）。
+        applicationScope.launch {
+            runCatching {
+                io.github.mangi.eta.agent.media.index.MediaIndexAutoUpdate.onAppLaunch(this@EtaApp)
+            }
+        }
         val predictiveBackEnabled = runBlocking(Dispatchers.IO) {
             AppearanceSettingsRepository.settings().predictiveBackEnabled
         }

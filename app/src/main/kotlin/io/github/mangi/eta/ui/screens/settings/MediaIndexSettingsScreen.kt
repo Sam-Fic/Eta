@@ -33,6 +33,7 @@ import io.github.mangi.eta.agent.media.index.EmbeddingModelStore
 import io.github.mangi.eta.agent.media.index.EtaEmbeddingEngine
 import io.github.mangi.eta.agent.media.index.IndexMode
 import io.github.mangi.eta.agent.media.index.InferenceBackend
+import io.github.mangi.eta.agent.media.index.MediaIndexAutoUpdate
 import io.github.mangi.eta.agent.media.index.MediaIndexer
 import io.github.mangi.eta.agent.media.index.MediaIndexService
 import io.github.mangi.eta.agent.media.index.MediaSearchService
@@ -52,6 +53,7 @@ import io.github.mangi.eta.ui.adaptive.EtaSegmentedDropdownRow
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedGroupSpacing
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedRadioRow
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedTitleSpacing
+import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
 import io.github.mangi.eta.ui.adaptive.EtaText
 import io.github.mangi.eta.ui.adaptive.EtaTextButton
 import io.github.mangi.eta.ui.adaptive.EtaTextStyle
@@ -75,6 +77,9 @@ private val BACKEND_OPTIONS = listOf(
     InferenceBackend.GPU,
     InferenceBackend.NPU,
 )
+
+/** 定时自动更新档位（小时）：关闭 / 每 6 小时 / 每天 / 每 3 天 / 每周（取值与 [MediaIndexAutoUpdate] 一致）。 */
+private val AUTO_INTERVAL_HOURS = listOf(0, 6, 24, 72, 168)
 
 /** 系统媒体库源需要的按需运行时权限（minSdk 34，含部分授权）。 */
 private val MEDIA_READ_PERMISSIONS = arrayOf(
@@ -106,6 +111,8 @@ internal fun MediaIndexSettingsScreen(
         mutableIntStateOf(BACKEND_OPTIONS.indexOf(EmbeddingModelStore.backend(context)).coerceAtLeast(0))
     }
     var indexMode by remember { mutableStateOf(EmbeddingModelStore.indexMode(context)) }
+    var autoIndexOnLaunch by remember { mutableStateOf(MediaIndexAutoUpdate.autoIndexOnLaunch(context)) }
+    var autoIntervalHours by remember { mutableIntStateOf(MediaIndexAutoUpdate.autoIndexIntervalHours(context)) }
     var activeBackend by remember { mutableStateOf(EtaEmbeddingEngine.activeBackend) }
     var backendFellBack by remember { mutableStateOf(EtaEmbeddingEngine.activeBackendFellBack) }
     var lowMemoryDevice by remember { mutableStateOf(EmbeddingModelStore.lowMemoryDevice(context)) }
@@ -624,6 +631,65 @@ internal fun MediaIndexSettingsScreen(
                             },
                         )
                     }
+                }
+            }
+        }
+
+        // ── 自动更新（启动后 / 定时）────────────────────────────────
+        item(key = "auto-update-group") {
+            EtaSegmentedColumn(
+                title = stringResource(R.string.media_auto_group),
+                modifier = Modifier.padding(
+                    start = EtaGroupHorizontalPadding,
+                    end = EtaGroupHorizontalPadding,
+                    bottom = EtaSegmentedGroupSpacing,
+                ),
+            ) {
+                item(key = "auto-on-launch") {
+                    EtaSwitchRow(
+                        title = stringResource(R.string.media_auto_on_launch),
+                        checked = autoIndexOnLaunch,
+                        summary = stringResource(R.string.media_auto_on_launch_summary),
+                        onCheckedChange = { enabled ->
+                            autoIndexOnLaunch = enabled
+                            // 即时落库生效：下次应用启动起，自动跑一轮增量索引。
+                            MediaIndexAutoUpdate.setAutoIndexOnLaunch(context, enabled)
+                        },
+                    )
+                }
+                item(key = "auto-interval") {
+                    EtaSegmentedDropdownRow(
+                        title = stringResource(R.string.media_auto_interval),
+                        items = listOf(
+                            stringResource(R.string.media_auto_interval_off),
+                            stringResource(R.string.media_auto_interval_6h),
+                            stringResource(R.string.media_auto_interval_daily),
+                            stringResource(R.string.media_auto_interval_3d),
+                            stringResource(R.string.media_auto_interval_weekly),
+                        ),
+                        selectedIndex = AUTO_INTERVAL_HOURS.indexOf(autoIntervalHours).coerceAtLeast(0),
+                        onItemSelected = { index ->
+                            if (index in AUTO_INTERVAL_HOURS.indices) {
+                                autoIntervalHours = AUTO_INTERVAL_HOURS[index]
+                                // 即时落库并重排/取消闹钟，改档立即生效。
+                                MediaIndexAutoUpdate.setAutoIndexIntervalHours(context, AUTO_INTERVAL_HOURS[index])
+                                MediaIndexAutoUpdate.schedule(context)
+                            }
+                        },
+                    )
+                }
+                // 常驻说明：自动更新固定低耗后台档，不跟随上方手选档位。
+                item(key = "auto-power-saver-note", surface = false) {
+                    EtaText(
+                        text = stringResource(R.string.media_auto_power_saver_note),
+                        style = EtaTextStyle.Footnote,
+                        modifier = Modifier.padding(
+                            start = EtaGroupHorizontalPadding,
+                            end = EtaGroupHorizontalPadding,
+                            top = 4.dp,
+                            bottom = 4.dp,
+                        ),
+                    )
                 }
             }
         }

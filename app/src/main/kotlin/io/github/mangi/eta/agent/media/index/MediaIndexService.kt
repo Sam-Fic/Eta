@@ -29,6 +29,7 @@ import kotlinx.coroutines.launch
  * 生命周期：start → 建渠道/起前台 → 取唤醒锁 → 跑索引（按 [MediaIndexer.state] 刷通知）→
  * 成功/失败/取消后放唤醒锁、stopForeground(REMOVE)、stopSelf。
  * 索引按存储的 [IndexMode] 档位启动（[EmbeddingModelStore.indexMode]），
+ * 自动更新路径（[MediaIndexAutoUpdate]）可经 [start] 的 mode 参数覆盖为低耗档；
  * 通知摘要带档位名（如「低耗后台 · 索引中…」）。
  */
 internal class MediaIndexService : Service() {
@@ -77,8 +78,10 @@ internal class MediaIndexService : Service() {
             refreshNotification()
             return START_NOT_STICKY
         }
-        // 按存储的索引档位启动；本轮跑的是启动时刻的档位，之后切档下一轮才生效。
-        mode = EmbeddingModelStore.indexMode(applicationContext)
+        // 档位：显式覆盖（自动更新固定低耗档）优先，否则按存储的索引模式偏好；
+        // 本轮跑的是启动时刻的档位，之后切档下一轮才生效。
+        mode = intent?.getStringExtra(EXTRA_MODE)?.let { IndexMode.from(it) }
+            ?: EmbeddingModelStore.indexMode(applicationContext)
         acquireWakeLock()
         publishedText = null
         indexJob = scope.launch {
@@ -187,14 +190,21 @@ internal class MediaIndexService : Service() {
         private const val CHANNEL = "eta_media_index"
         private const val NOTIFICATION_ID = 1108
         private const val ACTION_STOP = "io.github.mangi.eta.action.STOP_MEDIA_INDEX"
+        private const val EXTRA_MODE = "io.github.mangi.eta.extra.MEDIA_INDEX_MODE"
         private const val WAKE_LOCK_TAG = "eta:media-index"
         private const val WAKE_LOCK_TIMEOUT_MS = 30 * 60 * 1000L
         @Volatile private var instance: MediaIndexService? = null
 
-        /** 启动后台索引（幂等）：已在跑就不再下发启动，服务内 onStartCommand 还有第二道判重。 */
-        fun start(context: Context) {
+        /**
+         * 启动后台索引（幂等）：已在跑就不再下发启动，服务内 onStartCommand 还有第二道判重。
+         * [mode] 覆盖本轮档位（[MediaIndexAutoUpdate] 自动更新固定传 [IndexMode.POWER_SAVER]）；
+         * null = 按存储的索引模式偏好（[EmbeddingModelStore.indexMode]）。
+         */
+        fun start(context: Context, mode: IndexMode? = null) {
             if (MediaIndexer.isRunning() || instance?.indexJob?.isActive == true) return
-            context.applicationContext.startForegroundService(Intent(context, MediaIndexService::class.java))
+            val intent = Intent(context, MediaIndexService::class.java)
+            if (mode != null) intent.putExtra(EXTRA_MODE, mode.wire)
+            context.applicationContext.startForegroundService(intent)
         }
 
         /** 停止后台索引：复用通知停止按钮的 ACTION_STOP PendingIntent，后台态也能送达。 */

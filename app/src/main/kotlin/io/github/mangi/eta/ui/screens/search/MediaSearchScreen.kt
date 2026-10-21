@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.provider.DocumentsContract
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -14,21 +15,26 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Checklist
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Videocam
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -53,10 +59,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import io.github.mangi.eta.R
+import io.github.mangi.eta.agent.media.index.EmbeddingModelStore
 import io.github.mangi.eta.agent.media.index.MediaSearchService
+import io.github.mangi.eta.data.db.EtaDatabase
 import io.github.mangi.eta.data.db.MediaKind
+import io.github.mangi.eta.ui.adaptive.EtaCard
 import io.github.mangi.eta.ui.adaptive.EtaClickableRow
 import io.github.mangi.eta.ui.adaptive.EtaDecorativeShape
+import io.github.mangi.eta.ui.adaptive.EtaDialog
+import io.github.mangi.eta.ui.adaptive.EtaDialogActions
 import io.github.mangi.eta.ui.adaptive.EtaDimens
 import io.github.mangi.eta.ui.adaptive.EtaGroupHorizontalPadding
 import io.github.mangi.eta.ui.adaptive.EtaSearchScaffold
@@ -64,7 +75,9 @@ import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedGap
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedGroupSpacing
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedItem
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedTitleSpacing
+import io.github.mangi.eta.ui.adaptive.EtaSlider
 import io.github.mangi.eta.ui.adaptive.EtaText
 import io.github.mangi.eta.ui.adaptive.EtaTextStyle
 import io.github.mangi.eta.ui.adaptive.etaRandomDecorativeShape
@@ -72,9 +85,11 @@ import io.github.mangi.eta.ui.components.ContainedMorphLoadingIndicator
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.navigation.AppRoute
 import java.io.File
+import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -122,9 +137,17 @@ internal fun MediaSearchScreen(
     var searching by remember { mutableStateOf(false) }
     var result by remember { mutableStateOf<MediaSearchService.SearchResult?>(null) }
     var errorText by remember { mutableStateOf<String?>(null) }
+    // 匹配度阈值：进页面恢复上次调节值（EmbeddingModelStore prefs），拖动结束落盘。
+    var minScore by rememberSaveable { mutableStateOf(0f) }
+    // 多选批量管理：勾选集合以 sourceKey 为键；操作完成或新一轮检索后退出并清空。
+    var selectionMode by remember { mutableStateOf(false) }
+    var selectedKeys by remember { mutableStateOf(setOf<String>()) }
+    var confirmDeleteFiles by remember { mutableStateOf(false) }
+    var batchBusy by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         status = runCatching { MediaSearchService.status(context) }.getOrNull()
+        minScore = EmbeddingModelStore.searchMinScore(context)
     }
 
     /** 执行一次语义检索；查询为空或索引未就绪时不动作（引导卡片负责指向设置页）。 */
@@ -133,6 +156,9 @@ internal fun MediaSearchScreen(
         if (text.isEmpty() || searching) return
         // 检索是显式动作：触发后立刻收起键盘，结果区不再被输入法挤成半屏。
         focusManager.clearFocus()
+        // 换结果集先退出多选：旧结果上的勾选不延续到新结果。
+        selectionMode = false
+        selectedKeys = emptySet()
         scope.launch {
             searching = true
             errorText = null
@@ -151,199 +177,384 @@ internal fun MediaSearchScreen(
         }
     }
 
+    /** 勾选切换：选中/取消选中一条结果。 */
+    fun toggleHit(sourceKey: String) {
+        selectedKeys = if (sourceKey in selectedKeys) {
+            selectedKeys - sourceKey
+        } else {
+            selectedKeys + sourceKey
+        }
+    }
+
     val ready = status?.ready == true
-    val hits = result?.hits.orEmpty()
+    val rawHits = result?.hits.orEmpty()
+    // 阈值即时过滤：低于阈值的命中不显示（0 不过滤），与服务端 MediaSearchService.applyMinScore 同口径。
+    val hits = MediaSearchService.applyMinScore(rawHits, minScore)
+    val hiddenCount = rawHits.size - hits.size
+    // 勾选按当前显示的命中取交集：阈值抬高后被隐藏的条目不再计入批量操作。
+    val selectedHits = hits.filter { it.sourceKey in selectedKeys }
 
-    EtaSearchScaffold(
-        query = query,
-        onQueryChange = { query = it },
-        searchPlaceholder = stringResource(R.string.media_search_placeholder),
-        onBack = onBack,
-        // IME 的搜索键与顶栏的「搜索」按钮走同一条路径。
-        onSubmit = { runSearch() },
-        actions = {
-            // 语义检索每次都要跑嵌入模型，不能随输入实时触发，所以顶栏常驻一个显式按钮。
-            // 用放大镜图标表示（与设置主页的搜索入口同一套图标）。
-            IconButton(
-                onClick = { runSearch() },
-                enabled = query.trim().isNotEmpty() && ready && !searching,
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Search,
-                    contentDescription = stringResource(R.string.media_action_search),
-                )
+    /** 移出索引：删 media_index 行与缩略图缓存，源文件保留。 */
+    fun runRemoveFromIndex() {
+        val targets = selectedHits
+        if (targets.isEmpty() || batchBusy) return
+        scope.launch {
+            batchBusy = true
+            withContext(Dispatchers.IO) {
+                targets.forEach { hit -> deleteThumbnail(context, hit) }
+                EtaDatabase.get(context).mediaIndexDao().deleteBySourceKeys(targets.map { it.sourceKey })
             }
-        },
-        topContent = {
-            // 类型标签常驻顶栏下方：搜索前后都能切换范围，不用滚回页面顶部。
-            MediaFilterBar(
-                selectedIndex = filterIndex,
-                onSelect = { index ->
-                    TouchHaptics.click(view)
-                    filterIndex = index
-                    if (result != null && query.trim().isNotEmpty()) runSearch()
+            batchBusy = false
+            selectionMode = false
+            selectedKeys = emptySet()
+            Toast.makeText(
+                context,
+                context.getString(R.string.media_remove_index_done, targets.size),
+                Toast.LENGTH_LONG,
+            ).show()
+            runSearch()
+        }
+    }
+
+    /** 删除文件：逐条删源文件（失败不中断其他项），成功项同步移出索引，最后汇总提示。 */
+    fun runDeleteFiles() {
+        val targets = selectedHits
+        if (targets.isEmpty() || batchBusy) return
+        scope.launch {
+            batchBusy = true
+            val failed = withContext(Dispatchers.IO) {
+                val failedNames = mutableListOf<String>()
+                targets.forEach { hit ->
+                    if (deleteSourceFile(context, hit)) {
+                        // 源文件已删：同步清缩略图缓存与索引行。
+                        deleteThumbnail(context, hit)
+                        EtaDatabase.get(context).mediaIndexDao().deleteBySourceKeys(listOf(hit.sourceKey))
+                    } else {
+                        // 无权限 / 被占用等失败项只记录，不影响其他条目。
+                        failedNames += hit.displayName
+                    }
+                }
+                failedNames
+            }
+            batchBusy = false
+            selectionMode = false
+            selectedKeys = emptySet()
+            Toast.makeText(
+                context,
+                if (failed.isEmpty()) {
+                    context.getString(R.string.media_delete_files_done, targets.size)
+                } else {
+                    context.getString(
+                        R.string.media_delete_files_partial,
+                        targets.size - failed.size,
+                        failed.size,
+                        failed.joinToString(", "),
+                    )
                 },
-            )
-        },
-    ) {
-        // 选中「音频 / 文件」时的索引口径提示：常驻在结果列表上方。
-        if (filterIndex == 3 || filterIndex == 4) {
-            item(key = "filter-note") {
-                EtaText(
-                    text = stringResource(
-                        if (filterIndex == 3) {
-                            R.string.media_filter_audio_note
-                        } else {
-                            R.string.media_filter_document_note
+                Toast.LENGTH_LONG,
+            ).show()
+            runSearch()
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        EtaSearchScaffold(
+            query = query,
+            onQueryChange = { query = it },
+            searchPlaceholder = stringResource(R.string.media_search_placeholder),
+            onBack = onBack,
+            // IME 的搜索键与顶栏的「搜索」按钮走同一条路径。
+            onSubmit = { runSearch() },
+            actions = {
+                if (selectionMode) {
+                    // 多选模式：顶栏只留「退出多选」，单条「打开」入口随行点击语义一起收起。
+                    IconButton(
+                        onClick = {
+                            TouchHaptics.click(view)
+                            selectionMode = false
+                            selectedKeys = emptySet()
                         },
-                    ),
-                    secondary = true,
-                    modifier = Modifier.padding(
-                        start = EtaGroupHorizontalPadding,
-                        end = EtaGroupHorizontalPadding,
-                        top = 4.dp,
-                        bottom = EtaSegmentedGroupSpacing,
-                    ),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = stringResource(R.string.media_action_exit_select),
+                        )
+                    }
+                } else {
+                    // 有结果时才可进入多选（长按结果行同样可进入）。
+                    if (rawHits.isNotEmpty()) {
+                        IconButton(
+                            onClick = {
+                                TouchHaptics.click(view)
+                                selectionMode = true
+                                selectedKeys = emptySet()
+                            },
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Checklist,
+                                contentDescription = stringResource(R.string.media_action_multiselect),
+                            )
+                        }
+                    }
+                    // 语义检索每次都要跑嵌入模型，不能随输入实时触发，所以顶栏常驻一个显式按钮。
+                    // 用放大镜图标表示（与设置主页的搜索入口同一套图标）。
+                    IconButton(
+                        onClick = { runSearch() },
+                        enabled = query.trim().isNotEmpty() && ready && !searching,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Search,
+                            contentDescription = stringResource(R.string.media_action_search),
+                        )
+                    }
+                }
+            },
+            topContent = {
+                // 类型标签常驻顶栏下方：搜索前后都能切换范围，不用滚回页面顶部。
+                MediaFilterBar(
+                    selectedIndex = filterIndex,
+                    onSelect = { index ->
+                        TouchHaptics.click(view)
+                        filterIndex = index
+                        if (result != null && query.trim().isNotEmpty()) runSearch()
+                    },
                 )
+            },
+        ) {
+            // 选中「音频 / 文件」时的索引口径提示：常驻在结果列表上方。
+            if (filterIndex == 3 || filterIndex == 4) {
+                item(key = "filter-note") {
+                    EtaText(
+                        text = stringResource(
+                            if (filterIndex == 3) {
+                                R.string.media_filter_audio_note
+                            } else {
+                                R.string.media_filter_document_note
+                            },
+                        ),
+                        secondary = true,
+                        modifier = Modifier.padding(
+                            start = EtaGroupHorizontalPadding,
+                            end = EtaGroupHorizontalPadding,
+                            top = 4.dp,
+                            bottom = EtaSegmentedGroupSpacing,
+                        ),
+                    )
+                }
+            }
+
+            when {
+                // 未就绪态：模型未下载或扫描源未确认，引导到设置页。
+                !ready -> {
+                    item(key = "not-ready") {
+                        EtaSegmentedColumn(
+                            modifier = Modifier.padding(
+                                start = EtaGroupHorizontalPadding,
+                                end = EtaGroupHorizontalPadding,
+                                bottom = EtaSegmentedGroupSpacing,
+                            ),
+                        ) {
+                            item {
+                                EtaClickableRow(
+                                    title = stringResource(R.string.media_search_not_ready_title),
+                                    summary = stringResource(R.string.media_search_not_ready_summary),
+                                    onClick = { onNavigate(AppRoute.MediaIndexSettings) },
+                                )
+                            }
+                        }
+                    }
+                }
+                searching -> {
+                    // 检索中：块级 loading（M3E 官方 morph 指示器），整体居中展示。
+                    item(key = "searching") {
+                        Box(
+                            modifier = Modifier.fillParentMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                                modifier = Modifier.padding(horizontal = 32.dp),
+                            ) {
+                                ContainedMorphLoadingIndicator()
+                                EtaText(
+                                    text = stringResource(R.string.media_search_searching),
+                                    style = EtaTextStyle.Secondary,
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
+                        }
+                    }
+                }
+                errorText != null -> {
+                    item(key = "search-error") {
+                        EtaText(
+                            text = stringResource(R.string.media_search_error, errorText ?: ""),
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(
+                                start = EtaGroupHorizontalPadding,
+                                end = EtaGroupHorizontalPadding,
+                                bottom = EtaSegmentedGroupSpacing,
+                            ),
+                        )
+                    }
+                }
+                result == null -> {
+                    // 空闲态：与其它搜索页同一套官方 Empty state（装饰形状 + 放大镜 + 一句说明）。
+                    item(key = "search-idle") {
+                        MediaSearchEmptyState(
+                            text = stringResource(R.string.media_search_hint),
+                            modifier = Modifier.fillParentMaxSize(),
+                        )
+                    }
+                }
+                rawHits.isEmpty() -> {
+                    // 无结果态：索引为空时直接给「去建立索引」引导。
+                    item(key = "no-results") {
+                        EtaSegmentedColumn(
+                            modifier = Modifier.padding(
+                                start = EtaGroupHorizontalPadding,
+                                end = EtaGroupHorizontalPadding,
+                                bottom = EtaSegmentedGroupSpacing,
+                            ),
+                        ) {
+                            item {
+                                EtaClickableRow(
+                                    title = stringResource(R.string.media_search_no_results),
+                                    summary = if (result?.totalCandidates == 0) {
+                                        stringResource(R.string.media_search_empty_index)
+                                    } else {
+                                        null
+                                    },
+                                    onClick = null,
+                                    showChevron = false,
+                                )
+                            }
+                            item(visible = result?.totalCandidates == 0) {
+                                EtaClickableRow(
+                                    title = stringResource(R.string.media_action_build_index),
+                                    onClick = { onNavigate(AppRoute.MediaIndexSettings) },
+                                )
+                            }
+                        }
+                    }
+                }
+                else -> {
+                    // 匹配度阈值调节行：结果区上方，低于阈值的命中即时隐藏并提示已隐藏条数。
+                    item(key = "threshold") {
+                        MediaThresholdRow(
+                            minScore = minScore,
+                            hiddenCount = hiddenCount,
+                            onValueChange = { minScore = it },
+                            onValueChangeFinished = {
+                                EmbeddingModelStore.setSearchMinScore(context, minScore)
+                            },
+                        )
+                    }
+                    // 结果计数作组标题：与设置主页的分组标题同一套样式（primary + titleSmallEmphasized）。
+                    item(key = "result-count") {
+                        Text(
+                            text = stringResource(R.string.media_search_result_count, hits.size),
+                            style = MaterialTheme.typography.titleSmallEmphasized,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(
+                                start = EtaGroupHorizontalPadding,
+                                end = EtaGroupHorizontalPadding,
+                                bottom = EtaSegmentedTitleSpacing,
+                            ),
+                        )
+                    }
+                    // 结果行完全复用设置主页的分组列表：行距 2dp、组末 13dp、左右页边距 16dp，
+                    // 分段形状由 [EtaSegmentedItem] 按 index/count 注入（首末项外圆角、中间内圆角）。
+                    hits.forEachIndexed { index, hit ->
+                        item(key = hit.sourceKey) {
+                            EtaSegmentedItem(index = index, count = hits.size) {
+                                MediaHitRow(
+                                    hit = hit,
+                                    summary = hitSummary(context, hit),
+                                    selectionMode = selectionMode,
+                                    checked = hit.sourceKey in selectedKeys,
+                                    onClick = {
+                                        // 多选态点击改勾选；单条「打开」仅在非多选态可用。
+                                        if (selectionMode) {
+                                            toggleHit(hit.sourceKey)
+                                        } else {
+                                            openHit(context, hit)
+                                        }
+                                    },
+                                    onLongClick = {
+                                        // 长按进入多选并选中当前行（长按触感由行内建，不重复触发）。
+                                        selectionMode = true
+                                        selectedKeys = selectedKeys + hit.sourceKey
+                                    },
+                                    modifier = Modifier.padding(
+                                        start = EtaGroupHorizontalPadding,
+                                        end = EtaGroupHorizontalPadding,
+                                        bottom = if (index == hits.lastIndex) {
+                                            EtaSegmentedGroupSpacing
+                                        } else {
+                                            EtaSegmentedGap
+                                        },
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
 
-        when {
-            // 未就绪态：模型未下载或扫描源未确认，引导到设置页。
-            !ready -> {
-                item(key = "not-ready") {
-                    EtaSegmentedColumn(
-                        modifier = Modifier.padding(
-                            start = EtaGroupHorizontalPadding,
-                            end = EtaGroupHorizontalPadding,
-                            bottom = EtaSegmentedGroupSpacing,
-                        ),
-                    ) {
-                        item {
-                            EtaClickableRow(
-                                title = stringResource(R.string.media_search_not_ready_title),
-                                summary = stringResource(R.string.media_search_not_ready_summary),
-                                onClick = { onNavigate(AppRoute.MediaIndexSettings) },
-                            )
-                        }
+        // 多选批量操作栏：底部悬浮常驻，显示已选数量并承载全选与两个批量操作。
+        if (selectionMode) {
+            MediaSelectionBar(
+                selectedCount = selectedHits.size,
+                allSelected = hits.isNotEmpty() && selectedHits.size == hits.size,
+                busy = batchBusy,
+                onSelectAll = {
+                    TouchHaptics.click(view)
+                    selectedKeys = if (hits.isNotEmpty() && selectedHits.size == hits.size) {
+                        emptySet()
+                    } else {
+                        hits.map { it.sourceKey }.toSet()
                     }
-                }
-            }
-            searching -> {
-                // 检索中：块级 loading（M3E 官方 morph 指示器），整体居中展示。
-                item(key = "searching") {
-                    Box(
-                        modifier = Modifier.fillParentMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
-                            modifier = Modifier.padding(horizontal = 32.dp),
-                        ) {
-                            ContainedMorphLoadingIndicator()
-                            EtaText(
-                                text = stringResource(R.string.media_search_searching),
-                                style = EtaTextStyle.Secondary,
-                                textAlign = TextAlign.Center,
-                            )
-                        }
-                    }
-                }
-            }
-            errorText != null -> {
-                item(key = "search-error") {
-                    EtaText(
-                        text = stringResource(R.string.media_search_error, errorText ?: ""),
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(
-                            start = EtaGroupHorizontalPadding,
-                            end = EtaGroupHorizontalPadding,
-                            bottom = EtaSegmentedGroupSpacing,
-                        ),
-                    )
-                }
-            }
-            result == null -> {
-                // 空闲态：与其它搜索页同一套官方 Empty state（装饰形状 + 放大镜 + 一句说明）。
-                item(key = "search-idle") {
-                    MediaSearchEmptyState(
-                        text = stringResource(R.string.media_search_hint),
-                        modifier = Modifier.fillParentMaxSize(),
-                    )
-                }
-            }
-            hits.isEmpty() -> {
-                // 无结果态：索引为空时直接给「去建立索引」引导。
-                item(key = "no-results") {
-                    EtaSegmentedColumn(
-                        modifier = Modifier.padding(
-                            start = EtaGroupHorizontalPadding,
-                            end = EtaGroupHorizontalPadding,
-                            bottom = EtaSegmentedGroupSpacing,
-                        ),
-                    ) {
-                        item {
-                            EtaClickableRow(
-                                title = stringResource(R.string.media_search_no_results),
-                                summary = if (result?.totalCandidates == 0) {
-                                    stringResource(R.string.media_search_empty_index)
-                                } else {
-                                    null
-                                },
-                                onClick = null,
-                                showChevron = false,
-                            )
-                        }
-                        item(visible = result?.totalCandidates == 0) {
-                            EtaClickableRow(
-                                title = stringResource(R.string.media_action_build_index),
-                                onClick = { onNavigate(AppRoute.MediaIndexSettings) },
-                            )
-                        }
-                    }
-                }
-            }
-            else -> {
-                // 结果计数作组标题：与设置主页的分组标题同一套样式（primary + titleSmallEmphasized）。
-                item(key = "result-count") {
-                    Text(
-                        text = stringResource(R.string.media_search_result_count, hits.size),
-                        style = MaterialTheme.typography.titleSmallEmphasized,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(
-                            start = EtaGroupHorizontalPadding,
-                            end = EtaGroupHorizontalPadding,
-                            bottom = EtaSegmentedTitleSpacing,
-                        ),
-                    )
-                }
-                // 结果行完全复用设置主页的分组列表：行距 2dp、组末 13dp、左右页边距 16dp，
-                // 分段形状由 [EtaSegmentedItem] 按 index/count 注入（首末项外圆角、中间内圆角）。
-                hits.forEachIndexed { index, hit ->
-                    item(key = hit.sourceKey) {
-                        EtaSegmentedItem(index = index, count = hits.size) {
-                            EtaClickableRow(
-                                title = hit.displayName,
-                                summary = hitSummary(context, hit),
-                                leading = { HitThumbnail(hit) },
-                                showChevron = false,
-                                onClick = { openHit(context, hit) },
-                                modifier = Modifier.padding(
-                                    start = EtaGroupHorizontalPadding,
-                                    end = EtaGroupHorizontalPadding,
-                                    bottom = if (index == hits.lastIndex) {
-                                        EtaSegmentedGroupSpacing
-                                    } else {
-                                        EtaSegmentedGap
-                                    },
-                                ),
-                            )
-                        }
-                    }
-                }
-            }
+                },
+                onRemoveFromIndex = {
+                    TouchHaptics.click(view)
+                    runRemoveFromIndex()
+                },
+                onDeleteFiles = {
+                    TouchHaptics.click(view)
+                    confirmDeleteFiles = true
+                },
+                onExit = {
+                    TouchHaptics.click(view)
+                    selectionMode = false
+                    selectedKeys = emptySet()
+                },
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
         }
+    }
+
+    // 删除文件是破坏性操作：必须经确认弹窗（标题/说明带数量）后才执行。
+    if (confirmDeleteFiles) {
+        EtaDialog(
+            show = true,
+            title = stringResource(R.string.media_delete_files_title, selectedHits.size),
+            summary = stringResource(R.string.media_delete_files_summary),
+            onDismissRequest = { confirmDeleteFiles = false },
+            actions = {
+                EtaDialogActions(
+                    confirmText = stringResource(R.string.media_action_delete_files),
+                    onCancel = { confirmDeleteFiles = false },
+                    onConfirm = {
+                        confirmDeleteFiles = false
+                        runDeleteFiles()
+                    },
+                    destructive = true,
+                )
+            },
+        )
     }
 }
 
@@ -422,6 +633,125 @@ private fun MediaSearchEmptyState(
     }
 }
 
+/**
+ * 匹配度阈值调节行：左侧标签 + 右侧当前值 + [EtaSlider]（Material3 Slider，0.00–1.00，步进 0.05）。
+ * 0 表示不过滤；低于阈值的命中即时隐藏，下方小字提示已隐藏条数（0 条不显示）。
+ */
+@Composable
+private fun MediaThresholdRow(
+    minScore: Float,
+    hiddenCount: Int,
+    onValueChange: (Float) -> Unit,
+    onValueChangeFinished: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.padding(
+            start = EtaGroupHorizontalPadding,
+            end = EtaGroupHorizontalPadding,
+            top = 4.dp,
+            bottom = EtaSegmentedGroupSpacing,
+        ),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            EtaText(
+                text = stringResource(R.string.media_threshold_label),
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = String.format(Locale.US, "%.2f", minScore),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        EtaSlider(
+            value = minScore,
+            // 步进 0.05：拖动值量化到最近档位；0 档即不过滤。
+            onValueChange = { onValueChange((it * 20f).roundToInt().coerceIn(0, 20) / 20f) },
+            valueRange = 0f..1f,
+            modifier = Modifier.fillMaxWidth(),
+            onValueChangeFinished = onValueChangeFinished,
+        )
+        if (hiddenCount > 0) {
+            EtaText(
+                text = stringResource(R.string.media_threshold_hidden, hiddenCount),
+                style = EtaTextStyle.Footnote,
+            )
+        }
+    }
+}
+
+/**
+ * 多选批量操作栏：底部悬浮（[EtaCard]），显示已选数量；
+ * 全选/取消全选、移出索引与删除文件（破坏性文案按统一约定走 error 色）。
+ */
+@Composable
+private fun MediaSelectionBar(
+    selectedCount: Int,
+    allSelected: Boolean,
+    busy: Boolean,
+    onSelectAll: () -> Unit,
+    onRemoveFromIndex: () -> Unit,
+    onDeleteFiles: () -> Unit,
+    onExit: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    EtaCard(
+        modifier = modifier
+            .navigationBarsPadding()
+            .padding(horizontal = 12.dp)
+            .padding(bottom = 12.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                EtaText(
+                    text = stringResource(R.string.media_selected_count, selectedCount),
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = onSelectAll, enabled = !busy) {
+                    Text(
+                        stringResource(
+                            if (allSelected) {
+                                R.string.media_action_deselect_all
+                            } else {
+                                R.string.media_action_select_all
+                            },
+                        ),
+                    )
+                }
+                TextButton(onClick = onExit, enabled = !busy) {
+                    Text(stringResource(R.string.media_action_exit_select))
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(
+                    onClick = onRemoveFromIndex,
+                    enabled = selectedCount > 0 && !busy,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(stringResource(R.string.media_action_remove_from_index))
+                }
+                // 删除文件是破坏性操作：文案用 error 色区分，执行前另有确认弹窗。
+                TextButton(
+                    onClick = onDeleteFiles,
+                    enabled = selectedCount > 0 && !busy,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        text = stringResource(R.string.media_action_delete_files),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+        }
+    }
+}
+
 /** 结果行摘要：类型 · 分数 · 命中时刻（视频）· 尺寸/时长 · 体积 · 修改时间。 */
 @Composable
 private fun hitSummary(context: Context, hit: MediaSearchService.Hit): String {
@@ -495,6 +825,47 @@ private fun HitThumbnail(hit: MediaSearchService.Hit) {
 }
 
 /**
+ * 结果行：非多选态点按打开、长按进入多选并选中当前行；多选态行首显示复选框，
+ * 整行点击改勾选（单条「打开」入口随多选模式隐藏，专注批量）。
+ * 点按/长按触感由 [EtaSegmentedRow] 内建（与设置主页同一套），行内不再重复触发。
+ */
+@Composable
+private fun MediaHitRow(
+    hit: MediaSearchService.Hit,
+    summary: String,
+    selectionMode: Boolean,
+    checked: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    EtaSegmentedRow(
+        modifier = modifier,
+        onClick = onClick,
+        onLongClick = onLongClick,
+        selected = selectionMode && checked,
+        leadingContent = {
+            if (selectionMode) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // 前导勾选框仅作视觉呈现（与官方 SegmentedCheckboxItem 一致），
+                    // 切换统一由整行点击完成，避免两次回调。
+                    Checkbox(
+                        checked = checked,
+                        onCheckedChange = null,
+                        modifier = Modifier.size(24.dp),
+                    )
+                    HitThumbnail(hit)
+                }
+            } else {
+                HitThumbnail(hit)
+            }
+        },
+        content = { Text(text = hit.displayName) },
+        supportingContent = { Text(text = summary) },
+    )
+}
+
+/**
  * 打开命中项：优先 content uri（MediaStore），路径走 FileProvider 的 ACTION_VIEW；
  * 与聊天文件链接同一套打开链路，不做额外预览。
  */
@@ -517,6 +888,37 @@ private fun openHit(context: Context, hit: MediaSearchService.Hit) {
             context.getString(R.string.media_open_failed, e.message ?: ""),
             Toast.LENGTH_LONG,
         ).show()
+    }
+}
+
+/**
+ * 删缩略图缓存（源文件不受影响）：优先删索引行上的 thumbPath，
+ * 兜底删 `media-thumbs/SHA1(sourceKey).jpg`（命名见 MediaExtraction.saveThumbnail）。
+ */
+private fun deleteThumbnail(context: Context, hit: MediaSearchService.Hit) {
+    runCatching { hit.thumbPath?.let { File(it).delete() } }
+    val name = MessageDigest.getInstance("SHA-1")
+        .digest(hit.sourceKey.toByteArray(Charsets.UTF_8))
+        .joinToString("") { "%02x".format(it) }
+    runCatching { File(File(context.cacheDir, "media-thumbs"), "$name.jpg").delete() }
+}
+
+/**
+ * 删源文件本体，三种形态各有分支：SAF tree 文档走 [DocumentsContract.deleteDocument]，
+ * MediaStore content 走 ContentResolver.delete，普通文件按绝对路径 [File.delete]。
+ * 单条失败只返回 false（无权限 / 被占用等），不抛异常、不影响其他条目。
+ */
+private fun deleteSourceFile(context: Context, hit: MediaSearchService.Hit): Boolean {
+    val uri = hit.contentUri?.let(Uri::parse)
+    val path = hit.path
+    return when {
+        uri != null && DocumentsContract.isDocumentUri(context, uri) ->
+            runCatching { DocumentsContract.deleteDocument(context.contentResolver, uri) }.getOrDefault(false)
+        uri != null ->
+            runCatching { context.contentResolver.delete(uri, null, null) > 0 }.getOrDefault(false)
+        path != null ->
+            runCatching { File(path).let { file -> file.exists() && file.delete() } }.getOrDefault(false)
+        else -> false
     }
 }
 
