@@ -2,7 +2,7 @@
 
 [简体中文](README.md) | **English**
 
-<p><a href="https://github.com/y2485871697/Eta/releases"><img src="https://img.shields.io/github/downloads/y2485871697/Eta/total?logo=github&amp;label=Downloads&amp;color=1677FF" alt="Total GitHub Releases downloads"></a> <img src="https://img.shields.io/badge/minSdk-34-3DDC84?logo=android&amp;logoColor=white" alt="minSdk 34"> <img src="https://img.shields.io/badge/Kotlin-2.4.10-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin 2.4.10"> <img src="https://img.shields.io/badge/AGP-9.3.2-3DDC84?logo=android&amp;logoColor=white" alt="AGP 9.3.2"> <img src="https://img.shields.io/badge/Assistant%20Integrations-ColorOS%20%26%20HyperOS-1677FF" alt="Assistant integrations for ColorOS and HyperOS"></p>
+<p><a href="https://github.com/Sam-Fic/Eta/releases"><img src="https://img.shields.io/github/downloads/Sam-Fic/Eta/total?logo=github&amp;label=Downloads&amp;color=1677FF" alt="Total GitHub Releases downloads"></a> <img src="https://img.shields.io/badge/minSdk-34-3DDC84?logo=android&amp;logoColor=white" alt="minSdk 34"> <img src="https://img.shields.io/badge/Kotlin-2.4.10-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin 2.4.10"> <img src="https://img.shields.io/badge/AGP-9.3.2-3DDC84?logo=android&amp;logoColor=white" alt="AGP 9.3.2"> <img src="https://img.shields.io/badge/Assistant%20Integrations-ColorOS%20%26%20HyperOS-1677FF" alt="Assistant integrations for ColorOS and HyperOS"></p>
 
 **A system-level Android AI assistant that steps past the sandbox**
 
@@ -20,7 +20,7 @@ It is based on [Eta](https://github.com/Mangi-11/Eta). Upstream built the agent 
 
 Requires **Android 14 or later**. The app is not brand-locked; core features work without root. Root and LSPosed unlock more system access and assistant integration, depending on permission and ROM support.
 
-[Download APK](https://github.com/y2485871697/Eta/releases/latest) · [Getting started](#getting-started) · [QQ group](https://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=QZmmrmSQqSAyI8Mo5NHAMc9l6TejcBrw&authKey=mQrh5avqMDc09GunNdtCmuN5tk9UynOekkjHxfuKPjhN4ELWBMJN5edaYw51UXbQ&noverify=0&group_code=735910197) · [Telegram](https://t.me/+6JhB2iRjjDExYWM1)
+[Download APK](https://github.com/Sam-Fic/Eta/releases/latest) · [Getting started](#getting-started) · [QQ group](https://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=QZmmrmSQqSAyI8Mo5NHAMc9l6TejcBrw&authKey=mQrh5avqMDc09GunNdtCmuN5tk9UynOekkjHxfuKPjhN4ELWBMJN5edaYw51UXbQ&noverify=0&group_code=735910197) · [Telegram](https://t.me/+6JhB2iRjjDExYWM1)
 
 ## See it in action
 
@@ -107,7 +107,7 @@ System tools, sensitive reads, sensitive actions, terminal and file access, brow
 
 ## Getting started
 
-1. Download the APK from [Releases](https://github.com/y2485871697/Eta/releases/latest). After installation, open **Model provider** in Settings, enter your API key, and select a model. Task execution requires tool calling; interpreting images also requires image input support.
+1. Download the APK from [Releases](https://github.com/Sam-Fic/Eta/releases/latest). After installation, open **Model provider** in Settings, enter your API key, and select a model. Task execution requires tool calling; interpreting images also requires image input support.
 2. Enable the tools and permissions you need. GUI control requires Eta's accessibility service. Notification access and usage access are granted separately; location tools require **Allow all the time**. The tools page shows what is available on your device.
 3. Start a conversation. For Linux, install a distribution, base tools, and any development tools you need under **Linux tool environment**. For assistant integration, see [System assistant entry points](#system-assistant-entry-points).
 
@@ -116,6 +116,24 @@ System tools, sensitive reads, sensitive actions, terminal and file access, brow
 - **LSPosed with a compatible ROM:** adds OEM assistant integration, system shortcuts, and Google feature enablement. Some features also require root.
 
 Dedicated searches for contacts, SMS messages, and calendar events still require root. See [Device Support](docs/ROOTLESS_SUPPORT.md) for full requirements and validation coverage.
+
+## What this fork changes
+
+Built on top of [Eta upstream](https://github.com/Mangi-11/Eta), this fork mainly redesigns the interface appearance around **Material Design 3 Expressive (M3E)** and adds several functional improvements. The following lists the core differences compared with upstream (see commit history for full details):
+
+### Appearance and UI
+
+- **Material Design 3 Expressive (M3E) adaptation**: Chat bubbles, cards, buttons, and transition animations have been redesigned to follow the [Material Design 3 Expressive](https://m3.material.io) example specifications, bringing the overall look closer to Google's latest Material expressive style.
+- **Detail polish**: Trash-list margins, settings-page layout, and other UI details are continuously kept in sync with upstream and refined.
+
+### Functional improvements
+
+- **MCP self-configuration**: New `eta_configure_mcp` tool lets the Agent configure MCP servers (add/remove/update/refresh, enable/disable tools) through conversation; changes take effect from the next reply.
+- **Local Skill installation**: New `skills_install_local` tool supports installing Skills directly from local phone directories (e.g. download folders, extracted ZIPs, Linux workspace paths). It automatically validates that the directory contains exactly one Skill and supports replacing an existing version.
+- **CI and test stability**: Fixed multiple timing-sensitive assertions and lint errors in unit tests so that the `verify` job passes reliably on GitHub Actions.
+- **Release workflow**: Followed actual release procedures and added automatic bilingual (Chinese/English) changelogs and Release-Asset uploads.
+
+For a complete list of new features, please see the [Releases](https://github.com/Sam-Fic/Eta/releases) and [commit history](https://github.com/Sam-Fic/Eta/commits/main) of this repository.
 
 ## About upstream
 
@@ -137,13 +155,17 @@ These implementation notes are currently in Chinese:
 - [Pi Coding Agent](https://github.com/earendil-works/pi): the main reference for the agent runtime, including the agent loop, tool calling, steering, and transcript state management.
 - [OmniBot](https://github.com/omnimind-ai/OmniBot): a reference project for AI agents on Android.
 - [libxposed API](https://github.com/libxposed/api): the modern Xposed API.
+- [y2485871697/Eta](https://github.com/y2485871697/Eta): reference fork; many UI improvements and useful features come from this branch.
+- [Zafiro](https://github.com/niki914/zafiro): the user chat-bubble style reference. Its bubble design is very close to the Google Material Design 3 Expressive example bubbles, so it was adapted into this project.
+- [Material Design 3 Expressive](https://m3.material.io): the official Google Material Design 3 Expressive site; the app's UI language and visual style reference its examples and guidelines.
+- In addition, thanks to all open-source models that run locally on the phone—including voice synthesis and recognition models, embedding models, and others—for enabling voice interaction, semantic retrieval, and local inference without relying on the cloud.
 
 ## Community
 
 - QQ group: [735910197](https://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=QZmmrmSQqSAyI8Mo5NHAMc9l6TejcBrw&authKey=mQrh5avqMDc09GunNdtCmuN5tk9UynOekkjHxfuKPjhN4ELWBMJN5edaYw51UXbQ&noverify=0&group_code=735910197)
 - Telegram: [channel](https://t.me/+6JhB2iRjjDExYWM1)
-- Feedback: [GitHub Issues](https://github.com/y2485871697/Eta/issues)
-- Source and releases: [y2485871697/Eta](https://github.com/y2485871697/Eta)
+- Feedback: [GitHub Issues](https://github.com/Sam-Fic/Eta/issues)
+- Source and releases: [Sam-Fic/Eta](https://github.com/Sam-Fic/Eta)
 
 ## License
 

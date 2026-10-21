@@ -2,7 +2,7 @@
 
 **简体中文** | [English](README_EN.md)
 
-<p><a href="https://github.com/y2485871697/Eta/releases"><img src="https://img.shields.io/github/downloads/y2485871697/Eta/total?logo=github&amp;label=%E4%B8%8B%E8%BD%BD%E9%87%8F&amp;color=1677FF" alt="GitHub Releases 累计下载量"></a> <img src="https://img.shields.io/badge/minSdk-34-3DDC84?logo=android&amp;logoColor=white" alt="minSdk 34"> <img src="https://img.shields.io/badge/Kotlin-2.4.10-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin 2.4.10"> <img src="https://img.shields.io/badge/AGP-9.3.2-3DDC84?logo=android&amp;logoColor=white" alt="AGP 9.3.2"> <img src="https://img.shields.io/badge/Assistant%20Integrations-ColorOS%20%26%20HyperOS-1677FF" alt="Assistant integrations for ColorOS and HyperOS"></p>
+<p><a href="https://github.com/Sam-Fic/Eta/releases"><img src="https://img.shields.io/github/downloads/Sam-Fic/Eta/total?logo=github&amp;label=%E4%B8%8B%E8%BD%BD%E9%87%8F&amp;color=1677FF" alt="GitHub Releases 累计下载量"></a> <img src="https://img.shields.io/badge/minSdk-34-3DDC84?logo=android&amp;logoColor=white" alt="minSdk 34"> <img src="https://img.shields.io/badge/Kotlin-2.4.10-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin 2.4.10"> <img src="https://img.shields.io/badge/AGP-9.3.2-3DDC84?logo=android&amp;logoColor=white" alt="AGP 9.3.2"> <img src="https://img.shields.io/badge/Assistant%20Integrations-ColorOS%20%26%20HyperOS-1677FF" alt="Assistant integrations for ColorOS and HyperOS"></p>
 
 **越过沙盒的 Android 系统级 AI 助手**
 
@@ -20,7 +20,7 @@ Eta不只是聊天框。把你自己的模型接到手机上：它可以调系�
 
 支持 **Android 14 及以上**。App 本体不限品牌，基础功能不用 Root。Root 和 LSPosed 能再打开系统访问与助手入口，具体取决于授权和 ROM。
 
-[下载 APK](https://github.com/y2485871697/Eta/releases/latest) · [快速开始](#快速开始) · [QQ 群](https://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=QZmmrmSQqSAyI8Mo5NHAMc9l6TejcBrw&authKey=mQrh5avqMDc09GunNdtCmuN5tk9UynOekkjHxfuKPjhN4ELWBMJN5edaYw51UXbQ&noverify=0&group_code=735910197) · [Telegram](https://t.me/+6JhB2iRjjDExYWM1)
+[下载 APK](https://github.com/Sam-Fic/Eta/releases/latest) · [快速开始](#快速开始) · [QQ 群](https://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=QZmmrmSQqSAyI8Mo5NHAMc9l6TejcBrw&authKey=mQrh5avqMDc09GunNdtCmuN5tk9UynOekkjHxfuKPjhN4ELWBMJN5edaYw51UXbQ&noverify=0&group_code=735910197) · [Telegram](https://t.me/+6JhB2iRjjDExYWM1)
 
 ## 界面预览
 
@@ -109,7 +109,7 @@ Provider 层支持 OpenAI-compatible Chat Completions、Responses API 和 Anthro
 
 ## 快速开始
 
-1. 从 [Releases](https://github.com/y2485871697/Eta/releases/latest) 下载 APK，安装后在“模型提供商”中填写 API Key 并选择模型。执行任务需要 Tool Calling，理解图片还需模型支持图片输入。
+1. 从 [Releases](https://github.com/Sam-Fic/Eta/releases/latest) 下载 APK，安装后在“模型提供商”中填写 API Key 并选择模型。执行任务需要 Tool Calling，理解图片还需模型支持图片输入。
 2. 按任务需要配置工具开关与权限：GUI Agent 需要无障碍服务；通知、应用使用情况分别授权；位置工具需要“始终允许”。工具页可查看当前设备的可用能力。
 3. 开始对话。需要 Linux 时，在“Linux 工具环境”中安装发行版、基础工具及所需开发工具；需要系统入口时，参见[系统助手入口](#系统助手入口)。
 
@@ -118,6 +118,24 @@ Provider 层支持 OpenAI-compatible Chat Completions、Responses API 和 Anthro
 - **LSPosed 与适配 ROM**：开放厂商助手接管、系统快捷入口及 Google 能力增强；部分功能另需 Root。
 
 联系人、短信、日历等专用检索目前仍需要 Root。完整条件与验证范围见[设备支持说明](docs/ROOTLESS_SUPPORT.md)。
+
+## 本 fork 的变化
+
+本项目在 [Eta 上游](https://github.com/Mangi-11/Eta) 的基础上，主要围绕 **Material Design 3 Expressive（M3E）** 的视觉风格重新设计了界面外观，并补充了一批功能改进。以下列出与上游相比的核心差异（完整改动见提交历史）：
+
+### 外观与 UI
+
+- **Material Design 3 Expressive（M3E）适配**：对话气泡、卡片、按钮与过渡动效均参考 [Material Design 3 Expressive](https://m3.material.io) 的示例规范重新设计，整体视觉更贴近 Google 最新的 Material 表达风格。
+- **细节打磨**：回收站列表边距、设置页布局等界面细节持续与上游保持一致并做微调。
+
+### 功能改进
+
+- **MCP 自配置**：新增 `eta_configure_mcp` 工具，允许 Agent 自行通过对话配置 MCP 服务器（增删改查、刷新发现、启用/停用工具），配置从下一轮对话生效。
+- **本地 Skill 安装**：新增 `skills_install_local` 工具，支持直接从手机本地目录（如下载文件夹、解压后的 ZIP、Linux 工作区路径）安装 Skill；自动校验目录内是否仅含单一 Skill，并支持覆盖已有版本。
+- **CI 与测试稳定性**：修复多组单元测试的时序敏感断言与 lint 错误，使 `verify` 作业在 GitHub Actions 中稳定通过。
+- **Release 工作流**：跟进实际发版流程，补充中英双语更新日志的自动生成与 Release Assets 上传。
+
+如需完整的新增功能列表，请参阅本仓库的 [Releases](https://github.com/Sam-Fic/Eta/releases) 与 [提交历史](https://github.com/Sam-Fic/Eta/commits/main)。
 
 ## 关于上游
 
@@ -181,13 +199,17 @@ Eta 先从现有 Android 上的模型、上下文与工具做起。真正落地�
 - [Pi Coding Agent](https://github.com/earendil-works/pi)：Agent Runtime 的核心参考，包括 Agent Loop、Tool Calling、steering 与 transcript 状态管理。
 - [OmniBot](https://github.com/omnimind-ai/OmniBot)：Android AI Agent 方向的参考项目。
 - [libxposed API](https://github.com/libxposed/api)：现代 Xposed API。
+- [y2485871697/Eta](https://github.com/y2485871697/Eta)：参考仓库，大量 UI 改进与实用功能均来自此分支。
+- [Zafiro](https://github.com/niki914/zafiro)：用户对话气泡的样式参考。其气泡设计与 Google Material Design 3 Expressive 的示例气泡高度相似，因此采用并适配到本项目。
+- [Material Design 3 Expressive](https://m3.material.io)：Google Material Design 3 Expressive 官方站点，本程序的界面设计语言与视觉风格均参考自其中的示例与规范。
+- 此外，感谢所有在手机上本地部署运行的开源模型——包括语音合成与识别模型、Embedding 模型等——它们让 Eta 能够在不依赖云端的情况下完成语音交互、语义检索与本地推理。
 
 ## 社区
 
 - QQ 群：[735910197](https://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=QZmmrmSQqSAyI8Mo5NHAMc9l6TejcBrw&authKey=mQrh5avqMDc09GunNdtCmuN5tk9UynOekkjHxfuKPjhN4ELWBMJN5edaYw51UXbQ&noverify=0&group_code=735910197)
 - Telegram：[频道](https://t.me/+6JhB2iRjjDExYWM1)
-- 反馈问题：[GitHub Issues](https://github.com/y2485871697/Eta/issues)
-- 源码与发版：[y2485871697/Eta](https://github.com/y2485871697/Eta)
+- 反馈问题：[GitHub Issues](https://github.com/Sam-Fic/Eta/issues)
+- 源码与发版：[Sam-Fic/Eta](https://github.com/Sam-Fic/Eta)
 
 ## 许可证
 
