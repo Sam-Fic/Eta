@@ -120,13 +120,6 @@ private val TabCloseTouchSize = 32.dp
 private val TabCloseIconSize = 16.dp
 
 /**
- * 标签过渡用的「收拢到底」份额（取极小正数而非 0）：`weight` 只在大于 0 时才参与
- * 「按权重比例分配剩余空间」，份额恰好为 0 的子项会被当成非权重子项、按内容自然宽度
- * （文案 + 关闭钮）占位，于是过渡的首帧 / 末帧会闪一下原始宽度。
- */
-private const val CollapsedTabFraction = 0.001f
-
-/**
  * 标签在标签栏里的宽度过渡：`Steady` 直接落位，`Entering` 从 0 权重展开（新增标签），
  * `Exiting` 从 1f 权重收拢到 0（关闭后留下的残影），三者互斥。
  */
@@ -617,7 +610,7 @@ private fun RowScope.BrowserTabChip(
     val transitionDirection = remember { transition }
     val revealFraction = remember {
         Animatable(
-            if (transitionDirection == TabChipTransition.Entering) CollapsedTabFraction else 1f,
+            if (transitionDirection == TabChipTransition.Entering) BrowserTabCollapsedFraction else 1f,
         )
     }
     LaunchedEffect(Unit) {
@@ -625,7 +618,7 @@ private fun RowScope.BrowserTabChip(
             TabChipTransition.Steady -> Unit
             TabChipTransition.Entering -> revealFraction.animateTo(1f, motionScheme.defaultSpatialSpec<Float>())
             TabChipTransition.Exiting -> {
-                revealFraction.animateTo(CollapsedTabFraction, motionScheme.defaultSpatialSpec<Float>())
+                revealFraction.animateTo(BrowserTabCollapsedFraction, motionScheme.defaultSpatialSpec<Float>())
                 onExitFinished()
             }
         }
@@ -635,6 +628,14 @@ private fun RowScope.BrowserTabChip(
         animationSpec = motionScheme.defaultSpatialSpec<Float>(),
         label = "BrowserTabSelection",
     )
+    // 宽度份额必须恒为正：Compose 的 `Modifier.weight` 对 <= 0 的权重直接抛
+    // IllegalArgumentException（"invalid weight; must be greater than zero"），
+    // 而这个检查发生在**组合期**（构造 Modifier 时），不是测量期。
+    // 稳态时本标签份额是 1f，而 `count == 2` 的互补占位份额是 `1f - 1f == 0f`，
+    // 于是「点打开浏览器 → 标签栏首帧组合」就抛异常、应用当场闪退，浏览器页面一个像素都画不出来。
+    //
+    // 夹取规则见 [browserTabChipWeight] / [browserTabSpacerWeight]。
+    val chipWeight = browserTabChipWeight(revealFraction.value)
     // 未选中 = 官方 FilledTonalButton 档（secondaryContainer）、选中 = 官方 Button 档（primary），
     // 禁用档位两者相同，故禁用时不再区分选中态。
     val tonalColors = ButtonDefaults.filledTonalButtonColors()
@@ -669,7 +670,8 @@ private fun RowScope.BrowserTabChip(
         Row(
             modifier = modifier
                 // 宽度份额：过渡进度即相连按钮组里的等分份额，动画期间整行宽度按比例重排。
-                .weight(revealFraction.value)
+                // 份额恒为正（见 [chipWeight]），否则 Compose 在组合期直接抛异常。
+                .weight(chipWeight)
                 .heightIn(min = ButtonDefaults.MinHeight)
                 .clip(
                     EtaMorphChipShape(
@@ -729,8 +731,12 @@ private fun RowScope.BrowserTabChip(
     // 剩余空间，独占时无论权重多小都会占满整行——展开 / 收拢都动不了。补上它（本标签份额
     // 与占位份额之和恒为 1f）后，这一个标签也能真的从 0 展开、收拢到 0，且行尾「+」全程
     // 停在原位。稳态时占位权重为 0，只是让过渡前后这一行的子项数一致（少一份间隙的跳变）。
+    //
+    // 注意：占位权重同样必须为正 —— `Modifier.weight(0f)` 会被 Compose 拒绝并抛
+    // IllegalArgumentException，而稳态下 `1f - 1f` 正好是 0。取下限见
+    // [browserTabSpacerWeight]，总权重仍是 1f（至多 1.001f）。
     if (count == 2) {
-        Spacer(Modifier.weight(1f - revealFraction.value))
+        Spacer(Modifier.weight(browserTabSpacerWeight(revealFraction.value)))
     }
 }
 

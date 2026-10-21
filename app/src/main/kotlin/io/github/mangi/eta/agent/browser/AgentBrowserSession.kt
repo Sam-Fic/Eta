@@ -148,13 +148,32 @@ internal object AgentBrowserSession {
         synchronized(gate) {
             if (userOwner !== owner) throw CancellationException("Browser page disposed")
         }
-        return withContext(Dispatchers.Main.immediate) {
-            ensurePool(key).also { browser ->
-                browser.tabs.value.forEach { it.manager.stopLoading() }
-                browser.releaseAllTabs()
-                browser.ensureTabForUI()
-                publishSnapshot()
+        return try {
+            withContext(Dispatchers.Main.immediate) {
+                ensurePool(key).also { browser ->
+                    browser.tabs.value.forEach { it.manager.stopLoading() }
+                    browser.releaseAllTabs()
+                    browser.ensureTabForUI()
+                    publishSnapshot()
+                }
             }
+        } catch (t: Throwable) {
+            // 初始化失败必须立刻把「用户接管」还回去：否则浏览器工具会一直收到
+            // USER_CONTROL_ACTIVE（用户明明没在浏览器页里），而且用户再点
+            // 「打开浏览器」也会因为所有权被占而拿不到会话。
+            releaseOwnership(owner)
+            publishSnapshot()
+            throw t
+        }
+    }
+
+    /** 同步归还所有权（失败路径用，不能等协程）。 */
+    private fun releaseOwnership(owner: Any) {
+        synchronized(gate) {
+            if (userOwner !== owner) return
+            userOwner = null
+            userConversationId = null
+            isUserControlling = false
         }
     }
 

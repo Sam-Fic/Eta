@@ -106,14 +106,18 @@ class BrowserUseManager(
 
         @SuppressLint("SetJavaScriptEnabled")
         fun configureWebView(webView: WebView, profile: UserAgentProfile, customUA: String? = null) {
-            // [T-android-browser-blank] The browser lives inside a Material3
-            // ModalBottomSheet, which hosts content in its own secondary
-            // window. On some OEM GPUs the WebView's hardware draw functor
-            // fails to composite in that window — the page loads (title/URL
-            // update normally) but the content area stays black or white.
-            // Rendering the WebView through its own hardware layer texture is
-            // the standard workaround for WebView-in-dialog blank rendering.
-            webView.setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
+            // [T-android-browser-blank] 这里曾经给 WebView 强制 LAYER_TYPE_HARDWARE：
+            // 那时浏览器挂在 ModalBottomSheet 的独立二级窗口里，部分 OEM GPU 上 WebView 的
+            // 硬件 draw functor 无法合成到那个窗口（页面照常加载，但内容区全黑 / 全白），
+            // 用独立硬件层纹理渲染是 WebView-in-dialog 空白渲染的常规绕法。
+            //
+            // 浏览器现在是主窗口里的独立全屏页（不再是二级窗口），这个绕法的前提已经消失：
+            // 强制硬件层会让 WebView 自己的 Surface 与 Activity 的 Surface 抢合成，
+            // 在部分机型 / ROM 上表现为内容区空白。所以这里回到 Android 默认渲染路径——
+            // 主窗口内的 WebView 不需要强制硬件层。
+            //
+            // 注意：这不是「点打开浏览器闪退」的根因（根因是标签栏的 Modifier.weight(0f)，
+            // 见 BrowserTabWeight.kt），这里只是把已经失效的绕法撤掉、回到默认路径。
             webView.settings.apply {
                 javaScriptEnabled = true
                 domStorageEnabled = true

@@ -61,3 +61,28 @@ Release or install automatically. See subsequent CI results for actual validatio
 - Added palette/shape regression tests; source/locale/reference checks only so far.
 - This UI follow-up has NOT been compiled or visually verified. The earlier CI pass
   applies to 753a243, not these later changes.
+
+## Crash fix: tapping "Open Browser" killed the app
+
+- Symptom: on the home screen, tapping the "打开浏览器" overflow-menu item crashed the
+  app instantly; the browser page never drew a pixel.
+- Root cause: `BrowserSheet.kt` composes a complementary `Spacer(Modifier.weight(...))`
+  whenever the tab bar holds a single tab (`count == 2`). In the steady state that
+  weight evaluated to `1f - 1f == 0f`, and Compose rejects any weight <= 0 —
+  `RowScopeInstance.weight` throws `IllegalArgumentException("invalid weight; must be
+  greater than zero")`. The check runs while the Modifier is *constructed*, i.e. during
+  composition, so the exception escaped the tab bar on its very first frame.
+- Secondary hazard: the M3E default spatial spec is an underdamped spring, so the
+  enter/exit width animation overshoots its target (above 1f on expand, below 0f on
+  collapse). Those intermediate values also reached `Modifier.weight`.
+- Fix: the two weights now live in `BrowserTabWeight.kt` and are clamped into (0, 1];
+  their sum stays ~1f so the trailing "+" button keeps its position. `BrowserTabWeightTest`
+  pins the invariant. The forced `LAYER_TYPE_HARDWARE` on the WebView was also dropped —
+  that workaround belonged to the removed ModalBottomSheet secondary window, so its
+  premise no longer holds.
+- Hardening: browser initialization failures are caught (Throwable, not just Exception)
+  and rendered as a failure page instead of killing the app, and the failed acquisition
+  hands browser ownership back so the `browser_use` tool does not stay wedged on
+  `USER_CONTROL_ACTIVE`.
+- Not yet device-verified; the clamping is covered by unit tests only.
+

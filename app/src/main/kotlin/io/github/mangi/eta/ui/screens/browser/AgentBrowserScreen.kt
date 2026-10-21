@@ -1,5 +1,6 @@
 package io.github.mangi.eta.ui.screens.browser
 
+import android.util.Log
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -28,6 +29,9 @@ import io.github.mangi.eta.agent.browser.ported.ui.browser.BrowserSheetTopBar
 import io.github.mangi.eta.ui.components.ContainedMorphLoadingIndicator
 import kotlinx.coroutines.CancellationException
 
+/** 浏览器页面的日志标签：初始化失败时记录原始异常，便于定位闪退原因。 */
+private const val TAG = "AgentBrowserScreen"
+
 /** Full multi-tab browser page; the pool is the same one used by browser_use. */
 @Composable
 internal fun AgentBrowserScreen(onBack: () -> Unit, conversationId: String? = null, modifier: Modifier = Modifier) {
@@ -43,7 +47,13 @@ internal fun AgentBrowserScreen(onBack: () -> Unit, conversationId: String? = nu
             pool = AgentBrowserSession.acquireUserControl(context.applicationContext, owner, conversationId)
         } catch (cancelled: CancellationException) {
             throw cancelled
-        } catch (_: Exception) {
+        } catch (t: Throwable) {
+            // 兜底：WebView / 渲染器初始化失败在部分机型上抛的是 Error（OutOfMemoryError、
+            // UnsatisfiedLinkError 之类），只接 Exception 会让异常逃出 effect 直接崩应用。
+            // 这里统一兜住并展示失败页，同时把原始异常写进日志便于定位。
+            // 注意：「点打开浏览器立刻闪退」的真正根因在标签栏的 Modifier.weight(0f)
+            // （见 BrowserTabWeight.kt），这里是初始化失败时的降级兜底。
+            Log.e(TAG, "browser initialization failed", t)
             failed = true
         }
     }
