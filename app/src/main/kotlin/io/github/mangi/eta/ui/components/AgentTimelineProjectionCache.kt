@@ -24,6 +24,9 @@ import io.github.mangi.eta.ui.model.isSteerSupplement
  * or synthesize a notice ID, so a map keyed only by ID would be unsafe.
  */
 internal class AgentTimelineProjectionCache(
+    // 激进归组：中间回复会并进工作卡片，追加/映射的快路径必须按此调整（见下）。
+    // fullProjection 必须保持为最后一个参数，既有调用点都以尾随 lambda 构造。
+    private val aggressiveGrouping: Boolean = false,
     private val fullProjection: (List<AgentChatMessageUi>) -> List<AgentTimelineEntry> = { it.toTimelineEntries() },
 ) {
     private var source: List<AgentChatMessageUi>? = null
@@ -38,7 +41,9 @@ internal class AgentTimelineProjectionCache(
         val mapping = sourceToEntry
         // Appending cannot live inside the equal-size replacement branch. Keep
         // authoritative terminal ordering for late bodies and ambiguous inputs.
-        if (previous != null && mapping != null && previous.size + 1 == messages.size) {
+        // Aggressive grouping re-decides which earlier replies stay visible when a new
+        // reply lands, so an append must go through the full projection there.
+        if (!aggressiveGrouping && previous != null && mapping != null && previous.size + 1 == messages.size) {
             val appended = messages.last() as? AgentMessageUi
             if (appended != null &&
                 previous.indices.all { previous[it] === messages[it] } &&
@@ -179,8 +184,21 @@ internal class AgentTimelineProjectionCache(
             mapping[sourceIndex] = entryIndex
         }
         // Fail closed if projection changes ever stop preserving assistant refs.
+        // Aggressive grouping legitimately parks intermediate replies inside work cards;
+        // accept exactly those as "mapped elsewhere" and still fail when one vanishes.
+        val groupedAssistantIds = if (aggressiveGrouping) {
+            buildSet {
+                projected.forEach { entry ->
+                    (entry as? AgentTimelineEntry.WorkProcess)?.messages?.forEach { message ->
+                        if (message is AgentMessageUi) add(message.id)
+                    }
+                }
+            }
+        } else {
+            emptySet()
+        }
         input.forEachIndexed { index, message ->
-            if (message is AgentMessageUi && mapping[index] < 0) return null
+            if (message is AgentMessageUi && mapping[index] < 0 && message.id !in groupedAssistantIds) return null
         }
         return mapping
     }

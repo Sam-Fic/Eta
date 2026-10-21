@@ -14,6 +14,9 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.config.Prefs
+import io.github.mangi.eta.data.model.AnswerFoldLevel
+import io.github.mangi.eta.data.model.AppearanceSettings
+import io.github.mangi.eta.ui.app.LocalAppearanceSettings
 import io.github.mangi.eta.ui.haptics.SelectionTestMagnifier
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
 import io.github.mangi.eta.ui.model.AgentMessageUi
@@ -48,11 +51,18 @@ class AgentSelectionDuringFollowTest {
         lateinit var list: LazyListState
         compose.setContent {
             MaterialTheme {
-                list = rememberLazyListState()
-                Box(Modifier.size(360.dp, 400.dp)) {
-                    AgentConversationMessages(visibleMessages = messages.value, scrollState = list,
-                        isStreaming = true, bottomInset = 24.dp, keepBottomAnchored = true,
-                        onBottomAnchorChanged = {})
+                // 本测试只验证长按选中与跟随滚动，与「回答后收起」无关；
+                // fixture 没有用户消息边界，默认激进档会把整段并进卡片，故固定不折叠档。
+                CompositionLocalProvider(
+                    LocalAppearanceSettings provides
+                        AppearanceSettings(answerFoldLevel = AnswerFoldLevel.NONE),
+                ) {
+                    list = rememberLazyListState()
+                    Box(Modifier.size(360.dp, 400.dp)) {
+                        AgentConversationMessages(visibleMessages = messages.value, scrollState = list,
+                            isStreaming = true, bottomInset = 24.dp, keepBottomAnchored = true,
+                            onBottomAnchorChanged = {})
+                    }
                 }
             }
         }

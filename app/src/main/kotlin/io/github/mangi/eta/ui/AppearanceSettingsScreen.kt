@@ -98,6 +98,7 @@ import com.materialkolor.scheme.SchemeRainbow
 import com.materialkolor.scheme.SchemeTonalSpot
 import com.materialkolor.scheme.SchemeVibrant
 import io.github.mangi.eta.R
+import io.github.mangi.eta.data.model.AnswerFoldLevel
 import io.github.mangi.eta.data.model.AppearanceAccentColor
 import io.github.mangi.eta.data.model.AppearancePaletteStyle
 import io.github.mangi.eta.data.model.AppearanceSettings
@@ -183,6 +184,14 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
         stringResource(R.string.appearance_palette_fidelity),
         stringResource(R.string.appearance_palette_content),
     )
+    // 回答后收起的三档（顺序即 AnswerFoldLevel.entries）。
+    val foldLevelLabels = AnswerFoldLevel.entries.map { level ->
+        when (level) {
+            AnswerFoldLevel.AGGRESSIVE -> stringResource(R.string.appearance_fold_level_aggressive)
+            AnswerFoldLevel.NORMAL -> stringResource(R.string.appearance_fold_level_normal)
+            AnswerFoldLevel.NONE -> stringResource(R.string.appearance_fold_level_off)
+        }
+    }
 
     EtaScaffoldPage(
         title = stringResource(R.string.appearance_title),
@@ -196,6 +205,7 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
             themeModeLabels = themeModeLabels,
             paletteStyles = paletteStyles,
             paletteLabels = paletteLabels,
+            foldLevelLabels = foldLevelLabels,
             scaleDraft = scaleDraft,
             onScaleDraftChange = { scaleDraft = it },
             onCommitScale = { commitScale(it) },
@@ -213,8 +223,8 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
             onSetPaletteStyle = { style -> update { current -> current.copy(paletteStyle = style) } },
             onSetPureBlack = { enabled -> update { current -> current.copy(pureBlackEnabled = enabled) } },
             onSetTimestamps = { enabled -> update { current -> current.copy(messageTimestampsEnabled = enabled) } },
-            onSetFoldWorkProcess = { enabled ->
-                update { current -> current.copy(foldWorkProcessOnAnswer = enabled) }
+            onSetAnswerFoldLevel = { level ->
+                update { current -> current.copy(answerFoldLevel = level) }
             },
             onSetMorphLoading = { enabled ->
                 update { current -> current.copy(morphLoadingIndicator = enabled) }
@@ -271,6 +281,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.appearanceMaterial3Co
     themeModeLabels: List<String>,
     paletteStyles: List<AppearancePaletteStyle>,
     paletteLabels: List<String>,
+    foldLevelLabels: List<String>,
     scaleDraft: Float,
     onScaleDraftChange: (Float) -> Unit,
     onCommitScale: (Float) -> Unit,
@@ -285,7 +296,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.appearanceMaterial3Co
     onSetPaletteStyle: (AppearancePaletteStyle) -> Unit,
     onSetPureBlack: (Boolean) -> Unit,
     onSetTimestamps: (Boolean) -> Unit,
-    onSetFoldWorkProcess: (Boolean) -> Unit,
+    onSetAnswerFoldLevel: (AnswerFoldLevel) -> Unit,
     onSetMorphLoading: (Boolean) -> Unit,
     onSetMorphBeforeResponse: (Boolean) -> Unit,
     onSetPredictiveBack: (Boolean) -> Unit,
@@ -488,11 +499,15 @@ private fun androidx.compose.foundation.lazy.LazyListScope.appearanceMaterial3Co
                 )
             }
             item {
-                EtaSwitchRow(
+                // 三档分级：激进只留用户消息与最终回复；普通只收推理/工具；不折叠始终摊开。
+                EtaSegmentedDropdownRow(
                     title = stringResource(R.string.appearance_fold_work_process),
                     summary = stringResource(R.string.appearance_fold_work_process_summary),
-                    checked = appearance.foldWorkProcessOnAnswer,
-                    onCheckedChange = onSetFoldWorkProcess,
+                    items = foldLevelLabels,
+                    selectedIndex = appearance.answerFoldLevel.ordinal,
+                    onItemSelected = { index ->
+                        AnswerFoldLevel.entries.getOrNull(index)?.let(onSetAnswerFoldLevel)
+                    },
                 )
             }
             item {

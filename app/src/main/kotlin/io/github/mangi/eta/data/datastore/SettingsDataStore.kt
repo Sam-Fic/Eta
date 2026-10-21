@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import io.github.mangi.eta.data.model.AnswerFoldLevel
 import io.github.mangi.eta.data.model.AppearanceAccentColor
 import io.github.mangi.eta.data.model.AppearancePaletteStyle
 import io.github.mangi.eta.data.model.AppearanceSettings
@@ -53,8 +54,8 @@ internal object SettingsDataStore {
         booleanPreferencesKey("appearance_morph_loading_before_response")
     private val APPEARANCE_MESSAGE_TIMESTAMPS_ENABLED =
         booleanPreferencesKey("appearance_message_timestamps_enabled")
-    private val APPEARANCE_FOLD_WORK_PROCESS_ON_ANSWER =
-        booleanPreferencesKey("appearance_fold_work_process_on_answer")
+    private val APPEARANCE_ANSWER_FOLD_LEVEL =
+        stringPreferencesKey("appearance_answer_fold_level")
     private val APPEARANCE_ICON_LIGHT = intPreferencesKey("appearance_icon_light")
     private val APPEARANCE_ICON_DARK = intPreferencesKey("appearance_icon_dark")
     private val APP_LAUNCH_COUNT = intPreferencesKey("app_launch_count")
@@ -575,7 +576,7 @@ internal object SettingsDataStore {
             morphLoadingIndicator = this[APPEARANCE_MORPH_LOADING_INDICATOR] ?: true,
             morphLoadingBeforeResponseOnly = this[APPEARANCE_MORPH_LOADING_BEFORE_RESPONSE] ?: false,
             messageTimestampsEnabled = this[APPEARANCE_MESSAGE_TIMESTAMPS_ENABLED] ?: false,
-            foldWorkProcessOnAnswer = this[APPEARANCE_FOLD_WORK_PROCESS_ON_ANSWER] ?: true,
+            answerFoldLevel = AnswerFoldLevel.fromPersistedValue(this[APPEARANCE_ANSWER_FOLD_LEVEL]),
             iconLightColor = this[APPEARANCE_ICON_LIGHT] ?: AppearanceSettings.DEFAULT_ICON_LIGHT,
             iconDarkColor = this[APPEARANCE_ICON_DARK] ?: AppearanceSettings.DEFAULT_ICON_DARK,
         ).normalized(),
@@ -594,7 +595,7 @@ internal object SettingsDataStore {
         this[APPEARANCE_MORPH_LOADING_INDICATOR] = settings.morphLoadingIndicator
         this[APPEARANCE_MORPH_LOADING_BEFORE_RESPONSE] = settings.morphLoadingBeforeResponseOnly
         this[APPEARANCE_MESSAGE_TIMESTAMPS_ENABLED] = settings.messageTimestampsEnabled
-        this[APPEARANCE_FOLD_WORK_PROCESS_ON_ANSWER] = settings.foldWorkProcessOnAnswer
+        this[APPEARANCE_ANSWER_FOLD_LEVEL] = settings.answerFoldLevel.persistedValue
         this[APPEARANCE_ICON_LIGHT] = settings.iconLightColor
         this[APPEARANCE_ICON_DARK] = settings.iconDarkColor
     }

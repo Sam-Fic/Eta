@@ -68,6 +68,7 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.QuestionAnswer
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.runtime.CompositionLocalProvider
@@ -537,9 +538,10 @@ internal fun ChatMessageItem(
 /**
  * 把连续的思考与工具调用收束为一个可展开的工作过程，避免 Agent 事件退化为聊天气泡噪音。
  *
- * [folded] 表示这一组被「本轮回答已出现 ⇒ 回答之前的步骤整组收起」策略收起（设置项
- * `foldWorkProcessOnAnswer`）。此时即使某个步骤的状态还停在 Running（断线重连、被中断的
- * 尾巴最常见），标题也按完成态读作「已完成 N 个步骤」，不再报「正在处理」，也不再有呼吸与震动。
+ * [folded] 表示这一组被「本轮回答已出现 ⇒ 回答之前的内容收起」策略收起（设置项
+ * `answerFoldLevel`；激进档会把中间回复一并并进本组）。此时即使某个步骤的状态还停在
+ * Running（断线重连、被中断的尾巴最常见），标题也按完成态读作「已完成 N 个步骤」，不再报
+ * 「正在处理」，也不再有呼吸与震动。
  */
 @Composable
 internal fun AgentWorkProcessHeader(
@@ -556,6 +558,8 @@ internal fun AgentWorkProcessHeader(
             (message is ToolActivityMessageUi && message.status == ToolActivityStatusUi.Running)
     }
     val toolCount = messages.count { it is ToolActivityMessageUi }
+    // 激进档卡片可能没有工具调用、只有被并进来的中间回复，组头据此读作「N 条中间回复」。
+    val replyCount = messages.count { it is AgentMessageUi && it.content.isNotBlank() }
     val runningTool = if (running) {
         messages.lastOrNull { message ->
             message is ToolActivityMessageUi && message.status == ToolActivityStatusUi.Running
@@ -597,6 +601,15 @@ internal fun AgentWorkProcessHeader(
                 R.plurals.work_completed_steps,
                 toolCount,
                 toolCount,
+            ) + if (replyCount > 0) {
+                " · " + pluralStringResource(R.plurals.work_intermediate_replies, replyCount, replyCount)
+            } else {
+                ""
+            }
+            replyCount > 0 -> pluralStringResource(
+                R.plurals.work_intermediate_replies,
+                replyCount,
+                replyCount,
             )
             else -> stringResource(R.string.work_completed)
         }
@@ -627,6 +640,8 @@ internal fun AgentWorkProcessHeader(
                 leadingIcon = when {
                     runningTool != null -> ToolPresentation.icon(runningTool.toolName)
                     running -> Icons.Rounded.AutoAwesome
+                    // 纯回复卡片（一整轮只剩被收起的中间回复）用对话图标，区别于工具堆叠。
+                    toolCount == 0 && replyCount > 0 -> Icons.Rounded.QuestionAnswer
                     else -> Icons.Rounded.Build
                 },
                 leadingTint = headerLeadingTint,

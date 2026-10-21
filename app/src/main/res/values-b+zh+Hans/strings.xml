@@ -640,6 +640,9 @@
   <plurals name="work_completed_steps">
   <item quantity="other">已完成 %d 个步骤</item>
   </plurals>
+  <plurals name="work_intermediate_replies">
+  <item quantity="other">%d 条中间回复</item>
+  </plurals>
   <string name="work_completed">已完成分析</string>
   <string name="work_collapse">收起工作过程</string>
   <string name="work_expand">展开工作过程</string>
@@ -1551,7 +1554,10 @@
   <string name="appearance_message_timestamps">消息时间戳</string>
   <string name="appearance_message_timestamps_summary">在回复操作栏右侧显示本轮回复生成完成的时间。</string>
   <string name="appearance_fold_work_process">回答后收起工作过程</string>
-  <string name="appearance_fold_work_process_summary">一轮回复结束后，把它的推理与工具步骤收进一张「已完成 N 个步骤」卡片；点一下即可重新展开细看。</string>
+  <string name="appearance_fold_work_process_summary">激进档只保留你的消息与本轮最终回复，中间回复与思考、工具步骤并成一张卡片；普通档只收思考与工具步骤；不折叠则始终摊开。点卡片即可重新展开。</string>
+  <string name="appearance_fold_level_aggressive">激进折叠</string>
+  <string name="appearance_fold_level_normal">普通折叠</string>
+  <string name="appearance_fold_level_off">不折叠</string>
   <string name="chat_next_user_message">下一条用户消息</string>
   <string name="chat_previous_user_message">上一条用户消息</string>
   <string name="chat_go_to_bottom">回到底部</string>

@@ -21,11 +21,11 @@ data class AppearanceSettings(
     val morphLoadingBeforeResponseOnly: Boolean = false,
     val messageTimestampsEnabled: Boolean = false,
     /**
-     * 本轮已经给出正文回答、且生成停下之后，把这一轮跑完的思考与工具步骤整组收进「已完成 N 个步骤」。
+     * 本轮已经给出正文回答、且生成停下之后，回答之前的内容怎么收（档位见 [AnswerFoldLevel]）。
      *
-     * 关掉它回到旧行为：只有全部步骤都已结束才收起，中途被重连/中断卡成「运行中」的那一组会一直摊开。
+     * 用户手动点开/收起过的分组始终优先于本策略；[AnswerFoldLevel.NONE] 则完全不自动收起。
      */
-    val foldWorkProcessOnAnswer: Boolean = true,
+    val answerFoldLevel: AnswerFoldLevel = AnswerFoldLevel.AGGRESSIVE,
     val iconLightColor: Int = DEFAULT_ICON_LIGHT,
     val iconDarkColor: Int = DEFAULT_ICON_DARK,
 ) {
@@ -98,6 +98,32 @@ enum class AppearanceTopBarBlurStyle(val persistedValue: String) {
     companion object {
         fun fromPersistedValue(value: String?): AppearanceTopBarBlurStyle =
             entries.firstOrNull { it.persistedValue == value } ?: GAUSSIAN
+    }
+}
+
+/**
+ * 「回答出现后收起本轮内容」的分级。枚举顺序即设置页选项顺序。
+ *
+ * 三档共用同一套收起时机：只在整轮停下（非生成、非暂停、非压缩中）后生效，
+ * 且手动点过的分组永远优先。差别只在收起的范围：
+ */
+@Serializable
+enum class AnswerFoldLevel(val persistedValue: String) {
+    /**
+     * 激进：只保留用户消息与本轮最后一条正文回复；中间的文字回复、提示、重连等
+     * 与思考/工具步骤并成同一条工作过程卡片，点开可读全部内容。
+     */
+    AGGRESSIVE("aggressive"),
+
+    /** 普通：只把思考与工具步骤收进「已完成 N 个步骤」卡片，中间文字回复照常显示。 */
+    NORMAL("normal"),
+
+    /** 不折叠：始终摊开，只有运行中/尾部跟随等旧有默认展开规则。 */
+    NONE("none");
+
+    companion object {
+        fun fromPersistedValue(value: String?): AnswerFoldLevel =
+            entries.firstOrNull { it.persistedValue == value } ?: AGGRESSIVE
     }
 }
 

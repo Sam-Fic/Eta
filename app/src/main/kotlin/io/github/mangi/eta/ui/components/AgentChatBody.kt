@@ -105,6 +105,7 @@ import io.github.mangi.eta.agent.voice.VoiceModeState
 import io.github.mangi.eta.agent.voice.ReplyReadAloudController
 import io.github.mangi.eta.agent.voice.VOICE_MODE_SPEECH_OWNER_PREFIX
 import io.github.mangi.eta.config.Prefs
+import io.github.mangi.eta.data.model.AnswerFoldLevel
 import io.github.mangi.eta.data.model.ReasoningEffort
 import io.github.mangi.eta.data.repository.AgentMemoryRepository
 import io.github.mangi.eta.ui.app.AgentConversationRevisionReducer
@@ -347,7 +348,16 @@ internal fun AgentChatBody(
     // Project once for both the initial tail anchor and the rendered rows below. In
     // particular, do not derive a second full timeline just to ask for its size: this
     // list can contain thousands of streaming/tool messages.
-    val timelineProjection = remember { AgentTimelineProjectionCache() }
+    // 「回答后收起」的档位决定归组方式：激进档整轮合成一张卡片，普通/不折叠档与旧版一致。
+    // 缓存只在「激进与否」翻转时重建，档位在两者间切换不重投影。
+    val answerFoldLevel = LocalAppearanceSettings.current.answerFoldLevel
+    val aggressiveFold = answerFoldLevel == AnswerFoldLevel.AGGRESSIVE
+    val timelineProjection = remember(aggressiveFold) {
+        AgentTimelineProjectionCache(
+            fullProjection = { it.toTimelineEntries(aggressiveFold) },
+            aggressiveGrouping = aggressiveFold,
+        )
+    }
     val timelineEntries = remember(visibleMessages) {
         StreamPerformanceDiagnostics.measure("timeline.project", visibleMessages.size.toLong()) { timelineProjection.project(visibleMessages) }
     }
@@ -781,8 +791,17 @@ internal fun AgentConversationMessages(
     // AgentChatBody supplies this projection so the initial tail anchor and the
     // rendered rows share one remembered full-list derivation. The standalone voice
     // panel still computes it here when it calls this renderer directly.
+    // AgentChatBody 传入的 timelineEntries 与下面的独立投影必须同源：同样按「回答后收起」
+    // 档位决定归组（激进档整轮合成一张卡片），否则语音面板与主列表会呈现不同结构。
+    val answerFoldLevel = LocalAppearanceSettings.current.answerFoldLevel
+    val aggressiveFold = answerFoldLevel == AnswerFoldLevel.AGGRESSIVE
     val projectedTimelineEntries = timelineEntries ?: run {
-        val standaloneTimelineProjection = remember { AgentTimelineProjectionCache() }
+        val standaloneTimelineProjection = remember(aggressiveFold) {
+            AgentTimelineProjectionCache(
+                fullProjection = { it.toTimelineEntries(aggressiveFold) },
+                aggressiveGrouping = aggressiveFold,
+            )
+        }
         remember(visibleMessages) {
             StreamPerformanceDiagnostics.measure("timeline.project", visibleMessages.size.toLong()) {
                 standaloneTimelineProjection.project(visibleMessages)
@@ -840,12 +859,13 @@ internal fun AgentConversationMessages(
     // Run state still drives footers/reveal below. Row projection only reads it
     // for the trailing work default; ordinary message rows do not depend on it.
     val rowStreamingDefault = projectedTimelineEntries.streamingWorkDefault(workExpansionOverrides, isStreaming)
-    // 「本轮回答出来，就把这一轮跑完的思考/工具整组收起」：只在整轮停下之后生效，
-    // 生成过程中一律沿用旧的「跑着的摊开、跑完的收起」，不打扰看进度。关掉设置即彻底不折叠。
-    val foldWorkOnAnswer = LocalAppearanceSettings.current.foldWorkProcessOnAnswer
+    // 「本轮回答出来，就把回答之前的内容收起来」：只在整轮停下之后生效，
+    // 生成过程中一律沿用旧的「跑着的摊开、跑完的收起」，不打扰看进度。
+    // 收起范围由档位决定：激进=整轮一张卡；普通=只收思考/工具；不折叠=彻底不收。
+    val answerFoldEnabled = answerFoldLevel != AnswerFoldLevel.NONE
     val isTurnSettled = !isStreaming && !isPaused && !isCompressingContext
-    val foldedWorkKeys = remember(projectedTimelineEntries, foldWorkOnAnswer, isTurnSettled) {
-        projectedTimelineEntries.autoFoldedWorkKeys(foldWorkOnAnswer && isTurnSettled)
+    val foldedWorkKeys = remember(projectedTimelineEntries, answerFoldEnabled, isTurnSettled) {
+        projectedTimelineEntries.autoFoldedWorkKeys(answerFoldEnabled && isTurnSettled)
     }
     val timelineRows = remember(
         projectedTimelineEntries, workExpansionOverrides, rowStreamingDefault, retainedWorkSteps, foldedWorkKeys,

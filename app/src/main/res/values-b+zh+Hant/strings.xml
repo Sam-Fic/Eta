@@ -648,6 +648,9 @@
   <plurals name="work_completed_steps">
   <item quantity="other">已完成 %d 個步驟</item>
   </plurals>
+  <plurals name="work_intermediate_replies">
+  <item quantity="other">%d 條中間回覆</item>
+  </plurals>
   <string name="work_completed">分析完成</string>
   <string name="work_collapse">收合工作過程</string>
   <string name="work_expand">展開工作過程</string>
@@ -1559,7 +1562,10 @@
   <string name="appearance_message_timestamps">訊息時間戳</string>
   <string name="appearance_message_timestamps_summary">在回覆操作列右側顯示本輪回覆產生完成的時間。</string>
   <string name="appearance_fold_work_process">回覆後收起工作程序</string>
-  <string name="appearance_fold_work_process_summary">一輪回覆結束後，將其推理與工具步驟收進一張「已完成 N 個步驟」卡片；點一下即可重新展開細看。</string>
+  <string name="appearance_fold_work_process_summary">激進檔只保留你的訊息與本輪最終回覆，中間回覆與思考、工具步驟並成一張卡片；普通檔只收思考與工具步驟；不收合則始終攤開。點卡片即可重新展開。</string>
+  <string name="appearance_fold_level_aggressive">激進收合</string>
+  <string name="appearance_fold_level_normal">普通收合</string>
+  <string name="appearance_fold_level_off">不收合</string>
   <string name="chat_next_user_message">下一則使用者訊息</string>
   <string name="chat_previous_user_message">上一則使用者訊息</string>
   <string name="chat_go_to_bottom">回到底部</string>
