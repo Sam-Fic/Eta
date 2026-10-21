@@ -94,6 +94,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -232,6 +233,8 @@ import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.carousel.HorizontalUncontainedCarousel
+import androidx.compose.material3.carousel.rememberCarouselState
 
 // ── M3 Expressive 外观适配 ────────────────────────────────────────────────
 //
@@ -532,8 +535,7 @@ internal fun ChatMessageItem(
 }
 
 /**
- * 把连续的思考与工具调用收束为一个可展开的工作过程，避免 Agent 事件退化为聊天气泡噪音。
- */
+ * 把连续的思考与工具调用收束为一个可展开的工作过程，避免 Agent 事件退化为聊天气泡噪音。 */
 @Composable
 internal fun AgentWorkProcessHeader(
     messages: List<AgentChatMessageUi>,
@@ -682,8 +684,11 @@ private val UserBubbleAttachmentGap = 2.dp
 /** 用户消息（气泡本体与附件行）的宽度上限：占聊天区宽度的比例。 */
 private const val UserBubbleWidthFraction = 0.82f
 
-/** 图片附件单张边长上限；多图时按可用宽度均分，保证每张一样大且整组放得下。 */
-private val UserBubbleImageMaxSide = 100.dp
+/** 图片附件单张边长（正方形）；一组图里每张一样大。 */
+private val UserBubbleImageSide = 100.dp
+
+/** 图片组缩到小于这个边长就不再缩，改为横向滚动。 */
+private val UserBubbleImageMinSide = 64.dp
 
 /** 四角半径（用户气泡与图片附件共用）。 */
 private data class CornerRadii(
@@ -909,74 +914,93 @@ private fun UserMessageBubble(
                     .padding(bottom = if (hasBubbleBody) UserBubbleAttachmentGap else 0.dp),
                 contentAlignment = Alignment.CenterEnd,
             ) {
-                // K2 在嵌套 Column 的内容 lambda 里拒绝隐式接收者取 maxWidth，
-                // 在 BoxWithConstraints 作用域顶部先算好气泡宽度上限再传下去。
-                val bubbleMaxWidth = maxWidth * UserBubbleWidthFraction
+                // Column 的 content lambda 里 BoxWithConstraintsScope 会被 DslMarker 挡住，
+                // 宽度先落到普通值再往下传。
+                val attachmentMaxWidth = maxWidth * UserBubbleWidthFraction
+                val chatContentWidth = maxWidth
+                // Column 不设总宽上限：图片行要能占满整条聊天区（两端都是整图），
+                // 文件行自己再按 0.82 收，气泡本体另有 0.82 上限。
                 Column(
-                    modifier = Modifier.widthIn(max = bubbleMaxWidth),
                     horizontalAlignment = Alignment.End,
                 ) {
                     if (message.images.isNotEmpty()) {
                         val imageCount = message.images.size
-                        // 一组图每张一律同尺寸：按宽度上限均分（扣掉相连间隙），再套 100dp 上限；
-                        // 图多时一起缩小，整组刚好放得下，不会被右缘裁掉。
-                        val imageWidth = bubbleMaxWidth -
-                            UserBubbleAttachmentGap * (imageCount - 1)
-                        val imageSide = (imageWidth / imageCount).coerceIn(0.dp, UserBubbleImageMaxSide)
-                        Row(horizontalArrangement = Arrangement.spacedBy(UserBubbleAttachmentGap)) {
-                            message.images.forEachIndexed { index, dataUrl ->
-                                key(index, dataUrl, message.fullImageSourceAt(index)) {
-                                    val bitmap = rememberDataUrlBitmap(
-                                        dataUrl.ifBlank { message.fullImageSourceAt(index) },
-                                        fallback = message.fullImageSourceAt(index),
-                                    )
-                                    val mediaShape = chatMediaShape(
-                                        userImageCorners(
-                                            index = index,
-                                            count = message.images.size,
-                                            connectsBelow = imageRowConnectsBelow,
+                        val gapTotal = UserBubbleAttachmentGap * (imageCount - 1)
+                        // 视口用整条聊天区宽度（不再套 0.82 上限）；图片等比缩到刚好放得下——
+                        // 每张一样大，整组两端都是完整图；图多到缩到下限还放不下，才横向滚动。
+                        val fitSide = (chatContentWidth - gapTotal) / imageCount
+                        val scrollsHorizontally = fitSide < UserBubbleImageMinSide
+                        val imageSide = if (scrollsHorizontally) {
+                            UserBubbleImageMinSide
+                        } else {
+                            fitSide.coerceAtMost(UserBubbleImageSide)
+                        }
+                        val stripWidth = (imageSide * imageCount + gapTotal)
+                            .coerceAtMost(chatContentWidth)
+                        val carouselState = rememberCarouselState { imageCount }
+                        // 它首帧会停在右端（第一张被切掉），固定从第一张开始。
+                        LaunchedEffect(imageCount) { carouselState.scrollToItem(0) }
+                        HorizontalUncontainedCarousel(
+                            state = carouselState,
+                            itemWidth = imageSide,
+                            modifier = Modifier
+                                .requiredWidth(stripWidth)
+                                .height(imageSide)
+                                .clipToBounds(),
+                            // carousel 的间距是「两侧各留一半」，视觉间隙 = 2 × itemSpacing。
+                            itemSpacing = UserBubbleAttachmentGap / 2,
+                            contentPadding = PaddingValues(0.dp),
+                        ) { index ->
+                            val dataUrl = message.images[index]
+                            val bitmap = rememberDataUrlBitmap(
+                                dataUrl.ifBlank { message.fullImageSourceAt(index) },
+                                fallback = message.fullImageSourceAt(index),
+                            )
+                            val mediaShape = chatMediaShape(
+                                userImageCorners(
+                                    index = index,
+                                    count = imageCount,
+                                    connectsBelow = imageRowConnectsBelow,
+                                ),
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(imageSide)
+                                    .clip(mediaShape)
+                                    .background(chatSurfaceContainerColor()),
+                            ) {
+                                if (bitmap != null) {
+                                    ChatClickableImage(
+                                        source = message.fullImageSourceAt(index),
+                                        bitmap = bitmap,
+                                        contentDescription = stringResource(
+                                            if (message.isVideoAt(index)) {
+                                                R.string.chat_video_preview
+                                            } else {
+                                                R.string.chat_image_preview
+                                            },
                                         ),
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop,
                                     )
-                                    Box(
+                                }
+                                if (message.isVideoAt(index)) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.PlayArrow,
+                                        contentDescription = null,
+                                        tint = Color.White,
                                         modifier = Modifier
-                                            .size(imageSide)
-                                            .clip(mediaShape)
-                                            .background(chatSurfaceContainerColor()),
-                                    ) {
-                                        if (bitmap != null) {
-                                            ChatClickableImage(
-                                                source = message.fullImageSourceAt(index),
-                                                bitmap = bitmap,
-                                                contentDescription = stringResource(
-                                                    if (message.isVideoAt(index)) {
-                                                        R.string.chat_video_preview
-                                                    } else {
-                                                        R.string.chat_image_preview
-                                                    },
-                                                ),
-                                                modifier = Modifier.fillMaxSize(),
-                                                contentScale = ContentScale.Crop,
-                                            )
-                                        }
-                                        if (message.isVideoAt(index)) {
-                                            Icon(
-                                                imageVector = Icons.Rounded.PlayArrow,
-                                                contentDescription = null,
-                                                tint = Color.White,
-                                                modifier = Modifier
-                                                    .align(Alignment.Center)
-                                                    .size(28.dp),
-                                            )
-                                            Text(
-                                                text = AgentVideoCodec.formatDuration(message.durationMsAt(index) ?: 0L),
-                                                style = chatTertiaryStyle(),
-                                                color = Color.White,
-                                                modifier = Modifier
-                                                    .align(Alignment.BottomStart)
-                                                    .padding(8.dp),
-                                            )
-                                        }
-                                    }
+                                            .align(Alignment.Center)
+                                            .size(28.dp),
+                                    )
+                                    Text(
+                                        text = AgentVideoCodec.formatDuration(message.durationMsAt(index) ?: 0L),
+                                        style = chatTertiaryStyle(),
+                                        color = Color.White,
+                                        modifier = Modifier
+                                            .align(Alignment.BottomStart)
+                                            .padding(8.dp),
+                                    )
                                 }
                             }
                         }
@@ -984,9 +1008,12 @@ private fun UserMessageBubble(
                     if (visibleFiles.isNotEmpty()) {
                         SentFileReferenceFlow(
                             references = visibleFiles,
-                            modifier = Modifier.padding(
-                                top = if (message.images.isNotEmpty()) UserBubbleAttachmentGap else 0.dp,
-                            ),
+                            modifier = Modifier
+                                // 文件行自己收在 0.82 内（图片行不受这条限制）。
+                                .widthIn(max = attachmentMaxWidth)
+                                .padding(
+                                    top = if (message.images.isNotEmpty()) UserBubbleAttachmentGap else 0.dp,
+                                ),
                             largeCorner = UserBubbleCornerRadius,
                             seamCorner = UserBubbleAttachmentSeamCorner,
                             connectsBelow = joinsBubble,
