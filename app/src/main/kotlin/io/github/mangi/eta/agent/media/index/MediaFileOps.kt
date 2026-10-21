@@ -329,8 +329,8 @@ internal object MediaFileOps {
             buildSet {
                 while (cursor.moveToNext()) cursor.getString(0)?.let(::add)
             }
-        } ?: emptySet()
-    }.getOrDefault(emptySet())
+        }
+    }.getOrNull() ?: emptySet()
 
     /**
      * 绝对路径 → MediaStore RELATIVE_PATH（以 `/` 结尾）。
@@ -513,8 +513,8 @@ internal object MediaFileOps {
                 buildSet {
                     while (cursor.moveToNext()) cursor.getString(0)?.let(::add)
                 }
-            } ?: emptySet()
-        }.getOrDefault(emptySet())
+            }
+        }.getOrNull() ?: emptySet()
 
     /**
      * SAF 移动：
