@@ -20,11 +20,12 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.zip.ZipInputStream
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.yield
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -38,7 +39,7 @@ import org.robolectric.shadows.ShadowLog
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, sdk = [34])
 class SubAgentDiagnosticLoggingTest {
-    /** Use the real settings flow -> file logger binding used by EtaApp, without starting runtime work. */
+    /** Drive the same settings-switch -> file-logger binding shape as EtaApp, without starting runtime work. */
     private suspend fun withLogging(block: suspend (suspend (Boolean) -> Unit) -> Unit) = coroutineScope {
         val context = RuntimeEnvironment.getApplication()
         SettingsDataStore.init(context)
@@ -57,22 +58,27 @@ class SubAgentDiagnosticLoggingTest {
         }
         AppFileLogger.install(context)
         val before = SettingsDataStore.settings()
-        val applied = Channel<Boolean>(Channel.UNLIMITED)
+        // 与 EtaApp 相同的接线形状（开关流 -> AppFileLogger），但开关值由测试持有的
+        // StateFlow 承载，不再订阅 SettingsDataStore.fileLoggingEnabledFlow()：
+        // 它的 data 流在 CI 高负载下出现过 30s 不投递（本用例曾因此超时），
+        // 而本类被测对象是 AppFileLogger 的写入门控与 logcat 生命周期，不是 DataStore
+        // 的冷启动投递。设置落库本身仍在 setLogging 里按真实存储往返校验。
+        val settingsEnabled = MutableStateFlow(before.fileLoggingEnabled)
         val binding = launch(start = CoroutineStart.UNDISPATCHED) {
-            SettingsDataStore.fileLoggingEnabledFlow().collect { enabled ->
-                AppFileLogger.setEnabled(enabled)
-                applied.send(enabled)
-            }
+            settingsEnabled.collect { enabled -> AppFileLogger.setEnabled(enabled) }
         }
         val setLogging: suspend (Boolean) -> Unit = { value ->
-            SettingsDataStore.setFileLoggingEnabled(value)
-            // DataStore 落盘后才经 flow 投递到本收集协程，这一跳涉及真实磁盘 IO 与线程调度。
-            // 本地通常几十毫秒内完成，CI 高负载下偶发明显拉长；等待窗口取足够宽松的有界值，
-            // 避免把调度抖动误判成失败（若投递真的缺失，仍会在此超时失败）。
+            withTimeout(30_000) { SettingsDataStore.setFileLoggingEnabled(value) }
+            // 真实存储往返：写入后直接读快照，不依赖 data 流何时广播。
+            assertEquals(value, withTimeout(30_000) {
+                SettingsDataStore.settings().fileLoggingEnabled
+            })
+            settingsEnabled.value = value
+            // 投递是同一事件循环上的下一跳：用有界等待确认已应用，而不是假设调度顺序。
+            // 若值本就相同，StateFlow 不会重复发射，但收集器在订阅时已应用过当前值。
             withTimeout(30_000) {
-                while (applied.receive() != value) { /* Await settings delivery, never sleep or poll files. */ }
+                while (AppFileLogger.isEnabled() != value) yield()
             }
-            assertEquals(value, AppFileLogger.isEnabled())
         }
         try {
             setLogging(false)
@@ -84,7 +90,6 @@ class SubAgentDiagnosticLoggingTest {
             AppFileLogger.setEnabled(false)
             AppFileLogger.clear()
             SettingsDataStore.updateSettings { before }
-            applied.close()
         }
     }
 
