@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -130,8 +131,12 @@ import io.github.mangi.eta.ui.model.isResumeAfterCompress
 import io.github.mangi.eta.ui.model.isSteerSupplement
 import io.github.mangi.eta.ui.adaptive.EtaType
 import io.github.mangi.eta.ui.adaptive.etaTextStyle
+import io.github.mangi.eta.ui.layout.MaxChatSuggestionWidth
+import io.github.mangi.eta.ui.layout.rememberPageContentSidePadding
 import kotlin.math.abs
+import kotlin.math.ceil
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.sqrt
 import kotlin.random.Random
 import kotlinx.coroutines.Job
@@ -585,6 +590,8 @@ internal fun AgentChatScaffold(
     modifier: Modifier = Modifier,
 ) {
     val appearance = LocalAppearanceSettings.current
+    // 宽屏（平板横屏）下消息列与输入栏一起收进居中的内容列，避免一行文字横贯整块屏幕。
+    val contentSidePadding = rememberPageContentSidePadding()
     // Pure function of the visible list, but it scans to the last user turn and then
     // forward for model output. Memoised so a recomposition that does not change the
     // list (or the run flags) does not rescan a multi-thousand-message transcript.
@@ -667,6 +674,7 @@ internal fun AgentChatScaffold(
                 onAssistantSelected = onAssistantSelected,
                 gptSpeedMode = gptSpeedMode,
                 onCycleGptSpeedMode = onCycleGptSpeedMode,
+                horizontalPadding = contentSidePadding,
             )
         },
     ) { innerPadding ->
@@ -700,6 +708,7 @@ internal fun AgentChatScaffold(
                 isWaitingForCompression = isWaitingForCompression,
                 bottomInset = bottomPadding,
                 topInset = topBarInset,
+                horizontalPadding = contentSidePadding,
                 keepBottomAnchored = keepBottomAnchored,
                 onBottomAnchorChanged = onBottomAnchorChanged,
                 onSuggestionClick = onSuggestionClick,
@@ -738,6 +747,7 @@ internal fun AgentConversationMessages(
     isWaitingForCompression: Boolean = false,
     bottomInset: Dp,
     topInset: Dp = 0.dp,
+    horizontalPadding: Dp = 0.dp,
     keepBottomAnchored: Boolean,
     onBottomAnchorChanged: (Boolean) -> Unit,
     onSuggestionClick: (String) -> Unit = {},
@@ -1469,6 +1479,8 @@ internal fun AgentConversationMessages(
     val restClip = remember(bottomInset) { ComposerRestClip(bottomInset + ConversationComposerGap) }
     // 尾部这一帧量不到时不能把上提清零，否则卡片会掉进输入框再弹回来。
     val heldTailLift = remember { intArrayOf(0) }
+    // 上提自身的帧时钟：只用来给每帧的上提增量发预算，不参与组合。
+    val tailLiftFrameNanos = remember { LongArray(1) }
     // The callback reports message.id, but a work step's lazy key is work-step:<id>.
     // Both row branches capture the actual entry key before ThinkingRow changes its height.
     val onThinkingRowToggle: (String, Boolean) -> Unit = { rowKey, willExpand ->
@@ -1546,15 +1558,29 @@ internal fun AgentConversationMessages(
                 .then(if (shouldLiftTail) {
                     Modifier.graphicsLayer {
                         val overflow = scrollState.followTailOverflow()
+                        // 上提逐帧限速：新长出一行时整列不再一帧内上跳一个行高，
+                        // 而是从静止线下方按固定速度滑入（一行约三帧）。
+                        val frameNanos = System.nanoTime()
+                        val previousFrameNanos = tailLiftFrameNanos[0]
+                        tailLiftFrameNanos[0] = frameNanos
+                        val elapsedSeconds = if (previousFrameNanos == 0L) {
+                            1f / 60f
+                        } else {
+                            (frameNanos - previousFrameNanos) / 1_000_000_000f
+                        }
                         translationY = -nextHeldTailLift(
                             shouldLift = true,
                             overflowPx = overflow,
                             heldPx = heldTailLift[0],
                             pointerDown = pointerDown.value,
+                            maxRisePx = ceil(tailLiftRiseBudgetPx(elapsedSeconds, densityScale)).toInt(),
                         ).also { heldTailLift[0] = it }.toFloat()
                     }
                 } else {
-                    Modifier.also { heldTailLift[0] = 0 }
+                    Modifier.also {
+                        heldTailLift[0] = 0
+                        tailLiftFrameNanos[0] = 0L
+                    }
                 })
                 .onGloballyPositioned {
                     StreamPerformanceDiagnostics.recordListGeometry(diagnosticList, scrollState, visibleMessages.size)
@@ -1600,6 +1626,8 @@ internal fun AgentConversationMessages(
             contentPadding = PaddingValues(
                 top = topInset + 12.dp + with(LocalDensity.current) { heldLeadingGapPx.toDp() },
                 bottom = ConversationComposerGap + bottomInset,
+                start = horizontalPadding,
+                end = horizontalPadding,
             ),
             overscrollEffect = null,
         ) {
@@ -1947,7 +1975,8 @@ internal fun AgentConversationMessages(
                         IconButtonDefaults.smallContainerSize().height / 2,
                     // 页边距取全站惯用的 16dp 屏幕留白；与上面同高对齐的页脚动作组
                     // （horizontal = 16dp）右缘因此也落在同一条竖线上。
-                    end = 16.dp,
+                    // 宽屏下再补内容列留白，让按钮跟着消息列靠里，而不是飘到屏幕最右。
+                    end = 16.dp + horizontalPadding,
                 ),
         )
     }
@@ -2146,6 +2175,7 @@ private fun AgentChatBottomBar(
     onAssistantSelected: (String) -> Unit = {},
     gptSpeedMode: io.github.mangi.eta.data.model.GptSpeedMode = io.github.mangi.eta.data.model.GptSpeedMode.NORMAL,
     onCycleGptSpeedMode: () -> Unit = {},
+    horizontalPadding: Dp = 0.dp,
 ) {
     val drawerBlocksIme = LocalConversationDrawerBlocksIme.current
     // 底部渐变板取页面背景同色：官方 surfaceContainer（壳层 Scaffold 同色）。
@@ -2178,10 +2208,10 @@ private fun AgentChatBottomBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                // 屏幕边缘留白是 16dp。
+                // 屏幕边缘留白是 16dp；宽屏下再补内容列留白，输入栏与消息列同宽。
                 .padding(
-                    start = 16.dp,
-                    end = 16.dp,
+                    start = 16.dp + horizontalPadding,
+                    end = 16.dp + horizontalPadding,
                     bottom = 12.dp,
                 ),
         ) {
@@ -2597,12 +2627,40 @@ internal fun resolveFollowTailLag(following: Boolean, tailOverflowPx: Int?): Fol
     else -> FollowTailLag(tailOverflowPx.toFloat())
 }
 
-/** 测量暂时缺失时保留上一帧上提，避免卡片底边在输入框附近来回跳。 */
-internal fun nextHeldTailLift(shouldLift: Boolean, overflowPx: Int?, heldPx: Int, pointerDown: Boolean = false): Int = when {
+/**
+ * 测量暂时缺失时保留上一帧上提，避免卡片底边在输入框附近来回跳。
+ *
+ * 上提只限制增长：新长出一行时整列不再一帧内上跳一个行高，而是按 [maxRisePx]
+ * 逐帧从静止线下方滑入。回落不限速——滚动追上后上提立即让位，
+ * 「滚动量 + 上提量」始终不超过真实溢出，尾部不会被抬到静止线上方。
+ */
+internal fun nextHeldTailLift(
+    shouldLift: Boolean,
+    overflowPx: Int?,
+    heldPx: Int,
+    pointerDown: Boolean = false,
+    maxRisePx: Int = Int.MAX_VALUE,
+): Int = when {
     !shouldLift -> 0
     pointerDown -> heldPx.coerceAtLeast(0)
     overflowPx == null -> heldPx.coerceAtLeast(0)
-    else -> overflowPx.coerceAtLeast(0)
+    else -> {
+        val overflow = overflowPx.coerceAtLeast(0).toLong()
+        val held = heldPx.coerceAtLeast(0).toLong()
+        val rise = maxRisePx.coerceAtLeast(1).toLong()
+        min(held + rise, overflow).toInt()
+    }
+}
+
+/**
+ * 上提的每帧预算：新行以固定速度滑入静止线上方，一行（约 22dp）约三帧走完。
+ * 速度随 density 缩放，帧间隔按 32ms 封顶，与 [BottomFollowMotion] 同一约定。
+ */
+private const val TailLiftRiseSpeedDpPerSecond = 480f
+
+internal fun tailLiftRiseBudgetPx(elapsedSeconds: Float, density: Float): Float {
+    if (!density.isFinite() || density <= 0f) return 0f
+    return TailLiftRiseSpeedDpPerSecond * density * elapsedSeconds.coerceIn(0f, 0.032f)
 }
 
 private fun LazyListState.isConversationAtBottom(): Boolean {
@@ -2694,6 +2752,9 @@ private fun EmptyChatState(
             ) {
                 Box(
                     modifier = Modifier
+                        // 宽屏下整组不再铺满窗口：形状尺寸按容器宽度的比例算，
+                        // 不封顶的话平板上会放出四块巨大的色块。
+                        .widthIn(max = MaxChatSuggestionWidth)
                         .fillMaxWidth()
                         // 形状整组始终按完整高度测量、只把占位高度交给动画：占位收起时形状本身不会
                         // 被压扁，也不会被裁切，而是保持原样随整组上移 / 下移。

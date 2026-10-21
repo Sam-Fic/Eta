@@ -201,4 +201,26 @@ class BottomFollowViewportStepTest {
         assertEquals(0, nextHeldTailLift(false, 100, 47, pointerDown = true))
     }
 
+    @Test fun liftRisesByAWholeBudgetPerFrameAndCapsAtOverflow() {
+        // 新长出的一行不再一帧上提整行，而是每帧只走一个预算。
+        var lift = 0
+        repeat(3) { lift = nextHeldTailLift(true, 60, lift, maxRisePx = 8) }
+        assertEquals(24, lift)
+        lift = nextHeldTailLift(true, 60, lift, maxRisePx = 8)
+        assertEquals(32, lift)
+        // 溢出变小（滚动已经追上）时立即回落：滚动量与上提量之和永远不超过真实溢出。
+        assertEquals(30, nextHeldTailLift(true, 30, lift, maxRisePx = 8))
+        assertEquals(0, nextHeldTailLift(true, 0, lift, maxRisePx = 8))
+        // 手指按住时冻结，不继续增长。
+        assertEquals(32, nextHeldTailLift(true, 60, 32, pointerDown = true, maxRisePx = 8))
+    }
+
+    @Test fun liftBudgetScalesWithDensityAndCapsFrameGap() {
+        assertEquals(8f, tailLiftRiseBudgetPx(0.016666667f, 1f), 0.01f)
+        assertEquals(24f, tailLiftRiseBudgetPx(0.016666667f, 3f), 0.01f)
+        // 掉帧或长时间静止后只发一帧的额度，不会补成一段跳动。
+        assertEquals(tailLiftRiseBudgetPx(0.032f, 1f), tailLiftRiseBudgetPx(5f, 1f), 0f)
+        assertEquals(0f, tailLiftRiseBudgetPx(0.016f, 0f), 0f)
+    }
+
 }
