@@ -189,7 +189,8 @@ class AgentModelClientLoopTest {
             },
         )
         assertEquals(listOf("first"), executed)
-        assertEquals(4, captures)
+        // 首轮复用初始快照，只有工具可能改变能力之后（第 2/3 轮）才重新捕获。
+        assertEquals(3, captures)
     }
 
     @Test

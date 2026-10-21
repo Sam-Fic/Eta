@@ -59,8 +59,8 @@ class MediaSearchThresholdTest {
 
     @Test
     fun keepsOrderWhenFiltering() {
-        // 过滤只删行、不重排：保留 rank 给出的降序顺序。
-        val hits = listOf(hit("a", 0.9f), hit("b", 0.2f), hit("c", 0.5f), hit("d", 0.1f), hit("e", 0.7f))
+        // 过滤只删行、不重排：入参保持 rank 给出的降序顺序，输出仍是同一顺序。
+        val hits = listOf(hit("a", 0.9f), hit("e", 0.7f), hit("c", 0.5f), hit("b", 0.2f), hit("d", 0.1f))
         assertEquals(
             listOf("a", "e", "c"),
             MediaSearchService.applyMinScore(hits, 0.4f).map { it.sourceKey },

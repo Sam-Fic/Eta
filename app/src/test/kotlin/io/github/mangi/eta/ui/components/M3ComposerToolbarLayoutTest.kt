@@ -275,13 +275,13 @@ class M3ComposerToolbarLayoutTest {
     }
 
     /**
-     * 「+」按钮外观：空闲态是透明的标准图标按钮（无背景），展开菜单后才转为填充主色
-     * （`primary`，与尾部「通话」按钮同一组色槽），同时图标旋转 45° 成为「×」。
+     * 「+」按钮外观：空闲与展开态都保持无底板的纯图标（按下无涟漪、也不出现填充色块），
+     * 展开菜单后图标旋转 45° 成为「×」。
      *
-     * 这里对按钮容器像素取样：空闲态应仍是工具栏底色（透明），展开态应落在 primary 上。
+     * 这里对按钮容器像素取样：两种状态都应仍是工具栏底色，不应出现 primary 填充。
      */
     @Test
-    fun addButtonIsTransparentUntilExpandedThenFilledAndRotated() {
+    fun addButtonKeepsFlatBackgroundAndRotatesWhenMenuExpands() {
         val field = TextFieldState()
         val voiceStateHolder = mutableStateOf(VoiceModeState())
         val primary = Color(0xFF123456)
@@ -301,16 +301,18 @@ class M3ComposerToolbarLayoutTest {
             idleEdge != primary,
         )
 
-        // 展开菜单：容器变为实心 primary，取靠近左缘的容器环带避开中心的图标。
+        // 展开菜单：按钮仍是无底板图标，采样点与环境同色，不应变成 primary 色块。
         add.performClick()
         compose.waitForIdle()
         val openPixels = compose.onNodeWithContentDescription("Add attachment")
             .captureToImage().toPixelMap()
+        val openEdge = openPixels[1, openPixels.height / 2]
         assertEquals(
-            "展开后「+」按钮应为 primary 填充",
-            primary,
-            openPixels[1, openPixels.height / 2],
+            "展开菜单后「+」按钮不应出现填充背景（采样点 $openEdge 应与空闲态一致）",
+            idleEdge,
+            openEdge,
         )
+        assertTrue("展开菜单后「+」按钮不应被 primary 填充", openEdge != primary)
 
         // 空闲与展开两种图标朝向不同：45° 旋转把「+」化成「×」，逐像素比较应存在差异。
         var diff = 0

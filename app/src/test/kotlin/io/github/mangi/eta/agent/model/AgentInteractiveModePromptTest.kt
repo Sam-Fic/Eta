@@ -117,7 +117,9 @@ class AgentInteractiveModePromptTest {
             assertEquals("done", result.content)
             assertEquals(listOf("get_current_context", "ask_user"), executed)
             assertEquals(3, provider.messages.size)
-            assertEquals(4, captures) // Initial build plus a fresh capabilities snapshot for every round.
+            // 首轮复用发送前捕获的初始快照（未执行任何工具，能力不可能变），之后每轮各取一次：
+            // 3 轮 = 1 次初始 + 第 2/3 轮各 1 次。
+            assertEquals(3, captures)
             provider.messages.forEachIndexed { round, messages ->
                 val guidance = messages.systemContents().single { it.contains("交互模式已") }
                 assertTrue(guidance.contains(if (enabled) "交互模式已开启" else "交互模式已关闭"))
