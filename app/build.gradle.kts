@@ -210,11 +210,19 @@ android.sourceSets.getByName("main").jniLibs.srcDir(speechJniDir.get().asFile)
 tasks.named("preBuild").configure { dependsOn(prepareSpeechRuntime) }
 
 // Release artifacts must never silently fall back to a runner-generated debug certificate.
+val releaseSigningEnabled = hasReleaseSigning && System.getenv("ETA_DISABLE_RELEASE_SIGNING") != "true"
+val releaseKeystoreFile = releaseStoreFile?.let { storeFileValue ->
+    val storeFileCandidate = File(storeFileValue)
+    if (storeFileCandidate.isAbsolute) storeFileCandidate else File(projectDir, storeFileValue)
+}
 tasks.matching { it.name in setOf("packageRelease", "bundleRelease", "assembleRelease") }.configureEach {
+    // 闭包只能捕获纯值：引用 Project 会生成指向脚本对象的 this$0，配置缓存存不下来。
+    val signingEnabled = releaseSigningEnabled
+    val keystoreFile = releaseKeystoreFile
     doFirst {
-        check(hasReleaseSigning && System.getenv("ETA_DISABLE_RELEASE_SIGNING") != "true") {
+        check(signingEnabled) {
             "Original release signing configuration is required; debug fallback is forbidden."
         }
-        check(file(requireNotNull(releaseStoreFile)).isFile) { "Release keystore is missing." }
+        check(keystoreFile?.isFile == true) { "Release keystore is missing." }
     }
 }
