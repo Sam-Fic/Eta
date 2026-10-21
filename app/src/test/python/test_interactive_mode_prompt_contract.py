@@ -63,7 +63,7 @@ class InteractiveModePromptContractTest(unittest.TestCase):
         # Exact inventory catches a newly added call missing the parameter, not just one nearby match.
         expected = {
             'agent/model/AgentPromptBuilder.kt': ['buildSystemMessages'],
-            'agent/model/AgentModelClient.kt': ['buildInitialMessages', 'buildSystemMessages', 'buildSystemMessages'],
+            'agent/model/AgentModelClient.kt': ['buildInitialMessages', 'buildSystemMessages'],
             'agent/model/AgentRequestOverhead.kt': ['buildSystemMessages'],
         }
         actual = {}

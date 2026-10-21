@@ -19,12 +19,14 @@ internal object AgentPromptBuilder {
         rootAvailable: Boolean = false,
         delegationAvailable: Boolean = false,
         shellTools: AgentShellToolAvailability.Snapshot? = null,
+        onSystemCount: (Int) -> Unit = {},
         interactiveModeEnabled: Boolean = false,
     ): JSONArray {
         val messages = buildSystemMessages(
             config, skillContext, memoryContext, rootAvailable, delegationAvailable, shellTools,
             interactiveModeEnabled = interactiveModeEnabled,
         )
+        onSystemCount(messages.length())
         history.forEach { item ->
             runCatching { AgentConversationCodec.toJsonObject(item) }.getOrNull()?.let(messages::put)
         }

@@ -7,6 +7,15 @@ import io.github.mangi.eta.data.model.McpServerSetting
 import io.github.mangi.eta.data.model.McpToolDefinition
 import io.github.mangi.eta.data.repository.McpServerRepository
 import java.security.MessageDigest
+import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -49,6 +58,8 @@ internal class McpRunSnapshot(
 
     companion object {
         val EMPTY = McpRunSnapshot(emptyList())
+        private val refreshScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        private val refreshing: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
         fun appendCachedModelTools(
             destination: JSONArray,
@@ -83,25 +94,36 @@ internal class McpRunSnapshot(
         }
 
         suspend fun load(): McpRunSnapshot {
-            val projected = mutableListOf<McpRunTool>()
             val now = System.currentTimeMillis()
-            McpServerRepository.enabledServers().forEach { configured ->
-                val bearerToken = McpServerRepository.bearerToken(configured.id)
-                val needsRefresh = configured.lastProtocolVersion == null ||
-                    configured.lastProtocolVersion == McpProtocolMode.LATEST &&
-                    (configured.toolsExpireAt == null || configured.toolsExpireAt <= now)
-                val server = if (needsRefresh) {
-                    runCatching {
-                        McpServerManager.discover(configured, bearerToken).also {
-                            McpServerRepository.update(it)
-                        }
-                    }.getOrNull()
-                        ?: return@forEach
-                } else {
-                    configured
+            val configured = McpServerRepository.enabledServers().map { server ->
+                server to McpServerRepository.bearerToken(server.id)
+            }
+            // Only a server that has never produced a catalog needs the network before this run.
+            // Discovering several such servers sequentially would add their round trips end to end.
+            val undiscovered = configured.filter { (server, _) ->
+                needsRefresh(server, now) && server.tools.isEmpty()
+            }
+            val discovered = if (undiscovered.isEmpty()) emptyMap() else coroutineScope {
+                undiscovered.map { (server, token) ->
+                    async(Dispatchers.IO) {
+                        server.id to runCatching {
+                            McpServerManager.discover(server, token).also {
+                                McpServerRepository.update(it)
+                            }
+                        }.getOrNull()
+                    }
+                }.awaitAll().toMap()
+            }
+            val projected = mutableListOf<McpRunTool>()
+            configured.forEach { (configuredServer, bearerToken) ->
+                // An expired cache stays valid for THIS frozen run; refresh it for the next one
+                // instead of putting an MCP round trip in front of the model request.
+                if (needsRefresh(configuredServer, now) && configuredServer.tools.isNotEmpty()) {
+                    scheduleRefresh(configuredServer.id)
                 }
-                server.activeTools.forEach { tool ->
-                    if (projected.size >= MAX_RUN_TOOLS) return@forEach
+                val server = discovered[configuredServer.id] ?: configuredServer
+                for (tool in server.activeTools) {
+                    if (projected.size >= MAX_RUN_TOOLS) break
                     projected += McpRunTool(
                         modelName = modelToolName(server.id, tool.name),
                         server = server,
@@ -111,6 +133,26 @@ internal class McpRunSnapshot(
                 }
             }
             return McpRunSnapshot(projected)
+        }
+
+        private fun needsRefresh(server: McpServerSetting, now: Long): Boolean =
+            server.lastProtocolVersion == null ||
+                server.lastProtocolVersion == McpProtocolMode.LATEST &&
+                (server.toolsExpireAt == null || server.toolsExpireAt <= now)
+
+        private fun scheduleRefresh(serverId: String) {
+            if (!refreshing.add(serverId)) return
+            refreshScope.launch {
+                try {
+                    McpServerManager.refresh(serverId)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    // Best effort: the frozen run keeps the cached catalog either way.
+                } finally {
+                    refreshing.remove(serverId)
+                }
+            }
         }
 
         private fun modelToolName(serverId: String, toolName: String): String {

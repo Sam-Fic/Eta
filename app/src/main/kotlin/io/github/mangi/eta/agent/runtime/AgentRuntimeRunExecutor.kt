@@ -108,8 +108,10 @@ internal class AgentRuntimeRunExecutor(
             val githubSkillSource = PublicGitHubSkillSource(appContext.cacheDir, AgentHttpClient.client)
             val assistant = requireNotNull(AssistantRepository.currentProfile(request.assistantId)) { "任务所属助手不存在，请重新发起任务" }
             val enabledSkillIds = assistant.enabledSkillIds.toSet()
+            // Every skill mutation invalidates the shared index, so a per-run forced rescan
+            // would only re-walk the skill roots on the first-request path.
             val (runSkillsRoot, runSkillEntries) = SkillRuntime.createRunSkills(appContext, assistant.id,
-                skillIndexService.listSkillsForManagement(forceRefresh = true)
+                skillIndexService.listSkillsForManagement()
                     .filter { it.installed && it.id in enabledSkillIds }
                     .filter { SkillCompatibilityChecker.evaluate(it).available })
             unownedSkillRoot = runSkillsRoot

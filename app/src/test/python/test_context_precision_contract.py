@@ -34,8 +34,13 @@ class ContextPrecisionContractTest(unittest.TestCase):
         code = self.read('agent/model/AgentLoop.kt')
         self.assertIn('val requestLocal = localRequestTokens()', code)
         self.assertIn('silentBudget.requestStarted(requestLocal)', code)
-        self.assertIn('AgentRequestTokenEstimate.boundary(messages, currentRoundTools, config.supportsVision, config.supportsVideo)', code)
-        self.assertIn('AgentRequestTokenEstimate.fixed(messages, systemCount, roundTools)', code)
+        self.assertRegex(code,
+            r'AgentRequestTokenEstimate\.boundary\(\s*'
+            r'messages,\s*currentRoundTools,\s*config\.supportsVision,\s*config\.supportsVideo,'
+            r'\s*toolTokens\s*=\s*currentRoundToolsTokens,?\s*\)')
+        self.assertRegex(code,
+            r'AgentRequestTokenEstimate\.fixed\(\s*'
+            r'messages,\s*systemCount,\s*roundTools,\s*toolTokens\s*=\s*currentRoundToolsTokens,?\s*\)')
         self.assertNotIn('(requestLocal - requestHistoryTokens)', code)
 
     def test_lightweight_budget_uses_stat_limits_not_media_reads(self):

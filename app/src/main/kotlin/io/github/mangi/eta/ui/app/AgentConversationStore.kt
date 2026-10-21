@@ -140,6 +140,12 @@ internal object AgentConversationStore {
         completionMarkerIds: Set<String> = emptySet(),
         folders: List<ConversationFolderUi> = emptyList(),
         deletedAt: Map<String, Long> = emptyMap(),
+        /**
+         * When non-null, only these conversations rewrite message pages, history files and
+         * checkpoints. Metadata is still written for the full snapshot. The send path uses this
+         * to persist the active conversation without re-encoding every other loaded transcript.
+         */
+        contentConversationIds: Set<String>? = null,
     ) {
         val appContext = context.applicationContext
         saveMutex.withLock {
@@ -197,6 +203,7 @@ internal object AgentConversationStore {
                     dao.deleteState()
                     for ((conversationId, state) in sorted) {
                         if (!state.conversationContentLoaded) continue
+                        if (contentConversationIds != null && conversationId !in contentConversationIds) continue
                         dao.deleteMessagesForConversation(conversationId)
                         dao.deleteContextCheckpoint(conversationId)
                         val pages = state.messages.asSequence()

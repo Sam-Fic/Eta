@@ -18,8 +18,14 @@ internal object AgentRequestTokenEstimate {
             .coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
 
     /** Cheap boundary estimate: no filter(), JSON round-trip, image decoding or attachment-content reads. */
-    fun boundary(messages: JSONArray, definitions: JSONArray, vision: Boolean, video: Boolean): Int =
-        (history(messages, vision, video, alreadyFiltered = false).toLong() + tools(definitions))
+    fun boundary(
+        messages: JSONArray,
+        definitions: JSONArray,
+        vision: Boolean,
+        video: Boolean,
+        toolTokens: Int? = null,
+    ): Int =
+        (history(messages, vision, video, alreadyFiltered = false).toLong() + (toolTokens ?: tools(definitions)))
             .coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
 
     /** Local UI preview only. Cloud calibration continues using the original raw DTO counts. */
@@ -36,8 +42,13 @@ internal object AgentRequestTokenEstimate {
     }
 
     /** Fixed overhead must not be derived by subtracting RAW UI history from FILTERED request tokens. */
-    fun fixed(messages: JSONArray, systemCount: Int, definitions: JSONArray): Int {
-        var total = tools(definitions).toLong()
+    fun fixed(
+        messages: JSONArray,
+        systemCount: Int,
+        definitions: JSONArray,
+        toolTokens: Int? = null,
+    ): Int {
+        var total = (toolTokens ?: tools(definitions)).toLong()
         for (i in 0 until systemCount.coerceIn(0, messages.length())) {
             val message = messages.optJSONObject(i) ?: continue
             total += AgentContextBudget.countMessage(AgentConversationCodec.fromJsonObject(message))

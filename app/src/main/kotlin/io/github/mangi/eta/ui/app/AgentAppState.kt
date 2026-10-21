@@ -15,6 +15,7 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
 import android.os.PowerManager
+import android.os.SystemClock
 import android.view.Choreographer
 import android.provider.Settings
 import android.text.format.DateFormat
@@ -1742,11 +1743,13 @@ internal class AgentAppState(
                 importExternalRun(archivedRun)
             }
             refreshConversationSummaries()
-            persistConversations {
-                importedRunIds.forEach { runId ->
-                    AgentRunArchiveStore.remove(appContext, runId)
-                }
-            }
+            persistConversations(
+                onSaved = {
+                    importedRunIds.forEach { runId ->
+                        AgentRunArchiveStore.remove(appContext, runId)
+                    }
+                },
+            )
         }
     }
 
@@ -3536,6 +3539,7 @@ internal class AgentAppState(
         logicalTurnId: String = runId,
         consumeDraft: Boolean = false,
     ) {
+        val preparedAt = SystemClock.elapsedRealtime()
         val runProvider = selectionProviders.singleOrNull { it.id == state.providerId }?.takeIf { it.isEnabled }
         val runModel = runProvider?.models?.singleOrNull { it.id == state.modelId }?.takeIf { it.isEnabled }
         if (runProvider == null || runModel == null) {
@@ -3602,33 +3606,12 @@ internal class AgentAppState(
             )
         )
         refreshConversationSummaries()
-        val initialPersistence = persistConversations()
+        // Write-ahead only needs this turn's conversation durable. Other loaded conversations
+        // keep their content in memory and are written by their own saves; metadata still goes
+        // through the same serialized snapshot so pending saves cannot be reordered.
+        val initialPersistence = persistConversations(contentConversationIds = setOf(conversationId))
 
         val preparationJob = scope.launch(Dispatchers.IO, start = CoroutineStart.LAZY) {
-            // write-ahead：用户消息未提交前不把可能产生副作用的 run 交给 Runtime。
-            if (!initialPersistence.await()) {
-                withContext(Dispatchers.Main) {
-                    applyRunResult(
-                        runId,
-                        AgentRuntimeWire.RunResult(
-                            runId = runId,
-                            ok = false,
-                            content = "",
-                            error = lastConversationPersistenceError
-                                ?.takeIf { it.isNotBlank() }
-                                ?.let { "${appContext.getString(R.string.conversation_persistence_failed)}（$it）" }
-                                ?: appContext.getString(R.string.conversation_persistence_failed),
-                        )
-                    )
-                }
-                return@launch
-            }
-            if (stoppingRuns.containsKey(runId)) {
-                withContext(Dispatchers.Main) {
-                    applyRunResult(runId, AgentRuntimeWire.RunResult(runId, false, "", "已停止"))
-                }
-                return@launch
-            }
             val permittedReasoningEffort = if (
                 agentBooleanForUi(Prefs.Keys.AGENT_THINKING_ENABLED)
             ) {
@@ -3648,6 +3631,44 @@ internal class AgentAppState(
                 thinkingEnabled = permittedReasoningEffort.enablesReasoning,
                 reasoningEffort = permittedReasoningEffort,
             )
+            // The display estimate duplicates prompt/tool assembly the runtime also performs.
+            // Run it beside write-ahead persistence instead of after it; the run still waits for
+            // both so compression and the context ring see this turn's overhead.
+            val overheadDeferred = if (mediaController == null) async(Dispatchers.IO) {
+                try {
+                    estimateRequestOverhead(config, runAssistant, SubAgentConfigKey.Conversation(conversationId), runProviders)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    null
+                }
+            } else null
+            // write-ahead：用户消息未提交前不把可能产生副作用的 run 交给 Runtime。
+            if (!initialPersistence.await()) {
+                overheadDeferred?.cancel()
+                withContext(Dispatchers.Main) {
+                    applyRunResult(
+                        runId,
+                        AgentRuntimeWire.RunResult(
+                            runId = runId,
+                            ok = false,
+                            content = "",
+                            error = lastConversationPersistenceError
+                                ?.takeIf { it.isNotBlank() }
+                                ?.let { "${appContext.getString(R.string.conversation_persistence_failed)}（$it）" }
+                                ?: appContext.getString(R.string.conversation_persistence_failed),
+                        )
+                    )
+                }
+                return@launch
+            }
+            if (stoppingRuns.containsKey(runId)) {
+                overheadDeferred?.cancel()
+                withContext(Dispatchers.Main) {
+                    applyRunResult(runId, AgentRuntimeWire.RunResult(runId, false, "", "已停止"))
+                }
+                return@launch
+            }
             if (mediaController != null) {
                 directMediaRuns.execute(mediaController) {
                     if (generateVideo) executeVideoGeneration(runId, conversationId, config, prompt, images, mediaController)
@@ -3656,13 +3677,7 @@ internal class AgentAppState(
                 return@launch
             }
             // Recompute from THIS run's frozen model/assistant, never a positive global UI value.
-            val runOverhead = try {
-                estimateRequestOverhead(config, runAssistant, SubAgentConfigKey.Conversation(conversationId), runProviders)
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (_: Exception) {
-                null
-            }
+            val runOverhead = overheadDeferred?.await()
             withContext(Dispatchers.Main) {
                 if (runOverhead != null && runId in runJobs && !stoppingRuns.containsKey(runId)) {
                     runOverheadTokens[runId] = runOverhead
@@ -3792,6 +3807,12 @@ internal class AgentAppState(
                 } catch (_: Throwable) {
                     // A diagnostic failure must never block the run.
                 }
+            }
+            // Pairs with AgentRunTiming inside the runtime: this covers persistence,
+            // compression and stop re-checks before the request leaves the UI process.
+            AndroidAgentLogger.debug {
+                "Agent UI handoff prepared: elapsed_ms=${SystemClock.elapsedRealtime() - preparedAt}, " +
+                    "compacted=$compactedBeforeSend, history=${historyToSend.size}, images=${modelImages.size}"
             }
             val result = runInterruptible {
                 AgentRuntimeClient(appContext, AndroidAgentLogger).run(
@@ -6724,11 +6745,18 @@ internal class AgentAppState(
         }
     }
 
-    private fun releasePersistedConversationContent(saved: Map<String, AgentChatHomeUiState>) {
+    private fun releasePersistedConversationContent(
+        saved: Map<String, AgentChatHomeUiState>,
+        contentConversationIds: Set<String>? = null,
+    ) {
         if (conversationArchiveBusy) return
         val runOwners = runConversationIds.values.toSet()
         conversationsById = conversationsById.mapValues { (id, state) ->
-            val pinned = id == selectedConversationId || id in runOwners || state.isStreaming || state.isPaused ||
+            // A scoped save skips other conversations' content; unloading them would discard
+            // in-memory changes that were never written by this save.
+            val persistedHere = contentConversationIds == null || id in contentConversationIds
+            val pinned = !persistedHere ||
+                id == selectedConversationId || id in runOwners || state.isStreaming || state.isPaused ||
                 state.isCompressingContext || state.isWaitingForCompression || state.messageEdit != null ||
                 state.pendingImages.isNotEmpty() || state.pendingFileReferences.isNotEmpty() ||
                 state.pendingConversationMentions.isNotEmpty() || state.input.isNotEmpty()
@@ -6952,6 +6980,8 @@ internal class AgentAppState(
         val retiredConversations: Int,
         val retiredMessages: Int,
         val retiredHeatmap: Map<java.time.LocalDate, Int>,
+        /** null means every loaded conversation rewrites its content (the historical behavior). */
+        val contentConversationIds: Set<String>? = null,
     ) {
         fun mergeRetiredFrom(older: ConversationSaveSnapshot): ConversationSaveSnapshot = copy(
             retired = ConversationTokenUsageUi(
@@ -6964,10 +6994,20 @@ internal class AgentAppState(
             retiredHeatmap = (retiredHeatmap.keys + older.retiredHeatmap.keys).associateWith {
                 (retiredHeatmap[it] ?: 0) + (older.retiredHeatmap[it] ?: 0)
             },
+            // Never narrow an older pending snapshot: it may be the only write scheduled for a
+            // conversation whose content changed before this send.
+            contentConversationIds = when {
+                contentConversationIds == null || older.contentConversationIds == null -> null
+                else -> contentConversationIds + older.contentConversationIds
+            },
         )
     }
 
-    private fun persistConversations(allowArchive: Boolean = false, onSaved: (() -> Unit)? = null): Deferred<Boolean> {
+    private fun persistConversations(
+        allowArchive: Boolean = false,
+        contentConversationIds: Set<String>? = null,
+        onSaved: (() -> Unit)? = null,
+    ): Deferred<Boolean> {
         if (conversationArchiveBusy && !allowArchive) {
             return kotlinx.coroutines.CompletableDeferred<Boolean>().also { deferredArchiveSaves += it to onSaved }
         }
@@ -6992,6 +7032,7 @@ internal class AgentAppState(
                 conversationFolderIds, conversationPinned, conversationCompletionMarkers, conversationDeletedAt,
                 conversationFolders,
                 pendingRetiredUsage, pendingRetiredConversations, pendingRetiredMessages, pendingRetiredHeatmap,
+                contentConversationIds,
             )
             pendingRetiredUsage = ConversationTokenUsageUi()
             pendingRetiredConversations = 0
@@ -7011,6 +7052,7 @@ internal class AgentAppState(
                     updatedAt = snapshot.timestamps, folderIds = snapshot.folderIds,
                     pinnedIds = snapshot.pinnedIds, completionMarkerIds = snapshot.completionMarkerIds,
                     folders = snapshot.folders, deletedAt = snapshot.deletedAt,
+                    contentConversationIds = snapshot.contentConversationIds,
                 )
                 SettingsDataStore.addRetiredUsage(
                     inputTokens = snapshot.retired.inputTokens,
@@ -7023,7 +7065,7 @@ internal class AgentAppState(
                 retirementCommitted = true
             }
             withContext(Dispatchers.Main.immediate) {
-                releasePersistedConversationContent(snapshot.conversations)
+                releasePersistedConversationContent(snapshot.conversations, snapshot.contentConversationIds)
                 pendingSubAgentDraftBindings.toMap().forEach { (id, draft) ->
                     if (id in snapshot.conversations && id in conversationsById) {
                         if (conversationSubAgentPreferences.confirmBoundDraft(draft, SubAgentConfigKey.Conversation(id))) {

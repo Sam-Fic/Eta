@@ -92,6 +92,10 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
     }
     @Volatile private var destroyed = false
     private val pendingStartRequests = linkedMapOf<String, PendingStartRequest>()
+    // Main thread only: a stop sent while this run's history payload is still decoding must
+    // reject the request when ingest is finally posted, not be silently dropped.
+    private val decodingStartRuns = linkedSetOf<String>()
+    private val stoppedBeforeIngest = linkedSetOf<String>()
     // Keep the originating identity and frozen mode even after terminal registry removal.
     @Volatile
     private var overlaySession: AgentRuntimeSession? = null
@@ -240,26 +244,57 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
             when (msg.what) {
                 AgentRuntimeWire.MSG_START_RUN -> {
                     val data = msg.data
+                    val replyTo = msg.replyTo
                     if (data == null) {
-                        finishWithFailure("Agent Runtime 请求缺少消息体", msg.replyTo)
+                        finishWithFailure("Agent Runtime 请求缺少消息体", replyTo)
                         return
                     }
-                    val incoming = runCatching {
-                        AgentRuntimeWire.incomingRunRequestFromBundle(data)
-                    }.getOrElse { throwable ->
-                        AndroidAgentLogger.warnThrottled("runtime_invalid_start_request") {
-                            "Agent runtime rejected invalid start request: type=${throwable.safeLogType()}"
+                    val requestedRunId = AgentRuntimeWire.runIdFromBundle(data)
+                    if (requestedRunId.isNotBlank()) decodingStartRuns.add(requestedRunId)
+                    // incomingRunRequestFromBundle reads and decodes the history transfer file
+                    // (bounded at 16 MiB). Keep that off the main looper; state changes and
+                    // failure delivery still happen on main.
+                    thread(name = "agent-runtime-request-ingest") {
+                        val decoded = runCatching {
+                            AgentRuntimeWire.incomingRunRequestFromBundle(data)
                         }
-                        finishWithFailure("Agent Runtime 请求格式无效", msg.replyTo)
-                        return
+                        val posted = mainHandler.post {
+                            if (requestedRunId.isNotBlank()) decodingStartRuns.remove(requestedRunId)
+                            val stopped = requestedRunId.isNotBlank() &&
+                                stoppedBeforeIngest.remove(requestedRunId)
+                            val incoming = decoded.getOrNull()
+                            if (incoming == null) {
+                                AndroidAgentLogger.warnThrottled("runtime_invalid_start_request") {
+                                    "Agent runtime rejected invalid start request: " +
+                                        "type=${decoded.exceptionOrNull()?.safeLogType()}"
+                                }
+                                finishWithFailure("Agent Runtime 请求格式无效", replyTo)
+                                return@post
+                            }
+                            if (stopped) {
+                                incoming.close()
+                                sendRequestIngestedTo(replyTo, incoming.request.runId)
+                                sendResultTo(
+                                    replyTo,
+                                    AgentRuntimeWire.RunResult(
+                                        runId = incoming.request.runId,
+                                        ok = false,
+                                        content = "",
+                                        error = "已停止",
+                                    ),
+                                )
+                                return@post
+                            }
+                            val request = incoming.request
+                            if (request.runId.isBlank() || (request.prompt.isBlank() && incoming.images.isEmpty())) {
+                                incoming.close()
+                                finishWithFailure("Agent Runtime 请求缺少 runId 或用户输入", replyTo)
+                                return@post
+                            }
+                            ingestRunRequest(incoming, replyTo)
+                        }
+                        if (!posted) decoded.getOrNull()?.close()
                     }
-                    val request = incoming.request
-                    if (request.runId.isBlank() || (request.prompt.isBlank() && incoming.images.isEmpty())) {
-                        incoming.close()
-                        finishWithFailure("Agent Runtime 请求缺少 runId 或用户输入", msg.replyTo)
-                        return
-                    }
-                    ingestRunRequest(incoming, msg.replyTo)
                 }
 
                 AgentRuntimeWire.MSG_CANCEL -> {
@@ -956,6 +991,9 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         reason: AgentChildControlPolicy.Reason = AgentChildControlPolicy.Reason.USER_STOP,
     ) {
         if (runId.isBlank()) return
+        // The start request may still be off-main decoding history; remember the stop so the
+        // ingest post cannot start it after this point.
+        if (runId in decodingStartRuns) stoppedBeforeIngest.add(runId)
         pendingStartRequests.remove(runId)?.let { pending -> failPendingStart(pending, "已停止") }
         val session = sessions.get(runId) ?: return
         // Capture this exact session before leaving Main; a delayed stop must never re-resolve

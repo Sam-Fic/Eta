@@ -52,12 +52,15 @@ internal object AgentWireRequestEstimate {
             EndpointKind.ANTHROPIC_MESSAGES -> AnthropicMessagesProvider.buildRequestJson(config, messages, tools)
         }
 
-    fun measure(body: JSONObject, endpoint: EndpointKind): Shape = Counter(endpoint).measure(body)
+    fun measure(body: JSONObject, endpoint: EndpointKind, includeBytes: Boolean = true): Shape =
+        Counter(endpoint, includeBytes).measure(body)
 
     /** Same numeric snapshot drives the existing estimate channel and the bounded diagnostic. */
     fun publish(body: JSONObject, endpoint: EndpointKind, request: ProviderRequest, onEvent: (ProviderEvent) -> Unit,
         serializedBodyBytes: Long? = null, serializedBody: String? = null) {
-        val shape = measure(body, endpoint)
+        // UTF-8 byte volumes are diagnostic-only; skipping them avoids a full copy of every
+        // payload string on the pre-network path when diagnostics are off.
+        val shape = measure(body, endpoint, includeBytes = request.toolDiagnosticAttempt != null)
         runCatching {
             request.toolDiagnosticAttempt?.requestShape(
                 AgentRequestContextDiagnostics.wireBodyFields(shape).apply {
@@ -72,7 +75,7 @@ internal object AgentWireRequestEstimate {
         onEvent(ProviderEvent.RequestEstimate(shape.tokens))
     }
 
-    private class Sum {
+    private class Sum(private val includeBytes: Boolean) {
         var chars = 0L
         var bytes = 0L
         var tokens = 0L
@@ -80,15 +83,16 @@ internal object AgentWireRequestEstimate {
             if (value == null || value === JSONObject.NULL) return
             val text = value.toString()
             chars += text.length
-            bytes += text.toByteArray(Charsets.UTF_8).size
+            if (includeBytes) bytes += text.toByteArray(Charsets.UTF_8).size
             tokens += AgentContextBudget.countTokens(text)
         }
         fun component() = Component(chars, tokens.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(), bytes)
     }
 
-    private class Counter(private val endpoint: EndpointKind) {
-        val instructions = Sum(); val text = Sum(); val reasoning = Sum()
-        val calls = Sum(); val results = Sum(); val tools = Sum(); val format = Sum(); val media = Sum()
+    private class Counter(private val endpoint: EndpointKind, includeBytes: Boolean) {
+        val instructions = Sum(includeBytes); val text = Sum(includeBytes); val reasoning = Sum(includeBytes)
+        val calls = Sum(includeBytes); val results = Sum(includeBytes); val tools = Sum(includeBytes)
+        val format = Sum(includeBytes); val media = Sum(includeBytes)
         var framing = 0L; var messages = 0; var toolCount = 0; var hosted = 0
         var images = 0; var videos = 0; var opaque = 0; var encrypted = 0L; var unknown = 0
 

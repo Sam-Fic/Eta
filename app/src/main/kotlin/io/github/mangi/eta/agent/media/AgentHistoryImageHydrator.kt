@@ -24,8 +24,13 @@ internal object AgentHistoryImageHydrator {
         supportsVision: Boolean,
         supportsVideo: Boolean = false,
     ): AgentModelClient.ConversationMessage {
-        if (message.contentJson.isBlank()) return message
-        val content = runCatching { JSONTokener(message.contentJson).nextValue() }.getOrNull()
+        val contentJson = message.contentJson
+        if (contentJson.isBlank()) return message
+        // Text-only messages dominate long transcripts; skip the JSON parse unless a media
+        // marker this function reacts to can be present.
+        if (!contentJson.contains(TYPE_IMAGE_FILE) && !contentJson.contains(TYPE_VIDEO_FILE) &&
+            !contentJson.contains("\"image_url\"") && !contentJson.contains("\"video_url\"")) return message
+        val content = runCatching { JSONTokener(contentJson).nextValue() }.getOrNull()
             as? JSONArray ?: return message
         var changed = false
         val next = JSONArray()

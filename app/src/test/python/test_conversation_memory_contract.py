@@ -40,7 +40,10 @@ class ConversationMemoryContractTest(unittest.TestCase):
         self.assertIn("saved[id] === state", text)
         self.assertIn("state.pendingImages.isNotEmpty()", text)
         self.assertIn("state.isPaused", text)
-        self.assertIn("releasePersistedConversationContent(snapshot.conversations)", text)
+        self.assertIn(
+            "releasePersistedConversationContent(snapshot.conversations, snapshot.contentConversationIds)",
+            text,
+        )
 
     def test_large_heap_is_app_manifest_policy(self):
         app = ET.parse(ROOT / "app/src/main/AndroidManifest.xml").getroot().find("application")

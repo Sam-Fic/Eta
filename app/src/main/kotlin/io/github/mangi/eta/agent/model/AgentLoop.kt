@@ -26,7 +26,7 @@ internal class AgentLoop(
     private val runController: AgentRunController,
     private val traceFormatter: AgentTraceFormatter,
     private val onEvent: (AgentEvent) -> Unit,
-    private val toolsForRound: (() -> JSONArray)? = null,
+    private val toolsForRound: ((Int) -> JSONArray)? = null,
     private val modelRetry: AgentModelRetry = AgentModelRetry(),
     private val reconnectTiming: ReconnectTiming = SystemReconnectTiming,
     private val waitForReconnect: (AgentRunController, Long) -> Unit = { controller, delay ->
@@ -129,6 +129,7 @@ internal class AgentLoop(
     private var supplementStartsNewBlock = false
     private var compactionFailure = ""
     private var currentRoundTools = tools
+    private var currentRoundToolsTokens = AgentRequestTokenEstimate.tools(tools)
     private var manualBudgetAttempt = false
     private var budgetKeepRecent = compactPolicy.keepRecentMessages
     private var budgetCompressModelConfig = compactPolicy.compressModelConfig
@@ -207,7 +208,7 @@ internal class AgentLoop(
             runController.throwIfCancelled()
             postToolReconnect?.check()
             appendPendingSteeringMessage()
-            currentRoundTools = delegationArgumentRepair.availableTools(toolsForRound?.invoke() ?: tools)
+            selectRoundTools(toolsForRound?.invoke(round) ?: tools)
             try {
                 auxiliaryRound = round
                 auxiliaryVision.prepare(messages)
@@ -234,7 +235,7 @@ internal class AgentLoop(
                 runController.throwIfCancelled()
                 reductions = 0
                 appendPendingSteeringMessage()
-                currentRoundTools = delegationArgumentRepair.availableTools(toolsForRound?.invoke() ?: tools)
+                selectRoundTools(toolsForRound?.invoke(round) ?: tools)
                 try {
                     auxiliaryRound = round
                     auxiliaryVision.prepare(messages)
@@ -276,7 +277,8 @@ internal class AgentLoop(
                 .sumOf { AgentContextBudget.countMessage(it).toLong() }
                 .coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
             // UI history calibration retains its original raw DTO basis, including old receipts.
-            val requestFixedTokens = AgentRequestTokenEstimate.fixed(messages, systemCount, roundTools)
+            val requestFixedTokens = AgentRequestTokenEstimate.fixed(
+                messages, systemCount, roundTools, toolTokens = currentRoundToolsTokens)
             // Finish the raw metadata pass before retaining the hydrated copy (lower peak memory).
             // Reuse exactly one hydrated/filtered snapshot for projection and transport.
             if (localOnlyRecovery) AgentRecoveryContext.append(messages)
@@ -672,8 +674,16 @@ internal class AgentLoop(
     private fun historyForCompaction() = (systemCount.coerceIn(0, messages.length()) until messages.length())
         .map { AgentConversationCodec.fromJsonObject(messages.getJSONObject(it)) }
 
+    private fun selectRoundTools(candidate: JSONArray) {
+        currentRoundTools = delegationArgumentRepair.availableTools(candidate)
+        currentRoundToolsTokens = AgentRequestTokenEstimate.tools(currentRoundTools)
+    }
+
     private fun localRequestTokens(): Int =
-        AgentRequestTokenEstimate.boundary(messages, currentRoundTools, config.supportsVision, config.supportsVideo)
+        AgentRequestTokenEstimate.boundary(
+            messages, currentRoundTools, config.supportsVision, config.supportsVideo,
+            toolTokens = currentRoundToolsTokens,
+        )
 
     // Compression and send limits use this silent budget, not the ring display.
     private fun requestBudgetTokens(): Int = silentBudget.tokens(localRequestTokens())

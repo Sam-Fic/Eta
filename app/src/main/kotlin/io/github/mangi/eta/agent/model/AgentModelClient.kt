@@ -134,6 +134,7 @@ internal object AgentModelClient {
                 { (durable, _) -> durable })
         }.getOrNull()
         val delegationAvailable = AgentPromptBuilder.delegationToolsAvailable(additionalTools)
+        var systemCount = 0
         val messages = AgentPromptBuilder.buildInitialMessages(
             config,
             prompt,
@@ -145,16 +146,8 @@ internal object AgentModelClient {
             delegationAvailable = delegationAvailable,
             shellTools = initialCapabilities.shellTools,
             interactiveModeEnabled = interactiveModeEnabled,
+            onSystemCount = { systemCount = it },
         )
-        val systemCount = AgentPromptBuilder.buildSystemMessages(
-            config,
-            skillContext,
-            memoryContext,
-            rootAvailable = initialCapabilities.rootAvailable,
-            delegationAvailable = delegationAvailable,
-            shellTools = initialCapabilities.shellTools,
-            interactiveModeEnabled = interactiveModeEnabled,
-        ).length()
         var transcriptStartIndex = messages.length()
         fun toolsFor(
             capabilities: AgentToolCapabilities,
@@ -222,20 +215,27 @@ internal object AgentModelClient {
                     publish(round, restored)
                 }
             },
-            toolsForRound = {
-                val capabilities = capabilitiesProvider()
-                val nextSkillContext = skillContextProvider()
-                val nextMemoryContext = memoryContextProvider()
-                val systemMessages = AgentPromptBuilder.buildSystemMessages(
-                    config, nextSkillContext, nextMemoryContext, capabilities.rootAvailable, delegationAvailable,
-                    capabilities.shellTools,
-                    interactiveModeEnabled = interactiveModeEnabled,
-                )
-                for (index in 0 until systemMessages.length()) {
-                    messages.put(index, systemMessages.getJSONObject(index))
+            toolsForRound = { round ->
+                // Round one has not executed a tool yet: the contexts and tools captured above
+                // are already this request's inputs. Rebuild only after a tool can have changed
+                // skills, memory or capabilities.
+                if (round == 1) {
+                    tools
+                } else {
+                    val capabilities = capabilitiesProvider()
+                    val nextSkillContext = skillContextProvider()
+                    val nextMemoryContext = memoryContextProvider()
+                    val systemMessages = AgentPromptBuilder.buildSystemMessages(
+                        config, nextSkillContext, nextMemoryContext, capabilities.rootAvailable, delegationAvailable,
+                        capabilities.shellTools,
+                        interactiveModeEnabled = interactiveModeEnabled,
+                    )
+                    for (index in 0 until systemMessages.length()) {
+                        messages.put(index, systemMessages.getJSONObject(index))
+                    }
+                    promptRootAvailable = capabilities.rootAvailable
+                    toolsFor(capabilities, nextMemoryContext.enabled)
                 }
-                promptRootAvailable = capabilities.rootAvailable
-                toolsFor(capabilities, nextMemoryContext.enabled)
             },
         )
         val result = try {
