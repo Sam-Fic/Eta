@@ -1577,6 +1577,8 @@
   <string name="revision_history_unavailable">Cannot locate the original context for this message. The operation was cancelled; existing history is preserved. This does not mean the conversation was compressed.</string>
   <string name="appearance_message_timestamps">Message timestamps</string>
   <string name="appearance_message_timestamps_summary">Show when each reply finished generating, on the right of its action bar.</string>
+  <string name="appearance_fold_work_process">Collapse steps after the answer</string>
+  <string name="appearance_fold_work_process_summary">Once a reply is finished, fold its reasoning and tool steps into one \"Completed N steps\" card. Tap it to read them again.</string>
   <string name="chat_next_user_message">Next user message</string>
   <string name="chat_previous_user_message">Previous user message</string>
   <string name="chat_go_to_bottom">Go to bottom</string>

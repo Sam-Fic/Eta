@@ -15,19 +15,20 @@ import org.junit.Test
 class AgentTimelineRowsCacheTest {
     private class Fixture {
         var builds = 0
-        val cache = AgentTimelineRowsCache { entries, expanded, streaming, retained ->
+        val cache = AgentTimelineRowsCache { entries, expanded, streaming, retained, folded ->
             builds++
-            entries.toLazyTimelineRows(expanded, streaming, retained)
+            entries.toLazyTimelineRows(expanded, streaming, retained, folded)
         }
         fun project(
             entries: List<AgentTimelineEntry>,
             expanded: Map<String, Boolean> = emptyMap(),
             streaming: Boolean = true,
             retained: Map<String, Set<String>> = emptyMap(),
+            folded: Set<String> = emptySet(),
         ): List<AgentTimelineRow> {
             val before = entries.toList()
-            return cache.project(entries, expanded, streaming, retained).also { rows ->
-                val expected = before.toLazyTimelineRows(expanded, streaming, retained)
+            return cache.project(entries, expanded, streaming, retained, folded).also { rows ->
+                val expected = before.toLazyTimelineRows(expanded, streaming, retained, folded)
                 assertEquals(expected, rows)
                 assertEquals(expected.lazyUserMessageIndices(), rows.lazyUserMessageIndices())
                 for (paused in listOf(false, true)) {
@@ -234,9 +235,9 @@ class AgentTimelineRowsCacheTest {
         for (hinted in listOf(false, true)) {
             for (changeWork in listOf(false, true)) {
                 var builds = 0
-                val cache = AgentTimelineRowsCache { entries, expanded, streaming, retained ->
+                val cache = AgentTimelineRowsCache { entries, expanded, streaming, retained, folded ->
                     builds++
-                    val result = entries.toLazyTimelineRows(expanded, streaming, retained)
+                    val result = entries.toLazyTimelineRows(expanded, streaming, retained, folded)
                     listOf(result[0], result[2], result[1]) // header, assistant, detached step
                 }
                 val group = AgentTimelineEntry.WorkProcess("work-t", listOf(ThinkingMessageUi("t", "work", true)))
@@ -324,7 +325,7 @@ class AgentTimelineRowsCacheTest {
 
     @Test fun unexpectedRowMappingFailsClosed() {
         var builds = 0
-        val cache = AgentTimelineRowsCache { _, _, _, _ -> builds++; emptyList() }
+        val cache = AgentTimelineRowsCache { _, _, _, _, _ -> builds++; emptyList() }
         cache.project(listOf(AgentTimelineEntry.Message(AgentMessageUi("a", "old"))), emptyMap(), true)
         cache.project(listOf(AgentTimelineEntry.Message(AgentMessageUi("a", "new"))), emptyMap(), true)
         assertEquals(2, builds)

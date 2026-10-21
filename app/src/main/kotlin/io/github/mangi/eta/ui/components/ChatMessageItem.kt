@@ -535,7 +535,12 @@ internal fun ChatMessageItem(
 }
 
 /**
- * 把连续的思考与工具调用收束为一个可展开的工作过程，避免 Agent 事件退化为聊天气泡噪音。 */
+ * 把连续的思考与工具调用收束为一个可展开的工作过程，避免 Agent 事件退化为聊天气泡噪音。
+ *
+ * [folded] 表示这一组被「本轮回答已出现 ⇒ 回答之前的步骤整组收起」策略收起（设置项
+ * `foldWorkProcessOnAnswer`）。此时即使某个步骤的状态还停在 Running（断线重连、被中断的
+ * 尾巴最常见），标题也按完成态读作「已完成 N 个步骤」，不再报「正在处理」，也不再有呼吸与震动。
+ */
 @Composable
 internal fun AgentWorkProcessHeader(
     messages: List<AgentChatMessageUi>,
@@ -543,21 +548,24 @@ internal fun AgentWorkProcessHeader(
     isPaused: Boolean = false,
     expanded: Boolean,
     hasVisibleSteps: Boolean = expanded,
+    folded: Boolean = false,
     onToggle: () -> Unit,
 ) {
-    val running = messages.any { message ->
+    val running = !folded && messages.any { message ->
         (message is ThinkingMessageUi && message.isStreaming) ||
             (message is ToolActivityMessageUi && message.status == ToolActivityStatusUi.Running)
     }
     val toolCount = messages.count { it is ToolActivityMessageUi }
-    val runningTool = messages.lastOrNull { message ->
-        message is ToolActivityMessageUi && message.status == ToolActivityStatusUi.Running
-    } as? ToolActivityMessageUi
+    val runningTool = if (running) {
+        messages.lastOrNull { message ->
+            message is ToolActivityMessageUi && message.status == ToolActivityStatusUi.Running
+        } as? ToolActivityMessageUi
+    } else null
     val runningToolTitle = runningTool?.argumentsSummary?.takeIf { it.isNotBlank() }
         ?: runningTool?.let { toolDisplayName(it.toolName) }
     val view = LocalView.current
     SideEffect {
-        if (isPaused) return@SideEffect
+        if (isPaused || folded) return@SideEffect
         messages.forEach { message ->
             val liveId = when {
                 message is ToolActivityMessageUi &&

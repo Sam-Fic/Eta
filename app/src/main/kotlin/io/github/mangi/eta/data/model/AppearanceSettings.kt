@@ -20,6 +20,12 @@ data class AppearanceSettings(
     val morphLoadingIndicator: Boolean = true,
     val morphLoadingBeforeResponseOnly: Boolean = false,
     val messageTimestampsEnabled: Boolean = false,
+    /**
+     * 本轮已经给出正文回答、且生成停下之后，把这一轮跑完的思考与工具步骤整组收进「已完成 N 个步骤」。
+     *
+     * 关掉它回到旧行为：只有全部步骤都已结束才收起，中途被重连/中断卡成「运行中」的那一组会一直摊开。
+     */
+    val foldWorkProcessOnAnswer: Boolean = true,
     val iconLightColor: Int = DEFAULT_ICON_LIGHT,
     val iconDarkColor: Int = DEFAULT_ICON_DARK,
 ) {

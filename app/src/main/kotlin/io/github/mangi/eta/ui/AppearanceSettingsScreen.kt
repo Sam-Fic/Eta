@@ -213,6 +213,9 @@ internal fun AppearanceSettingsScreen(onBack: () -> Unit) {
             onSetPaletteStyle = { style -> update { current -> current.copy(paletteStyle = style) } },
             onSetPureBlack = { enabled -> update { current -> current.copy(pureBlackEnabled = enabled) } },
             onSetTimestamps = { enabled -> update { current -> current.copy(messageTimestampsEnabled = enabled) } },
+            onSetFoldWorkProcess = { enabled ->
+                update { current -> current.copy(foldWorkProcessOnAnswer = enabled) }
+            },
             onSetMorphLoading = { enabled ->
                 update { current -> current.copy(morphLoadingIndicator = enabled) }
                 morphLoadingExpanded = enabled
@@ -282,6 +285,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.appearanceMaterial3Co
     onSetPaletteStyle: (AppearancePaletteStyle) -> Unit,
     onSetPureBlack: (Boolean) -> Unit,
     onSetTimestamps: (Boolean) -> Unit,
+    onSetFoldWorkProcess: (Boolean) -> Unit,
     onSetMorphLoading: (Boolean) -> Unit,
     onSetMorphBeforeResponse: (Boolean) -> Unit,
     onSetPredictiveBack: (Boolean) -> Unit,
@@ -481,6 +485,14 @@ private fun androidx.compose.foundation.lazy.LazyListScope.appearanceMaterial3Co
                     summary = stringResource(R.string.appearance_message_timestamps_summary),
                     checked = appearance.messageTimestampsEnabled,
                     onCheckedChange = onSetTimestamps,
+                )
+            }
+            item {
+                EtaSwitchRow(
+                    title = stringResource(R.string.appearance_fold_work_process),
+                    summary = stringResource(R.string.appearance_fold_work_process_summary),
+                    checked = appearance.foldWorkProcessOnAnswer,
+                    onCheckedChange = onSetFoldWorkProcess,
                 )
             }
             item {

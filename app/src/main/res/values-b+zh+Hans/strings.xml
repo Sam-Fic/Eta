@@ -1550,6 +1550,8 @@
   <string name="revision_history_unavailable">无法定位这条消息对应的原始上下文，已取消操作并保留现有历史；这不代表会话已压缩。</string>
   <string name="appearance_message_timestamps">消息时间戳</string>
   <string name="appearance_message_timestamps_summary">在回复操作栏右侧显示本轮回复生成完成的时间。</string>
+  <string name="appearance_fold_work_process">回答后收起工作过程</string>
+  <string name="appearance_fold_work_process_summary">一轮回复结束后，把它的推理与工具步骤收进一张「已完成 N 个步骤」卡片；点一下即可重新展开细看。</string>
   <string name="chat_next_user_message">下一条用户消息</string>
   <string name="chat_previous_user_message">上一条用户消息</string>
   <string name="chat_go_to_bottom">回到底部</string>

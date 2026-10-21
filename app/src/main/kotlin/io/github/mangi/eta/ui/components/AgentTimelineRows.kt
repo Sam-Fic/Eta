@@ -9,6 +9,7 @@ import io.github.mangi.eta.ui.model.ToolActivityMessageUi
 import io.github.mangi.eta.ui.model.ToolActivityStatusUi
 import io.github.mangi.eta.ui.model.UserMessageUi
 import io.github.mangi.eta.ui.model.isResumeAfterCompress
+import io.github.mangi.eta.ui.model.isSteerSupplement
 
 /** Flat lazy-list rows: expanding a group must not eagerly compose every detail. */
 internal sealed interface AgentTimelineRow {
@@ -16,7 +17,12 @@ internal sealed interface AgentTimelineRow {
     data class Message(val message: AgentChatMessageUi) : AgentTimelineRow {
         override val key: String get() = message.id
     }
-    data class WorkHeader(val group: AgentTimelineEntry.WorkProcess, val expanded: Boolean) : AgentTimelineRow {
+    data class WorkHeader(
+        val group: AgentTimelineEntry.WorkProcess,
+        val expanded: Boolean,
+        /** 本轮已出回答，被「回答后整组收起」策略收起来；组头据此不再报「正在处理」。 */
+        val folded: Boolean = false,
+    ) : AgentTimelineRow {
         override val key: String get() = group.key
     }
     data class WorkStep(
@@ -34,15 +40,61 @@ internal fun List<AgentTimelineEntry>.toLazyTimelineRows(
     expandedOverrides: Map<String, Boolean>,
     isStreaming: Boolean,
     retainedSteps: Map<String, Set<String>> = emptyMap(),
+    foldedWorkKeys: Set<String> = emptySet(),
 ): List<AgentTimelineRow> = buildList {
     val trailingWorkKey = (this@toLazyTimelineRows.lastOrNull() as? AgentTimelineEntry.WorkProcess)?.key
     this@toLazyTimelineRows.forEach { entry ->
         when (entry) {
             is AgentTimelineEntry.Message -> add(AgentTimelineRow.Message(entry.message))
-            is AgentTimelineEntry.WorkProcess ->
-                addWorkGroupRows(entry, trailingWorkKey, expandedOverrides, isStreaming, retainedSteps)
+            is AgentTimelineEntry.WorkProcess -> addWorkGroupRows(
+                entry,
+                trailingWorkKey,
+                expandedOverrides,
+                isStreaming,
+                retainedSteps,
+                folded = entry.key in foldedWorkKeys,
+            )
         }
     }
+}
+
+/**
+ * 「本轮已经给出正文回答 ⇒ 回答之前的思考/工具步骤整组收起」的分组键集合。
+ *
+ * 判定只看顺序：一个工作过程组，只要同一轮里它后面出现过正文（非空的 [AgentMessageUi]），就收进
+ * 「已完成 N 个步骤」。正在跑的那一组此刻仍是「本组之后还没有回答」，因此照常摊开跟随进度，直到
+ * 回答开始输出才收 —— 这正是想要的「忙完了，只留最终答案」。
+ *
+ * 轮次边界与 [AgentTurnFooterProjection] 一致：真实用户消息开新轮，steer 补充与压缩后的 resume
+ * 只是续跑，不收边界。重连/中断后步骤永远停在 Running 的那一组也在这里被收掉，否则它会一直摊开。
+ * 用户手动点过的组（[AgentChatBody] 里的 overrides）优先级始终高于本策略。
+ */
+internal fun List<AgentTimelineEntry>.autoFoldedWorkKeys(enabled: Boolean): Set<String> {
+    if (!enabled) return emptySet()
+    var pending: MutableList<String>? = null
+    var folded: MutableSet<String>? = null
+    forEach { entry ->
+        when (entry) {
+            is AgentTimelineEntry.Message -> {
+                val message = entry.message
+                when {
+                    message is UserMessageUi ->
+                        if (!message.isSteerSupplement() && !message.isResumeAfterCompress()) pending = null
+                    message is AgentMessageUi && message.content.isNotBlank() -> {
+                        pending?.let { keys ->
+                            if (folded == null) folded = LinkedHashSet()
+                            folded?.addAll(keys)
+                        }
+                        pending = null
+                    }
+                    else -> Unit
+                }
+            }
+            is AgentTimelineEntry.WorkProcess ->
+                (pending ?: ArrayList<String>().also { pending = it }) += entry.key
+        }
+    }
+    return folded.orEmpty()
 }
 
 /** One group's header and steps; shared by the full projection and the row cache. */
@@ -52,13 +104,15 @@ private fun MutableList<AgentTimelineRow>.addWorkGroupRows(
     expandedOverrides: Map<String, Boolean>,
     isStreaming: Boolean,
     retainedSteps: Map<String, Set<String>>,
+    folded: Boolean = false,
 ) {
     val running = entry.messages.any { message ->
         (message is ThinkingMessageUi && message.isStreaming) ||
             (message is ToolActivityMessageUi && message.status == ToolActivityStatusUi.Running)
     }
-    val expanded = expandedOverrides[entry.key] ?: (running || (isStreaming && entry.key == trailingWorkKey))
-    add(AgentTimelineRow.WorkHeader(entry, expanded))
+    // 手动点过 > 本轮已出回答的整组收起 > 运行中/尾部跟随。
+    val expanded = expandedOverrides[entry.key] ?: (!folded && (running || (isStreaming && entry.key == trailingWorkKey)))
+    add(AgentTimelineRow.WorkHeader(entry, expanded, folded))
     // During exit only retained rows are projected. A newly appended
     // hidden step (or a deleted old tail) must not steal the card bottom.
     val projectedMessages = if (expanded) entry.messages else entry.messages.filter { message ->
@@ -87,15 +141,16 @@ internal fun List<AgentTimelineEntry>.streamingWorkDefault(
  */
 internal class AgentTimelineRowsCache(
     private val fullProjection: (
-        List<AgentTimelineEntry>, Map<String, Boolean>, Boolean, Map<String, Set<String>>,
-    ) -> List<AgentTimelineRow> = { entries, overrides, streaming, retained ->
-        entries.toLazyTimelineRows(overrides, streaming, retained)
+        List<AgentTimelineEntry>, Map<String, Boolean>, Boolean, Map<String, Set<String>>, Set<String>,
+    ) -> List<AgentTimelineRow> = { entries, overrides, streaming, retained, folded ->
+        entries.toLazyTimelineRows(overrides, streaming, retained, folded)
     },
 ) {
     private var source: List<AgentTimelineEntry>? = null
     private var expanded: Map<String, Boolean> = emptyMap()
     private var streaming = false
     private var retained: Map<String, Set<String>> = emptyMap()
+    private var folded: Set<String> = emptySet()
     private var rows: List<AgentTimelineRow> = emptyList()
     private var entryToRow: IntArray? = null
     private var groupRowStart: IntArray? = null
@@ -105,11 +160,13 @@ internal class AgentTimelineRowsCache(
         expandedOverrides: Map<String, Boolean>,
         isStreaming: Boolean,
         retainedSteps: Map<String, Set<String>> = emptyMap(),
+        foldedWorkKeys: Set<String> = emptySet(),
     ): List<AgentTimelineRow> {
         val previous = source
         val mapping = entryToRow
         if (previous != null && mapping != null && groupRowStart != null && previous.size == entries.size &&
-            expanded == expandedOverrides && streaming == isStreaming && retained == retainedSteps
+            expanded == expandedOverrides && streaming == isStreaming && retained == retainedSteps &&
+            folded == foldedWorkKeys
         ) {
             val changed = (entries as? AgentIncrementalList<AgentTimelineEntry>)?.singleReplacementFrom(previous)
             if (changed != null) {
@@ -172,11 +229,12 @@ internal class AgentTimelineRowsCache(
             }
         }
         val input = entries.incrementalSnapshot()
-        val result = fullProjection(input, expandedOverrides, isStreaming, retainedSteps).incrementalSnapshot()
+        val result = fullProjection(input, expandedOverrides, isStreaming, retainedSteps, foldedWorkKeys).incrementalSnapshot()
         source = input
         expanded = expandedOverrides.toMap()
         streaming = isStreaming
         retained = retainedSteps.mapValues { it.value.toSet() }
+        folded = foldedWorkKeys.toSet()
         rows = result
         entryToRow = mapAssistantRows(input, result)
         groupRowStart = if (entryToRow == null) null else mapGroupRows(input, result)
@@ -210,7 +268,7 @@ internal class AgentTimelineRowsCache(
         val trailingWorkKey = (entries.lastOrNull() as? AgentTimelineEntry.WorkProcess)?.key
         val oldCount = (if (changed + 1 < starts.size) starts[changed + 1] else rows.size) - start
         val next = ArrayList<AgentTimelineRow>(oldCount)
-        next.addWorkGroupRows(current, trailingWorkKey, expanded, streaming, retained)
+        next.addWorkGroupRows(current, trailingWorkKey, expanded, streaming, retained, current.key in folded)
         if (next.size != oldCount) return null
         var updated = rows.incrementalSnapshot()
         next.forEachIndexed { offset, row ->

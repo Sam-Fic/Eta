@@ -840,9 +840,20 @@ internal fun AgentConversationMessages(
     // Run state still drives footers/reveal below. Row projection only reads it
     // for the trailing work default; ordinary message rows do not depend on it.
     val rowStreamingDefault = projectedTimelineEntries.streamingWorkDefault(workExpansionOverrides, isStreaming)
-    val timelineRows = remember(projectedTimelineEntries, workExpansionOverrides, rowStreamingDefault, retainedWorkSteps) {
+    // 「本轮回答出来，就把这一轮跑完的思考/工具整组收起」：只在整轮停下之后生效，
+    // 生成过程中一律沿用旧的「跑着的摊开、跑完的收起」，不打扰看进度。关掉设置即彻底不折叠。
+    val foldWorkOnAnswer = LocalAppearanceSettings.current.foldWorkProcessOnAnswer
+    val isTurnSettled = !isStreaming && !isPaused && !isCompressingContext
+    val foldedWorkKeys = remember(projectedTimelineEntries, foldWorkOnAnswer, isTurnSettled) {
+        projectedTimelineEntries.autoFoldedWorkKeys(foldWorkOnAnswer && isTurnSettled)
+    }
+    val timelineRows = remember(
+        projectedTimelineEntries, workExpansionOverrides, rowStreamingDefault, retainedWorkSteps, foldedWorkKeys,
+    ) {
         StreamPerformanceDiagnostics.measure("timeline.project", projectedTimelineEntries.size.toLong()) {
-            timelineRowsProjection.project(projectedTimelineEntries, workExpansionOverrides, rowStreamingDefault, retainedWorkSteps)
+            timelineRowsProjection.project(
+                projectedTimelineEntries, workExpansionOverrides, rowStreamingDefault, retainedWorkSteps, foldedWorkKeys,
+            )
         }
     }
     // 连续用户气泡的组内位置（Single / GroupFirst / GroupMid / GroupLast），按实际行相邻判定。
@@ -1746,6 +1757,7 @@ internal fun AgentConversationMessages(
                             messages = entry.group.messages,
                             isPaused = isPaused,
                             expanded = entry.expanded,
+                            folded = entry.folded,
                             // Deleted retained keys no longer own a card slice or its bottom gap.
                             hasVisibleSteps = entry.expanded || entry.group.messages.any { message ->
                                 "work-step:${message.id}" in retainedWorkSteps[entry.key].orEmpty()
