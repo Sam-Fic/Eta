@@ -335,27 +335,29 @@ class M3ComposerToolbarLayoutTest {
     }
 
     /**
-     * 「无输入框 → 聆听条」的衔接期间，胶囊必须**全程不透明**：底衬始终是不透明的实心胶囊
-     * （输入框 / 聆听条两态同为 `surfaceBright`，与「会话列表行」容器色同一档），
+     * 「无输入框 → 聆听条」的衔接期间，胶囊必须**全程不透明**：底衬始终是不透明的实心胶囊，
+     * 只允许在输入框底色（`surfaceContainer`）与聆听条底色（`surfaceContainerHigh`）之间平滑插值，
      * 绝不能把外层 vibrant 工具栏的 `primaryContainer` 透出来。
      *
      * 回归背景：交叉淡化时输入框与聆听条同时只有部分 alpha，两层半透明源叠加后整体不满不透明，
      * 外层工具栏底色就会从中间透出，观感是"胶囊中间变色 / 发虚"。修复方式是在该槽位铺一层
-     * 同形的实心底衬。这里对槽位像素取样验证。
+     * 同形的实心底衬，底色随语音态在两种胶囊色之间同步渐变。这里对槽位像素取样验证。
      */
     @Test
     fun pillBackdropStaysOpaqueThroughVoiceCrossfade() {
         val field = TextFieldState()
         val voiceStateHolder = mutableStateOf(VoiceModeState())
-        // 两色互不相同且对比强烈，任何混入工具栏底色的像素都会在 red 通道上暴露。
+        // 三色互不相同且对比强烈，任何混入工具栏底色的像素都会在 red 通道上暴露。
         val toolbarColor = Color(0xFFE80000)
         val inputPillColor = Color(0xFF0000E8)
+        val voicePillColor = Color(0xFF00E800)
         compose.setComposerContent(
             field = field,
             voiceStateHolder = voiceStateHolder,
             colorScheme = lightColorScheme(
                 primaryContainer = toolbarColor,
-                surfaceBright = inputPillColor,
+                surfaceContainer = inputPillColor,
+                surfaceContainerHigh = voicePillColor,
             ),
         )
         val slot = compose.onNodeWithTag("composer-pill-slot", useUnmergedTree = true)
@@ -363,7 +365,7 @@ class M3ComposerToolbarLayoutTest {
 
         // 静止态：整块胶囊就是输入框底色。
         val idleSample = pillSample()
-        assertEquals("静止态胶囊底色应为 surfaceBright", inputPillColor, idleSample)
+        assertEquals("静止态胶囊底色应为 surfaceContainer", inputPillColor, idleSample)
 
         // 冻结时钟，切到语音态并在过渡中逐帧取样。
         compose.mainClock.autoAdvance = false
@@ -387,10 +389,10 @@ class M3ComposerToolbarLayoutTest {
             )
         }
 
-        // 过渡结束后应落到聆听条底色（与输入框同为 surfaceBright）。
+        // 过渡结束后应落到聆听条底色。
         compose.mainClock.advanceTimeBy(2_000)
         compose.mainClock.autoAdvance = true
-        assertEquals("语音态胶囊底色应为 surfaceBright", inputPillColor, pillSample())
+        assertEquals("语音态胶囊底色应为 surfaceContainerHigh", voicePillColor, pillSample())
     }
 
     /**
