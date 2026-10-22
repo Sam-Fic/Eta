@@ -23,16 +23,20 @@ internal fun AppRoute.frameDiagnosticPage(): FrameDiagnosticPage = when (this) {
     AppRoute.SpeechSettings -> FrameDiagnosticPage.VoiceSettings
     AppRoute.TtsSettings -> FrameDiagnosticPage.VoiceSettings
     AppRoute.VoiceSettings -> FrameDiagnosticPage.VoiceSettings
+    AppRoute.DoubaoVoices -> FrameDiagnosticPage.VoiceSettings
+    AppRoute.MimoVoices -> FrameDiagnosticPage.VoiceSettings
     AppRoute.AuxiliaryVision -> FrameDiagnosticPage.AuxiliaryVision
     AppRoute.TitleModel -> FrameDiagnosticPage.TitleModel
     AppRoute.ErrorReconnectSettings -> FrameDiagnosticPage.ErrorReconnectSettings
     AppRoute.SubAgents -> FrameDiagnosticPage.SubAgents
+    is AppRoute.SubAgentPresetDetail -> FrameDiagnosticPage.SubAgents
     AppRoute.VoiceModeSettings -> FrameDiagnosticPage.VoiceSettings
     AppRoute.AppearanceSettings -> FrameDiagnosticPage.AppearanceSettings
     AppRoute.DataBackup -> FrameDiagnosticPage.DataBackup
     AppRoute.Memory -> FrameDiagnosticPage.Memory
     AppRoute.LinuxEnvironment -> FrameDiagnosticPage.LinuxEnvironment
     AppRoute.SharedFolders -> FrameDiagnosticPage.SharedFolders
+    AppRoute.SharedFolderPicker -> FrameDiagnosticPage.SharedFolders
     AppRoute.Workspace -> FrameDiagnosticPage.Workspace
     is AppRoute.LinuxFiles -> FrameDiagnosticPage.LinuxFiles
     AppRoute.ModelProviders -> FrameDiagnosticPage.ModelProviders

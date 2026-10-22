@@ -126,6 +126,7 @@ import io.github.mangi.eta.ui.screens.stats.UsageStatsScreen
 import io.github.mangi.eta.ui.screens.terminal.DaemonTasksScreen
 import io.github.mangi.eta.ui.screens.terminal.LinuxEnvironmentScreen
 import io.github.mangi.eta.ui.screens.terminal.LinuxFilesScreen
+import io.github.mangi.eta.ui.screens.terminal.SharedFolderPickerScreen
 import io.github.mangi.eta.ui.screens.terminal.SharedFoldersScreen
 import io.github.mangi.eta.ui.screens.terminal.TerminalEntryScreen
 import io.github.mangi.eta.ui.screens.terminal.WorkspaceScreen
@@ -381,6 +382,16 @@ fun AgentAppRoot(
             conversationPaneOpen = false
         }
         navigator.push(route)
+    }
+
+    /** 「我的声音」子页统一入口：走真实路由，复用 NavHost 的入栈/出栈转场。 */
+    fun openVoiceSubPage(page: io.github.mangi.eta.ui.VoiceSubPage) {
+        pushRoute(
+            when (page) {
+                io.github.mangi.eta.ui.VoiceSubPage.DOUBAO_VOICES -> AppRoute.DoubaoVoices
+                io.github.mangi.eta.ui.VoiceSubPage.MIMO_VOICES -> AppRoute.MimoVoices
+            },
+        )
     }
 
     fun pushFromDrawer(route: AppRoute) {
@@ -1085,8 +1096,18 @@ fun AgentAppRoot(
                     feature = io.github.mangi.eta.agent.model.ModelFeature.VISION, onBack = ::popRoute)
             }
             composable<AppRoute.SubAgents> {
-                io.github.mangi.eta.ui.SubAgentSettingsScreen(onBack = ::popRoute,
-                    isCurrentRoute = currentRoute == AppRoute.SubAgents)
+                io.github.mangi.eta.ui.SubAgentSettingsScreen(
+                    onBack = ::popRoute,
+                    onOpenPreset = { presetId -> pushRoute(AppRoute.SubAgentPresetDetail(presetId)) },
+                )
+            }
+            composable<AppRoute.SubAgentPresetDetail> { entry ->
+                val route = entry.toRoute<AppRoute.SubAgentPresetDetail>()
+                io.github.mangi.eta.ui.SubAgentPresetDetailScreen(
+                    presetId = route.presetId,
+                    onBack = ::popRoute,
+                    isCurrentRoute = currentRoute == route,
+                )
             }
             composable<AppRoute.TitleModel> {
                 io.github.mangi.eta.ui.ModelFeatureSettingsScreen(
@@ -1096,19 +1117,33 @@ fun AgentAppRoot(
                 ErrorReconnectSettingsScreen(onBack = ::popRoute)
             }
             composable<AppRoute.VoiceSettings> {
-                io.github.mangi.eta.ui.VoiceSettingsScreen(onBack = ::popRoute)
+                io.github.mangi.eta.ui.VoiceSettingsScreen(
+                    onBack = ::popRoute,
+                    onOpenVoiceSubPage = ::openVoiceSubPage,
+                )
             }
             // Retain serialized legacy routes, but show the same unified voice surface.
             composable<AppRoute.TtsSettings> {
                 io.github.mangi.eta.ui.VoiceSettingsScreen(onBack = ::popRoute,
-                    initialSection = io.github.mangi.eta.ui.VoiceSettingsSection.READ_ALOUD)
+                    initialSection = io.github.mangi.eta.ui.VoiceSettingsSection.READ_ALOUD,
+                    onOpenVoiceSubPage = ::openVoiceSubPage)
             }
             composable<AppRoute.SpeechSettings> {
-                io.github.mangi.eta.ui.VoiceSettingsScreen(onBack = ::popRoute)
+                io.github.mangi.eta.ui.VoiceSettingsScreen(
+                    onBack = ::popRoute,
+                    onOpenVoiceSubPage = ::openVoiceSubPage,
+                )
             }
             composable<AppRoute.VoiceModeSettings> {
                 io.github.mangi.eta.ui.VoiceSettingsScreen(onBack = ::popRoute,
-                    initialSection = io.github.mangi.eta.ui.VoiceSettingsSection.CONVERSATION)
+                    initialSection = io.github.mangi.eta.ui.VoiceSettingsSection.CONVERSATION,
+                    onOpenVoiceSubPage = ::openVoiceSubPage)
+            }
+            composable<AppRoute.DoubaoVoices> {
+                io.github.mangi.eta.ui.DoubaoVoiceSettings(onBack = ::popRoute)
+            }
+            composable<AppRoute.MimoVoices> {
+                io.github.mangi.eta.ui.MimoVoicesScreen(onBack = ::popRoute)
             }
             composable<AppRoute.AppearanceSettings> {
                 AppearanceSettingsScreen(onBack = ::popRoute)
@@ -1154,6 +1189,13 @@ fun AgentAppRoot(
             }
             composable<AppRoute.SharedFolders> {
                 SharedFoldersScreen(
+                    context = context,
+                    onBack = ::popRoute,
+                    onOpenPicker = { pushRoute(AppRoute.SharedFolderPicker) },
+                )
+            }
+            composable<AppRoute.SharedFolderPicker> {
+                SharedFolderPickerScreen(
                     context = context,
                     onBack = ::popRoute,
                 )

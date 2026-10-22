@@ -59,6 +59,14 @@ sealed interface AppRoute {
     @Serializable
     data object VoiceSettings : AppRoute
 
+    /** 「我的声音」内的豆包音色子页；独立路由才能复用 NavHost 的入栈/出栈转场。 */
+    @Serializable
+    data object DoubaoVoices : AppRoute
+
+    /** 「我的声音」内的 Mimo 音色子页。 */
+    @Serializable
+    data object MimoVoices : AppRoute
+
     @Serializable
     data object AuxiliaryVision : AppRoute
 
@@ -70,6 +78,10 @@ sealed interface AppRoute {
 
     @Serializable
     data object SubAgents : AppRoute
+
+    /** 子代理预设组详情：组内子代理配置。独立路由才能获得与兄弟页面一致的入栈/出栈转场。 */
+    @Serializable
+    data class SubAgentPresetDetail(val presetId: String) : AppRoute
 
     @Serializable
     data object VoiceModeSettings : AppRoute
@@ -88,6 +100,10 @@ sealed interface AppRoute {
 
     @Serializable
     data object SharedFolders : AppRoute
+
+    /** 共享文件夹目录选择页；作为独立路由入栈，保存后出栈由列表页重新读取配置。 */
+    @Serializable
+    data object SharedFolderPicker : AppRoute
 
     @Serializable
     data object Workspace : AppRoute

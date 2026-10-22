@@ -25,7 +25,10 @@ class AppRouteSerializationTest {
             AppRoute.Memory,
             AppRoute.LinuxEnvironment,
             AppRoute.SharedFolders,
+            AppRoute.SharedFolderPicker,
             AppRoute.Workspace,
+            AppRoute.DoubaoVoices,
+            AppRoute.MimoVoices,
             AppRoute.LinuxFiles("alpine"),
             AppRoute.ModelProviders,
             AppRoute.McpServers,
@@ -36,6 +39,7 @@ class AppRouteSerializationTest {
             AppRoute.ModelProviderNew(NewProviderType.DoubaoSpeech),
             AppRoute.ModelProviderNew(NewProviderType.CompatibleSpeech),
             AppRoute.SubAgents,
+            AppRoute.SubAgentPresetDetail("preset"),
         )
         val json = Json { ignoreUnknownKeys = true }
 
