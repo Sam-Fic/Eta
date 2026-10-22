@@ -38,7 +38,7 @@ internal fun PersonalVoicesScreen(
     onOpenSubPage: (VoiceSubPage) -> Unit = {},
 ) {
     val view = LocalView.current
-    BackHandler(onBack = onBack)
+    // 分区根不再拦截返回：让 NavHost 统一处理，保留预测性返回预览。
     VoiceSettingsSectionPage(title = stringResource(R.string.voice_section_personal), onBack = onBack) {
         voiceGroup(key = "personal") {
             item {
@@ -78,7 +78,8 @@ internal fun MimoVoicesScreen(onBack: () -> Unit) {
             .onSuccess { ready = true }.onFailure { notice = context.getString(R.string.pv_list_load_failed) }
     }
     DisposableEffect(Unit) { onDispose { if (SpeechPlayback.state.value.owner?.startsWith("mimo-preview:") == true) SpeechPlayback.stop("preview_dispose") } }
-    BackHandler(enabled = !busy, onBack = onBack)
+    // 仅在上传/删除期间吞掉返回；空闲时交给 NavHost，保留路由级预测性返回。
+    BackHandler(enabled = busy) {}
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { result -> uri = result }
 
     fun importVoice() {

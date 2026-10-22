@@ -86,22 +86,35 @@ class VoiceSettingsIsolationTest {
         assertEquals("dictation-key", dictation.asrKey) // captured settings stay immutable
     }
 
-    @Test fun missingConversationCredentialCannotBorrowDictationCredential() {
+    @Test fun missingConversationCredentialCannotBorrowLegacyDictationCredential() {
         DoubaoVoiceConfig.save(context, DoubaoVoiceConfig.Config(
             cloudAsr = true, asrKey = "dictation-key", inputEnabled = true,
             conversationCloudAsr = true, conversationAsrKey = "",
         ))
-        assertTrue(SpeechInputSession.ready(VoiceEntryMode.DICTATION))
+        // 听写入口已并入语音对话，旧密钥不再单独可用，也不能被语音对话借用。
+        assertFalse(SpeechInputSession.ready(VoiceEntryMode.DICTATION))
         assertFalse(SpeechInputSession.ready(VoiceEntryMode.UNIVERSAL))
         assertFalse(SpeechInputSession.ready(VoiceEntryMode.DOUBAO_DUPLEX))
     }
 
-    @Test fun legacyAsrConfigurationDoesNotSeedConversationSecrets() {
+    @Test fun legacyDictationConfigurationMigratesIntoConversationOnlyOnce() {
+        context.getSharedPreferences("doubao_voice", Context.MODE_PRIVATE).edit().clear().commit()
         context.getSharedPreferences("doubao_voice", Context.MODE_PRIVATE).edit()
             .putBoolean("asr", true).putString("asr_key", "legacy-dictation").commit()
         DoubaoVoiceConfig.load(context)
-        assertEquals("legacy-dictation", DoubaoVoiceConfig.state.value.asrKey)
-        assertEquals("", DoubaoVoiceConfig.state.value.conversationAsrKey)
-        assertFalse(DoubaoVoiceConfig.state.value.conversationCloudAsr)
+        val migrated = DoubaoVoiceConfig.state.value
+        assertFalse(migrated.inputEnabled)
+        assertTrue(migrated.conversationEnabled)
+        assertTrue(migrated.conversationCloudAsr)
+        assertEquals("legacy-dictation", migrated.conversationAsrKey)
+
+        // 迁移只执行一次：之后用户在语音对话里改掉的配置不会被旧听写设置覆盖。
+        DoubaoVoiceConfig.save(context, migrated.copy(conversationCloudAsr = false, conversationAsrKey = "conversation-key"))
+        DoubaoVoiceConfig.load(context)
+        val reloaded = DoubaoVoiceConfig.state.value
+        assertFalse(reloaded.conversationCloudAsr)
+        assertEquals("conversation-key", reloaded.conversationAsrKey)
+        assertEquals("legacy-dictation", reloaded.asrKey)
+        assertFalse(reloaded.inputEnabled)
     }
 }

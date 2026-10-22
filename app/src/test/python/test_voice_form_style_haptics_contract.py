@@ -108,12 +108,6 @@ class VoiceFormStyleHapticsContractTest(unittest.TestCase):
         wrappers = read('ui/components/HapticPreferences.kt')
         self.assertIn('TouchHaptics.click(view)', wrappers)
         self.assertIn('enabled = enabled', wrappers)
-        speech = read('ui/SpeechSettingsScreen.kt')
-        # 识别方式就地弹选 + 内联 ASR 连接设置；不再跳 "asr" 子页。
-        self.assertIn('EtaSegmentedDropdownRow(', speech)
-        self.assertIn('config.asrKey', speech)
-        self.assertNotIn('page = "asr"', speech)
-        self.assertNotIn('DoubaoVoiceSettings(', speech)
         touch = read('ui/haptics/TouchHaptics.kt')
         self.assertIn('if (!ignoreAppSwitch && !isTouchEnabled()) return false', touch)
 

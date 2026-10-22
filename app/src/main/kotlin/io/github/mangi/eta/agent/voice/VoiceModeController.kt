@@ -155,7 +155,12 @@ internal class VoiceModeController(
                     if (!heard || text.isBlank()) continue
 
                     val baseline = chat.value.lastAgentId
-                    mutableState.value = mutableState.value.copy(phase = VoiceModePhase.Transcribing)
+                    // 说出去的内容已经交给模型，气泡里的识别文字立即清空；
+                    // 下一轮开录时再显示新的转写，不再把上一轮的话挂在思考 / 播报阶段。
+                    mutableState.value = mutableState.value.copy(
+                        phase = VoiceModePhase.Transcribing,
+                        transcript = "",
+                    )
                     trace.mark("model.submit", "chars" to text.length)
                     submit(text)
                     mutableState.value = mutableState.value.copy(phase = VoiceModePhase.Thinking)

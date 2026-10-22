@@ -27,7 +27,6 @@ import io.github.mangi.eta.ui.adaptive.EtaSegmentedScope
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 
 internal enum class VoiceSettingsSection(val title: Int) {
-    RECOGNITION(R.string.voice_section_speech),
     READ_ALOUD(R.string.voice_section_tts),
     CONVERSATION(R.string.voice_section_conversation),
     REALTIME(R.string.voice_section_realtime),
@@ -75,19 +74,10 @@ internal fun VoiceSettingsSectionPage(
 @Composable
 internal fun VoiceSettingsScreen(
     onBack: () -> Unit,
-    initialSection: VoiceSettingsSection = VoiceSettingsSection.RECOGNITION,
+    initialSection: VoiceSettingsSection = VoiceSettingsSection.CONVERSATION,
+    onOpenVoiceSubPage: (VoiceSubPage) -> Unit = {},
 ) {
     var selected by rememberSaveable { mutableStateOf(initialSection) }
-    var subPage by rememberSaveable { mutableStateOf<VoiceSubPage?>(null) }
-    if (subPage != null) {
-        // 子页整体替换本页（各自带顶栏与返回），避免 Scaffold 套 Scaffold 的双层顶栏。
-        when (subPage) {
-            VoiceSubPage.DOUBAO_VOICES -> DoubaoVoiceSettings(onBack = { subPage = null })
-            VoiceSubPage.MIMO_VOICES -> MimoVoicesScreen(onBack = { subPage = null })
-            null -> Unit
-        }
-        return
-    }
     EtaScaffold(title = stringResource(R.string.voice_title), onBack = onBack) { padding, scrollConnection, sidePadding ->
         Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
             .padding(horizontal = sidePadding).nestedScroll(scrollConnection)) {
@@ -128,13 +118,12 @@ internal fun VoiceSettingsScreen(
                 CompositionLocalProvider(LocalEmbeddedVoiceSettings provides true) {
                     key(selected) {
                         when (selected) {
-                            VoiceSettingsSection.RECOGNITION -> SpeechSettingsScreen(onBack)
                             VoiceSettingsSection.READ_ALOUD -> TtsSettingsScreen(onBack)
                             VoiceSettingsSection.CONVERSATION -> TtsSettingsScreen(onBack, conversation = true)
                             VoiceSettingsSection.REALTIME -> VoiceModeSettingsScreen(onBack)
                             VoiceSettingsSection.PERSONAL -> PersonalVoicesScreen(
                                 onBack = onBack,
-                                onOpenSubPage = { subPage = it },
+                                onOpenSubPage = onOpenVoiceSubPage,
                             )
                         }
                     }

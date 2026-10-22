@@ -5,6 +5,13 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -23,11 +30,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.voice.doubao.DoubaoVoiceConfig
@@ -89,7 +98,14 @@ internal fun DoubaoVoiceSettings(onBack: () -> Unit) {
     var name by remember { mutableStateOf("") }
     var consent by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
-    androidx.activity.compose.BackHandler { if (!busy && !importBusy) back() }
+    val home = mode == null && !showAccount && !showSync
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    // 内部页快照驱动 AnimatedContent：退场页只读快照，不会跟着外部状态提前变成下一页。
+    val page = DoubaoVoicePage(mode = mode, step = step, account = showAccount, sync = showSync)
+    // 向导内层/忙时自己消费返回；回到本页首页后交给 NavHost，保留路由级预测性返回。
+    androidx.activity.compose.BackHandler(enabled = busy || importBusy || !home) {
+        if (!busy && !importBusy && !home) back()
+    }
     val preview = remember { PersonalVoicePreview() }
     val previewState by preview.state.collectAsState()
     LaunchedEffect(previewState.error) {
@@ -128,7 +144,6 @@ internal fun DoubaoVoiceSettings(onBack: () -> Unit) {
         showSync = false; postpaid = false; advanced = false; audio = null
         fileName = ""; consent = false; notice = ""
     }
-    val home = mode == null && !showAccount && !showSync
     LaunchedEffect(home) { if (!home) preview.stop() }
     EtaScaffold(
         title = when {
@@ -160,7 +175,29 @@ internal fun DoubaoVoiceSettings(onBack: () -> Unit) {
             }
         },
     ) { padding, scrollConnection, sidePadding ->
-        key(mode, step, showAccount, showSync) {
+        AnimatedContent(
+            targetState = page,
+            transitionSpec = {
+                val forward = targetState.depth >= initialState.depth
+                // 与 NavHost 同一套几何：新页从侧边推入，旧页做四分之一屏视差并淡到 0.9。
+                val sign = if (forward) 1f else -1f
+                val enterSign = if (rtl) -sign else sign
+                val enter = slideInHorizontally(
+                    animationSpec = tween(DoubaoVoicePageTransitionMs),
+                ) { width -> (width * enterSign).toInt() } + fadeIn(
+                    animationSpec = tween(DoubaoVoicePageTransitionMs),
+                    initialAlpha = 0.9f,
+                )
+                val exit = slideOutHorizontally(
+                    animationSpec = tween(DoubaoVoicePageTransitionMs),
+                ) { width -> (-width * enterSign / 4f).toInt() } + fadeOut(
+                    animationSpec = tween(DoubaoVoicePageTransitionMs),
+                    targetAlpha = 0.9f,
+                )
+                enter togetherWith exit
+            },
+            label = "doubao-voice-page",
+        ) { current ->
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
                     .padding(horizontal = sidePadding).nestedScroll(scrollConnection).imePadding(),
@@ -169,7 +206,7 @@ internal fun DoubaoVoiceSettings(onBack: () -> Unit) {
                 item {
                     // 与兄弟语音页同一套分段列表：说明 / 提示排在页面背景上，输入与动作收进分段组。
                     Column(Modifier.fillMaxWidth()) {
-                        if (showAccount) {
+                        if (current.account) {
                             VoiceGroup {
                                 item {
                                     VoiceTextField(cloneKey, { cloneKey = it }, label = stringResource(R.string.dv_api_key_label),
@@ -189,34 +226,34 @@ internal fun DoubaoVoiceSettings(onBack: () -> Unit) {
                                 }
                             }
                             VoiceNote(stringResource(R.string.dv_key_help))
-                        } else if (showSync) {
+                        } else if (current.sync) {
                             VoiceSlotSync(config.cloneKey, onBusy = { importBusy = it }, onResult = { notice = it })
                         } else {
-                            if (mode == "create") {
+                            if (current.mode == "create") {
                                 VoiceGroup {
                                     item {
                                         EtaSegmentedItemContainer {
                                             Column(Modifier.fillMaxWidth().padding(16.dp)) {
                                                 EtaText(
-                                                    text = "${step + 1} / 3 · " + listOf(stringResource(R.string.dv_step_slot), stringResource(R.string.dv_step_recording), stringResource(R.string.dv_step_confirm))[step],
+                                                    text = "${current.step + 1} / 3 · " + listOf(stringResource(R.string.dv_step_slot), stringResource(R.string.dv_step_recording), stringResource(R.string.dv_step_confirm))[current.step],
                                                     color = etaPrimary(),
                                                 )
-                                                LinearProgressIndicator(progress = { (step + 1) / 3f }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp))
+                                                LinearProgressIndicator(progress = { (current.step + 1) / 3f }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp))
                                             }
                                         }
                                     }
                                 }
                             }
-                            if (mode != null && step == 0) {
-                                VoiceNote(if (mode == "import") stringResource(R.string.dv_import_hint) else stringResource(R.string.dv_slot_hint))
+                            if (current.mode != null && current.step == 0) {
+                                VoiceNote(if (current.mode == "import") stringResource(R.string.dv_import_hint) else stringResource(R.string.dv_slot_hint))
                                 VoiceGroup {
                                     item {
                                         VoiceTextField(name, { name = it.take(80) }, enabled = !busy,
-                                            label = if (mode == "import") stringResource(R.string.dv_note_name_label) else stringResource(R.string.dv_voice_name_label),
+                                            label = if (current.mode == "import") stringResource(R.string.dv_note_name_label) else stringResource(R.string.dv_voice_name_label),
                                             singleLine = true)
                                     }
                                 }
-                                if (mode == "create") {
+                                if (current.mode == "create") {
                                     VoiceGroup {
                                         item {
                                             EtaClickableRow(title = stringResource(R.string.dv_advanced_postpaid), showChevron = false,
@@ -246,12 +283,12 @@ internal fun DoubaoVoiceSettings(onBack: () -> Unit) {
                                         }
                                     }
                                 }
-                                if (!postpaid || mode == "import") {
-                                    val slots = voices.filter { it.account == PersonalVoices.account(config.cloneKey) && it.id.startsWith("S_") && (mode == "create" || it.showInMyVoices) }
+                                if (!postpaid || current.mode == "import") {
+                                    val slots = voices.filter { it.account == PersonalVoices.account(config.cloneKey) && it.id.startsWith("S_") && (current.mode == "create" || it.showInMyVoices) }
                                         .sortedWith(compareByDescending<PersonalVoices.Voice> { it.unused }.thenBy { it.name })
                                     EtaSegmentedColumn(
                                         modifier = Modifier.padding(VoiceGroupInsets),
-                                        title = if (mode == "create") stringResource(R.string.dv_pick_slot) else stringResource(R.string.dv_pick_voice),
+                                        title = if (current.mode == "create") stringResource(R.string.dv_pick_slot) else stringResource(R.string.dv_pick_voice),
                                     ) {
                                         if (slots.isEmpty()) {
                                             item {
@@ -271,7 +308,7 @@ internal fun DoubaoVoiceSettings(onBack: () -> Unit) {
                                                         title = if (slot.name == slot.id) stringResource(R.string.dv_slot_index, index + 1) else slot.name,
                                                         summary = "$slotStatus · $slotQuota",
                                                         selected = slotId == slot.id,
-                                                        enabled = !busy && !importBusy && (mode == "import" || slot.canTrain),
+                                                        enabled = !busy && !importBusy && (current.mode == "import" || slot.canTrain),
                                                         onClick = { slotId = slot.id; consent = false; manualId = false },
                                                     )
                                                 }
@@ -302,11 +339,11 @@ internal fun DoubaoVoiceSettings(onBack: () -> Unit) {
                                             }
                                         }
                                     }
-                                    if (slotId.isNotBlank()) VoiceNote(if (mode == "import") stringResource(R.string.dv_selected_voice_hint) else stringResource(R.string.dv_selected_slot_hint))
+                                    if (slotId.isNotBlank()) VoiceNote(if (current.mode == "import") stringResource(R.string.dv_selected_voice_hint) else stringResource(R.string.dv_selected_slot_hint))
                                 } else {
                                     VoiceNote(stringResource(R.string.dv_postpaid_note))
                                 }
-                                if (mode == "import") {
+                                if (current.mode == "import") {
                                     VoiceGroup {
                                         item {
                                             EtaClickableRow(title = if (busy) stringResource(R.string.dv_querying) else stringResource(R.string.dv_mode_import),
@@ -332,7 +369,7 @@ internal fun DoubaoVoiceSettings(onBack: () -> Unit) {
                                 }
                                 if (slotId.isBlank() && !postpaid) VoiceNote(stringResource(R.string.dv_pick_slot_first))
                             }
-                            if (mode == "create" && step == 1) {
+                            if (current.mode == "create" && current.step == 1) {
                                 VoiceNote(stringResource(R.string.dv_recording_tips))
                                 VoiceGroup {
                                     item {
@@ -349,7 +386,7 @@ internal fun DoubaoVoiceSettings(onBack: () -> Unit) {
                                     }
                                 }
                             }
-                            if (mode == "create" && step == 2) {
+                            if (current.mode == "create" && current.step == 2) {
                                 VoiceNote(stringResource(R.string.dv_name_prefix, name))
                                 VoiceNote(if (postpaid) stringResource(R.string.dv_opt_new_postpaid) else stringResource(R.string.dv_using_voice, PersonalVoices.find(slotId, config.cloneKey)?.name ?: slotId))
                                 VoiceNote(if (postpaid) stringResource(R.string.dv_postpaid_fee_note) else stringResource(R.string.dv_training_note))
@@ -375,7 +412,7 @@ internal fun DoubaoVoiceSettings(onBack: () -> Unit) {
                                     }
                                 }
                             }
-                            if (mode == null) {
+                            if (current.mode == null) {
                                 VoiceGroup {
                                     item {
                                         EtaClickableRow(title = stringResource(R.string.dv_entry_create), showChevron = false,
@@ -432,6 +469,29 @@ internal fun DoubaoVoiceSettings(onBack: () -> Unit) {
         }
     }
 }
+
+/**
+ * 豆包音色页的内部页面快照。AnimatedContent 必须由目标状态驱动内容，
+ * 否则转场期间退场页会读到已经变化的外部状态，提前显示成新页。
+ */
+private data class DoubaoVoicePage(
+    val mode: String?,
+    val step: Int,
+    val account: Boolean,
+    val sync: Boolean,
+) {
+    /** 页面层级：用于判断转场方向（前进从侧边推入，返回从侧边回到）。 */
+    val depth: Int get() = when {
+        sync -> 2
+        account -> 1
+        mode == "create" -> 1 + step
+        mode == "import" -> 1
+        else -> 0
+    }
+}
+
+/** 与 NavHost 转场一致的内部页面切换时长。 */
+private const val DoubaoVoicePageTransitionMs = 300
 
 /** 打开火山引擎语音控制台。 */
 private fun openVoiceConsole(context: Context) {

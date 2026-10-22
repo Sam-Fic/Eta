@@ -45,25 +45,31 @@ class SpeechMasterSwitchTest {
         assertTrue(io.github.mangi.eta.agent.voice.VoiceEntryPolicy.modes(config).isEmpty())
     }
 
-    @Test fun enabledCloudMigratesButExplicitOffSurvivesReloadAndEngineSelection() {
+    @Test fun legacyCloudMigratesIntoMergedConversationAndSurvivesReload() {
         context.getSharedPreferences("doubao_voice", Context.MODE_PRIVATE).edit().putBoolean("asr", true).putString("asr_key", "test").commit()
         DoubaoVoiceConfig.load(context)
-        assertTrue(SpeechInputSession.ready())
-        DoubaoVoiceConfig.save(context, DoubaoVoiceConfig.state.value.copy(inputEnabled = false))
+        val config = DoubaoVoiceConfig.state.value
+        assertFalse(config.inputEnabled)
+        assertTrue(config.conversationEnabled)
+        assertTrue(config.conversationCloudAsr)
+        assertEquals("test", config.conversationAsrKey)
+        assertTrue(SpeechInputSession.ready(io.github.mangi.eta.agent.voice.VoiceEntryMode.UNIVERSAL))
+        assertFalse(SpeechInputSession.ready(io.github.mangi.eta.agent.voice.VoiceEntryMode.DICTATION))
+        DoubaoVoiceConfig.save(context, config.copy(conversationCloudAsr = false))
         DoubaoVoiceConfig.load(context)
-        assertFalse(SpeechInputSession.ready())
-        assertTrue(DoubaoVoiceConfig.state.value.cloudAsr)
-        assertEquals("test", DoubaoVoiceConfig.state.value.asrKey)
-        DoubaoVoiceConfig.save(context, DoubaoVoiceConfig.state.value.copy(cloudAsr = false))
-        assertFalse(DoubaoVoiceConfig.state.value.inputEnabled)
+        assertFalse(SpeechInputSession.ready(io.github.mangi.eta.agent.voice.VoiceEntryMode.UNIVERSAL))
+        assertEquals("test", DoubaoVoiceConfig.state.value.conversationAsrKey)
     }
-    @Test fun offlineEnabledMigratesAndFreshInstallStaysOff() {
+    @Test fun freshInstallHasNoDictationAndOfflineEnableMigratesIntoConversation() {
         DoubaoVoiceConfig.load(context)
         assertFalse(DoubaoVoiceConfig.state.value.inputEnabled)
+        assertTrue(DoubaoVoiceConfig.state.value.conversationEnabled)
         reset()
         context.getSharedPreferences("offline_speech", Context.MODE_PRIVATE).edit().putBoolean("enabled", true).commit()
         DoubaoVoiceConfig.load(context)
-        assertTrue(DoubaoVoiceConfig.state.value.inputEnabled)
-        assertFalse(DoubaoVoiceConfig.state.value.cloudAsr)
+        assertFalse(DoubaoVoiceConfig.state.value.inputEnabled)
+        assertTrue(DoubaoVoiceConfig.state.value.conversationEnabled)
+        assertTrue(io.github.mangi.eta.agent.voice.VoiceEntryPolicy.enabled(
+            DoubaoVoiceConfig.state.value, io.github.mangi.eta.agent.voice.VoiceEntryMode.UNIVERSAL))
     }
 }

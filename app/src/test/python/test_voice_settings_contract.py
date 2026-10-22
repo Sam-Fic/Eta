@@ -25,6 +25,19 @@ class VoiceSettingsContractTest(unittest.TestCase):
         self.assertNotIn('pushRoute(', block)
         self.assertIn('is AppRoute.VoiceSettings ->', read('ui/app/AgentAppShell.kt'))
 
+    def test_personal_voice_subpages_are_real_routes(self):
+        # 「我的声音」二级页走 NavHost 路由，才能获得与兄弟页面一致的入栈/出栈转场。
+        root = read('ui/app/AgentAppRoot.kt')
+        routes = read('ui/navigation/AppRoute.kt')
+        for route in ('DoubaoVoices', 'MimoVoices'):
+            self.assertIn(f'data object {route} : AppRoute', routes)
+            self.assertIn(f'composable<AppRoute.{route}>', root)
+        self.assertIn('onOpenVoiceSubPage = ::openVoiceSubPage', root)
+        screen = read('ui/VoiceSettingsScreen.kt')
+        self.assertNotIn('var subPage', screen)
+        self.assertNotIn('DoubaoVoiceSettings(', screen)
+        self.assertNotIn('BackHandler(onBack = onBack)', read('ui/PersonalVoicesScreen.kt'))
+
     def test_selector_switches_in_place_with_connected_segmented_buttons(self):
         source = read('ui/VoiceSettingsScreen.kt')
         # 与外观设置页主题模式同款：官方 ButtonGroupDefaults 连体形状的 ToggleButton 组，
@@ -41,12 +54,14 @@ class VoiceSettingsContractTest(unittest.TestCase):
                           'SingleChoiceSegmentedButtonRow', 'EtaSegmentedDropdownRow', 'voice_section_choose',
                           'VoiceGroup {'):
             self.assertNotIn(forbidden, source)
-        for name in ('RECOGNITION', 'READ_ALOUD', 'CONVERSATION', 'REALTIME', 'PERSONAL'):
+        # 听写并入语音对话后不再有独立的「语音识别」分段；识别设置在语音对话段内。
+        for name in ('READ_ALOUD', 'CONVERSATION', 'REALTIME', 'PERSONAL'):
             self.assertIn(f'VoiceSettingsSection.{name} ->', source)
+        self.assertNotIn('RECOGNITION', source)
 
     def test_section_roots_do_not_nest_full_page_scaffolds(self):
         self.assertIn('LocalEmbeddedVoiceSettings provides true', read('ui/VoiceSettingsScreen.kt'))
-        for file in ('SpeechSettingsScreen', 'TtsSettingsScreen', 'VoiceModeSettingsScreen', 'PersonalVoicesScreen'):
+        for file in ('TtsSettingsScreen', 'VoiceModeSettingsScreen', 'PersonalVoicesScreen'):
             source = read(f'ui/{file}.kt')
             self.assertIn('VoiceSettingsSectionPage(', source)
             # 分段根不再嵌套整页脚手架（当前 M3 脚手架为 EtaScaffoldPage）。
@@ -98,12 +113,37 @@ class VoiceSettingsContractTest(unittest.TestCase):
         self.assertIn('VoiceEntryPolicy.enabled(it, mode)', asr)
         self.assertIn('settings == null && configFor(mode, it).cloudAsr != selected', asr)
 
+    def test_dictation_merges_into_conversation_with_live_tail_follow(self):
+        policy = read('agent/voice/VoiceEntryPolicy.kt')
+        self.assertNotIn('add(VoiceEntryMode.DICTATION)', policy)
+        picker = read('ui/components/AgentChatInputBar.kt')
+        entries = picker[picker.index('val entries = listOf('):picker.index(').filter { it.first in modes }')]
+        self.assertIn('VoiceEntryMode.UNIVERSAL', entries)
+        self.assertIn('VoiceEntryMode.DOUBAO_DUPLEX', entries)
+        self.assertNotIn('VoiceEntryMode.DICTATION', entries)
+        controller = read('agent/voice/VoiceModeController.kt')
+        block = controller[controller.index('private fun startUniversal'):controller.index('private fun startDuplex')]
+        # 转写交给模型前立即清空，思考 / 播报阶段不再挂着上一轮识别文字。
+        self.assertLess(block.index('transcript = ""'), block.index('submit(text)'))
+        live = read('ui/components/AgentChatComposerM3.kt').split('private fun VoiceLiveTranscript(', 1)[1]
+        # 单行保持不换行，滚动按最新转写持续跟随，不用瞬移。
+        self.assertIn('horizontalScroll(scroll)', live)
+        self.assertIn('scroll.animateScrollTo(', live)
+        self.assertIn('maxLines = 1', live)
+        self.assertIn('softWrap = false', live)
+
     def test_asr_keys_have_separate_persistence_and_settings(self):
         config = read('agent/voice/doubao/DoubaoVoiceConfig.kt')
         ui = read('ui/VoiceConversationRecognitionSettings.kt')
         router = read('agent/voice/SpeechInputSession.kt')
+        load_block = config[config.index('fun load('):config.index('private fun migrateDictationIntoConversation')]
+        migration = config[config.index('private fun migrateDictationIntoConversation'):config.index('fun save(')]
+        save_block = config[config.index('fun save('):]
         for key in ('voice_conversation_asr_cloud', 'voice_conversation_asr_key', 'voice_conversation_asr_resource'):
-            self.assertEqual(2, config.count(f'"{key}"'))  # load and save
+            # 旧听写配置只迁移一次；进入语音对话后由 load/save 各自持久化。
+            self.assertIn(f'"{key}"', migration)
+            self.assertIn(f'"{key}"', load_block)
+            self.assertIn(f'"{key}"', save_block)
         for field in ('conversationCloudAsr', 'conversationAsrKey', 'conversationResource'):
             self.assertIn(f'config.{field}', ui)
             self.assertIn(f'config.{field}', router)
