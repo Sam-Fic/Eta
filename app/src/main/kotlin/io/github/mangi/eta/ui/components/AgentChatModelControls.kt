@@ -423,8 +423,8 @@ internal fun ModelPickerMenuContentM3(
  */
 @Immutable
 internal data class ContextUsageDisplay(
-    /** 统计对象的模型名（子任务上下文时是子代理的模型与角色）。 */
-    val label: String,
+    /** 子任务统计目标；主代理不重复写模型名，为 null。 */
+    val targetLabel: String?,
     /** 用量摘要，如「0k / 262.14K tokens」。 */
     val summary: String,
     /** 上下文已满、发送被拦截。 */
@@ -452,8 +452,7 @@ internal fun contextUsageDisplay(
         locale = locale,
     )
     return ContextUsageDisplay(
-        label = child?.contextLabel(context)
-            ?: telemetry.mainModelName.ifBlank { stringResource(R.string.acm_main_agent) },
+        targetLabel = child?.contextTargetLabel(context),
         summary = summary.replace('\n', ' '),
         blocked = sendBlocked && child == null,
     )

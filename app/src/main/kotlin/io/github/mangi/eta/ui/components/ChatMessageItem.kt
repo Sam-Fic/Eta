@@ -99,7 +99,9 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
@@ -134,6 +136,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextMotion
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.TextUnit
@@ -778,17 +781,15 @@ private fun userImageCorners(
 }
 
 /**
- * 右下角尾巴：沿气泡右缘向上突的小竖条。右上角 1/4 圆角、右下角小圆角与接缝一致，
+ * 右下角尾巴的独立闭合路径：沿气泡右缘向上突的小竖条。右上角 1/4 圆角、右下角小圆角与接缝一致，
  * 顶边平直、左缘贴气泡右缘、底缘贴气泡底边，不叠入主体（避免半透明背景两次绘制产生色差）。
  */
-private fun DrawScope.drawUserBubbleTail(color: Color) {
-    val w = size.width
-    val h = size.height
+private fun Density.userBubbleTailPath(w: Float, h: Float): Path {
     val tw = 5.dp.toPx()
     val th = 8.dp.toPx()
     val rTop = 4.dp.toPx()
     val rBot = UserBubbleInnerCorner.toPx()
-    val path = Path().apply {
+    return Path().apply {
         moveTo(w, h)
         lineTo(w + tw - rBot, h)
         quadraticTo(w + tw, h, w + tw, h - rBot)
@@ -797,7 +798,42 @@ private fun DrawScope.drawUserBubbleTail(color: Color) {
         lineTo(w, h - th)
         close()
     }
-    drawPath(path, color)
+}
+
+/** 组尾时把尾巴画在气泡背景之外，避免半透明底色与主体叠加出更深的色块。 */
+private fun DrawScope.drawUserBubbleTail(color: Color) {
+    drawPath(userBubbleTailPath(size.width, size.height), color)
+}
+
+/**
+ * 气泡的裁剪形状：圆角矩形 + 组尾时右下角那条尾巴（两段互不重叠的闭合轮廓）。
+ *
+ * 按压涟漪由这个形状裁切，只裁圆角矩形的话尾巴那一小块永远盖不到，按下时会露出一角没被高亮的缺口。
+ */
+private class UserBubbleShape(
+    private val corners: CornerRadii,
+    private val withTail: Boolean,
+) : Shape {
+    private val rounded = RoundedCornerShape(
+        corners.topStart,
+        corners.topEnd,
+        corners.bottomEnd,
+        corners.bottomStart,
+    )
+
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density,
+    ): Outline {
+        if (!withTail) return rounded.createOutline(size, layoutDirection, density)
+        val body = rounded.createOutline(size, layoutDirection, density) as Outline.Rounded
+        val path = Path().apply {
+            addRoundRect(body.roundRect)
+            addPath(with(density) { userBubbleTailPath(size.width, size.height) })
+        }
+        return Outline.Generic(path)
+    }
 }
 
 /**
@@ -1057,12 +1093,10 @@ private fun UserMessageBubble(
                 } else {
                     userBubbleCorners(position)
                 }
-                val bubbleShape: Shape = RoundedCornerShape(
-                    corners.topStart,
-                    corners.topEnd,
-                    corners.bottomEnd,
-                    corners.bottomStart,
-                )
+                // 裁剪形状把组尾的右下角尾巴一起算进去，涟漪与背景才会完整覆盖到尾块。
+                val bubbleShape: Shape = remember(corners, isGroupTail) {
+                    UserBubbleShape(corners, withTail = isGroupTail)
+                }
                 val bubbleSurface = Modifier
                     .clip(bubbleShape)
                     .background(bubbleBg)

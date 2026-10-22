@@ -215,12 +215,24 @@ class BottomFollowViewportStepTest {
         assertEquals(32, nextHeldTailLift(true, 60, 32, pointerDown = true, maxRisePx = 8))
     }
 
-    @Test fun liftBudgetScalesWithDensityAndCapsFrameGap() {
-        assertEquals(8f, tailLiftRiseBudgetPx(0.016666667f, 1f), 0.01f)
-        assertEquals(24f, tailLiftRiseBudgetPx(0.016666667f, 3f), 0.01f)
-        // 掉帧或长时间静止后只发一帧的额度，不会补成一段跳动。
-        assertEquals(tailLiftRiseBudgetPx(0.032f, 1f), tailLiftRiseBudgetPx(5f, 1f), 0f)
-        assertEquals(0f, tailLiftRiseBudgetPx(0.016f, 0f), 0f)
+    @Test fun tailLiftEasesInInsteadOfJumpingStraightToTarget() {
+        // 上提走缓动曲线：起步每帧只挪一点点，之后逐帧加速，不会一帧跨掉半个行高。
+        val motion = createTailLiftMotion()
+        val frameNanos = 1_000_000_000L / 60
+        var clock = 1L
+        motion.step(60f, clock, 1f) // 第一帧只建立时钟。
+        var lift = 0f
+        val moves = mutableListOf<Float>()
+        repeat(8) {
+            clock += frameNanos
+            moves += motion.step(60f - lift, clock, 1f)
+            lift += moves.last()
+        }
+        assertTrue(moves.first() in 0f..3f)
+        assertTrue((moves.maxOrNull() ?: 0f) <= 4f)
+        assertTrue(moves.zipWithNext().all { (previous, next) -> next >= previous })
+        assertTrue(lift > 0f)
+        assertTrue(lift < 20f)
     }
 
 }

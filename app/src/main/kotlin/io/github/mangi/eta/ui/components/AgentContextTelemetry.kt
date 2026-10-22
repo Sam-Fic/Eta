@@ -31,17 +31,21 @@ internal fun SubAgentContextStats.cloudContextSummary(context: Context, locale: 
     else formatContextUsage(usage, noLimitText = context.getString(R.string.act_context_no_limit), unknownText = context.getString(R.string.amp_unknown), locale = locale)
 }
 
-internal fun SubAgentContextStats.contextLabel(context: Context): String {
-    val roleLabel = when (role) {
-        "implementation" -> context.getString(R.string.act_role_implementation)
-        "review" -> context.getString(R.string.act_role_review)
-        "summary" -> context.getString(R.string.act_role_summary)
-        "image_generation" -> context.getString(R.string.act_role_image)
-        "video_generation" -> context.getString(R.string.act_role_video)
-        else -> context.getString(R.string.act_role_research)
-    }
-    return "$modelName（${agentName.ifBlank { roleLabel }} ${taskId.take(6)}）"
+private fun SubAgentContextStats.roleLabel(context: Context): String = when (role) {
+    "implementation" -> context.getString(R.string.act_role_implementation)
+    "review" -> context.getString(R.string.act_role_review)
+    "summary" -> context.getString(R.string.act_role_summary)
+    "image_generation" -> context.getString(R.string.act_role_image)
+    "video_generation" -> context.getString(R.string.act_role_video)
+    else -> context.getString(R.string.act_role_research)
 }
+
+internal fun SubAgentContextStats.contextLabel(context: Context): String =
+    "$modelName（${agentName.ifBlank { roleLabel(context) }} ${taskId.take(6)}）"
+
+/** 上下文统计行的目标标识：不带模型名，只用代理/角色与短任务 ID 区分。 */
+internal fun SubAgentContextStats.contextTargetLabel(context: Context): String =
+    "${agentName.ifBlank { roleLabel(context) }} ${taskId.take(6)}"
 
 internal fun SubAgentContextStats.contextStatusLabel(context: Context): String = when {
     // Confirmed lifecycle state wins over a stale compaction/request flag.

@@ -51,7 +51,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.KeyboardVoice
 import androidx.compose.material.icons.rounded.RecordVoiceOver
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.CallEnd
@@ -619,11 +618,11 @@ internal fun ThinkingEffortChip(
 
     val contentDescription = if (gptSpeedSupported) {
         gptSpeedChipDescription(
-            stringResource(R.string.chat_reasoning_effort, effort.displayName),
+            stringResource(R.string.chat_reasoning_effort, stringResource(effort.labelRes)),
             gptSpeedMode,
         )
     } else {
-        stringResource(R.string.chat_reasoning_effort, effort.displayName)
+        stringResource(R.string.chat_reasoning_effort, stringResource(effort.labelRes))
     }
 
     ChatInputNonFocusableIconButton(
@@ -807,7 +806,7 @@ private fun M3ThinkingEffortPickerBody(
         )
         // 当前档位：Expressive 强调字阶（headlineMediumEmphasized），比 title 更大更醒目。
         M3Text(
-            text = preview.displayName,
+            text = stringResource(preview.labelRes),
             style = MaterialTheme.typography.headlineMediumEmphasized,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),
@@ -830,13 +829,13 @@ private fun M3ThinkingEffortPickerBody(
             // 离散滑块的官方做法：两端各标一个边界文案，让人一眼知道可选范围。
             Row(modifier = Modifier.fillMaxWidth()) {
                 M3Text(
-                    text = options.first().displayName,
+                    text = stringResource(options.first().labelRes),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f),
                 )
                 M3Text(
-                    text = options.last().displayName,
+                    text = stringResource(options.last().labelRes),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -849,7 +848,7 @@ private fun M3ThinkingEffortPickerBody(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 M3Text(
-                    text = preview.displayName,
+                    text = stringResource(preview.labelRes),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -1033,8 +1032,6 @@ internal fun resolveChatComposerSendMode(
 
 @Composable
 internal fun VoiceEntryButton(
-    textFieldState: androidx.compose.foundation.text.input.TextFieldState,
-    showGeneration: Boolean,
     interactionBlocked: Boolean,
     resetKey: Any?,
     voiceState: VoiceModeState,
@@ -1057,14 +1054,6 @@ internal fun VoiceEntryButton(
      * 挂断图标（“躺平的电话”）再消失。传 false 只冻结图标外观，点击行为不变（仍是结束语音）。
      */
     swapIconWhenActive: Boolean = true,
-    /**
-     * 听写采集是否进行中（仅 [VoiceEntryMode.DICTATION] 入口会报告）。
-     *
-     * 听写的采集协程与麦克风都在 `ChatSpeechIndicator` 内部，调用方无法自行判断；而听写的
-     * 第一个转写分片一写进输入框，输入框就有内容了，尾部槽会立刻换成发送按钮、把听写入口
-     * 移出组合 → `onDispose` 收停采集。调用方据此在采集期间保留听写入口。
-     */
-    onCaptureActiveChange: (Boolean) -> Unit = {},
 ) {
     val view = LocalView.current
     val context = LocalContext.current
@@ -1075,9 +1064,6 @@ internal fun VoiceEntryButton(
         Prefs.putString(Prefs.Keys.AGENT_VOICE_LAST_ENTRY, mode.wireValue)
     }
     var pendingMode by remember { mutableStateOf<VoiceEntryMode?>(null) }
-    // 听写的“开始采集”请求计数：选中「语音输入」时递增，由 ChatSpeechIndicator 的
-    // startRequest 消费（它独占采集协程与麦克风，只有它能真正开录）。
-    var dictationStartRequest by remember { mutableIntStateOf(0) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         val mode = pendingMode
         pendingMode = null
@@ -1101,7 +1087,7 @@ internal fun VoiceEntryButton(
     val canChoose = io.github.mangi.eta.agent.voice.VoiceEntryPolicy.canChoose(config)
     val directMode = io.github.mangi.eta.agent.voice.VoiceEntryPolicy.directMode(config, lastSelected)
     val directLabel = when (directMode) {
-        VoiceEntryMode.DICTATION -> R.string.voice_mode_dictation
+        VoiceEntryMode.DICTATION -> R.string.voice_mode_universal
         VoiceEntryMode.UNIVERSAL -> R.string.voice_mode_universal
         VoiceEntryMode.DOUBAO_DUPLEX -> R.string.voice_mode_doubao
         null -> R.string.voice_mode_choose
@@ -1118,46 +1104,8 @@ internal fun VoiceEntryButton(
     }
     val active = voiceState.active || voiceState.error != null
     val choose: (() -> Unit)? = if (canChoose) ({ picker = true }) else null
-    // 听写入口：只要“当前生效的语音模式”是听写，就必须走真正的听写组件——它独占采集协程与
-    // 麦克风，并把转写结果实时写进输入框。旧分支顺序被 `icon != null` 抢先命中（M3 输入区尾部
-    // 传了 icon=Call），于是选中「语音输入」后点击落到 VoiceModeController.start(DICTATION)，
-    // 而控制器对听写是空实现（DICTATION -> Unit）——表现就是“点了没反应”。
-    // directMode == DICTATION 覆盖两种情况：选中听写作默认、或听写是唯一可用模式；
-    // 另外保留 icon == null 的旧语义：那时任何含听写的模式都仍用该组件承载点击
-    // （非听写模式走 onIdleClick 启动通话或打开模式选择）。
-    val showsDictationEntry = !active && VoiceEntryMode.DICTATION in modes &&
-        (icon == null || directMode == VoiceEntryMode.DICTATION)
     Box {
-    if (showsDictationEntry) {
-        ChatSpeechIndicator(
-            textFieldState = textFieldState,
-            showGeneration = showGeneration,
-            interactionBlocked = interactionBlocked,
-            resetKey = resetKey,
-            onLongClick = choose,
-            onUnavailableClick = if (canChoose) ({ picker = true }) else null,
-            onIdleClick = when (directMode) {
-                VoiceEntryMode.DICTATION -> null
-                null -> if (canChoose) ({ picker = true }) else null
-                else -> ({ startMode(directMode) })
-            },
-            idleDescription = context.getString(directLabel),
-            onStartRequested = { rememberMode(VoiceEntryMode.DICTATION) },
-            suspendCapture = picker,
-            forceVisible = true,
-            onCaptureActiveChange = onCaptureActiveChange,
-            // 选中「语音输入」后立即开录（否则这一下只是记住默认值，还要再点一次）。
-            startRequest = dictationStartRequest,
-            // 与同槽位的语音 / 发送按钮同宽同高（40dp），命中区由按钮自身的
-            // minimumInteractiveComponentSize 补到 48dp，不会挤动尾部槽位。
-            modifier = Modifier.size(IconButtonDefaults.smallContainerSize()),
-            // 配色与相邻的 FilledTonalIconButton 一致（secondaryContainer /
-            // onSecondaryContainer）：外层浮动工具栏是 primaryContainer，主题默认的圆底
-            // 正好与工具栏同色，圆钮会整个“消失”在胶囊里。
-            indicatorContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-            indicatorTint = MaterialTheme.colorScheme.onSecondaryContainer,
-        )
-    } else if (icon != null) {
+    if (icon != null) {
         // Material 3 Expressive：官方图标按钮。进行中用 FilledIconButton（官方默认
         // primary/onPrimary），空闲用 FilledTonalIconButton（官方默认
         // secondaryContainer/onSecondaryContainer）；形状取官方 filledShape（整圆），
@@ -1248,7 +1196,7 @@ internal fun VoiceEntryButton(
         val indicatorSlot: @Composable () -> Unit = {
             ContainedMorphLoadingIndicator(
                 indicatorSize = if (active) 40.dp else 24.dp,
-                animate = showGeneration || active,
+                animate = active,
             )
         }
         val content: @Composable () -> Unit = if (longPress != null) {
@@ -1289,16 +1237,8 @@ internal fun VoiceEntryButton(
             if (!interactionBlocked && io.github.mangi.eta.agent.voice.VoiceEntryPolicy.enabled(
                     io.github.mangi.eta.agent.voice.doubao.DoubaoVoiceConfig.state.value, mode)) {
                 TouchHaptics.click(view)
-                // 选中即开始：听写交给 ChatSpeechIndicator 采集（它独占麦克风并把转写写进
-                // 输入框），其余模式走 startMode 开始通话 / 实时对话。注意这里不能用
-                // startMode(mode)：它对 DICTATION 会落到 VoiceModeController.start 的
-                // `DICTATION -> Unit` 空实现，选完依然没反应。
-                rememberMode(mode)
-                if (mode == VoiceEntryMode.DICTATION) {
-                    dictationStartRequest++
-                } else {
-                    startMode(mode)
-                }
+                // 选中即开始：听写已并入语音对话，这里只剩会话 / 实时通话两种入口。
+                startMode(mode)
             }
         },
     )
@@ -1319,8 +1259,8 @@ private fun VoiceEntryPickerDialog(
         onDismissRequest = onDismiss,
     ) {
         EtaMenuGroup(index = 0, count = 1) {
+            // 语音输入与语音对话合并为一个入口：菜单只保留「语音对话」和「豆包实时通话」。
             val entries = listOf(
-                Triple(VoiceEntryMode.DICTATION, Icons.Rounded.KeyboardVoice, R.string.voice_mode_dictation),
                 Triple(VoiceEntryMode.UNIVERSAL, Icons.Rounded.RecordVoiceOver, R.string.voice_mode_universal),
                 Triple(VoiceEntryMode.DOUBAO_DUPLEX, Icons.Rounded.GraphicEq, R.string.voice_mode_doubao),
             ).filter { it.first in modes }

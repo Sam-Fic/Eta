@@ -5,9 +5,10 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -28,6 +29,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.heightIn
@@ -129,6 +132,9 @@ import io.github.mangi.eta.ui.model.PendingFileReferenceUi
 import io.github.mangi.eta.ui.model.PendingImageUi
 import java.time.LocalTime
 import java.util.Calendar
+import kotlin.math.abs
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -158,7 +164,7 @@ internal fun rememberImeVisible(): Boolean {
  * 2. 图库（官方 Standard 图标按钮，`Icons.Rounded.PhotoLibrary`）→ 直接打开系统图片选择器。
  * 3. 「助手与模型」二合一入口（官方 Standard 图标按钮）→ 合并选择弹窗
  *    （助手 / 模型两个页签，底部为思考档位与上下文用量）。
- * 4. 胶囊输入框（官方 Filled 文本框，`surfaceContainer` 容器、固定 `extraLarge` 28dp 圆角），
+ * 4. 胶囊输入框（官方 Filled 文本框，`surfaceBright` 容器、固定 `extraLarge` 28dp 圆角），
  *    单行时 56dp 高即胶囊；多行时是圆角矩形（圆角不变），语音 / 发送按钮固定在右下角，
  *    与内层圆角保持同心（端距 8dp = 28 − 20）。键盘弹出且已有输入内容（文字 / 图片 / 文件 / 引用）时
  *    左侧动作组按官方 Expressive 弹簧规格收起、输入框展开占满，发送 / 停止按钮替代语音按钮的位置；
@@ -293,25 +299,13 @@ internal fun Material3ComposerBody(
     val growSpec: FiniteAnimationSpec<IntSize> = MaterialTheme.motionScheme.defaultSpatialSpec()
     val shrinkSpec: FiniteAnimationSpec<IntSize> = MaterialTheme.motionScheme.defaultSpatialSpec()
 
-    // 听写采集是否进行中：由尾部语音入口（内部是听写组件）回调。
-    // 原先这个状态记在 M3ComposerTextField 内部；现在尾部按钮被上提到“胶囊交叉淡化之外”的
-    // 共享槽位（见下方 composer_trailing），状态必须跟着上提，否则重组 / 移出组合时会丢失。
-    var voiceCaptureActive by remember { mutableStateOf(false) }
     // 尾部按钮（Call ⇄ Send ⇄ Stop）形变规格：与“输入文字后 Call→Send”同款，
     // 即淡入淡出 + 0.8 缩放的官方 Expressive 弹簧。
     val trailingFadeSpec: FiniteAnimationSpec<Float> = MaterialTheme.motionScheme.defaultSpatialSpec()
     val trailingScaleSpec: FiniteAnimationSpec<Float> = MaterialTheme.motionScheme.defaultSpatialSpec()
     // 尾部槽位是否显示发送 / 停止 / 继续（而非语音入口）。
     // 有内容时让位给发送按钮；没有内容但生成 / 压缩中时保留停止按钮。
-    // 例外：听写采集进行中必须保留语音入口——听写会把转写结果写进输入框，第一个分片到达后
-    // hasContent 即为真（sendMode 也随之变成 "send"），若按“有内容就换发送按钮”，听写入口会被
-    // 移出组合，听写的 onDispose 随即收停采集（表现就是点了语音输入没有反应）。
-    // 听写期间只有“停止 / 继续”这类运行控制值得占用尾部，发送按钮让位给听写入口。
-    val trailingShowsSend = if (voiceCaptureActive) {
-        sendMode == "stop" || sendMode == "continue"
-    } else {
-        hasContent || sendMode != "idle"
-    }
+    val trailingShowsSend = hasContent || sendMode != "idle"
 
     Column(
         modifier = Modifier
@@ -423,21 +417,13 @@ internal fun Material3ComposerBody(
             // weight 槽位的真实宽度，内容于是被塞进一个更窄的矩形里——两端 28dp 圆角就是这样
             // 被切成平口的（“展开过程中两头有裁切”）。宽度改由布局驱动后不再有任何裁切。
             //
-            // 槽位底衬（关键）：交叉淡化期间两份内容（输入框 surfaceContainer ⇄ 聆听条
-            // surfaceContainerHigh）同时只有部分 alpha，两层半透明源叠加后整体仍不满不透明，
-            // 外层 vibrant 工具栏的 primaryContainer 会从中间透出来——就是“胶囊衔接中间出现
-            // 透明度变化、看着发虚/变色”。这里在本槽位先铺一层同形（28dp 圆角）不透明底，
-            // 底色随语音态在两种胶囊色之间同步渐变：前景怎么交叉淡化，下面始终是一块实心底，
-            // 胶囊全程不透明（中间只会是两种胶囊色之间的平滑插值，不再混入工具栏底色）。
-            val pillBackdropColor by animateColorAsState(
-                targetValue = if (voiceActive) {
-                    MaterialTheme.colorScheme.surfaceContainerHigh
-                } else {
-                    MaterialTheme.colorScheme.surfaceContainer
-                },
-                animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
-                label = "composer_pill_backdrop",
-            )
+            // 槽位底衬（关键）：交叉淡化期间两份内容（输入框 / 聆听条，两态同为 surfaceBright）
+            // 同时只有部分 alpha，两层半透明源叠加后整体仍不满不透明，
+            // 外层 vibrant 工具栏的 primaryContainer 会从中间透出来——就是"胶囊衔接中间出现
+            // 透明度变化、看着发虚/变色"。这里在本槽位先铺一层同形（28dp 圆角）不透明底：
+            // 两态胶囊色一致（均取 surfaceBright，与「会话列表行」容器色同一档），前景怎么
+            // 交叉淡化，下面始终是一块实心底，胶囊全程不透明（不再混入工具栏底色）。
+            val pillBackdropColor = MaterialTheme.colorScheme.surfaceBright
             // 胶囊与尾部按钮的共享容器：胶囊内容（输入框 ⇄ 聆听条）只做交叉淡化，
             // 尾部按钮（Call ⇄ 发送 ⇄ 停止）单独用同一条弹簧形变——两者互不牵连。
             Box(modifier = Modifier.weight(1f)) {
@@ -527,8 +513,6 @@ internal fun Material3ComposerBody(
                                 onBlocked = blockedNotice,
                             )
                             ComposerTrailing.VOICE_ENTRY -> VoiceEntryButton(
-                                textFieldState = textFieldState,
-                                showGeneration = showMorphLoading,
                                 interactionBlocked = interactionBlocked,
                                 resetKey = isStreaming to isEditingMessage,
                                 voiceState = voiceState,
@@ -541,7 +525,6 @@ internal fun Material3ComposerBody(
                                 // 它仍以 Call 外观缩放淡出。若跟着 voiceState.active 换成挂断图标，
                                 // 退场瞬间会先闪一下“躺平的电话”。点击行为不受影响。
                                 swapIconWhenActive = false,
-                                onCaptureActiveChange = { voiceCaptureActive = it },
                             )
                         }
                     }
@@ -621,7 +604,7 @@ private val ComposerConcentricGap = 8.dp
 private val ComposerOuterCornerRadius = 36.dp
 
 /**
- * 胶囊输入框：官方 Filled 文本框（无 label，仅 placeholder，容器 `surfaceContainer`，
+ * 胶囊输入框：官方 Filled 文本框（无 label，仅 placeholder，容器 `surfaceBright`，
  * 指示线透明，圆角固定 28dp＝官方 `extraLarge`，不改大小），起始侧内嵌生成中的形变加载指示器；
  * 语音／发送按钮叠放在输入框右下角。
  *
@@ -688,10 +671,12 @@ private fun M3ComposerTextField(
             Spacer(modifier = Modifier.size(IconButtonDefaults.smallContainerSize()))
         },
         colors = TextFieldDefaults.colors(
-            // 内层胶囊取官方 surfaceContainer：与外层 primaryContainer 工具栏形成两层表面。
-            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+            // 内层胶囊取官方 surfaceBright：与会话列表行容器色同一档
+            // （EtaSegmentedList.etaSegmentedRowColors 同款令牌），从页面背景
+            // surfaceContainer 浮出一档；外层仍是 primaryContainer 工具栏，整体仍为两层表面。
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceBright,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceBright,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceBright,
             // 参考稿没有描边，指示线取官方透明值。
             focusedIndicatorColor = Color.Transparent,
             unfocusedIndicatorColor = Color.Transparent,
@@ -718,7 +703,7 @@ private fun M3VoiceBar(state: VoiceModeState) {
             .fillMaxWidth()
             .heightIn(min = TextFieldDefaults.MinHeight)
             .clip(MaterialTheme.shapes.extraLarge)
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .background(MaterialTheme.colorScheme.surfaceBright)
             .padding(horizontal = ComposerConcentricGap),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -744,23 +729,77 @@ private fun M3VoiceBar(state: VoiceModeState) {
                 )
             }
         }
-        Text(
-            text = state.transcript.takeIf { it.isNotBlank() } ?: voicePhaseText(state),
-            modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = 12.dp),
-            style = etaTextStyle(EtaType.Body),
-            color = if (state.error != null) {
-                MaterialTheme.colorScheme.error
-            } else {
-                MaterialTheme.colorScheme.onSurface
-            },
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        val textColor = if (state.error != null) {
+            MaterialTheme.colorScheme.error
+        } else {
+            MaterialTheme.colorScheme.onSurface
+        }
+        val transcript = state.transcript.takeIf { it.isNotBlank() }
+        if (transcript != null) {
+            VoiceLiveTranscript(
+                text = transcript,
+                color = textColor,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 12.dp),
+            )
+        } else {
+            Text(
+                text = voicePhaseText(state),
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 12.dp),
+                style = etaTextStyle(EtaType.Body),
+                color = textColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
         // 为共享的停止圆钮预留同宽空间（圆钮本体在 composer_trailing 里叠放在右下角）。
         Spacer(modifier = Modifier.size(IconButtonDefaults.smallContainerSize()))
     }
+}
+
+/**
+ * 语音对话的单行实时转写。
+ *
+ * 识别结果持续改写时，文本本身会越来越长；这里不换行也不省略，而是让可视窗口平滑地
+ * 追到最新转写的尾部——用户始终能看到自己最后说的内容。滚动距离按固定速度换算时长
+ * （约 1000dp/s），连续分片到达时会不断接续新的目标，而不是每次瞬移到末尾；转写被
+ * 清空（发送后切到思考 / 播报阶段）时本组件退出组合，下一轮从起点重新开始。
+ */
+@Composable
+private fun VoiceLiveTranscript(
+    text: String,
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
+    val scroll = rememberScrollState()
+    val density = LocalDensity.current
+    LaunchedEffect(scroll) {
+        snapshotFlow { scroll.maxValue }
+            .distinctUntilChanged()
+            .collectLatest { end ->
+                val distance = abs(end - scroll.value)
+                if (distance == 0) return@collectLatest
+                val duration = with(density) { distance.toDp().value.toInt() }.coerceIn(80, 360)
+                scroll.animateScrollTo(
+                    value = end,
+                    animationSpec = tween(durationMillis = duration, easing = LinearEasing),
+                )
+            }
+    }
+    Text(
+        text = text.replace('\n', ' '),
+        modifier = modifier
+            .horizontalScroll(scroll)
+            .testTag("voice-live-transcript"),
+        style = etaTextStyle(EtaType.Body),
+        color = color,
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Clip,
+    )
 }
 
 /**

@@ -1116,7 +1116,8 @@ internal fun AgentConversationMessages(
             isBottomSettling = isBottomSettling,
         )
     )
-    // 跟底时上提让尾部一直停在静止线上：列表变高多少，同一帧就上提多少，下沿不动。
+    // 跟底时上提让尾部停在静止线附近：列表变高多少，上提就按缓动补多少，
+    // 新行从静止线下方慢慢滑入，由跟底滚动接力收尾，下沿不会整行跳。
     // 以前点开最底部一行时先暂停上提，让内容从上沿往下长过静止线、再由跟底滚动追回来，
     // 标签会先不动、再被推上去，看起来像折了两次。现在展开从下沿长出（见 tailDetailsEnter），
     // 上提照常，标签随动画一帧一帧往上让开。
@@ -1510,8 +1511,8 @@ internal fun AgentConversationMessages(
     val restClip = remember(bottomInset) { ComposerRestClip(bottomInset + ConversationComposerGap) }
     // 尾部这一帧量不到时不能把上提清零，否则卡片会掉进输入框再弹回来。
     val heldTailLift = remember { intArrayOf(0) }
-    // 上提自身的帧时钟：只用来给每帧的上提增量发预算，不参与组合。
-    val tailLiftFrameNanos = remember { LongArray(1) }
+    // 上提自身的缓动：起步/收尾都比滚动更慢，避免每行一次“硬”上跳。
+    val tailLiftMotion = remember { createTailLiftMotion() }
     // The callback reports message.id, but a work step's lazy key is work-step:<id>.
     // Both row branches capture the actual entry key before ThinkingRow changes its height.
     val onThinkingRowToggle: (String, Boolean) -> Unit = { rowKey, willExpand ->
@@ -1589,28 +1590,31 @@ internal fun AgentConversationMessages(
                 .then(if (shouldLiftTail) {
                     Modifier.graphicsLayer {
                         val overflow = scrollState.followTailOverflow()
-                        // 上提逐帧限速：新长出一行时整列不再一帧内上跳一个行高，
-                        // 而是从静止线下方按固定速度滑入（一行约三帧）。
-                        val frameNanos = System.nanoTime()
-                        val previousFrameNanos = tailLiftFrameNanos[0]
-                        tailLiftFrameNanos[0] = frameNanos
-                        val elapsedSeconds = if (previousFrameNanos == 0L) {
-                            1f / 60f
+                        val held = heldTailLift[0]
+                        // 上提按缓动曲线逐帧追赶溢出：新行缓慢滑入，而不是匀速冲到目标后硬停；
+                        // 目标回落时仍由 nextHeldTailLift 立即让位，尾部不会越过静止线。
+                        val risePx = if (pointerDown.value || overflow == null) {
+                            tailLiftMotion.reset()
+                            0f
                         } else {
-                            (frameNanos - previousFrameNanos) / 1_000_000_000f
+                            tailLiftMotion.step(
+                                distancePx = (overflow - held).coerceAtLeast(0).toFloat(),
+                                frameTimeNanos = System.nanoTime(),
+                                density = densityScale,
+                            )
                         }
                         translationY = -nextHeldTailLift(
                             shouldLift = true,
                             overflowPx = overflow,
-                            heldPx = heldTailLift[0],
+                            heldPx = held,
                             pointerDown = pointerDown.value,
-                            maxRisePx = ceil(tailLiftRiseBudgetPx(elapsedSeconds, densityScale)).toInt(),
+                            maxRisePx = ceil(risePx).toInt().coerceAtLeast(1),
                         ).also { heldTailLift[0] = it }.toFloat()
                     }
                 } else {
                     Modifier.also {
                         heldTailLift[0] = 0
-                        tailLiftFrameNanos[0] = 0L
+                        tailLiftMotion.reset()
                     }
                 })
                 .onGloballyPositioned {
@@ -2663,7 +2667,8 @@ internal fun resolveFollowTailLag(following: Boolean, tailOverflowPx: Int?): Fol
  * 测量暂时缺失时保留上一帧上提，避免卡片底边在输入框附近来回跳。
  *
  * 上提只限制增长：新长出一行时整列不再一帧内上跳一个行高，而是按 [maxRisePx]
- * 逐帧从静止线下方滑入。回落不限速——滚动追上后上提立即让位，
+ * （由 [createTailLiftMotion] 给出的缓动增量）从静止线下方滑入。
+ * 回落不限速——滚动追上后上提立即让位，
  * 「滚动量 + 上提量」始终不超过真实溢出，尾部不会被抬到静止线上方。
  */
 internal fun nextHeldTailLift(
@@ -2682,17 +2687,6 @@ internal fun nextHeldTailLift(
         val rise = maxRisePx.coerceAtLeast(1).toLong()
         min(held + rise, overflow).toInt()
     }
-}
-
-/**
- * 上提的每帧预算：新行以固定速度滑入静止线上方，一行（约 22dp）约三帧走完。
- * 速度随 density 缩放，帧间隔按 32ms 封顶，与 [BottomFollowMotion] 同一约定。
- */
-private const val TailLiftRiseSpeedDpPerSecond = 480f
-
-internal fun tailLiftRiseBudgetPx(elapsedSeconds: Float, density: Float): Float {
-    if (!density.isFinite() || density <= 0f) return 0f
-    return TailLiftRiseSpeedDpPerSecond * density * elapsedSeconds.coerceIn(0f, 0.032f)
 }
 
 private fun LazyListState.isConversationAtBottom(): Boolean {

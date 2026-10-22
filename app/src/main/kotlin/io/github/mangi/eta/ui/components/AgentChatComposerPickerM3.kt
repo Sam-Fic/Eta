@@ -228,8 +228,11 @@ private fun ContextUsageRow(
     val blockedText = stringResource(R.string.context_window_send_blocked)
     var selectorOpen by remember { mutableStateOf(false) }
     val text = buildString {
-        append(display.label)
-        append(" · ")
+        // 主代理的用量就是当前模型的用量，不再重复写模型名；子任务才带目标标识。
+        display.targetLabel?.takeIf { it.isNotBlank() }?.let {
+            append(it)
+            append(" · ")
+        }
         append(display.summary)
         if (display.blocked) {
             append(" · ")
