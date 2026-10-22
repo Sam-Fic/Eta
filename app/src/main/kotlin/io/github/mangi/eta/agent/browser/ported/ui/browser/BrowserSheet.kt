@@ -4,7 +4,12 @@
 package io.github.mangi.eta.agent.browser.ported.ui.browser
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -86,6 +91,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -93,6 +99,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.browser.ported.browser.BrowserHistoryStore
@@ -109,6 +116,9 @@ import kotlinx.coroutines.launch
 
 /** 与 [BrowserTabPool] 的最大标签数一致（页面里「+」的禁用条件）。 */
 private const val MAX_TABS = 3
+
+/** 设置子页转场时长；与 NavHost 的页面动画保持一致。 */
+private const val BrowserSettingsTransitionMs = 300
 
 /** 标签按钮的内容内边距：左 12dp 给标题留呼吸，右 4dp 让关闭钮贴近胶囊边缘。 */
 private val TabChipContentPadding = PaddingValues(start = 12.dp, end = 4.dp)
@@ -248,6 +258,14 @@ fun BrowserPage(
     var urlInput by remember(currentURL) { mutableStateOf(currentURL) }
     var showHistory by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    // 设置子页与浏览器共用同一个 BrowserTabPool，不能拆成独立路由（重新 acquire 会重置标签）；
+    // 在页内按 NavHost 的几何补上入栈/出栈：设置页侧滑，底层浏览器做四分之一屏视差。
+    val settingsProgress by animateFloatAsState(
+        targetValue = if (showSettings) 1f else 0f,
+        animationSpec = tween(BrowserSettingsTransitionMs),
+        label = "browser-settings-progress",
+    )
     // [T-android-browser-download-ux] Downloads panel + badge state.
     var showDownloads by remember { mutableStateOf(false) }
     val downloadEntries by tabPool.downloads.collectAsState()
@@ -276,7 +294,10 @@ fun BrowserPage(
     BackHandler(enabled = showSettings) { showSettings = false }
     Box(modifier = modifier.fillMaxSize()) {
     Scaffold(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().graphicsLayer {
+            translationX = (if (rtl) 1f else -1f) * settingsProgress * size.width / 4f
+            alpha = 1f - 0.1f * settingsProgress
+        },
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         topBar = {
             BrowserSheetTopBar(
@@ -530,7 +551,15 @@ fun BrowserPage(
         }
     }
 
-        if (showSettings) {
+        AnimatedVisibility(
+            visible = showSettings,
+            enter = slideInHorizontally(animationSpec = tween(BrowserSettingsTransitionMs)) { width ->
+                (width * if (rtl) -1f else 1f).toInt()
+            } + fadeIn(animationSpec = tween(BrowserSettingsTransitionMs), initialAlpha = 0.9f),
+            exit = slideOutHorizontally(animationSpec = tween(BrowserSettingsTransitionMs)) { width ->
+                (width * if (rtl) -1f else 1f).toInt()
+            } + fadeOut(animationSpec = tween(BrowserSettingsTransitionMs), targetAlpha = 0.9f),
+        ) {
             BrowserSettingsPage(
                 tabPool = tabPool,
                 onDismiss = { showSettings = false },
