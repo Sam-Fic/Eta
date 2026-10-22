@@ -909,15 +909,18 @@ private fun UserMessageBubble(
                     .padding(bottom = if (hasBubbleBody) UserBubbleAttachmentGap else 0.dp),
                 contentAlignment = Alignment.CenterEnd,
             ) {
+                // K2 在嵌套 Column 的内容 lambda 里拒绝隐式接收者取 maxWidth，
+                // 在 BoxWithConstraints 作用域顶部先算好气泡宽度上限再传下去。
+                val bubbleMaxWidth = maxWidth * UserBubbleWidthFraction
                 Column(
-                    modifier = Modifier.widthIn(max = maxWidth * UserBubbleWidthFraction),
+                    modifier = Modifier.widthIn(max = bubbleMaxWidth),
                     horizontalAlignment = Alignment.End,
                 ) {
                     if (message.images.isNotEmpty()) {
                         val imageCount = message.images.size
                         // 一组图每张一律同尺寸：按宽度上限均分（扣掉相连间隙），再套 100dp 上限；
                         // 图多时一起缩小，整组刚好放得下，不会被右缘裁掉。
-                        val imageWidth = maxWidth * UserBubbleWidthFraction -
+                        val imageWidth = bubbleMaxWidth -
                             UserBubbleAttachmentGap * (imageCount - 1)
                         val imageSide = (imageWidth / imageCount).coerceIn(0.dp, UserBubbleImageMaxSide)
                         Row(horizontalArrangement = Arrangement.spacedBy(UserBubbleAttachmentGap)) {

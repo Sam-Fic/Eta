@@ -329,7 +329,7 @@ internal object MediaFileOps {
             buildSet {
                 while (cursor.moveToNext()) cursor.getString(0)?.let(::add)
             }
-        }
+        } ?: emptySet()
     }.getOrDefault(emptySet())
 
     /**
@@ -513,7 +513,7 @@ internal object MediaFileOps {
                 buildSet {
                     while (cursor.moveToNext()) cursor.getString(0)?.let(::add)
                 }
-            }
+            } ?: emptySet()
         }.getOrDefault(emptySet())
 
     /**
