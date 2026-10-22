@@ -5,7 +5,6 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Environment
 import android.provider.Settings
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
@@ -32,6 +31,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Folder
@@ -73,29 +73,20 @@ import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 internal fun SharedFoldersScreen(
     context: Context,
     onBack: () -> Unit,
+    onOpenPicker: () -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
     val shellSupervisor = remember { ShellProcessSupervisor() }
     DisposableEffect(Unit) {
         onDispose { shellSupervisor.beginClosing() }
     }
-    val rootfsPaths = remember(context.applicationContext) {
-        listOf(
-            AlpineEnvironmentPaths.rootfsDir(context.applicationContext).absolutePath,
-            LinuxEnvironmentPaths.rootfsDir(
-                context.applicationContext,
-                LinuxDistribution.DEBIAN,
-            ).absolutePath,
-        )
-    }
 
     var mounts by remember { mutableStateOf(SharedFolderMounts.current()) }
     var sourceExists by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
-    var showPicker by remember { mutableStateOf(false) }
     var removeTarget by remember { mutableStateOf<SharedFolderMount?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
     val publicAccessLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        if (Environment.isExternalStorageManager()) showPicker = true
+        if (Environment.isExternalStorageManager()) onOpenPicker()
         else notice = context.getString(R.string.capability_workspace_public_denied)
     }
 
@@ -109,31 +100,11 @@ internal fun SharedFoldersScreen(
         }
     }
 
-    LaunchedEffect(Unit) { refreshSources(mounts) }
-
-    BackHandler(enabled = showPicker) { showPicker = false }
-
-    if (showPicker) {
-        SharedFolderPickerPage(
-            context = context,
-            supervisor = shellSupervisor,
-            existing = mounts,
-            extraForbiddenRoots = rootfsPaths,
-            onBack = { showPicker = false },
-            onConfirm = { source, name ->
-                val updated = mounts + SharedFolderMount(name = name, sourcePath = source)
-                if (SharedFolderMounts.save(updated)) {
-                    mounts = updated
-                    refreshSources(updated)
-                    showPicker = false
-                    true
-                } else {
-                    notice = context.getString(R.string.shared_folders_error_save)
-                    false
-                }
-            },
-        )
-        return
+    // 选择页是独立路由；回到本页（RESUMED）时重新读取配置，新增的挂载立即出现在列表里。
+    LifecycleResumeEffect(Unit) {
+        mounts = SharedFolderMounts.current()
+        refreshSources(mounts)
+        onPauseOrDispose { }
     }
 
     EtaScaffoldPage(
@@ -187,7 +158,7 @@ internal fun SharedFoldersScreen(
                         title = stringResource(R.string.shared_folders_add),
                         onClick = {
                             if (TerminalRuntime.rootAvailable || Environment.isExternalStorageManager()) {
-                                showPicker = true
+                                onOpenPicker()
                             } else {
                                 try {
                                     publicAccessLauncher.launch(Intent(
@@ -285,6 +256,45 @@ private fun probeSources(
         val parts = line.trim().split(" ")
         if (parts.size == 2) parts[0] to (parts[1] == "1") else null
     }.toMap()
+}
+
+/**
+ * 目录选择路由：自带进程监督器与禁用目录表；保存成功后立即出栈，
+ * 列表页在下次 RESUMED 时重新读取配置，避免两份 UI 状态互相覆盖。
+ */
+@Composable
+internal fun SharedFolderPickerScreen(
+    context: Context,
+    onBack: () -> Unit,
+) {
+    val supervisor = remember { ShellProcessSupervisor() }
+    DisposableEffect(Unit) {
+        onDispose { supervisor.beginClosing() }
+    }
+    val rootfsPaths = remember(context.applicationContext) {
+        listOf(
+            AlpineEnvironmentPaths.rootfsDir(context.applicationContext).absolutePath,
+            LinuxEnvironmentPaths.rootfsDir(
+                context.applicationContext,
+                LinuxDistribution.DEBIAN,
+            ).absolutePath,
+        )
+    }
+    val existing = remember { SharedFolderMounts.current() }
+    SharedFolderPickerPage(
+        context = context,
+        supervisor = supervisor,
+        existing = existing,
+        extraForbiddenRoots = rootfsPaths,
+        onBack = onBack,
+        onConfirm = { source, name ->
+            val saved = SharedFolderMounts.save(
+                existing + SharedFolderMount(name = name, sourcePath = source),
+            )
+            if (saved) onBack()
+            saved
+        },
+    )
 }
 
 /**

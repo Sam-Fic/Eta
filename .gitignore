@@ -44,11 +44,10 @@ google-services.json
 # Runtime-owned collaboration workspaces and artifacts
 /.agent/
 
-/.codebuddy/
-
-# AI 助手本地工作目录与巡检产物
+# AI 助手本地工作目录
 /.trae/
-/设置页面巡检报告.md
+/.codebuddy/
+/.workbuddy/
 
 # Python bytecode caches
 __pycache__/

@@ -17,6 +17,8 @@ import androidx.compose.animation.core.VectorizedFiniteAnimationSpec
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -24,6 +26,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -137,6 +140,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Shape
@@ -216,6 +220,8 @@ private object DrawerMetrics {
     val SearchCornerRadius = 12.dp
     val SearchVerticalPadding = 10.dp
     val ChipGap = 8.dp
+    // 胶囊行横向滚动的两端淡出带宽度。与底色同色，滚动到中间时把视口切开的胶囊边缘擦掉。
+    val ChipRowEdgeFadeWidth = 24.dp
     val AfterChips = 10.dp
     val ListBottomPadding = 12.dp
     val BottomInset = 10.dp
@@ -674,6 +680,8 @@ private fun Material3ConversationPane(
     var folderToRename by remember { mutableStateOf<ConversationFolderUi?>(null) }
     var folderToDelete by remember { mutableStateOf<ConversationFolderUi?>(null) }
     val view = LocalView.current
+    // 抽屉底色。胶囊行的两端淡出带必须取同一个颜色，否则会浮出一层色差。
+    val paneContainerColor = MaterialTheme.colorScheme.surfaceContainer
 
     M3Surface(
         modifier = modifier
@@ -685,7 +693,7 @@ private fun Material3ConversationPane(
             },
         shape = drawerShape,
         // 与 M3 页面背景（壳层 Scaffold 的 surfaceContainer）同色，抽屉盖在页面上不再有色差。
-        color = MaterialTheme.colorScheme.surfaceContainer,
+        color = paneContainerColor,
         contentColor = MaterialTheme.colorScheme.onSurface,
     ) {
         Column(
@@ -734,74 +742,85 @@ private fun Material3ConversationPane(
 
             // 第二排：左侧可横向滚动的「聊天 / 未分类 / [文件夹…]」，右侧固定「新建文件夹」。
             val chipCount = 2 + folders.size
+            val chipScrollState = rememberScrollState()
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(
-                    modifier = Modifier
-                        .weight(1f)
-                        .horizontalScroll(rememberScrollState()),
-                    verticalAlignment = Alignment.CenterVertically,
-                    // 官方相连按钮组间距：ButtonGroupDefaults.ConnectedSpaceBetween = 2dp
-                    horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+                Box(
+                    modifier = Modifier.weight(1f),
+                    contentAlignment = Alignment.CenterStart,
                 ) {
-                    var chipIndex = 0
-                    Material3DrawerChip(
-                        text = stringResource(R.string.drawer_chats_chip),
-                        position = drawerGroupPosition(chipIndex++, chipCount),
-                        selected = state.selectedFolderId == null,
-                        selectable = true,
-                        leadingIcon = null,
-                        onClick = { onSelectFolder(null) },
-                    )
-                    Material3DrawerChip(
-                        text = stringResource(R.string.drawer_uncategorized_chip),
-                        position = drawerGroupPosition(chipIndex++, chipCount),
-                        selected = state.selectedFolderId == UNCATEGORIZED_FOLDER_ID,
-                        selectable = true,
-                        leadingIcon = null,
-                        onClick = { onSelectFolder(UNCATEGORIZED_FOLDER_ID) },
-                    )
-                    folders.forEach { folder ->
-                        var showMenu by remember(folder.id) { mutableStateOf(false) }
-                        Box {
-                            Material3DrawerFolderChip(
-                                text = folder.name,
-                                position = drawerGroupPosition(chipIndex++, chipCount),
-                                selected = state.selectedFolderId == folder.id,
-                                onClick = { onSelectFolder(folder.id) },
-                                onLongClick = { showMenu = true },
-                            )
-                            EtaMenuPopup(
-                                expanded = showMenu,
-                                onDismissRequest = { showMenu = false },
-                            ) {
-                                EtaMenuGroup(index = 0, count = 1) {
-                                    DrawerActionMenuItem(
-                                        index = 0,
-                                        count = 2,
-                                        text = stringResource(R.string.action_rename),
-                                        icon = Icons.Rounded.Edit,
-                                        onClick = {
-                                            showMenu = false
-                                            folderToRename = folder
-                                        },
-                                    )
-                                    DrawerActionMenuItem(
-                                        index = 1,
-                                        count = 2,
-                                        text = stringResource(R.string.action_delete),
-                                        icon = Icons.Rounded.Delete,
-                                        onClick = {
-                                            showMenu = false
-                                            folderToDelete = folder
-                                        },
-                                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(chipScrollState),
+                        verticalAlignment = Alignment.CenterVertically,
+                        // 官方相连按钮组间距：ButtonGroupDefaults.ConnectedSpaceBetween = 2dp
+                        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+                    ) {
+                        var chipIndex = 0
+                        Material3DrawerChip(
+                            text = stringResource(R.string.drawer_chats_chip),
+                            position = drawerGroupPosition(chipIndex++, chipCount),
+                            selected = state.selectedFolderId == null,
+                            selectable = true,
+                            leadingIcon = null,
+                            onClick = { onSelectFolder(null) },
+                        )
+                        Material3DrawerChip(
+                            text = stringResource(R.string.drawer_uncategorized_chip),
+                            position = drawerGroupPosition(chipIndex++, chipCount),
+                            selected = state.selectedFolderId == UNCATEGORIZED_FOLDER_ID,
+                            selectable = true,
+                            leadingIcon = null,
+                            onClick = { onSelectFolder(UNCATEGORIZED_FOLDER_ID) },
+                        )
+                        folders.forEach { folder ->
+                            var showMenu by remember(folder.id) { mutableStateOf(false) }
+                            Box {
+                                Material3DrawerFolderChip(
+                                    text = folder.name,
+                                    position = drawerGroupPosition(chipIndex++, chipCount),
+                                    selected = state.selectedFolderId == folder.id,
+                                    onClick = { onSelectFolder(folder.id) },
+                                    onLongClick = { showMenu = true },
+                                )
+                                EtaMenuPopup(
+                                    expanded = showMenu,
+                                    onDismissRequest = { showMenu = false },
+                                ) {
+                                    EtaMenuGroup(index = 0, count = 1) {
+                                        DrawerActionMenuItem(
+                                            index = 0,
+                                            count = 2,
+                                            text = stringResource(R.string.action_rename),
+                                            icon = Icons.Rounded.Edit,
+                                            onClick = {
+                                                showMenu = false
+                                                folderToRename = folder
+                                            },
+                                        )
+                                        DrawerActionMenuItem(
+                                            index = 1,
+                                            count = 2,
+                                            text = stringResource(R.string.action_delete),
+                                            icon = Icons.Rounded.Delete,
+                                            onClick = {
+                                                showMenu = false
+                                                folderToDelete = folder
+                                            },
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
+                    // 两端淡出带：滚动到中间时，被视口切一半的胶囊与抽屉底色融合，不留硬切边。
+                    ChipRowEdgeFades(
+                        scrollState = chipScrollState,
+                        color = paneContainerColor,
+                    )
                 }
                 Spacer(modifier = Modifier.width(ButtonGroupDefaults.ConnectedSpaceBetween))
                 // 独立胶囊按钮（DrawerGroupPosition.Single）：始终贴右，不随文件夹列表滚动。
@@ -962,6 +981,61 @@ private fun Material3ConversationPane(
             },
         ) {
         }
+    }
+}
+
+/**
+ * 横向胶囊行（聊天 / 未分类 / 文件夹）两端的淡出带。
+ *
+ * 胶囊行可以横向滚动，但视口自身没有内边距：滚到中间时，首尾胶囊会被视口边缘
+ * 竖直切开，留下一条生硬的截断边。这里在两端各盖一条与抽屉底色同色的渐变，
+ * 把切开的胶囊「擦」进背景里。
+ *
+ * 只在对应方向真的还有内容可滚时才显示（[ScrollState.canScrollBackward]
+ * / [ScrollState.canScrollForward]），
+ * 停在两端时不会把完整可见的胶囊再罩上一层。渐变透明端用同 RGB 的 alpha 0，
+ * 不用 `Color.Transparent`（黑色全透明），避免渐出一道灰边。
+ */
+@Composable
+private fun BoxScope.ChipRowEdgeFades(
+    scrollState: ScrollState,
+    color: Color,
+) {
+    val startAlpha by animateFloatAsState(
+        targetValue = if (scrollState.canScrollBackward) 1f else 0f,
+        animationSpec = tween(durationMillis = 120),
+        label = "drawerChipFadeStart",
+    )
+    val endAlpha by animateFloatAsState(
+        targetValue = if (scrollState.canScrollForward) 1f else 0f,
+        animationSpec = tween(durationMillis = 120),
+        label = "drawerChipFadeEnd",
+    )
+    Box(modifier = Modifier.matchParentSize()) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .fillMaxHeight()
+                .width(DrawerMetrics.ChipRowEdgeFadeWidth)
+                .graphicsLayer { alpha = startAlpha }
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(color, color.copy(alpha = 0f)),
+                    ),
+                ),
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight()
+                .width(DrawerMetrics.ChipRowEdgeFadeWidth)
+                .graphicsLayer { alpha = endAlpha }
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(color.copy(alpha = 0f), color),
+                    ),
+                ),
+        )
     }
 }
 
