@@ -485,6 +485,7 @@ internal fun inlineText(
 ): AnnotatedString = MarkdownInlineBuilder(source, links, style).build(nodes)
 
 internal const val DOCUMENT_IMAGE_TAG = "eta.document.image"
+/** 与 ChatImageBytes 的可加载来源保持一致（含 minis:// 与工作区相对路径），
+ *  由 ui.components.isDirectChatImageSource 统一裁定，避免行内渲染与画廊判定分叉。 */
 internal fun supportedDocumentImageSource(source: String): Boolean =
-    source.startsWith("/") || source.startsWith("data:image/", true) ||
-        source.substringBefore(':').lowercase() in setOf("http", "https", "file", "content")
+    io.github.mangi.eta.ui.components.isDirectChatImageSource(source)

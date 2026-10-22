@@ -156,6 +156,9 @@ internal object AgentPromptBuilder {
                         "read_image 对视频会抽取封面帧作为视觉输入，并返回时长等信息。" +
                         "同一轮模型回复最多调用一次 read_image；需要查看多张或更多帧时，" +
                         "必须等待当前结果返回并观察内容，再在下一轮调用下一张，禁止在同一轮并行或批量调用多个 read_image。" +
+                        "在回复里展示图片用 Markdown 图片语法 ![说明](路径)：工具生成的图片或下载到工作区的文件直接给 /workspace 下的绝对路径，" +
+                        "会像 read_image 一样映射到宿主并在聊天气泡里显示；Android 绝对路径、content:// 与 https 在线图片同样支持；" +
+                        "不带前缀的文件名按 /workspace 根解析。不要用 base64 或 file:// 嵌入在线图片。" +
                         (shellTools?.let(AgentShellToolAvailability::promptNote) ?: "") +
                         (if (delegationAvailable) TERMINAL_DELEGATION_NOTE else "")
                 )

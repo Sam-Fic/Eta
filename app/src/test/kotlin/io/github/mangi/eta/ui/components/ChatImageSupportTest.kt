@@ -5,6 +5,8 @@ import io.github.mangi.eta.ui.model.AgentMessageUi
 import io.github.mangi.eta.ui.model.PendingImageUi
 import io.github.mangi.eta.ui.model.UserMessageUi
 import android.util.Base64
+import io.github.mangi.eta.agent.terminal.LinuxGuestPathResolver
+import java.io.File
 import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
 import org.intellij.markdown.parser.MarkdownParser
 import org.junit.Assert.assertEquals
@@ -86,6 +88,38 @@ class ChatImageSupportTest {
         val bytes = context.contentResolver.openInputStream(uri!!)?.use { it.readBytes() }
         assertNotNull(bytes)
         assertEquals(png.toList(), bytes!!.toList())
+    }
+
+    @Test
+    fun acceptsGuestMinisAndRelativeSources() {
+        assertTrue(isDirectChatImageSource("minis://workspace/out.png"))
+        assertTrue(isDirectChatImageSource("/workspace/out.png"))
+        assertTrue(isDirectChatImageSource("out.png"))
+        assertTrue(isDirectChatImageSource("nested/out.png"))
+        assertFalse(isDirectChatImageSource("not-an-image"))
+        assertFalse(isDirectChatImageSource("plain words without dot"))
+    }
+
+    @Test
+    fun resolvesGuestAndRelativeSourcesToWorkspaceHost() {
+        val context = RuntimeEnvironment.getApplication()
+        val workspace = LinuxGuestPathResolver.workspaceHostForApp(context)
+        File(workspace, "nested").mkdirs()
+        val png = tinyPng()
+        File(workspace, "shot.png").writeBytes(png)
+        File(workspace, "nested/shot.png").writeBytes(png)
+
+        listOf(
+            "/workspace/shot.png",
+            "file:///workspace/shot.png",
+            "minis://workspace/shot.png",
+            "shot.png",
+        ).forEach { source ->
+            val payload = ChatImageBytes.readBytes(context, source)
+            assertNotNull("source=$source", payload)
+            assertEquals(png.toList(), payload!!.bytes.toList())
+        }
+        assertEquals(png.toList(), ChatImageBytes.readBytes(context, "nested/shot.png")!!.bytes.toList())
     }
 
     private fun tinyPng(): ByteArray = Base64.decode(

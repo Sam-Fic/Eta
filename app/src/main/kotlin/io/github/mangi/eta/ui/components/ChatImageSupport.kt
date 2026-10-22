@@ -13,6 +13,7 @@ import io.github.mangi.eta.agent.media.AgentChatImageCache
 import io.github.mangi.eta.agent.media.AgentVideoCodec
 import io.github.mangi.eta.agent.media.MAX_AGENT_IMAGE_BYTES
 import io.github.mangi.eta.agent.model.AgentHttpClient
+import io.github.mangi.eta.agent.terminal.LinuxGuestPathResolver
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStream
@@ -75,12 +76,25 @@ internal object ChatImageBytes {
             }
             source.startsWith("file://", ignoreCase = true) -> {
                 val path = Uri.parse(source).path ?: return null
-                readFile(path)
+                readFile(chatHostPath(context, path))
             }
-            source.startsWith("/") -> readFile(source)
-            else -> null
+            source.startsWith("minis://", ignoreCase = true) ->
+                readFile(chatHostPath(context, source))
+            source.startsWith("/") -> readFile(chatHostPath(context, source))
+            // 相对路径（无 scheme）按 Linux 工作区根解析；模型常把工具产物写成
+            // 相对 /workspace 的文件名，写绝对路径时与 read_image 走同一映射。
+            else -> {
+                val workspace = LinuxGuestPathResolver.workspaceHostForApp(context)
+                readFile(File(workspace, source).path)
+                    ?: readFile(File(workspace, source.removePrefix("workspace/")).path)
+            }
         }
     }
+
+    /** AI 回复里的 /workspace、/var/minis、minis:// 是 Linux 侧路径；与 read_image
+     *  同用 LinuxGuestPathResolver 折算到宿主，普通 Android 绝对路径原样返回。 */
+    private fun chatHostPath(context: Context, path: String): String =
+        LinuxGuestPathResolver.resolveForApp(context, path)
 
     private fun download(url: String): ChatImagePayload? = runCatching {
         val request = Request.Builder().url(url).get().build()
@@ -256,7 +270,11 @@ internal fun isDirectChatImageSource(value: String): Boolean {
         source.startsWith("https://", ignoreCase = true) ||
         source.startsWith("content://", ignoreCase = true) ||
         source.startsWith("file://", ignoreCase = true) ||
-        (source.startsWith("/") && source.contains('.'))
+        source.startsWith("minis://", ignoreCase = true) ||
+        (source.startsWith("/") && source.contains('.')) ||
+        // 相对路径按 Linux 工作区根解析；要求像文件名（含扩展名、无空格），
+        // 避免把纯文本片段当成图片源收进画廊。
+        (source.contains('.') && !source.contains(':') && !source.contains(' '))
 }
 
 internal fun chatImageMimeType(source: String): String {
