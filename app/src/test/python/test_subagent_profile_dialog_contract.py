@@ -111,7 +111,7 @@ class SubAgentProfileDialogContractTest(unittest.TestCase):
         self.assertIn('SubAgentProfileDraftSession.open(panelEditor)', hint)
         hint_row = conversation.split('Row(Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 4.dp),', 1)[1].split('{', 1)[0]
         self.assertIn('verticalAlignment = Alignment.CenterVertically', hint_row)
-        settings = self.source('ui/SubAgentSettingsScreen.kt')
+        settings = self.source('ui/SubAgentPresetDetailScreen.kt')
         self.assertNotIn('editor.add()', settings)
         self.assertIn('SubAgentProfileDraftSession.open(editor)', settings)
         self.assertIn('R.string.action_rename', settings)

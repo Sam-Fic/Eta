@@ -9,18 +9,23 @@ class SubAgentPresetUiContractTest(unittest.TestCase):
     def source(self, path):
         return (ROOT / path).read_text()
 
-    def test_settings_shell_owns_repository_and_preset_editor_not_conversation_local(self):
-        text = self.source('ui/SubAgentSettingsScreen.kt')
-        shell, detail = text.split('private fun SubAgentPresetDetail(', 1)
-        self.assertNotIn('LocalConversationSubAgentEditor.current', text)
+    def test_list_shell_owns_catalog_while_detail_screen_owns_the_preset_editor(self):
+        shell = self.source('ui/SubAgentSettingsScreen.kt')
+        detail = self.source('ui/SubAgentPresetDetailScreen.kt')
+        self.assertNotIn('LocalConversationSubAgentEditor.current', shell)
         for needle in ('ConversationSubAgentPreferences()', 'remember { repositoryFactory() }',
-                       'SubAgentConfigKey.Preset(group.id)', 'selectedId == owner.value',
-                       'repository.presetExists(owner.value)', 'LocalConversationSubAgentEditor provides editor',
-                       'BackHandler(enabled = isCurrentRoute, onBack = detailBack)', 'editor.dispose(); selectedId = null',
-                       'DisposableEffect(editor)', 'onDispose { editor.dispose() }', 'R.string.sas_add_group'):
+                       'rememberSubAgentPresetDirectory(repository)', 'onOpenPreset(preset.id)'):
             self.assertIn(needle, shell)
+        # 详情是独立路由：列表页不再自己持有预设 editor，也不再靠 selectedId/BackHandler 内部切换。
+        self.assertNotIn('ConversationSubAgentEditor(', shell)
+        self.assertNotIn('BackHandler(', shell)
+        self.assertNotIn('selectedId', shell)
+        for needle in ('SubAgentConfigKey.Preset(preset.id)', 'ConversationSubAgentEditor(owner, repository)',
+                       'presetExists(owner.value)', 'LocalConversationSubAgentEditor provides editor',
+                       'DisposableEffect(editor)', 'onDispose { editor.dispose() }'):
+            self.assertIn(needle, detail)
         for needle in ('R.string.sap_add_profile', 'SubAgentProfileRow(', 'settings = true',
-                       'updateProfile(profile.id)', 'editor.remove(profile.id)'):
+                       'header = {', 'updateProfile(profile.id)', 'editor.remove(profile.id)'):
             self.assertIn(needle, detail)
         # Preset profile editing still writes through the real editor, but neither switch belongs here.
         for forbidden in ('R.string.ccd_auto_delegation', 'setEnabled(', 'setDiagnosticsEnabled', 'diagnosticsEnabled', '子代理诊断日志'):
@@ -114,8 +119,8 @@ class SubAgentPresetUiContractTest(unittest.TestCase):
         self.assertNotIn('SubAgentProfileRow(profile, providers, enabled = canChange)', panel)
 
     def test_catalog_actions_use_anchored_menu_and_do_not_replace_profile_config(self):
-        settings = self.source('ui/SubAgentSettingsScreen.kt')
-        shell, detail = settings.split('private fun SubAgentPresetDetail(', 1)
+        shell = self.source('ui/SubAgentSettingsScreen.kt')
+        detail = self.source('ui/SubAgentPresetDetailScreen.kt')
         # 组溢出操作改走就地弹出菜单：与详情页子代理标题行同一套 DropdownMenu，不再拉起底部面板。
         for needle in ('SubAgentDropdownMenu(', 'DropdownMenuItem(',
                        'name = preset.name; rename = preset', 'if (editable) delete = preset',
@@ -174,12 +179,13 @@ class SubAgentPresetUiContractTest(unittest.TestCase):
     def test_small_viewport_alignment_scroll_and_retained_callback_tests_are_present(self):
         tests = Path(__file__).resolve().parents[1] / 'kotlin/io/github/mangi/eta/ui/components'
         collaboration = (tests / 'ConversationCollaborationDialogTest.kt').read_text()
-        for needle in ('@Config(qualifiers = "w320dp-h480dp")', 'assertFooterAligned(',
+        for needle in ('@Config(qualifiers = "zh-rCN-w320dp-h480dp")', 'assertFooterAligned(',
                        'body.bottom <= footer.top', 'left.center.y - done.center.y',
                        'emptyChooserAndEmptyCurrentConfigWrapHeightAndAlignFooterWithoutWrites',
                        'longChooserAndAppliedPanelKeepBothFooterActionsFixedDuringScroll',
                        'retainedFooterCallbacksCannotOperateAReopenedChooserOrReappliedPanel',
-                       'getUnclippedBoundsInRoot().let { it.bottom - it.top < 300.dp }'):
+                       'lockedDialogKeepsDisabledDoneButtonInsideSmallViewport',
+                       'compactConfigKeepsAccessibleTouchTargetAndDoneStaysVisible'):
             self.assertIn(needle, collaboration)
         settings = (tests / 'SubAgentPresetSettingsTest.kt').read_text()
         # 该测试断言中文资源字符串，需固定中文 locale，否则 Robolectric 默认 en-rUS 会让
@@ -190,13 +196,25 @@ class SubAgentPresetUiContractTest(unittest.TestCase):
                        '重命名组', 'assertFalse("removing the switch must not replace the stored enabled value", saved.enabled)'):
             self.assertIn(needle, settings)
 
-    def test_back_is_gated_by_actual_route_and_presets_cannot_run(self):
-        settings = self.source('ui/SubAgentSettingsScreen.kt')
-        self.assertIn('isCurrentRoute: Boolean = true', settings)
-        self.assertIn('BackHandler(enabled = isCurrentRoute, onBack = detailBack)', settings)
+    def test_detail_is_a_real_route_and_presets_cannot_run(self):
+        shell = self.source('ui/SubAgentSettingsScreen.kt')
+        detail = self.source('ui/SubAgentPresetDetailScreen.kt')
+        route = self.source('ui/navigation/AppRoute.kt')
+        table = self.source('ui/navigation/AgentNavigator.kt')
         root = self.source('ui/app/AgentAppRoot.kt')
-        # 导航已迁移到 androidx.navigation-compose：当前路由由 NavController 的 currentRoute 提供。
-        self.assertIn('isCurrentRoute = currentRoute == AppRoute.SubAgents', root)
+        # 详情页是独立导航目标，才能复用 NavHost 的 300ms 滑动淡入淡出与预测性返回。
+        self.assertIn('data class SubAgentPresetDetail(val presetId: String) : AppRoute', route)
+        self.assertIn('AppRoute.SubAgentPresetDetail::class', table)
+        for needle in ('onOpenPreset = { presetId -> pushRoute(AppRoute.SubAgentPresetDetail(presetId)) }',
+                       'composable<AppRoute.SubAgentPresetDetail> { entry ->',
+                       'val route = entry.toRoute<AppRoute.SubAgentPresetDetail>()',
+                       'SubAgentPresetDetailScreen(',
+                       'isCurrentRoute = currentRoute == route'):
+            self.assertIn(needle, root)
+        self.assertNotIn('selectedId', shell)
+        self.assertNotIn('BackHandler', shell)
+        self.assertIn('isCurrentRoute: Boolean = true', detail)
+        self.assertIn('enabled = isCurrentRoute', detail)
         state = self.source('ui/app/AgentAppState.kt')
         self.assertIn('is SubAgentConfigKey.Preset -> error("预设不能作为会话运行配置")', state)
 

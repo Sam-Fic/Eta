@@ -2,8 +2,13 @@ package io.github.mangi.eta.ui.components
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import io.github.mangi.eta.agent.delegation.ConversationSubAgentConfig
 import io.github.mangi.eta.agent.delegation.ConversationSubAgentPreferences
@@ -12,6 +17,8 @@ import io.github.mangi.eta.agent.delegation.SubAgentProfile
 import io.github.mangi.eta.data.model.AppearanceAccentColor
 import io.github.mangi.eta.data.model.AppearanceSettings
 import io.github.mangi.eta.data.model.ProviderSetting
+import io.github.mangi.eta.ui.SubAgentPresetDetailScreen
+import io.github.mangi.eta.ui.SubAgentSettingsScreen
 import io.github.mangi.eta.ui.app.AgentAppTheme
 import org.robolectric.RuntimeEnvironment
 import java.util.UUID
@@ -71,5 +78,37 @@ internal fun ComposeContentTestRule.setSubAgentContent(
                 content()
             }
         }
+    }
+}
+
+/**
+ * 预设列表 → 详情的测试宿主，对应生产环境的两条独立路由。
+ *
+ * 生产用 NavHost 完成入栈/出栈；测试不引入整套导航图，但仍分别组合两个 screen，
+ * 并由 Activity 的 BackHandler 模拟系统返回，保证「详情有自己的屏幕与生命周期」这一
+ * 契约不会退回到列表页内部的状态切换。
+ */
+@Composable
+internal fun SubAgentPresetRouteHost(
+    fixture: SubAgentUiFixture,
+    onExit: () -> Unit = {},
+    isDetailCurrent: Boolean = true,
+) {
+    var presetId by remember { mutableStateOf<String?>(null) }
+    BackHandler(enabled = presetId != null) { presetId = null }
+    val openId = presetId
+    if (openId == null) {
+        SubAgentSettingsScreen(
+            onBack = onExit,
+            onOpenPreset = { presetId = it },
+            repositoryFactory = { fixture.repository },
+        )
+    } else {
+        SubAgentPresetDetailScreen(
+            presetId = openId,
+            onBack = { presetId = null },
+            repositoryFactory = { fixture.repository },
+            isCurrentRoute = isDetailCurrent,
+        )
     }
 }

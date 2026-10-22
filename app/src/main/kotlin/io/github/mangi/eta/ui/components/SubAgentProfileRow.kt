@@ -41,7 +41,8 @@ import io.github.mangi.eta.ui.model.AgentModelPickerProjector
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun SubAgentProfileRow(profile: SubAgentProfile, providers: List<ProviderSetting>, enabled: Boolean = true,
-    settings: Boolean = false, draftAllowed: Boolean = enabled, draftRetry: (() -> Unit)? = null) {
+    settings: Boolean = false, header: (@Composable () -> Unit)? = null,
+    draftAllowed: Boolean = enabled, draftRetry: (() -> Unit)? = null) {
     val editor = LocalConversationSubAgentEditor.current
     val usable = enabled && editor?.enabled == true
     val view = LocalView.current
@@ -69,16 +70,18 @@ internal fun SubAgentProfileRow(profile: SubAgentProfile, providers: List<Provid
     val efforts = if (profile.isMedia) media?.efforts.orEmpty() else config?.reasoningCapabilities?.selectableEfforts.orEmpty()
     val thinkingLabel = when {
         config == null -> stringResource(R.string.sap_select_model)
-        profile.isMedia && !canThink -> media?.label ?: stringResource(R.string.sap_endpoint_unsupported)
+        profile.isMedia && !canThink -> media?.let { stringResource(it.labelRes) } ?: stringResource(R.string.sap_endpoint_unsupported)
         profile.isMedia && effective !in efforts -> stringResource(R.string.sap_reselect_tier)
-        else -> effective?.displayName ?: stringResource(R.string.sap_not_enabled)
+        else -> effective?.let { stringResource(it.labelRes) } ?: stringResource(R.string.sap_not_enabled)
     }
     LaunchedEffect(profile.providerId, profile.modelId) { thinkingPicker = false }
     Column(verticalArrangement = Arrangement.spacedBy(if (settings) 0.dp else 12.dp)) {
         if (settings) {
-            // 设置块自渲染 KernelSU 式分段列：每行独立分段、行间留缝露出页面背景，
-            // 与主表单弹窗的分段列表同一套内核；行内保持「标签左、取值右」的既有对齐布局。
+            // 设置块与标题行同处一个 KernelSU 式分段列：只有组首（标题行）与组末（并行上限）
+            // 接管 16dp 外圆角，中间行是 4dp 内圆角 + 2dp 缝隙。此前标题行和设置块各自
+            // 起一个 EtaSegmentedColumn，导致同一个子代理被切成两张断开的卡片。
             EtaSegmentedColumn(Modifier.fillMaxWidth()) {
+                header?.let { headerContent -> item(key = "header") { headerContent() } }
                 item(key = "model") {
                     SubAgentSettingsRow(
                         stringResource(R.string.sap_model), config?.let { it.modelDisplayName.ifBlank { it.model } }
@@ -117,7 +120,7 @@ internal fun SubAgentProfileRow(profile: SubAgentProfile, providers: List<Provid
                 }
                 if (profile.supportsTaskTier) item(key = "tier") {
                     Box(Modifier.fillMaxWidth()) {
-                        SubAgentSettingsRow(stringResource(R.string.sap_task_tier), profile.tier?.label ?: stringResource(R.string.sap_tier_unset), Icons.Rounded.AccountTree,
+                        SubAgentSettingsRow(stringResource(R.string.sap_task_tier), profile.tier?.let { stringResource(it.labelRes) } ?: stringResource(R.string.sap_tier_unset), Icons.Rounded.AccountTree,
                             stringResource(R.string.spr_set_tier_for, profile.name), enabled = usable, dropdown = true,
                             onClick = { if (currentUsable) tierPicker = !tierPicker })
                         Box(Modifier.align(Alignment.CenterEnd).size(40.dp)) {
@@ -129,7 +132,7 @@ internal fun SubAgentProfileRow(profile: SubAgentProfile, providers: List<Provid
                             ) {
                                 (listOf<SubAgentTaskTier?>(null) + SubAgentTaskTier.entries).forEachIndexed { index, tier ->
                                     SubAgentSelectionItem(
-                                        text = tier?.label ?: stringResource(R.string.sap_tier_unset),
+                                        text = tier?.let { stringResource(it.labelRes) } ?: stringResource(R.string.sap_tier_unset),
                                         selected = profile.tier == tier,
                                         index = index,
                                         count = SubAgentTaskTier.entries.size + 1,
@@ -145,7 +148,7 @@ internal fun SubAgentProfileRow(profile: SubAgentProfile, providers: List<Provid
                     }
                 }
                 if (profile.role == "image_generation") item(key = "resolution") {
-                    SubAgentSettingsRow(stringResource(R.string.sap_default_resolution), profile.imageResolution?.let(io.github.mangi.eta.agent.model.ImageResolutionTier::label) ?: stringResource(R.string.sap_follow_endpoint),
+                    SubAgentSettingsRow(stringResource(R.string.sap_default_resolution), profile.imageResolution?.let(io.github.mangi.eta.agent.model.ImageResolutionTier::labelRes)?.let { stringResource(it) } ?: stringResource(R.string.sap_follow_endpoint),
                         Icons.Rounded.ViewInAr, stringResource(R.string.spr_set_resolution_for, profile.name), enabled = usable && config != null,
                         onClick = { if (currentUsable && config != null) resolutionPicker = true })
                 }
@@ -198,8 +201,7 @@ internal fun SubAgentProfileRow(profile: SubAgentProfile, providers: List<Provid
                         }
                     }
                 }) {
-                    Icon(Icons.Rounded.MoreVert, stringResource(R.string.spr_config_for, profile.name),
-                        tint = MaterialTheme.colorScheme.onSurface)
+                    Icon(Icons.Rounded.MoreVert, stringResource(R.string.spr_config_for, profile.name))
                 }
             }
         }
@@ -233,7 +235,7 @@ internal fun SubAgentProfileRow(profile: SubAgentProfile, providers: List<Provid
                         val allowed = !verifiedGrok || tier == null || tier in setOf("low", "high")
                         item(key = tier ?: "endpoint") {
                             EtaSegmentedRadioRow(
-                                title = tier?.let(io.github.mangi.eta.agent.model.ImageResolutionTier::label)
+                                title = tier?.let(io.github.mangi.eta.agent.model.ImageResolutionTier::labelRes)?.let { stringResource(it) }
                                     ?: stringResource(R.string.sap_follow_endpoint),
                                 selected = profile.imageResolution == tier,
                                 enabled = usable && allowed,
@@ -277,11 +279,15 @@ internal fun SubAgentProfileRow(profile: SubAgentProfile, providers: List<Provid
 }
 
 /**
- * 设置态分段行：标签固定宽度在左、取值紧随其后（保持详情页既有的水平对齐序列），
- * 尾部可挂额外控件（如 GPT 速度 Chip）、badge 与箭头。
+ * 设置态分段行：标题为主行（content），取值为次要行（supportingContent），
+ * 与子代理配置弹窗、MCP / 技能等兄弟页面的 [EtaSegmentedRow] 形态一致。
+ * 窄屏下取值不再被固定宽度的标签挤成逐字折行。
  *
- * 分段底色、首末形状与轻触反馈均由 [EtaSegmentedRow] 承载，与主表单弹窗的分段行
- * 同一套内核；轻触反馈由行自己触发，调用方**不要**在 onClick 里再写 TouchHaptics。
+ * 尾部可挂额外控件（如 GPT 速度 Chip）、provider badge 与箭头。图标、取值与箭头都
+ * 不写显式 tint/color，交给官方行在禁用态统一压暗——旧实现显式取 onSurface，
+ * 会让「推理强度」「并行上限」在禁用时仍是黑图标黑箭头。
+ *
+ * 轻触反馈由 [EtaSegmentedRow] 自己触发，调用方**不要**在 onClick 里再写 TouchHaptics。
  */
 @Composable
 internal fun SubAgentSettingsRow(
@@ -302,29 +308,21 @@ internal fun SubAgentSettingsRow(
         onLongClick = onLongClick,
         enabled = enabled,
         leadingContent = {
-            Icon(icon, null, tint = MaterialTheme.colorScheme.onSurface)
+            Icon(icon, contentDescription = null)
+        },
+        supportingContent = {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
         },
         trailingContent = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                trailing?.invoke()
-                Icon(
-                    if (dropdown) Icons.Rounded.ExpandMore else Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-                    null, tint = MaterialTheme.colorScheme.onSurface,
-                )
-            }
-        },
-        content = {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text(
-                    text = label,
-                    modifier = Modifier.widthIn(min = 72.dp, max = 100.dp),
-                    style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
                 if (!badge.isNullOrBlank()) {
                     Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceContainerHighest) {
                         Text(
@@ -336,14 +334,19 @@ internal fun SubAgentSettingsRow(
                         )
                     }
                 }
-                Text(
-                    text = value,
-                    modifier = Modifier.weight(1f, fill = false),
-                    style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
+                trailing?.invoke()
+                Icon(
+                    imageVector = if (dropdown) Icons.Rounded.ExpandMore else Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                    contentDescription = null,
                 )
             }
         },
-    )
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
 }

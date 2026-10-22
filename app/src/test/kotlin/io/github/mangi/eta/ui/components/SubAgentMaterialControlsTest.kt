@@ -197,7 +197,7 @@ class SubAgentMaterialControlsTest {
         }
     }
 
-    @Test fun flatSettingsRowsPlaceValuesAfterAlignedLabels() {
+    @Test fun settingsRowsStackValuesBelowTheirHeadline() {
         val profile = SubAgentProfile("test", "测试代理", tier = SubAgentTaskTier.COMPLEX)
         val fixture = SubAgentUiFixture(profiles = listOf(profile))
         compose.setSubAgentContent(fixture) {
@@ -207,7 +207,10 @@ class SubAgentMaterialControlsTest {
         }
         val label = compose.onNodeWithText("职责", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         val value = compose.onNodeWithText("执行", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
-        assertTrue(value.left > label.right)
+        // 标题与取值上下排布：取值是 supportingContent，起点与标题对齐，而不是右侧另起一列。
+        assertTrue("value must sit below its headline", value.top >= label.bottom)
+        assertTrue("headline and supporting value must share the left edge",
+            kotlin.math.abs(value.left - label.left) < 1f)
         val model = compose.onNodeWithContentDescription("测试代理 模型").fetchSemanticsNode().boundsInRoot
         val role = compose.onNodeWithContentDescription("为 测试代理 选择职责").fetchSemanticsNode().boundsInRoot
         val tier = compose.onNodeWithContentDescription("设置 测试代理 的任务分工").assertIsEnabled().fetchSemanticsNode().boundsInRoot
@@ -222,31 +225,39 @@ class SubAgentMaterialControlsTest {
         compose.onNodeWithText("复杂任务").assertExists()
     }
 
-    @Test fun iconsAndLabelsUseOnSurfaceLikeTheApprovedSettingsShot() {
+    @Test fun settingsRowUsesHeadlineAndSupportingInk() {
         val ink = Color(0xFF202124)
+        val secondary = Color(0xFF5F6368)
         compose.setContent {
-            MaterialTheme(colorScheme = lightColorScheme(onSurface = ink, onSurfaceVariant = Color.Red, primary = Color.Blue)) {
-                SubAgentSettingRow("模型", "grok-4.6", Icons.Rounded.AccountTree,
+            MaterialTheme(colorScheme = lightColorScheme(onSurface = ink, onSurfaceVariant = secondary, primary = Color.Blue)) {
+                SubAgentSettingsRow("模型", "grok-4.6", Icons.Rounded.AccountTree,
                     "测试代理模型", badge = "与", onClick = {})
             }
         }
+        val label = compose.onNodeWithText("模型", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val value = compose.onNodeWithText("grok-4.6", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertTrue("value must be the supporting line", value.top >= label.bottom)
         val pixels = compose.onNodeWithContentDescription("测试代理模型").captureToImage().toPixelMap()
         var inkCount = 0
-        var faded = 0
+        var secondaryCount = 0
+        var primaryCount = 0
         for (y in 0 until pixels.height) for (x in 0 until pixels.width) {
             when (pixels[x, y]) {
                 ink -> inkCount++
-                Color.Red, Color.Blue -> faded++
+                secondary -> secondaryCount++
+                Color.Blue -> primaryCount++
             }
         }
+        // 标题/图标走正文色，取值与尾部箭头走次要色；页面主色不应出现在设置行里。
         assertTrue(inkCount > 40)
-        assertEquals(0, faded)
+        assertTrue("supporting value/chevron must use onSurfaceVariant", secondaryCount > 20)
+        assertEquals(0, primaryCount)
     }
 
-    @Test fun providerBadgeSitsToTheLeftOfTheModelName() {
+    @Test fun providerBadgeSitsOnTheTrailingEdge() {
         compose.setContent {
             MaterialTheme {
-                SubAgentSettingRow("模型", "grok-4.6", Icons.Rounded.AccountTree,
+                SubAgentSettingsRow("模型", "grok-4.6", Icons.Rounded.AccountTree,
                     "测试代理模型", badge = "与", onClick = {})
             }
         }
@@ -254,8 +265,9 @@ class SubAgentMaterialControlsTest {
         val model = compose.onNodeWithText("grok-4.6", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         val label = compose.onNodeWithText("模型", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         assertTrue(badge.left > label.right)
-        assertTrue(model.left > badge.right)
-        assertTrue(kotlin.math.abs((badge.top + badge.bottom) / 2 - (model.top + model.bottom) / 2) < 8f)
+        assertTrue("badge belongs to the trailing group, after the supporting value", badge.left > model.right)
+        val row = compose.onNodeWithContentDescription("测试代理模型").fetchSemanticsNode().boundsInRoot
+        assertTrue(badge.top >= row.top && badge.bottom <= row.bottom)
     }
 
     @Test fun compactMenuWrapsToLongestLabelInsteadOfFixedWidth() {
@@ -277,7 +289,7 @@ class SubAgentMaterialControlsTest {
         val fixture = SubAgentUiFixture()
         val group = fixture.createPreset()
         compose.setSubAgentContent(fixture) {
-            MaterialTheme { io.github.mangi.eta.ui.SubAgentSettingsScreen({}, { fixture.repository }) }
+            MaterialTheme { SubAgentPresetRouteHost(fixture) }
         }
         compose.onNodeWithText("添加子代理组", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithContentDescription("编辑子代理组 ${group.name}").performClick()

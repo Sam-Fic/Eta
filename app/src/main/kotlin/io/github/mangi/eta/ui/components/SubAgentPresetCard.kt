@@ -112,7 +112,7 @@ internal fun SubAgentPresetCard(
             ListItem(
                 onClick = { TouchHaptics.click(view); onClick() },
                 // cd 与子文本只部分重叠：重叠的是组名，补足的是「编辑/应用子代理组」这个动作 affordance，
-                // 值得保留（代价是组名念两次）。这与 SubAgentSettingRow 的既有写法一致：
+                // 值得保留（代价是组名念两次）。这与 SubAgentSettingsRow 的既有写法一致：
                 // description「设置XX模型」+ 可见 label「模型」。
                 // actionLabel 由调用方拼装（含组名），不在这里做 removeSuffix 之类的字符串裁剪。
                 modifier = Modifier.weight(1f).semantics { contentDescription = actionLabel },

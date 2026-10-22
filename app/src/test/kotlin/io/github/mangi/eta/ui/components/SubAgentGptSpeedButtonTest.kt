@@ -161,7 +161,7 @@ class SubAgentGptSpeedButtonTest {
         var rowClicks = 0
         compose.setSubAgentContent(fixture) {
             MaterialTheme {
-                SubAgentSettingRow(
+                SubAgentSettingsRow(
                     "模型", "GPT-5", Icons.Rounded.AccountTree, "隔离行",
                     onClick = { rowClicks++ },
                     trailing = { SubAgentGptSpeedButton(liveProfile(fixture, gptProfile.id), providers, enabled = true) },

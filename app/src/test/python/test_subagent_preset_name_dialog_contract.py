@@ -31,7 +31,8 @@ class SubAgentPresetNameDialogContractTest(unittest.TestCase):
 
     def test_catalog_still_performs_named_real_repository_writes_only_on_save(self):
         screen = (MAIN / 'ui/SubAgentSettingsScreen.kt').read_text()
-        shell = screen.split('private fun SubAgentPresetDetail(', 1)[0]
+        # 组名弹窗只属于列表页；详情页是独立路由文件。
+        shell = screen
         dialog = shell.split('if (add || rename != null) SubAgentPresetNameDialog(', 1)[1]
         dialog = dialog.split('delete?.let', 1)[0]
         before_save, save = dialog.split('onSave = {', 1)

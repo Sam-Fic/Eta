@@ -21,8 +21,8 @@ class ChildGptSpeedContractTest(unittest.TestCase):
         # 紧凑行改由官方 ListItem 承载，任务分工只出现在设置态（这里仍不可见）。
         compact = row.split('Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically)', 1)[1].split('profileDraft?.let', 1)[0]
         self.assertNotIn('R.string.sap_task_tier', compact)
-        settings = source('ui/components/SubAgentSettingRow.kt')
-        self.assertLess(settings.index('trailing?.invoke()'), settings.index('Icon(if (dropdown)'))
+        settings = source('ui/components/SubAgentProfileRow.kt')
+        self.assertLess(settings.index('trailing?.invoke()'), settings.index('if (dropdown) Icons.Rounded.ExpandMore'))
 
     def test_speed_content_is_the_official_assist_chip(self):
         button = source('ui/components/SubAgentGptSpeedButton.kt')
