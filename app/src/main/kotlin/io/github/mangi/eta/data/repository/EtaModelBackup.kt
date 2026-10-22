@@ -19,6 +19,10 @@ import kotlinx.serialization.json.Json
  *
  * 模型文件位于 `noBackupFilesDir`，卸载即丢失；这里把它们按 `models/<kind>/<id>/<revision>/<file>`
  * 归档，既可并入数据备份，也可单独导出/恢复。恢复时先整包校验再落盘，避免半份模型覆盖现有文件。
+ *
+ * 除语音/向量清单外，还会自动发现 `noBackupFilesDir/<kind>/<id>/<revision>/` 布局下的任意完整模型
+ * 目录（如后续新增的动作模型），导出时现场计算哈希；不符合该三级布局的条目（例如 `vd-web-pairing`
+ * 配对数据）不会被打包。新增端侧模型无需修改备份代码。
  */
 @Serializable
 internal data class EtaModelBackupDocument(
@@ -75,7 +79,6 @@ internal object EtaModelBackup {
     const val KIND_EMBEDDING = "embedding"
     const val KIND_SPEECH = "speech"
 
-    private val KINDS = setOf(KIND_EMBEDDING, KIND_SPEECH)
     private val SAFE_SEGMENT = Regex("[A-Za-z0-9._-]{1,200}")
     private val SHA256 = Regex("[0-9a-f]{64}")
 
@@ -103,8 +106,46 @@ internal object EtaModelBackup {
                 sources += EtaModelBackupSource(KIND_SPEECH, model.id, model.revision, directory, files)
             }
         }
-        return sources
+        return sources + discoveredSources(context, sources)
     }
+
+    /**
+     * 清单之外的自动发现：扫描 `noBackupFilesDir/<kind>/<id>/<revision>/` 三级布局下含普通文件的目录。
+     * 新增端侧模型（如动作模型）只要按该布局落盘就会被备份，无需登记清单；哈希在导出时现场计算，
+     * 恢复后由文件校验保证一致。半下载目录靠“存在临时文件或全部零字节”识别并跳过。
+     */
+    private fun discoveredSources(context: Context, listed: List<EtaModelBackupSource>): List<EtaModelBackupSource> {
+        val root = context.applicationContext.noBackupFilesDir
+        if (!root.isDirectory) return emptyList()
+        val known = listed.mapTo(hashSetOf()) { "${it.kind}/${it.id}/${it.revision}" }
+        val discovered = mutableListOf<EtaModelBackupSource>()
+        root.childDirectories().forEach { kindDir ->
+            if (!safeSegment(kindDir.name)) return@forEach
+            kindDir.childDirectories().forEach { idDir ->
+                if (!safeSegment(idDir.name)) return@forEach
+                idDir.childDirectories().forEach { revisionDir ->
+                    if (!safeSegment(revisionDir.name)) return@forEach
+                    val path = "${kindDir.name}/${idDir.name}/${revisionDir.name}"
+                    if (path in known) return@forEach
+                    val children = revisionDir.listFiles()?.toList() ?: return@forEach
+                    if (children.none { it.isFile }) return@forEach
+                    if (children.any { it.name.endsWith(".part") || it.name.endsWith(".tmp") }) return@forEach
+                    val files = children.filter { it.isFile && !Files.isSymbolicLink(it.toPath()) }
+                        .sortedBy { it.name }.map { file ->
+                        EtaModelBackupFile(file.name, file.length(), runCatching { BackupDurability.digest(file) }.getOrNull())
+                    }
+                    if (files.any { it.bytes > 0 }) {
+                        discovered += EtaModelBackupSource(kindDir.name, idDir.name, revisionDir.name, revisionDir, files)
+                    }
+                }
+            }
+        }
+        return discovered.sortedBy { "${it.kind}/${it.id}/${it.revision}" }
+    }
+
+    private fun File.childDirectories(): List<File> =
+        listFiles()?.filter { it.isDirectory && !Files.isSymbolicLink(it.toPath()) }?.sortedBy { it.name }?.toList()
+            ?: emptyList()
 
     fun downloaded(context: Context): EtaModelBackupSummary =
         summary(downloadedSources(context).map(::modelRecord))
@@ -188,7 +229,7 @@ internal object EtaModelBackup {
         val keys = hashSetOf<Triple<String, String, String>>()
         var total = 0L
         document.models.forEach { model ->
-            require(model.kind in KINDS) { "模型类型无效：${model.kind}" }
+            require(safeSegment(model.kind)) { "模型类型无效：${model.kind}" }
             require(safeSegment(model.id)) { "模型 ID 无效" }
             require(safeSegment(model.revision)) { "模型版本无效" }
             require(keys.add(Triple(model.kind, model.id, model.revision))) { "模型备份中的模型重复" }
@@ -234,7 +275,7 @@ internal object EtaModelBackup {
         return EtaModelBackupSummary(document.models.size, fileCount, bytes)
     }
 
-    /** 校验通过后原子替换目标文件；已下载状态由两个模型仓库自行重新校验。 */
+    /** 校验通过后原子替换目标文件；对应类型的模型仓库重新校验磁盘上的模型。 */
     fun install(context: Context, files: Map<String, File>, document: EtaModelBackupDocument) {
         val root = context.applicationContext.noBackupFilesDir
         document.models.forEach { model ->
@@ -247,8 +288,10 @@ internal object EtaModelBackup {
                 BackupDurability.move(source, target)
             }
         }
-        EmbeddingModelStore.refresh(context)
-        OfflineSpeechPack.refresh(context)
+        val kinds = document.models.mapTo(hashSetOf()) { it.kind }
+        // 只刷新真正被写入的类型；未知类型（如动作模型）由各自的存储在下次使用时读取，无需刷新。
+        if (KIND_EMBEDDING in kinds) EmbeddingModelStore.refresh(context)
+        if (KIND_SPEECH in kinds) OfflineSpeechPack.refresh(context)
     }
 
     fun entryName(kind: String, id: String, revision: String, name: String): String =

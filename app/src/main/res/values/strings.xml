@@ -1411,12 +1411,12 @@
   <string name="backup_media_include_summary">Backs up the local EmbeddingGemma 2 index as well, so media search keeps working after reinstalling without re-embedding.</string>
   <string name="backup_media_size">Estimated embedding size: %1$s</string>
   <string name="backup_models_include">Include downloaded models</string>
-  <string name="backup_models_include_summary">Packages offline speech recognition and media embedding models, so they do not need to be downloaded again after reinstalling.</string>
+  <string name="backup_models_include_summary">Packages all downloaded on-device models (speech recognition, embedding, action, etc.), so they do not need to be downloaded again after reinstalling.</string>
   <string name="backup_models_size">Models take about %1$s</string>
   <string name="backup_models_section">Model backup</string>
   <string name="backup_models_export">Back up models</string>
   <string name="backup_models_import">Restore models</string>
-  <string name="backup_models_import_summary">Restore speech recognition and embedding models without touching conversations or settings</string>
+  <string name="backup_models_import_summary">Restore downloaded on-device models without touching conversations or settings</string>
   <string name="backup_models_import_confirm_title">Restore models?</string>
   <string name="backup_models_import_confirm_summary">Models in the backup will be written to this device and existing copies will be replaced. Conversations, assistants, and settings are not affected.</string>
   <string name="backup_models_restore_action">Restore</string>

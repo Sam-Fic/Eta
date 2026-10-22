@@ -10,6 +10,7 @@ import java.io.File
 import java.security.MessageDigest
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.buildJsonArray
@@ -44,8 +45,9 @@ class EtaModelBackupTest {
         MediaIndexTestFixtures.resetModelStore()
     }
 
+    // 与 BackupDurability.digest 同格式：负字节必须按无符号输出，否则十六进制对不上。
     private fun digest(content: ByteArray): String =
-        MessageDigest.getInstance("SHA-256").digest(content).joinToString("") { "%02x".format(it) }
+        MessageDigest.getInstance("SHA-256").digest(content).joinToString("") { "%02x".format(it.toInt() and 0xff) }
 
     private fun source(
         root: File,
@@ -99,6 +101,32 @@ class EtaModelBackupTest {
         assertEquals(vocab.contentToString(), File(embeddingRoot, "vocab.txt").readBytes().contentToString())
         assertEquals(speech.contentToString(),
             File(context.noBackupFilesDir, "speech/test-speech/rev2/pack.ncnn").readBytes().contentToString())
+    }
+
+    @Test fun unknownModelTreeIsDiscoveredAndRoundTrips() {
+        val weights = "action-policy-weights".toByteArray()
+        val actionDir = File(context.noBackupFilesDir, "action/ui-tars/r1").apply { mkdirs() }
+        File(actionDir, "policy.litert").writeBytes(weights)
+        // 非模型条目不符合三级布局或不完整，不应被打包：根级配对文件、浅层目录、含 .part 的半下载模型。
+        File(context.noBackupFilesDir, "vd-web-pairing").writeText("token")
+        File(context.noBackupFilesDir, "notes/loose.txt").apply { parentFile.mkdirs() }.writeText("not-a-model")
+        val partial = File(context.noBackupFilesDir, "speech/partial/rev7").apply { mkdirs() }
+        File(partial, "encoder.onnx.part").writeText("half-downloaded")
+
+        val sources = EtaModelBackup.downloadedSources(context)
+        val discovered = requireNotNull(sources.singleOrNull { it.kind == "action" && it.id == "ui-tars" && it.revision == "r1" })
+        assertEquals(digest(weights), discovered.files.single().sha256)
+        assertFalse(sources.any { it.id in setOf("vd-web-pairing", "notes", "partial") })
+
+        val output = ByteArrayOutputStream()
+        assertEquals(1, runBlocking { EtaModelBackup.export(context, output) }.modelCount)
+        context.noBackupFilesDir.deleteRecursively()
+        File(context.filesDir, "model-restore").deleteRecursively()
+        val restored = EtaModelBackup.importArchive(context, ByteArrayInputStream(output.toByteArray()))
+
+        assertEquals(1, restored.modelCount)
+        assertEquals(weights.contentToString(), File(actionDir, "policy.litert").readBytes().contentToString())
+        assertFalse(File(context.noBackupFilesDir, "speech/partial/rev7/encoder.onnx.part").exists())
     }
 
     @Test fun hashMismatchLeavesExistingModelUntouched() {
@@ -161,7 +189,9 @@ class EtaModelBackupTest {
 
         assertTrue(runCatching { EtaModelBackup.validate(document(base)) }.isSuccess)
         assertTrue(runCatching { EtaModelBackup.validate(document(base, format = "eta-backup")) }.isFailure)
-        assertTrue(runCatching { EtaModelBackup.validate(document(base.copy(kind = "vector"))) }.isFailure)
+        // 类型不再限定清单：任意安全目录名（如动作模型 action）都接受，但不安全的路径段拒绝。
+        assertTrue(runCatching { EtaModelBackup.validate(document(base.copy(kind = "action"))) }.isSuccess)
+        assertTrue(runCatching { EtaModelBackup.validate(document(base.copy(kind = "../evil"))) }.isFailure)
         assertTrue(runCatching { EtaModelBackup.validate(document(base.copy(id = "../evil"))) }.isFailure)
         assertTrue(runCatching { EtaModelBackup.validate(document(base, base)) }.isFailure)
         assertTrue(runCatching { EtaModelBackup.validate(document(base.copy(files = listOf(

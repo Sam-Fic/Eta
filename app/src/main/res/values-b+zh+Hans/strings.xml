@@ -1421,12 +1421,12 @@
   <string name="backup_media_include_summary">一并备份本地 EmbeddingGemma 2 索引，重装后无需重新嵌入即可恢复媒体搜索。</string>
   <string name="backup_media_size">向量体积大约 %1$s</string>
   <string name="backup_models_include">包含已下载的模型</string>
-  <string name="backup_models_include_summary">将离线语音识别与媒体向量模型一并打包，重装应用后无需重新下载。</string>
+  <string name="backup_models_include_summary">将已下载的端侧模型（语音识别、向量、动作等）一并打包，重装应用后无需重新下载。</string>
   <string name="backup_models_size">模型体积大约 %1$s</string>
   <string name="backup_models_section">模型备份</string>
   <string name="backup_models_export">备份模型</string>
   <string name="backup_models_import">恢复模型</string>
-  <string name="backup_models_import_summary">仅恢复语音识别与向量模型，不影响对话与设置</string>
+  <string name="backup_models_import_summary">仅恢复已下载的端侧模型，不影响对话与设置</string>
   <string name="backup_models_import_confirm_title">恢复模型？</string>
   <string name="backup_models_import_confirm_summary">备份中的模型将写入本机，已有同名模型会被替换。对话、助手与设置不受影响。</string>
   <string name="backup_models_restore_action">恢复</string>
