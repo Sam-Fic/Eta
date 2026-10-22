@@ -202,12 +202,11 @@ Eta 先从现有 Android 上的模型、上下文与工具做起。真正落地�
 - [y2485871697/Eta](https://github.com/y2485871697/Eta)：参考仓库，大量 UI 改进与实用功能均来自此分支。
 - [Zafiro](https://github.com/niki914/zafiro)：用户对话气泡的样式参考。其气泡设计与 Google Material Design 3 Expressive 的示例气泡高度相似，因此采用并适配到本项目。
 - [Material Design 3 Expressive](https://m3.material.io)：Google Material Design 3 Expressive 官方站点，本程序的界面设计语言与视觉风格均参考自其中的示例与规范。
+- [KernelSU](https://github.com/tiann/KernelSU)：本应用“外观与主题”子设置页面的设计参考。
 - 此外，感谢所有在手机上本地部署运行的开源模型——包括语音合成与识别模型、Embedding 模型等——它们让 EtaExpressive 能够在不依赖云端的情况下完成语音交互、语义检索与本地推理。
 
 ## 社区
 
-- QQ 群：[735910197](https://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=QZmmrmSQqSAyI8Mo5NHAMc9l6TejcBrw&authKey=mQrh5avqMDc09GunNdtCmuN5tk9UynOekkjHxfuKPjhN4ELWBMJN5edaYw51UXbQ&noverify=0&group_code=735910197)
-- Telegram：[频道](https://t.me/+6JhB2iRjjDExYWM1)
 - 反馈问题：[GitHub Issues](https://github.com/Sam-Fic/EtaExpressive/issues)
 - 源码与发版：[Sam-Fic/EtaExpressive](https://github.com/Sam-Fic/EtaExpressive)
 

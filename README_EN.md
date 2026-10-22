@@ -158,12 +158,11 @@ These implementation notes are currently in Chinese:
 - [y2485871697/Eta](https://github.com/y2485871697/Eta): reference fork; many UI improvements and useful features come from this branch.
 - [Zafiro](https://github.com/niki914/zafiro): the user chat-bubble style reference. Its bubble design is very close to the Google Material Design 3 Expressive example bubbles, so it was adapted into this project.
 - [Material Design 3 Expressive](https://m3.material.io): the official Google Material Design 3 Expressive site; the app's UI language and visual style reference its examples and guidelines.
+- [KernelSU](https://github.com/tiann/KernelSU): the design reference for this app's Appearance & Theme sub-settings page.
 - In addition, thanks to all open-source models that run locally on the phone—including voice synthesis and recognition models, embedding models, and others—for enabling voice interaction, semantic retrieval, and local inference without relying on the cloud.
 
 ## Community
 
-- QQ group: [735910197](https://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=QZmmrmSQqSAyI8Mo5NHAMc9l6TejcBrw&authKey=mQrh5avqMDc09GunNdtCmuN5tk9UynOekkjHxfuKPjhN4ELWBMJN5edaYw51UXbQ&noverify=0&group_code=735910197)
-- Telegram: [channel](https://t.me/+6JhB2iRjjDExYWM1)
 - Feedback: [GitHub Issues](https://github.com/Sam-Fic/EtaExpressive/issues)
 - Source and releases: [Sam-Fic/EtaExpressive](https://github.com/Sam-Fic/EtaExpressive)
 
