@@ -132,6 +132,8 @@ internal fun SubAgentTaskTierButton(
     onTierSelected: (SubAgentTaskTier) -> Unit,
     modifier: Modifier = Modifier,
     compact: Boolean = false,
+    /** 是否为「任务分工」行：决定辅助文案。用显式布尔而非比较 label 文本——label 是本地化字符串，跨语言不可比。 */
+    isTaskTierRow: Boolean = false,
 ) {
     var expanded by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -153,14 +155,14 @@ internal fun SubAgentTaskTierButton(
                 enabled = enabled,
                 label = {
                     Text(
-                        text = tier?.label ?: stringResource(R.string.stt_set_short),
+                        text = tier?.let { stringResource(it.labelRes) } ?: stringResource(R.string.stt_set_short),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
                 },
                 trailingIcon = { Icon(Icons.Rounded.ExpandMore, contentDescription = null) },
             )
-        } else SubAgentChoiceField(label, tier?.label ?: stringResource(R.string.stt_unset), enabled, if (label == "任务分工") stringResource(R.string.stt_set_task_tier) else stringResource(R.string.stt_desc_set_for, label),
+        } else SubAgentChoiceField(label, tier?.let { stringResource(it.labelRes) } ?: stringResource(R.string.stt_unset), enabled, if (isTaskTierRow) stringResource(R.string.stt_set_task_tier) else stringResource(R.string.stt_desc_set_for, label),
             onClick = { if (latestEnabled) { TouchHaptics.click(view); expanded = !expanded } })
         if (enabled) SubAgentDropdownMenu(
             expanded = expanded,
@@ -170,7 +172,7 @@ internal fun SubAgentTaskTierButton(
         ) {
             SubAgentTaskTier.entries.forEachIndexed { index, option ->
                 SubAgentSelectionItem(
-                    text = option.label,
+                    text = stringResource(option.labelRes),
                     selected = option == tier,
                     index = index,
                     count = SubAgentTaskTier.entries.size,

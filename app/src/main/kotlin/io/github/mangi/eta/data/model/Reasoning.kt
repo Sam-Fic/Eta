@@ -1,5 +1,7 @@
 package io.github.mangi.eta.data.model
 
+import androidx.annotation.StringRes
+import io.github.mangi.eta.R
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
@@ -12,32 +14,32 @@ import kotlinx.serialization.encoding.Encoder
 @Serializable(with = ReasoningEffortSerializer::class)
 enum class ReasoningEffort(
     val wireValue: String,
-    val displayName: String,
+    @StringRes val labelRes: Int,
     internal val rank: Int,
 ) {
     @SerialName("off")
-    OFF("off", "关闭", 0),
+    OFF("off", R.string.effort_off, 0),
 
     @SerialName("default")
-    DEFAULT("default", "默认", 1),
+    DEFAULT("default", R.string.effort_default, 1),
 
     @SerialName("minimal")
-    MINIMAL("minimal", "最小", 2),
+    MINIMAL("minimal", R.string.effort_minimal, 2),
 
     @SerialName("low")
-    LOW("low", "低", 3),
+    LOW("low", R.string.effort_low, 3),
 
     @SerialName("medium")
-    MEDIUM("medium", "中", 4),
+    MEDIUM("medium", R.string.effort_medium, 4),
 
     @SerialName("high")
-    HIGH("high", "高", 5),
+    HIGH("high", R.string.effort_high, 5),
 
     @SerialName("xhigh")
-    XHIGH("xhigh", "超高", 6),
+    XHIGH("xhigh", R.string.effort_xhigh, 6),
 
     @SerialName("max")
-    MAX("max", "极高", 7),
+    MAX("max", R.string.effort_max, 7),
     ;
 
     val enablesReasoning: Boolean

@@ -77,7 +77,7 @@ internal object SubAgentPreferences {
         return config.copy(extraBodyJson = body.toString(), customBody = emptyList())
     }
     fun workerDescription(profile: SubAgentProfile, workerNumber: Int, config: AgentModelClient.ModelConfig, parallelLimit: Int = parallelLimit(config.providerId, config.model)): String {
-        val tier = if (!profile.supportsTaskTier) "not applicable (only implementation agents have task tiers)" else profile.tier?.let { "${it.wireValue} (${it.label}); suited tasks: ${it.routingHint}" }
+        val tier = if (!profile.supportsTaskTier) "not applicable (only implementation agents have task tiers)" else profile.tier?.let { "${it.wireValue}; suited tasks: ${it.routingHint}" }
             ?: "unspecified; capability unknown"
         return "$workerNumber: agent_id=${profile.id}, name=${profile.name}, role=${profile.role} — " +
             "${config.providerName} / ${config.modelDisplayName.ifBlank { config.model }}; " +
@@ -85,7 +85,8 @@ internal object SubAgentPreferences {
                 val media = MediaReasoningSettings.resolve(config, profile.role)
                 if (media.status == MediaReasoningSettings.Status.SUPPORTED)
                     "${config.effectiveReasoningEffort.wireValue} (explicit media endpoint mapping; not a text reasoning loop)"
-                else media.label
+                else if (media.status == MediaReasoningSettings.Status.UNSUPPORTED) "current endpoint not adapted for native thinking"
+                else "media thinking configuration invalid"
             } else config.effectiveReasoningEffort.wireValue}"
     }
 

@@ -30,7 +30,7 @@ class AgentContextMeterPolicyTest {
         assertFalse(cloud.estimated)
         val compacted = liveContextUsage(contextDisplayPolicy = ContextDisplayPolicy(awaitingReceipt = true))
         assertNull(compacted.contextTokens)
-        assertEquals("未知", formatContextUsage(compacted))
+        assertEquals("Unknown", formatContextUsage(compacted))
     }
 
     @Test fun emptyFirstDraftIncludesSystemAndToolOverhead() {
@@ -75,7 +75,7 @@ class AgentContextMeterPolicyTest {
         val history = listOf(AgentModelClient.ConversationMessage("system", "short summary"))
         val usage = liveContextUsage()
         assertNull(usage.contextTokens)
-        assertEquals("未知", formatContextUsage(usage))
+        assertEquals("Unknown", formatContextUsage(usage))
         assertEquals(500 + AgentContextBudget.countMessage(history.single()),
             compressionContextUsage(history, "", emptyList(), null, requestOverheadTokens = 500).contextTokens)
     }

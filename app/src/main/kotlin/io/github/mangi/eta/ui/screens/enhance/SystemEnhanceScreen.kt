@@ -48,7 +48,7 @@ fun SystemEnhanceScreen(
             EtaSegmentedColumn(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp)) {
                 item {
                     EnhanceRow(
-                        title = "Root",
+                        title = stringResource(R.string.capability_root),
                         summary = capabilities.root.description(context),
                         icon = Icons.Rounded.Key,
                     ) {

@@ -6,6 +6,7 @@ import io.github.mangi.eta.data.model.ProviderSourceTypes
 import io.github.mangi.eta.data.model.ReasoningEffort
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ReasoningCapabilityResolverTest {
@@ -21,11 +22,12 @@ class ReasoningCapabilityResolverTest {
     private val allTiers = allSelectable.filter { it != ReasoningEffort.OFF }
 
     @Test
-    fun userFacingEffortLabelsAreChinese() {
-        assertEquals(
-            listOf("关闭", "默认", "最小", "低", "中", "高", "超高", "极高"),
-            ReasoningEffort.entries.map(ReasoningEffort::displayName),
-        )
+    fun userFacingEffortLabelsAreLocalizedStringResources() {
+        // 档位展示名走字符串资源（R.string.effort_*），按当前语言解析；
+        // 这里只校验映射完备且互不相同，具体文案由资源与翻译对比保障。
+        val labelResIds = ReasoningEffort.entries.map { it.labelRes }
+        assertTrue("每个档位都必须映射到字符串资源", labelResIds.all { it != 0 })
+        assertEquals("档位标签资源必须互不相同", labelResIds.size, labelResIds.distinct().size)
     }
 
     @Test

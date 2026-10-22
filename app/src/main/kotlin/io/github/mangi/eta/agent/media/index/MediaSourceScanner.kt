@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
 import android.provider.MediaStore
+import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.media.AgentChatImageCache
 import io.github.mangi.eta.agent.terminal.TerminalPrivateStorage
 import io.github.mangi.eta.data.db.MediaKind
@@ -48,27 +49,28 @@ internal object MediaSourceScanner {
 
     data class Estimate(val count: Int, val bytes: Long)
 
-    /** 确认弹窗展示的推荐范围；A/B 默认开启（无限权或推荐），工作区默认关闭。 */
-    fun recommendedSources(): List<MediaSourceEntity> = listOf(
+    /** 确认弹窗展示的推荐范围；A/B 默认开启（无限权或推荐），工作区默认关闭。
+     *  label 按当前语言解析（与 MediaIndexSettingsScreen 的展示资源同源），避免落库中文硬编码。 */
+    fun recommendedSources(context: Context): List<MediaSourceEntity> = listOf(
         MediaSourceEntity(
             id = TYPE_MEDIASTORE,
             type = TYPE_MEDIASTORE,
             uri = MediaStore.Files.getContentUri("external").toString(),
-            label = "系统媒体库（图片/视频/音频）",
+            label = context.getString(R.string.media_source_mediastore),
             enabled = true,
         ),
         MediaSourceEntity(
             id = TYPE_ATTACHMENT_CACHE,
             type = TYPE_ATTACHMENT_CACHE,
             uri = "",
-            label = "会话附件缓存（chat-images / imports）",
+            label = context.getString(R.string.media_source_attachment_cache),
             enabled = true,
         ),
         MediaSourceEntity(
             id = TYPE_WORKSPACE,
             type = TYPE_WORKSPACE,
             uri = "",
-            label = "终端工作区文件",
+            label = context.getString(R.string.media_source_workspace),
             enabled = false,
         ),
     )

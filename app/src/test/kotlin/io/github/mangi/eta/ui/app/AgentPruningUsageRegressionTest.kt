@@ -83,7 +83,7 @@ class AgentPruningUsageRegressionTest {
             assertNull(state().contextBudgetReceiptTokens)
             assertNull(state().receiptPredictionTokens)
             assertTrue(state().contextAwaitingReceipt)
-            assertEquals("未知", io.github.mangi.eta.ui.model.formatContextUsage(
+            assertEquals("Unknown", io.github.mangi.eta.ui.model.formatContextUsage(
                 io.github.mangi.eta.ui.model.liveContextUsage(
                     contextDisplayPolicy = io.github.mangi.eta.ui.model.ContextDisplayPolicy(
                         awaitingReceipt = state().contextAwaitingReceipt))))

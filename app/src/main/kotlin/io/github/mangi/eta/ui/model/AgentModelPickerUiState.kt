@@ -421,7 +421,8 @@ internal fun formatContextUsage(
     usage: AgentContextUsageUi,
     noUsageText: String = "No conversation context yet",
     noLimitText: String = "The current model does not provide a context limit",
-    unknownText: String = "未知",
+    // 默认值与默认语言（values/）一致；生产调用方均传 R.string.amp_unknown，中文由资源提供。
+    unknownText: String = "Unknown",
     locale: Locale = Locale.getDefault(),
 ): String {
     // A first-turn "0k" is a display-only label, not a measured zero.

@@ -58,10 +58,10 @@ internal fun AgentOverlayStatus.localizedText(resources: Resources): String = wh
     AgentOverlayStatus.SupplementReceived -> resources.getString(R.string.overlay_supplement_received)
     is AgentOverlayStatus.RunningTool -> resources.getString(R.string.overlay_running_tool, toolDisplayName(resources, name))
     is AgentOverlayStatus.ToolCompleted -> resources.getString(R.string.overlay_tool_completed, toolDisplayName(resources, name))
-    is AgentOverlayStatus.HostedToolRunning -> resources.getString(R.string.overlay_hosted_tool_running, name)
+    is AgentOverlayStatus.HostedToolRunning -> resources.getString(R.string.overlay_hosted_tool_running, toolDisplayName(resources, name))
     is AgentOverlayStatus.HostedToolFinished -> resources.getString(
         if (success) R.string.overlay_hosted_tool_completed else R.string.overlay_hosted_tool_failed,
-        name,
+        toolDisplayName(resources, name),
     )
     is AgentOverlayStatus.ImagesRead -> resources.getQuantityString(R.plurals.overlay_images_read, count, count)
     AgentOverlayStatus.ResultReady -> resources.getString(R.string.overlay_result_ready)

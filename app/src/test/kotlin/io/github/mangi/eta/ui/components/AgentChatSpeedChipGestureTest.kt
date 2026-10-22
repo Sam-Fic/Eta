@@ -64,7 +64,7 @@ class AgentChatSpeedChipGestureTest {
     }
 
     private fun chip() = compose.onNodeWithContentDescription(
-        context.getString(R.string.chat_reasoning_effort, ReasoningEffort.HIGH.displayName),
+        context.getString(R.string.chat_reasoning_effort, context.getString(ReasoningEffort.HIGH.labelRes)),
         substring = true,
     )
 

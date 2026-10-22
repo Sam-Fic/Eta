@@ -315,8 +315,8 @@ internal object OpenAiResponsesProvider : AgentProviderClient {
                                     ),
                                 )
                             }
-                            else -> itemType.hostedToolDisplayName()?.let { name ->
-                                startHostedTool(itemId, name)
+                            else -> itemType.hostedToolType()?.let { type ->
+                                startHostedTool(itemId, type)
                             }
                         }
                     }
@@ -363,10 +363,10 @@ internal object OpenAiResponsesProvider : AgentProviderClient {
                                     onEvent(call.endEvent())
                                 }
                             }
-                            else -> itemType.hostedToolDisplayName()?.let { name ->
+                            else -> itemType.hostedToolType()?.let { type ->
                                 finishHostedTool(
                                     itemId,
-                                    name,
+                                    type,
                                     item.optString("status") != "failed",
                                 )
                             }
@@ -875,15 +875,17 @@ internal object OpenAiResponsesProvider : AgentProviderClient {
             .ifBlank { optJSONObject("item")?.optString("id").orEmpty() }
             .ifBlank { "${fallbackPrefix}_${optInt("output_index", 0)}" }
 
-    private fun String.hostedToolDisplayName(): String? = when (this) {
-        "web_search_call" -> "网页搜索"
-        "file_search_call" -> "文件搜索"
-        "code_interpreter_call" -> "代码执行"
-        "computer_call" -> "计算机操作"
-        "image_generation_call" -> "图像生成"
-        "mcp_call" -> "MCP 工具"
-        else -> null
-    }
+    /** 托管工具类型集合：事件只携带协议类型，展示名由 ToolPresentation 按当前语言解析。 */
+    private val HOSTED_TOOL_TYPES = setOf(
+        "web_search_call",
+        "file_search_call",
+        "code_interpreter_call",
+        "computer_call",
+        "image_generation_call",
+        "mcp_call",
+    )
+
+    private fun String.hostedToolType(): String? = takeIf { it in HOSTED_TOOL_TYPES }
 
     private fun appendSeparated(target: StringBuilder, value: String) {
         if (value.isBlank()) return

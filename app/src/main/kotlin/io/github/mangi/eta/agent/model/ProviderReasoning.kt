@@ -312,7 +312,7 @@ internal object ProviderReasoning {
     }
 
     private fun unsupportedEffort(providerName: String, effort: ReasoningEffort): Nothing =
-        throw IllegalArgumentException("$providerName 不支持 ${effort.displayName} thinking effort")
+        throw IllegalArgumentException("$providerName 不支持 ${effort.wireValue} thinking effort")
 
     private fun validatedEffort(config: AgentModelClient.ModelConfig): ReasoningEffort {
         val effort = config.effectiveReasoningEffort

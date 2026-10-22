@@ -50,7 +50,7 @@ internal data class AgentImageGenerationOptions(
 
     /** Validate actual decoded dimensions, not a provider's claimed metadata. Never resize or retry. */
     fun dimensionReport(width: Int, height: Int, expectedSize: String? = null): String {
-        val requested = listOfNotNull(aspectRatio?.let { "比例 $it" }, resolution?.let { "${ImageResolutionTier.label(it)}分辨率" }, size?.let { "尺寸 $it" }).joinToString("，")
+        val requested = listOfNotNull(aspectRatio?.let { "比例 $it" }, resolution?.let { "$it 分辨率" }, size?.let { "尺寸 $it" }).joinToString("，")
         if (width <= 0 || height <= 0) return "IMAGE_DIMENSIONS_UNVERIFIED：无法解码实际宽高" + if (requested.isBlank()) "。" else "；请求 $requested，不能声称符合要求。"
         val problems = mutableListOf<String>()
         if (aspectRatio != null && aspectRatio != "auto" && !matchesRatio(width, height, aspectRatio)) problems += "宽高比不符合 $aspectRatio"

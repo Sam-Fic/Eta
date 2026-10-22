@@ -1128,7 +1128,7 @@ internal object AgentRuntimeWire {
             blocked = bundle.getBoolean("context_blocked", false),
             reason = bundle.getString("context_reason").orEmpty(),
             pruningOnly = bundle.getBoolean("pruning_only",
-                bundle.getString("compressor_label") == "工具输出预算修剪（原文可回读）"),
+                bundle.getString("compressor_label") == AgentEvent.PRUNING_ONLY_COMPRESSOR_LABEL),
         )
 
         "run_finished" -> AgentEvent.RunFinished(

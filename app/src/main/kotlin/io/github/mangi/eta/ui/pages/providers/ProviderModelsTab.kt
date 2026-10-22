@@ -953,7 +953,7 @@ private fun ModelEditPage(
                 ProviderField(
                     value = modelId,
                     onValueChange = { modelId = it },
-                    label = "Model ID",
+                    label = stringResource(R.string.provider_model_id),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Ascii,

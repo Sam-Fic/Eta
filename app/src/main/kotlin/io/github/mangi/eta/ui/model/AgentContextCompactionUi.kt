@@ -2,6 +2,7 @@ package io.github.mangi.eta.ui.model
 
 import io.github.mangi.eta.agent.model.AgentContextCompactor
 import io.github.mangi.eta.agent.model.AgentModelClient
+import io.github.mangi.eta.agent.runtime.AgentEvent
 
 /** 把压缩结果变成时间线上的分界标记，摘要原文原样保留。 */
 internal object AgentContextCompactionUi {
@@ -48,7 +49,8 @@ internal object AgentContextCompactionUi {
                 id = markerId,
                 compactedCount = compactedCount,
                 summary = summary,
-                compressorLabel = if (pruningOnly) "工具输出修剪（非摘要）" else compressorLabel,
+                // 修剪态携带协议标记（与 runtime 事件同值）；展示文案由 ContextCompactedSummarySheet 本地化。
+                compressorLabel = if (pruningOnly) AgentEvent.PRUNING_ONLY_COMPRESSOR_LABEL else compressorLabel,
                 baselineTokens = baselineTokens,
                 resumeRound = resumeRound,
                 preservedUsage = preservedUsage,
@@ -79,7 +81,7 @@ internal object AgentContextCompactionUi {
         compressorLabel: String = "",
     ): Boolean {
         // Runtime events may include tool records not yet reflected in UI history.
-        if (compressorLabel == "工具输出预算修剪（原文可回读）") return true
+        if (compressorLabel == AgentEvent.PRUNING_ONLY_COMPRESSOR_LABEL) return true
         if (originalHistory == compressedHistory) return false
         return originalHistory.size == compressedHistory.size &&
             originalHistory.zip(compressedHistory).all { (before, after) ->

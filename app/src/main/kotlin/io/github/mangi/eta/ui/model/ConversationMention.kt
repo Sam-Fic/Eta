@@ -210,7 +210,7 @@ internal object ConversationMention {
             if (summary.isEmpty()) "Context compressed (${message.compactedCount} messages)"
             else "Context compressed (${message.compactedCount} messages): $summary"
         }
-        is SystemNoticeMessageUi -> "系统状态：${message.code.name}"
+        is SystemNoticeMessageUi -> "System status: ${message.code.name}"
         is ErrorReconnectMessageUi -> "Connection status: ${message.status.wireValue} (${formatReconnectElapsed(message.elapsedMs)})"
         is RunTraceMessageUi, is SuggestionChipsMessageUi -> null
     }

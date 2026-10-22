@@ -38,6 +38,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.agent.runtime.AgentEvent
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import kotlinx.coroutines.delay
 
@@ -56,7 +57,12 @@ internal fun ContextCompactedSummarySheet(
     title: String = stringResource(R.string.context_compacted_summary_title),
     compressorLabel: String = "",
 ) {
-    val subtitle = compressorLabel.trim()
+    // 修剪态的 compressorLabel 是协议标记（见 AgentEvent.PRUNING_ONLY_COMPRESSOR_LABEL），
+    // 这里按当前语言解析为展示文案；其余值是调用方传入的「供应商 · 模型」，原样展示。
+    val subtitle = when (compressorLabel) {
+        AgentEvent.PRUNING_ONLY_COMPRESSOR_LABEL -> stringResource(R.string.context_pruning_label)
+        else -> compressorLabel.trim()
+    }
     val view = LocalView.current
     @Suppress("DEPRECATION")
     val clipboardManager = LocalClipboardManager.current

@@ -148,6 +148,13 @@ internal object ToolPresentation {
         "eta_configure_mcp" -> R.string.tool_eta_configure_mcp
         "semantic_search_media" -> R.string.tool_semantic_search_media
         "device_actions" -> R.string.tool_device_actions
+        // OpenAI Responses 托管工具：provider 只透传协议类型，展示名在此统一本地化。
+        "web_search_call" -> R.string.hosted_tool_web_search
+        "file_search_call" -> R.string.hosted_tool_file_search
+        "code_interpreter_call" -> R.string.hosted_tool_code_interpreter
+        "computer_call" -> R.string.hosted_tool_computer
+        "image_generation_call" -> R.string.hosted_tool_image_generation
+        "mcp_call" -> R.string.hosted_tool_mcp
         else -> null
     }
 

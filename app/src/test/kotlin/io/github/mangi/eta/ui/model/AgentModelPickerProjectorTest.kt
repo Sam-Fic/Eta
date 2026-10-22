@@ -176,7 +176,7 @@ class AgentModelPickerProjectorTest {
         // Unknown occupancy must not be rendered as a measured 0K / 0.0%, but it still keeps
         // the configured window as its denominator.
         assertEquals(
-            "未知 / 100K tokens",
+            "Unknown / 100K tokens",
             formatContextUsage(AgentContextUsageUi(contextTokens = null, contextWindow = 100_000)),
         )
         assertEquals(
@@ -223,13 +223,13 @@ class AgentModelPickerProjectorTest {
             selectedModel = model,
             contextDisplayPolicy = ContextDisplayPolicy(awaitingReceipt = true),
         )
-        assertEquals("未知 / 128K tokens", formatContextUsage(awaitingReceipt))
+        assertEquals("Unknown / 128K tokens", formatContextUsage(awaitingReceipt))
         // An in-flight run is measured against the window it was launched with, even while unknown.
         val inFlight = liveContextUsage(
             selectedModel = model, activeRunContextWindow = 200_000,
             contextDisplayPolicy = ContextDisplayPolicy(awaitingReceipt = true),
         )
-        assertEquals("未知 / 200K tokens", formatContextUsage(inFlight))
+        assertEquals("Unknown / 200K tokens", formatContextUsage(inFlight))
         // An unknown numerator never becomes a reading: no ratio, so the ring stays unmoved.
         for (usage in listOf(firstTurn, awaitingReceipt, inFlight)) {
             assertNull(usage.contextTokens)
@@ -255,7 +255,7 @@ class AgentModelPickerProjectorTest {
             selectedModel = noWindow,
             contextDisplayPolicy = ContextDisplayPolicy(firstTurn = true),
         )))
-        assertEquals("未知", formatContextUsage(liveContextUsage(
+        assertEquals("Unknown", formatContextUsage(liveContextUsage(
             selectedModel = noWindow,
             contextDisplayPolicy = ContextDisplayPolicy(awaitingReceipt = true),
         )))
@@ -377,7 +377,7 @@ class AgentModelPickerProjectorTest {
             selectedModel = selected,
         )
         assertNull(usage.contextTokens)
-        assertEquals("未知 / 8K tokens", formatContextUsage(usage))
+        assertEquals("Unknown / 8K tokens", formatContextUsage(usage))
         assertNull(usage.progress)
         assertEquals(history.sumOf { AgentContextBudget.countMessage(it) },
             compressionContextUsage(history, "", emptyList(), selected).contextTokens)
@@ -810,7 +810,7 @@ class AgentModelPickerProjectorTest {
             selectedModel = selected,
         )
         assertNull(usage.contextTokens)
-        assertEquals("未知 / 150K tokens", formatContextUsage(usage))
+        assertEquals("Unknown / 150K tokens", formatContextUsage(usage))
         assertNull(usage.progress)
         // 本地历史仍然进入内部静默预算，只是不再作为显示值。
         assertEquals(history.sumOf { AgentContextBudget.countMessage(it) },

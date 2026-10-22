@@ -1006,7 +1006,7 @@ internal class AgentLoop(
         onHistoryCompacted()
         onEvent(AgentEvent.ContextCompacted(round, true, messages.length(), messages.length(),
             history = AgentConversationCodec.transcript(messages, systemCount, sensitiveToolCallIds),
-            compressorLabel = "工具输出预算修剪（原文可回读）", pruningOnly = true))
+            compressorLabel = AgentEvent.PRUNING_ONLY_COMPRESSOR_LABEL, pruningOnly = true))
         checkpoints.forEach { runCatching { archive.record(it, "committed") } }
         return true
     }

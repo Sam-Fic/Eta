@@ -15,6 +15,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -30,6 +31,8 @@ import org.robolectric.annotation.GraphicsMode
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class ThinkingEffortPickerThemeTest {
     @get:Rule val compose = createComposeRule()
+
+    private val context = RuntimeEnvironment.getApplication()
 
     private val options = listOf(
         ReasoningEffort.OFF,
@@ -62,9 +65,9 @@ class ThinkingEffortPickerThemeTest {
     fun material3RendersOfficialSliderWithBoundaryLabels() {
         renderM3(ReasoningEffort.MEDIUM) {}
         // 当前档位大字 + 两端边界标签（官方离散滑块的做法）。
-        compose.onNodeWithText(ReasoningEffort.MEDIUM.displayName).assertExists()
-        compose.onNodeWithText(options.first().displayName).assertExists()
-        compose.onNodeWithText(options.last().displayName).assertExists()
+        compose.onNodeWithText(context.getString(ReasoningEffort.MEDIUM.labelRes)).assertExists()
+        compose.onNodeWithText(context.getString(options.first().labelRes)).assertExists()
+        compose.onNodeWithText(context.getString(options.last().labelRes)).assertExists()
     }
 
     @Test

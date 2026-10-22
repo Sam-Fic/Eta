@@ -15,6 +15,15 @@ internal sealed interface AgentEvent {
         TOOL_CALL,
     }
 
+    companion object {
+        /**
+         * 协议标记：compressorLabel 取该值表示「仅修剪、非摘要」。
+         * 该值随事件落库并经 bundle 跨进程传递（含历史数据），**不是展示文案，禁止翻译**；
+         * 展示文案由 UI 层映射到 R.string.context_pruning_label。
+         */
+        const val PRUNING_ONLY_COMPRESSOR_LABEL = "工具输出预算修剪（原文可回读）"
+    }
+
     data class RunStarted(
         val initialImages: Int,
         val initialImageBytes: Int,
@@ -233,7 +242,7 @@ internal sealed interface AgentEvent {
         val blocked: Boolean = false,
         val reason: String = "",
         /** Pruning changes oversized tool bodies, not the accounting/compaction boundary. */
-        val pruningOnly: Boolean = compressorLabel == "工具输出预算修剪（原文可回读）",
+        val pruningOnly: Boolean = compressorLabel == PRUNING_ONLY_COMPRESSOR_LABEL,
     ) : AgentEvent {
         override fun toLogLine(): String =
             "context_compacted round=$round, applied=$applied, $originalCount->$compactedCount"

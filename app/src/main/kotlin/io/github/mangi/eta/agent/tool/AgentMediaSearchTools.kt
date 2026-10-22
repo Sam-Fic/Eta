@@ -113,7 +113,7 @@ internal class AgentMediaSearchTools(private val context: Context) {
         }
         // 已登记但尚未配置的推荐源一并列出，方便模型引导用户完成首次设置。
         val configured = sources.map { it.id }.toSet()
-        MediaSourceScanner.recommendedSources()
+        MediaSourceScanner.recommendedSources(context)
             .filter { it.id !in configured }
             .forEach { source ->
                 array.put(

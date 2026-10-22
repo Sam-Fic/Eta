@@ -1170,7 +1170,7 @@ internal object EtaBackupRepository {
         // 其余可重新扫描到的媒体（MediaStore、附件缓存、工作区……）。
         val dao = EtaDatabase.get(app).mediaIndexDao()
         val sources = dao.sources().filter { it.enabled }
-            .ifEmpty { MediaSourceScanner.recommendedSources().filter { it.enabled } }
+            .ifEmpty { MediaSourceScanner.recommendedSources(app).filter { it.enabled } }
         sources.forEach { source -> candidates += MediaSourceScanner.scan(app, source) }
         val byKey = candidates.associateBy { it.sourceKey }
         val bySize = candidates.groupBy { it.sizeBytes }

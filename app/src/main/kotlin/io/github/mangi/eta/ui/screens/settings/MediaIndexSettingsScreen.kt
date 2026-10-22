@@ -175,7 +175,7 @@ internal fun MediaIndexSettingsScreen(
             .mapTo(mutableSetOf()) { it.id }
         // 部分授权（Android 14+）下媒体集合不完整，刷新后同步提示态。
         partialMediaAccess = isPartialMediaAccess(context)
-        val all = MediaSourceScanner.recommendedSources() + saf + shared
+        val all = MediaSourceScanner.recommendedSources(context) + saf + shared
         selected = all.associate { source ->
             source.id to (selected[source.id] ?: saved[source.id]?.enabled ?: source.enabled)
         }
@@ -216,7 +216,7 @@ internal fun MediaIndexSettingsScreen(
             withContext(Dispatchers.IO) {
                 val dao = EtaDatabase.get(context).mediaIndexDao()
                 // 推荐项 + SAF + 共享文件夹一并纳入：勾选即 enabled 落库，确认后开始索引。
-                val pending = MediaSourceScanner.recommendedSources().map { recommended ->
+                val pending = MediaSourceScanner.recommendedSources(context).map { recommended ->
                     (dao.sourceById(recommended.id) ?: recommended)
                         .copy(enabled = selected[recommended.id] ?: recommended.enabled)
                 } + sharedSources.map { source ->
@@ -449,7 +449,7 @@ internal fun MediaIndexSettingsScreen(
                     bottom = EtaSegmentedGroupSpacing,
                 ),
             ) {
-                MediaSourceScanner.recommendedSources().forEach { source ->
+                MediaSourceScanner.recommendedSources(context).forEach { source ->
                     item(key = "source-${source.id}") {
                         EtaSegmentedCheckboxRow(
                             checked = selected[source.id] ?: source.enabled,

@@ -123,7 +123,7 @@ class RequestOverheadCalibrationTest {
             assertEquals(idle, typing)
             assertNull(idle.contextTokens)
             assertNull(idle.progress)
-            assertEquals(if (first) "0k" else "未知", formatContextUsage(idle))
+            assertEquals(if (first) "0k" else "Unknown", formatContextUsage(idle))
         }
         // 稳定样本也不能覆盖真实回执：actual 优先且不标 estimated。
         val actual = liveContextUsage(billedContextTokens = 12345)
@@ -145,7 +145,7 @@ class RequestOverheadCalibrationTest {
         assertTrue(contextDisplayPolicy(pending.copy(contextAwaitingReceipt = true)).awaitingReceipt)
         val compacted = liveContextUsage(
             contextDisplayPolicy = contextDisplayPolicy(pending.copy(contextAwaitingReceipt = true)))
-        assertEquals("未知", formatContextUsage(compacted))
+        assertEquals("Unknown", formatContextUsage(compacted))
         assertNull(compacted.contextTokens)
     }
 
@@ -153,7 +153,7 @@ class RequestOverheadCalibrationTest {
         val compacted = liveContextUsage(
             contextDisplayPolicy = ContextDisplayPolicy(awaitingReceipt = true))
         assertNull(compacted.contextTokens)
-        assertEquals("未知", formatContextUsage(compacted))
+        assertEquals("Unknown", formatContextUsage(compacted))
         val fresh = liveContextUsage(billedContextTokens = 27723, contextDisplayPolicy = ContextDisplayPolicy())
         assertEquals(27723, fresh.contextTokens)
         assertFalse(fresh.estimated)
@@ -174,6 +174,6 @@ class RequestOverheadCalibrationTest {
         // 没有 actual 时不再回退任何旧估计：一律未知。
         val withoutActual = liveContextUsage(contextDisplayPolicy = ContextDisplayPolicy(firstTurn = false))
         assertNull(withoutActual.contextTokens)
-        assertEquals("未知", formatContextUsage(withoutActual))
+        assertEquals("Unknown", formatContextUsage(withoutActual))
     }
 }

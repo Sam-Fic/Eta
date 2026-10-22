@@ -46,7 +46,7 @@ internal object GrokImageProfile {
             if (tier !in setOf("low", "high")) AgentImageGenerationOptions.invalid("该 Grok 中转只验证了低/高两档，尚无独立中/超高分辨率；不会静默降档或重发。")
             val ratio = options.aspectRatio ?: "1:1"
             val size = (if(tier == "low") low else high)[ratio]
-                ?: AgentImageGenerationOptions.invalid("该 Grok 中转尚未验证 $ratio 的${ImageResolutionTier.label(tier)}分辨率，不会改成方图。")
+                ?: AgentImageGenerationOptions.invalid("该 Grok 中转尚未验证 $ratio 的 $tier 分辨率，不会改成方图。")
             options = options.copy(aspectRatio = ratio, resolution = tier)
             result.put("size", size)
         }
@@ -58,6 +58,6 @@ internal object GrokImageProfile {
         if(!result.has("n")) result.put("n",1)
         val expected = if (options.size != null) null else (if(options.resolution == "low") actualLow else actualHigh)[options.aspectRatio]
         return ImageRequestParameters.Prepared(result,options,"multipart",
-            "Grok 实测端点适配；发送 size=${result.getString("size")}；请求${options.resolution?.let(ImageResolutionTier::label) ?: "精确尺寸"}；已观察输出 ${expected ?: "精确尺寸需以实际返回校验"}；不保证上游稳定，不自动重发。", expectedSize = expected)
+            "Grok 实测端点适配；发送 size=${result.getString("size")}；请求${options.resolution ?: "精确尺寸"}；已观察输出 ${expected ?: "精确尺寸需以实际返回校验"}；不保证上游稳定，不自动重发。", expectedSize = expected)
     }
 }

@@ -1,5 +1,7 @@
 package io.github.mangi.eta.agent.model
 
+import androidx.annotation.StringRes
+import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.ReasoningEffort
 import org.json.JSONObject
 
@@ -16,10 +18,12 @@ internal object MediaReasoningSettings {
         val error: String = "",
         val transport: String? = null,
     ) {
-        val label get() = when (status) {
-            Status.SUPPORTED -> "端点显式配置"
-            Status.UNSUPPORTED -> "当前接口未适配"
-            Status.INVALID -> "思考配置无效"
+        /** 展示名走字符串资源，由 UI 层按当前语言解析；枚举不携带硬编码文案。 */
+        @get:StringRes
+        val labelRes get() = when (status) {
+            Status.SUPPORTED -> R.string.media_reasoning_supported
+            Status.UNSUPPORTED -> R.string.media_reasoning_unsupported
+            Status.INVALID -> R.string.media_reasoning_invalid
         }
         fun effective(requested: ReasoningEffort?): ReasoningEffort = requested ?: defaultEffort
     }

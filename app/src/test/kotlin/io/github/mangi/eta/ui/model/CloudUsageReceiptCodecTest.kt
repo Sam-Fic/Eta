@@ -44,7 +44,7 @@ class CloudUsageReceiptCodecTest {
         // Unknown must read as unknown; only a real measurement may show 0K / 0.0%.
         // An unmeasured state still names the configured window it is compared against.
         assertEquals(
-            "未知 / 260K tokens",
+            "Unknown / 260K tokens",
             formatContextUsage(usage, noUsageText = "暂无上下文用量", locale = Locale.US),
         )
         assertEquals("0k / 260K tokens", formatContextUsage(usage.copy(firstTurn = true), locale = Locale.US))

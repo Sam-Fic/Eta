@@ -44,7 +44,7 @@ class AgentContextPendingRegressionTest {
                 assertEquals("0k", formatContextUsage(f.usage(id)))
                 call(f.app, "applyRunResult", run, outcome.copy(runId = run), false)
                 assertTrue(f.state(id).contextHasStarted)
-                assertEquals("未知", formatContextUsage(f.usage(id)))
+                assertEquals("Unknown", formatContextUsage(f.usage(id)))
                 assertNull(f.usage(id).progress)
             }
         }
@@ -131,7 +131,7 @@ class AgentContextPendingRegressionTest {
         assertNull(f.state("c").livePromptTokens)
         assertNull(f.state("c").contextBudgetReceiptTokens)
         assertNull(f.state("c").receiptPredictionTokens)
-        assertEquals("未知", formatContextUsage(f.usage("c")))
+        assertEquals("Unknown", formatContextUsage(f.usage("c")))
     }
 
     @Test fun nextMessageThenToolsRetryStopAndDatabaseRestoreKeepLatestActual() = fixture { f ->
@@ -248,7 +248,7 @@ class AgentContextPendingRegressionTest {
             assertNull(revised.livePromptTokens)
             assertNull(revised.contextReceiptEvidence)
             assertTrue(revised.contextAwaitingReceipt)
-            assertEquals("未知", formatContextUsage(liveContextUsage(
+            assertEquals("Unknown", formatContextUsage(liveContextUsage(
                 billedContextTokens = revised.livePromptTokens, contextDisplayPolicy = contextDisplayPolicy(revised))))
         }
     }
@@ -371,20 +371,20 @@ class AgentContextPendingRegressionTest {
         assertEquals(15000, f.usage("c").contextTokens) // unsuccessful compression cannot invalidate
         f.send("r", AgentEvent.ContextCompacted(2, true, 10, 2,
             history = listOf(AgentModelClient.ConversationMessage("system", "summary")), compressorLabel = "摘要压缩"))
-        assertEquals("未知", formatContextUsage(f.usage("c")))
+        assertEquals("Unknown", formatContextUsage(f.usage("c")))
         assertNull(f.usage("c").progress)
         f.bind("r", "c") // reconnect must keep the post-compaction resume floor rejecting round 1
-        assertEquals("未知", formatContextUsage(f.usage("c")))
+        assertEquals("Unknown", formatContextUsage(f.usage("c")))
         // Check before request-start, so only the retained compaction floor can reject this bill.
         f.send("r", AgentEvent.UsageReceived(1, AgentTokenUsage(inputTokens = 99000)))
         assertNull(f.state("c").livePromptTokens)
-        assertEquals("未知", formatContextUsage(f.usage("c")))
+        assertEquals("Unknown", formatContextUsage(f.usage("c")))
         f.send("r", AgentEvent.ProviderRequestStarted(2))
         f.send("r", AgentEvent.ModelRetryScheduled(2, 1, 3, 1000, "NETWORK"))
         f.send("r", AgentEvent.UsageReceived(1, AgentTokenUsage(inputTokens = 99000)))
         f.send("r", AgentEvent.UsageReceived(2, AgentTokenUsage(inputTokens = 99000), projected = true))
         assertNull(f.state("c").livePromptTokens)
-        assertEquals("未知", formatContextUsage(f.usage("c")))
+        assertEquals("Unknown", formatContextUsage(f.usage("c")))
         f.send("r", receipt(2, history, input = 8000))
         assertEquals(8000, f.usage("c").contextTokens)
         assertFalse(f.usage("c").estimated)
