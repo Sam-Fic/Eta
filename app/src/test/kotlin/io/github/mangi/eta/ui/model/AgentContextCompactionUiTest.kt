@@ -2,6 +2,7 @@ package io.github.mangi.eta.ui.model
 
 import io.github.mangi.eta.agent.model.AgentContextCompactor
 import io.github.mangi.eta.agent.model.AgentModelClient
+import io.github.mangi.eta.agent.runtime.AgentEvent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -69,7 +70,8 @@ class AgentContextCompactionUiTest {
         )
         val marker = updated.filterIsInstance<ContextCompactedMessageUi>().single()
         assertEquals(0, marker.compactedCount)
-        assertEquals("工具输出修剪（非摘要）", marker.compressorLabel)
+        // 修剪态标记携带协议值，展示文案由 ContextCompactedSummarySheet 本地化
+        assertEquals(AgentEvent.PRUNING_ONLY_COMPRESSOR_LABEL, marker.compressorLabel)
         assertTrue(marker.summary.isEmpty())
         assertTrue(!marker.summary.contains("old checkpoint"))
     }

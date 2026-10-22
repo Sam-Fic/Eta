@@ -228,7 +228,7 @@ class SubAgentPreferencesTest {
         assertEquals(ReasoningEffort.XHIGH,cfg.reasoningEffort)
         val unsupported=cfg.copy(extraBodyJson="")
         assertEquals(ReasoningEffort.OFF,SubAgentPreferences.applyReasoning(media.copy(reasoning=null),unsupported).reasoningEffort)
-        assertTrue(SubAgentPreferences.workerDescription(media,1,unsupported).contains("当前接口未适配"))
+        assertTrue(SubAgentPreferences.workerDescription(media,1,unsupported).contains("current endpoint not adapted for native thinking"))
         assertEquals(ReasoningEffort.HIGH,SubAgentPreferences.applyReasoning(media,unsupported).reasoningEffort)
     }
 

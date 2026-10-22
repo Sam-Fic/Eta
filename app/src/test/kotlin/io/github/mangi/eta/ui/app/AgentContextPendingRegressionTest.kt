@@ -319,12 +319,12 @@ class AgentContextPendingRegressionTest {
             f.send(run, receipt(1, f.state(id).history.sumOf { AgentContextBudget.countMessage(it) }))
             assertEquals(15000, f.usage(id).contextTokens)
             f.providers(changed) // exact provider-flow invalidation, before a new request boundary
-            assertEquals("未知", formatContextUsage(f.usage(id)))
+            assertEquals("Unknown", formatContextUsage(f.usage(id)))
             assertNull(f.state(id).contextReceiptEvidence)
             f.bind(run, id) // reattachment under B cannot revive the invalidated A run
             f.send(run, receipt(1, 10, input = 99000), replaying = false)
             assertNull(f.state(id).livePromptTokens)
-            assertEquals("未知", formatContextUsage(f.usage(id)))
+            assertEquals("Unknown", formatContextUsage(f.usage(id)))
             f.providers(custom) // reverting settings must not re-authorize the old run
             f.bind(run, id)
             f.send(run, receipt(2, 10, input = 99000), replaying = false)
