@@ -11,15 +11,15 @@ import java.util.Calendar
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** 读取经过真机验证的固定数据库；路径、表、字段与查询均不接受模型输入。 */
+/** 读取系统私有数据库；表、字段与查询均不接受模型输入。时钟库位置运行期自动发现，其余为真机验证的固定路径。 */
 internal class AgentPrivateDatabaseTools(
     private val context: Context,
     private val root: BoundedRootCommandExecutor,
     private val rootAvailable: () -> Boolean = { RootAccess.isGranted },
 ) {
     fun execute(name: String, args: JSONObject): AgentModelClient.ToolResult? = when (name) {
-        "list_alarms" -> sensitive(readDatabase(CLOCK_DATABASE, "CLOCK_DATA_UNAVAILABLE") { listAlarms(it, args) })
-        "list_active_timers" -> sensitive(readDatabase(CLOCK_DATABASE, "CLOCK_DATA_UNAVAILABLE") { listTimers(it, args) })
+        "list_alarms" -> sensitive(readClockDatabase { listAlarms(it, args) })
+        "list_active_timers" -> sensitive(readClockDatabase { listTimers(it, args) })
         "delete_alarm" -> sensitive(deleteAlarm(args))
         "update_alarm" -> sensitive(updateAlarm(args))
         "search_clipboard_history" -> sensitive(readDatabase(CLIPBOARD_DATABASE, "CLIPBOARD_HISTORY_UNAVAILABLE") { searchClipboard(it, args) })
@@ -29,38 +29,48 @@ internal class AgentPrivateDatabaseTools(
 
     private fun listAlarms(database: SQLiteDatabase, args: JSONObject): String {
         if (!database.hasColumns("alarms", setOf("_id", "hour", "minutes", "enabled"))) {
-            return error("CLOCK_SCHEMA_UNSUPPORTED", "当前时钟数据库结构暂不受支持")
+            return error("CLOCK_SCHEMA_UNSUPPORTED", "当前时钟应用的数据库结构暂不受支持")
         }
         val limit = args.optInt("limit", 20).coerceIn(1, 50)
+        val order = database.alarmOrder()
         val items = database.rows(
             table = "alarms",
             columns = listOf(
-                "_id", "hour", "minutes", "daysofweek", "alarmtime", "enabled", "message",
-                "vibrate", "deleteAfterUse", "workdaySwitch", "holidaySwitch", "snoozeTime",
+                "_id", "hour", "minutes", "daysofweek", "days_of_week", "alarmtime", "enabled",
+                "message", "vibrate", "deleteAfterUse", "workdaySwitch", "holidaySwitch", "snoozeTime",
             ),
             selection = if (args.optBoolean("enabled_only", true)) "enabled=1" else null,
-            order = "enabled DESC, alarmtime ASC",
+            order = order,
             limit = limit,
         )
         return ok("list_alarms", items, limit)
     }
 
     private fun listTimers(database: SQLiteDatabase, args: JSONObject): String {
-        if (!database.hasColumns("timer_schedule", setOf("_id", "duration", "state"))) {
-            return error("CLOCK_SCHEMA_UNSUPPORTED", "当前时钟数据库结构暂不受支持")
-        }
         val limit = args.optInt("limit", 20).coerceIn(1, 50)
-        val items = database.rows(
-            table = "timer_schedule",
-            columns = listOf(
-                "_id", "description", "duration", "state", "first_start_time", "start_time",
-                "remain_time", "pause_remain_time", "alert_time",
-            ),
-            selection = "state<>0",
-            order = "alert_time ASC",
-            limit = limit,
+        // ColorOS 系时钟用 timer_schedule；AOSP 系变体通常叫 timers。按实际结构取表。
+        val timerTables = listOf(
+            "timer_schedule" to setOf("_id", "state"),
+            "timers" to setOf("_id", "state"),
         )
-        return ok("list_active_timers", items, limit)
+        for ((table, required) in timerTables) {
+            val columns = database.tableColumns(table)
+            if (!columns.containsAll(required)) continue
+            val order = listOf("alert_time", "start_time", "_id").firstOrNull(columns::contains) ?: "_id"
+            val items = database.rows(
+                table = table,
+                columns = listOf(
+                    "_id", "description", "duration", "state", "first_start_time", "start_time",
+                    "remain_time", "pause_remain_time", "alert_time", "length", "time_remaining",
+                ),
+                selection = "state<>0",
+                selectionArgs = null,
+                order = "$order ASC",
+                limit = limit,
+            )
+            return ok("list_active_timers", items, limit)
+        }
+        return error("CLOCK_SCHEMA_UNSUPPORTED", "当前时钟应用的计时器数据结构暂不受支持")
     }
 
     private fun searchClipboard(database: SQLiteDatabase, args: JSONObject): String {
@@ -133,16 +143,39 @@ internal class AgentPrivateDatabaseTools(
             .toString()
     }
 
+    private val clockAppLocator = ClockAppLocator(context)
+
+    /** 已探测到的时钟数据库：(userId, path)；探测成功后缓存，避免每轮重复 Root 探测。 */
+    @Volatile
+    private var discoveredClockDatabase: Pair<Int, String>? = null
+
     private fun readDatabase(source: DatabaseSource, unavailableCode: String, block: (SQLiteDatabase) -> String): String =
         synchronized(snapshotLock) {
             withDatabase(source, block) ?: error(unavailableCode, source.unavailableMessage)
         }
 
+    /** 时钟数据读取：先发现系统时钟应用的数据库，再快照只读访问。 */
+    private fun readClockDatabase(block: (SQLiteDatabase) -> String): String =
+        synchronized(snapshotLock) {
+            val path = clockDatabasePath()
+                ?: return@synchronized error(
+                    "CLOCK_DATA_UNAVAILABLE",
+                    "无法定位系统时钟应用的数据库；读取闹钟与计时器需要 Root，且时钟应用需使用标准 alarms.db 结构",
+                )
+            withSnapshot(path, CLOCK_DB_MAX_BYTES, block)
+                ?: error("CLOCK_DATA_UNAVAILABLE", "系统时钟数据暂时不可访问（需要 Root）")
+        }
+
     /** 快照 + 只读打开 + 用后删除；块内抛异常同样按不可用处理。 */
-    private fun <T> withDatabase(source: DatabaseSource, block: (SQLiteDatabase) -> T): T? {
-        val userId = context.dataDir.parentFile?.name?.toIntOrNull() ?: return null
-        val sourcePath = source.path.replace("{user}", userId.toString())
-        val snapshot = createSnapshot(sourcePath, source.maxBytes) ?: return null
+    private fun <T> withDatabase(source: DatabaseSource, block: (SQLiteDatabase) -> T): T? =
+        withSnapshot(
+            source.path.replace("{user}", context.dataDir.parentFile?.name?.toIntOrNull()?.toString() ?: return null),
+            source.maxBytes,
+            block,
+        )
+
+    private fun <T> withSnapshot(sourcePath: String, maxBytes: Long, block: (SQLiteDatabase) -> T): T? {
+        val snapshot = createSnapshot(sourcePath, maxBytes) ?: return null
         return try {
             runCatching {
                 SQLiteDatabase.openDatabase(
@@ -156,7 +189,7 @@ internal class AgentPrivateDatabaseTools(
         }
     }
 
-    // ---------------------------------------------------------------- 闹钟修改（Root 直达时钟数据库）
+    // ---------------------------------------------------------------- 闹钟查询与修改（发现系统时钟应用后直达其数据库）
 
     private sealed interface ClockRead {
         data class Ok(val rows: List<JSONObject>) : ClockRead
@@ -169,7 +202,7 @@ internal class AgentPrivateDatabaseTools(
         data class Failed(val error: String) : ClockPrecondition
     }
 
-    private data class AlarmTarget(val id: Long, val row: JSONObject)
+    private data class AlarmTarget(val id: Long, val row: JSONObject, val repeatColumn: String?)
 
     private sealed interface AlarmResolution {
         data class Found(val target: AlarmTarget) : AlarmResolution
@@ -186,7 +219,7 @@ internal class AgentPrivateDatabaseTools(
             is AlarmResolution.Found -> {
                 val target = resolution.target
                 val databasePath = clockDatabasePath()
-                    ?: return error("CLOCK_DATA_UNAVAILABLE", "无法定位 ColorOS 时钟数据库")
+                    ?: return error("CLOCK_DATA_UNAVAILABLE", "无法定位系统时钟数据库，无法删除闹钟")
                 val sql = "PRAGMA busy_timeout=3000; DELETE FROM alarms WHERE _id=${target.id};"
                 val result = root.execute(
                     "${shellQuote(sqlite)} ${shellQuote(databasePath)} ${shellQuote(sql)}",
@@ -231,6 +264,7 @@ internal class AgentPrivateDatabaseTools(
                 val sets = mutableListOf<String>()
                 val changed = mutableListOf<String>()
                 val expected = mutableMapOf<String, String>()
+                val dayOfWeek = target.repeatColumn?.let { current.optLongValue(it) } ?: 0L
                 if (args.has("enabled")) {
                     val enabled = if (args.optBoolean("enabled")) 1 else 0
                     sets += "enabled=$enabled"
@@ -261,8 +295,8 @@ internal class AgentPrivateDatabaseTools(
                     changed += "time"
                     expected["hour"] = newHour.toString()
                     expected["minutes"] = newMinute.toString()
-                    // 一次性闹钟（daysofweek=0）直接重算下次触发时间；重复闹钟交给时钟应用重算。
-                    if ((current.optLongValue("daysofweek") ?: 0L) == 0L) {
+                    // 一次性闹钟（重复列为空）直接重算下次触发时间；重复闹钟交给时钟应用重算。
+                    if (dayOfWeek == 0L) {
                         sets += "alarmtime=${nextOneShotTriggerMillis(newHour, newMinute)}"
                     }
                 }
@@ -274,7 +308,7 @@ internal class AgentPrivateDatabaseTools(
                         .toString()
                 }
                 val databasePath = clockDatabasePath()
-                    ?: return error("CLOCK_DATA_UNAVAILABLE", "无法定位 ColorOS 时钟数据库")
+                    ?: return error("CLOCK_DATA_UNAVAILABLE", "无法定位系统时钟数据库，无法修改闹钟")
                 val sql = "PRAGMA busy_timeout=3000; UPDATE alarms SET ${sets.joinToString(", ")} WHERE _id=${target.id};"
                 val result = root.execute(
                     "${shellQuote(sqlite)} ${shellQuote(databasePath)} ${shellQuote(sql)}",
@@ -295,7 +329,7 @@ internal class AgentPrivateDatabaseTools(
                                 "字段 ${mismatch.key} 期望为 ${mismatch.value}，实际为 ${row.fieldString(mismatch.key) ?: "空"}；未生效",
                             )
                         }
-                        val repeatNote = if ("time" in changed && (current.optLongValue("daysofweek") ?: 0L) != 0L) {
+                        val repeatNote = if ("time" in changed && dayOfWeek != 0L) {
                             "重复闹钟的下次触发时间由时钟应用在下次打开时重算"
                         } else {
                             null
@@ -333,9 +367,25 @@ internal class AgentPrivateDatabaseTools(
         return ClockPrecondition.Ready(sqlite)
     }
 
+    /**
+     * 定位系统时钟数据库：先取缓存的探测结果，未命中时用一条 Root 命令探测全部候选路径。
+     * 候选顺序由 ClockAppLocator 决定（本机默认时钟应用优先，AOSP/常见厂商包名兜底）。
+     */
     private fun clockDatabasePath(): String? {
         val userId = context.dataDir.parentFile?.name?.toIntOrNull() ?: return null
-        return CLOCK_DATABASE.path.replace("{user}", userId.toString())
+        discoveredClockDatabase?.takeIf { it.first == userId }?.let { return it.second }
+        val candidates = clockAppLocator.databaseCandidates(userId)
+        if (candidates.isEmpty()) return null
+        val command = buildString {
+            append("for p in")
+            candidates.forEach { append(' ').append(shellQuote(it)) }
+            append("; do [ -f \"\$p\" ] && { echo \"\$p\"; exit 0; }; done; exit 9")
+        }
+        val result = root.execute(command, timeoutMillis = 10_000L, maxOutputBytes = 4 * 1024)
+        if (!result.ok) return null
+        val found = result.stdout.lineSequence().map(String::trim).firstOrNull(String::isNotEmpty) ?: return null
+        discoveredClockDatabase = userId to found
+        return found
     }
 
     private fun sqliteBinary(): String? {
@@ -382,10 +432,10 @@ internal class AgentPrivateDatabaseTools(
         }
         return when (val read = readAlarms(conditions.joinToString(" AND "), selectionArgs.toTypedArray())) {
             is ClockRead.Unavailable -> AlarmResolution.Failed(
-                error("CLOCK_DATA_UNAVAILABLE", "ColorOS 时钟数据暂时不可访问（需要 Root）"),
+                error("CLOCK_DATA_UNAVAILABLE", "系统时钟数据暂时不可访问（需要 Root）"),
             )
             is ClockRead.SchemaUnsupported -> AlarmResolution.Failed(
-                error("CLOCK_SCHEMA_UNSUPPORTED", "当前时钟数据库结构暂不受支持"),
+                error("CLOCK_SCHEMA_UNSUPPORTED", "当前时钟应用的数据库结构暂不受支持"),
             )
             is ClockRead.Ok -> when (read.rows.size) {
                 0 -> AlarmResolution.Failed(
@@ -394,7 +444,16 @@ internal class AgentPrivateDatabaseTools(
                         "没有找到匹配的闹钟；可先用 list_alarms 查看已有闹钟，再用 alarm_id 精确定位",
                     ),
                 )
-                1 -> AlarmResolution.Found(AlarmTarget(read.rows[0].optLongValue("_id") ?: 0L, read.rows[0]))
+                1 -> {
+                    val target = read.rows[0]
+                    AlarmResolution.Found(
+                        AlarmTarget(
+                            id = target.optLongValue("_id") ?: 0L,
+                            row = target,
+                            repeatColumn = target.optString("__repeat_column__").takeIf(String::isNotBlank),
+                        ),
+                    )
+                }
                 else -> AlarmResolution.Failed(
                     JSONObject()
                         .put("ok", false)
@@ -428,32 +487,36 @@ internal class AgentPrivateDatabaseTools(
             if (!database.hasColumns("alarms", setOf("_id", "hour", "minutes", "enabled"))) {
                 ClockRead.SchemaUnsupported
             } else {
+                val repeatColumn = database.alarmRepeatColumn()
                 val rows = database.rows(
                     table = "alarms",
-                    columns = ALARM_COLUMNS,
+                    columns = ALARM_COLUMNS + listOf("days_of_week").filter { it != repeatColumn },
                     selection = selection,
                     selectionArgs = selectionArgs,
-                    order = "enabled DESC, alarmtime ASC",
+                    order = database.alarmOrder(),
                     limit = 10,
                 )
-                ClockRead.Ok((0 until rows.length()).mapNotNull { rows.optJSONObject(it) })
+                ClockRead.Ok((0 until rows.length()).mapNotNull { row ->
+                    rows.optJSONObject(row)?.also { it.put("__repeat_column__", repeatColumn ?: "") }
+                })
             }
         } ?: ClockRead.Unavailable
 
     private fun <T> withClockSnapshot(block: (SQLiteDatabase) -> T): T? {
         val path = clockDatabasePath() ?: return null
-        val snapshot = createSnapshot(path, CLOCK_DATABASE.maxBytes) ?: return null
-        return try {
-            runCatching {
-                SQLiteDatabase.openDatabase(
-                    snapshot.absolutePath,
-                    null,
-                    SQLiteDatabase.OPEN_READONLY or SQLiteDatabase.NO_LOCALIZED_COLLATORS,
-                ).use(block)
-            }.getOrNull()
-        } finally {
-            deleteSnapshot(snapshot)
-        }
+        return withSnapshot(path, CLOCK_DB_MAX_BYTES, block)
+    }
+
+    /** 重复闹钟的星期列：ColorOS/AOSP 老结构叫 daysofweek，新结构叫 days_of_week。 */
+    private fun SQLiteDatabase.alarmRepeatColumn(): String? =
+        listOf("daysofweek", "days_of_week").firstOrNull { hasColumns("alarms", setOf(it)) }
+
+    private fun SQLiteDatabase.alarmOrder(): String {
+        val columns = tableColumns("alarms")
+        return buildList {
+            if ("enabled" in columns) add("enabled DESC")
+            if ("alarmtime" in columns) add("alarmtime ASC")
+        }.ifEmpty { listOf("_id ASC") }.joinToString(", ")
     }
 
     private fun clockTime(row: JSONObject): String {
@@ -603,15 +666,11 @@ internal class AgentPrivateDatabaseTools(
         const val SNAPSHOT_PREFIX = "eta-private-data-"
         const val MAX_FIELD_CHARS = 4_000
         const val DAY_MS = 24L * 60 * 60 * 1_000
+        const val CLOCK_DB_MAX_BYTES = 32L * 1024 * 1024
         val ALARM_COLUMNS = listOf(
             "_id", "hour", "minutes", "daysofweek", "alarmtime", "enabled", "message", "vibrate",
         )
         val CLOCK_TIME = Regex("^([01]?\\d|2[0-3]):[0-5]\\d$")
-        val CLOCK_DATABASE = DatabaseSource(
-            "/data/user_de/{user}/com.coloros.alarmclock/databases/alarms.db",
-            32L * 1024 * 1024,
-            "ColorOS 时钟数据暂时不可访问",
-        )
         val CLIPBOARD_DATABASE = DatabaseSource(
             "/data/user/{user}/com.sohu.inputmethod.sogouoem/databases/clipboard_db",
             32L * 1024 * 1024,

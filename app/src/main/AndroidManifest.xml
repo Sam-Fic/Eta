@@ -56,6 +56,16 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent>
+        <!-- 时钟应用发现：解析系统默认时钟应用，闹钟工具据此走系统标准实现 -->
+        <intent>
+            <action android:name="android.intent.action.SET_ALARM" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SET_TIMER" />
+        </intent>
+        <intent>
+            <action android:name="android.alarm.action.SHOW_ALARMS" />
+        </intent>
     </queries>
 
     <application

@@ -159,7 +159,7 @@ internal object AgentDeviceToolCatalog {
             .put(
                 function(
                     "list_alarms",
-                    "读取 ColorOS 时钟中的闹钟计划。",
+                    "读取系统时钟应用中的闹钟计划，自动适配本机默认时钟应用。",
                     properties(
                         "enabled_only" to boolean("是否只返回已启用闹钟，默认 true"),
                         "limit" to integer("最多返回数量，默认 20", 1, 50),
@@ -169,7 +169,7 @@ internal object AgentDeviceToolCatalog {
             .put(
                 function(
                     "list_active_timers",
-                    "读取 ColorOS 时钟中正在运行或暂停的计时器。",
+                    "读取系统时钟应用中正在运行或暂停的计时器，自动适配本机默认时钟应用。",
                     properties("limit" to integer("最多返回数量，默认 20", 1, 50)),
                 ),
             )

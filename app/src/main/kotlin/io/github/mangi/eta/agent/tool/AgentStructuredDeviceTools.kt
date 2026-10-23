@@ -41,6 +41,7 @@ internal class AgentStructuredDeviceTools(
     private val colorOsMemoryTools = AgentColorOsMemoryTools(context, root)
     private val personalContextTools = AgentPersonalContextTools(context)
     private val privateDatabaseTools = AgentPrivateDatabaseTools(context, root, rootAvailable)
+    private val clockAppLocator = ClockAppLocator(context)
     private val calendarTools = AgentCalendarTools(context, root, rootAvailable)
     private val systemControlTools = AgentSystemControlTools(context, root, rootAvailable)
     private val rootControlTools = AgentRootControlTools(context, root, rootAvailable)
@@ -187,23 +188,24 @@ internal class AgentStructuredDeviceTools(
         tool: String,
     ): JSONObject {
         val packageManager = context.packageManager
-        val preferred = Intent(directIntent).setPackage(COLOROS_CLOCK_PACKAGE)
-        val direct = when {
-            preferred.resolveActivity(packageManager) != null -> preferred
-            directIntent.resolveActivity(packageManager) != null -> directIntent
-            else -> null
-        }
+        // 本机默认时钟应用（标准 AlarmClock intent 解析结果）优先，AOSP/常见厂商包名兜底。
+        val direct = clockAppLocator.preferredPackages().asSequence()
+            .map { pkg -> Intent(directIntent).setPackage(pkg) }
+            .firstOrNull { it.resolveActivity(packageManager) != null }
+            ?: directIntent.takeIf { it.resolveActivity(packageManager) != null }
         if (direct != null && runCatching { context.startActivity(direct) }.isSuccess) {
             logger.info("Agent direct tool action=$tool outcome=dispatched")
             return JSONObject().put("ok", true).put("tool", tool).put("mode", "direct")
         }
 
-        val fallback = Intent(fallbackAction)
-            .setPackage(COLOROS_CLOCK_PACKAGE)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            .takeIf { it.resolveActivity(packageManager) != null }
-            ?: packageManager.getLaunchIntentForPackage(COLOROS_CLOCK_PACKAGE)
-                ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val fallback = clockAppLocator.preferredPackages().asSequence()
+            .map { pkg ->
+                Intent(fallbackAction).setPackage(pkg).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            .firstOrNull { it.resolveActivity(packageManager) != null }
+            ?: Intent(fallbackAction)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .takeIf { it.resolveActivity(packageManager) != null }
         if (fallback != null && runCatching { context.startActivity(fallback) }.isSuccess) {
             return JSONObject()
                 .put("ok", false)
@@ -855,7 +857,6 @@ internal class AgentStructuredDeviceTools(
             "订单", "外卖", "取餐", "配送", "骑手", "送达", "商家", "快递", "车票", "机票",
             "酒店", "电影票",
         )
-        const val COLOROS_CLOCK_PACKAGE = "com.coloros.alarmclock"
         val PACKAGE_NAME = Regex("[A-Za-z0-9_]+(?:\\.[A-Za-z0-9_]+)+")
         val NETWORK_BLOCK = Regex("<Network>.*?</Network>", setOf(RegexOption.DOT_MATCHES_ALL))
         val XML_SSID = Regex("""<string name="SSID">(.*?)</string>""")
