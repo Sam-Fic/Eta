@@ -177,8 +177,10 @@ internal class AgentPrivateDatabaseTools(
     }
 
     private fun deleteAlarm(args: JSONObject): String {
-        val precondition = clockWritePreconditions()
-        if (precondition is ClockPrecondition.Failed) return precondition.error
+        val sqlite = when (val precondition = clockWritePreconditions()) {
+            is ClockPrecondition.Failed -> return precondition.error
+            is ClockPrecondition.Ready -> precondition.sqlite
+        }
         return when (val resolution = resolveAlarm(args)) {
             is AlarmResolution.Failed -> resolution.error
             is AlarmResolution.Found -> {
@@ -187,7 +189,7 @@ internal class AgentPrivateDatabaseTools(
                     ?: return error("CLOCK_DATA_UNAVAILABLE", "无法定位 ColorOS 时钟数据库")
                 val sql = "PRAGMA busy_timeout=3000; DELETE FROM alarms WHERE _id=${target.id};"
                 val result = root.execute(
-                    "${shellQuote(precondition.sqlite)} ${shellQuote(databasePath)} ${shellQuote(sql)}",
+                    "${shellQuote(sqlite)} ${shellQuote(databasePath)} ${shellQuote(sql)}",
                     timeoutMillis = 15_000L,
                     maxOutputBytes = 8 * 1024,
                 )
@@ -217,8 +219,10 @@ internal class AgentPrivateDatabaseTools(
     }
 
     private fun updateAlarm(args: JSONObject): String {
-        val precondition = clockWritePreconditions()
-        if (precondition is ClockPrecondition.Failed) return precondition.error
+        val sqlite = when (val precondition = clockWritePreconditions()) {
+            is ClockPrecondition.Failed -> return precondition.error
+            is ClockPrecondition.Ready -> precondition.sqlite
+        }
         return when (val resolution = resolveAlarm(args)) {
             is AlarmResolution.Failed -> resolution.error
             is AlarmResolution.Found -> {
@@ -273,7 +277,7 @@ internal class AgentPrivateDatabaseTools(
                     ?: return error("CLOCK_DATA_UNAVAILABLE", "无法定位 ColorOS 时钟数据库")
                 val sql = "PRAGMA busy_timeout=3000; UPDATE alarms SET ${sets.joinToString(", ")} WHERE _id=${target.id};"
                 val result = root.execute(
-                    "${shellQuote(precondition.sqlite)} ${shellQuote(databasePath)} ${shellQuote(sql)}",
+                    "${shellQuote(sqlite)} ${shellQuote(databasePath)} ${shellQuote(sql)}",
                     timeoutMillis = 15_000L,
                     maxOutputBytes = 8 * 1024,
                 )
@@ -424,16 +428,15 @@ internal class AgentPrivateDatabaseTools(
             if (!database.hasColumns("alarms", setOf("_id", "hour", "minutes", "enabled"))) {
                 ClockRead.SchemaUnsupported
             } else {
-                ClockRead.Ok(
-                    database.rows(
-                        table = "alarms",
-                        columns = ALARM_COLUMNS,
-                        selection = selection,
-                        selectionArgs = selectionArgs,
-                        order = "enabled DESC, alarmtime ASC",
-                        limit = 10,
-                    ),
+                val rows = database.rows(
+                    table = "alarms",
+                    columns = ALARM_COLUMNS,
+                    selection = selection,
+                    selectionArgs = selectionArgs,
+                    order = "enabled DESC, alarmtime ASC",
+                    limit = 10,
                 )
+                ClockRead.Ok((0 until rows.length()).mapNotNull { rows.optJSONObject(it) })
             }
         } ?: ClockRead.Unavailable
 

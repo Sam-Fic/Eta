@@ -213,7 +213,7 @@ internal class AgentToolRecipeExecutor(
             }
         }.getOrNull()
         if (value == null) {
-            return StepOutcome.Failed("RECIPE_SETTING_NOT_FOUND", "设置项 $namespace/$key 不存在或读不到")
+            return StepOutcome.Failed("RECIPE_SETTING_NOT_FOUND", "设置项 ${step.namespace}/$key 不存在或读不到")
         }
         return StepOutcome.Ok(value)
     }
@@ -250,7 +250,7 @@ internal class AgentToolRecipeExecutor(
             result.ok
         }
         if (!wrote) {
-            return StepOutcome.Failed("RECIPE_SETTING_WRITE_FAILED", "写入设置项 $namespace/$key 失败")
+            return StepOutcome.Failed("RECIPE_SETTING_WRITE_FAILED", "写入设置项 ${step.namespace}/$key 失败")
         }
         // 写后回读：不把「命令已发出」当「已生效」。
         val actual = runCatching {
@@ -263,10 +263,10 @@ internal class AgentToolRecipeExecutor(
         if (actual != value) {
             return StepOutcome.Failed(
                 "RECIPE_SETTING_NOT_APPLIED",
-                "设置项 $namespace/$key 写入后回读不一致（期望 $value，实际 ${actual ?: "空"}）",
+                "设置项 ${step.namespace}/$key 写入后回读不一致（期望 $value，实际 ${actual ?: "空"}）",
             )
         }
-        return StepOutcome.Ok("已写入 $namespace/$key")
+        return StepOutcome.Ok("已写入 ${step.namespace}/$key")
     }
 
     private fun fileRead(step: ToolRecipeStep.FileRead, values: Map<String, String>): StepOutcome {

@@ -64,6 +64,14 @@ import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.TravelExplore
 import androidx.compose.material.icons.rounded.WebAsset
 import androidx.compose.material.icons.rounded.Wifi
+import androidx.compose.material.icons.rounded.AspectRatio
+import androidx.compose.material.icons.rounded.AutoFixHigh
+import androidx.compose.material.icons.rounded.BatteryChargingFull
+import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.Inventory2
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.People
+import androidx.compose.material.icons.rounded.RocketLaunch
 import androidx.compose.ui.graphics.vector.ImageVector
 import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.icons.SubAgents
@@ -259,7 +267,7 @@ internal object ToolPresentation {
         "ime_control" -> Icons.Rounded.Keyboard
         "connect_wifi" -> Icons.Rounded.Wifi
         "set_timezone" -> Icons.Rounded.Schedule
-        "search_settings" -> Icons.Rounded.ManageSearch
+        "search_settings" -> Icons.AutoMirrored.Rounded.ManageSearch
         "dumpsys_diag" -> Icons.Rounded.MonitorHeart
         "network_info" -> Icons.Rounded.Wifi
         "wifi_credentials" -> Icons.Rounded.Wifi

@@ -255,10 +255,10 @@ internal object ToolRecipeTemplate {
 /** 配方解析与校验——把模型写的 JSON 变成可信的 [ToolRecipe]，或在出错时给出可执行的原因。 */
 internal object ToolRecipeParser {
 
-    /** 解析结果：成功给出配方，失败给出错误码与可读原因。 */
-    sealed interface ParseResult {
-        data class Ok(val recipe: ToolRecipe) : ParseResult
-        data class Invalid(val code: String, val message: String) : ParseResult
+    /** 解析结果：成功给出值（配方 / 参数 schema / 单个步骤），失败给出错误码与可读原因。 */
+    sealed interface ParseResult<out T> {
+        data class Ok<T>(val value: T) : ParseResult<T>
+        data class Invalid(val code: String, val message: String) : ParseResult<Nothing>
     }
 
     /**
@@ -270,7 +270,7 @@ internal object ToolRecipeParser {
         raw: JSONObject,
         existingNames: Set<String> = emptySet(),
         nowMillis: Long = 0L,
-    ): ParseResult {
+    ): ParseResult<ToolRecipe> {
         val name = raw.optString("name").trim()
         if (!ToolRecipeConstants.TOOL_NAME_PATTERN.matches(name)) {
             return ParseResult.Invalid(
@@ -296,8 +296,10 @@ internal object ToolRecipeParser {
             )
         }
 
-        val parameters = parseParameters(raw.optJSONObject("parameters"))
-        if (parameters is ParseResult.Invalid) return parameters
+        val parameters = when (val result = parseParameters(raw.optJSONObject("parameters"))) {
+            is ParseResult.Invalid -> return result
+            is ParseResult.Ok -> result.value
+        }
 
         val stepsArray = raw.optJSONArray("steps")
         if (stepsArray == null || stepsArray.length() == 0) {
@@ -316,7 +318,7 @@ internal object ToolRecipeParser {
                 ?: return ParseResult.Invalid("INVALID_RECIPE", "第 ${index + 1} 个 step 不是对象")
             when (val step = parseStep(stepObject)) {
                 is ParseResult.Invalid -> return ParseResult.Invalid(step.code, "第 ${index + 1} 个 step：${step.message}")
-                is ParseResult.Ok -> steps += step.recipe
+                is ParseResult.Ok -> steps += step.value
             }
         }
 
@@ -339,7 +341,7 @@ internal object ToolRecipeParser {
             ToolRecipe(
                 name = name,
                 description = description,
-                parameters = (parameters as ParseResult.Ok).recipe,
+                parameters = parameters,
                 steps = steps,
                 enabled = enabled,
                 version = version,
@@ -349,7 +351,7 @@ internal object ToolRecipeParser {
         )
     }
 
-    private fun parseParameters(raw: JSONObject?): ParseResult {
+    private fun parseParameters(raw: JSONObject?): ParseResult<JSONObject> {
         if (raw == null) {
             return ParseResult.Ok(JSONObject().put("type", "object").put("properties", JSONObject()))
         }
@@ -400,7 +402,7 @@ internal object ToolRecipeParser {
         return ParseResult.Ok(normalized)
     }
 
-    private fun parseStep(raw: JSONObject): ParseResult {
+    private fun parseStep(raw: JSONObject): ParseResult<ToolRecipeStep> {
         val op = raw.optString("op").trim()
         if (op !in ToolRecipeStep.ALL_OPS) {
             return ParseResult.Invalid(

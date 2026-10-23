@@ -80,7 +80,7 @@ class ToolRecipeTest {
 
         val parsed = ToolRecipeParser.parse(raw)
         assertTrue(parsed is ToolRecipeParser.ParseResult.Ok)
-        val recipe = (parsed as ToolRecipeParser.ParseResult.Ok).recipe
+        val recipe = (parsed as ToolRecipeParser.ParseResult.Ok<ToolRecipe>).value
         assertEquals("fetch_weather", recipe.name)
         assertEquals("recipe_fetch_weather", recipe.modelToolName)
         assertFalse(recipe.requiresRoot)

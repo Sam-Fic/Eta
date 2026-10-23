@@ -15,7 +15,7 @@ class BrowserSettingsTransitionContractTest(unittest.TestCase):
         self.assertIn('AnimatedVisibility(', self.sheet)
         self.assertIn('visible = showSettings', self.sheet)
         for required in ('slideInHorizontally', 'slideOutHorizontally', 'fadeIn', 'fadeOut',
-                         'BrowserSettingsTransitionMs', 'settingsProgress'):
+                         'defaultSpatialSpec', 'defaultEffectsSpec', 'settingsProgress'):
             self.assertIn(required, self.sheet)
         self.assertIn('translationX = (if (rtl) 1f else -1f) * settingsProgress * size.width / 4f', self.sheet)
         self.assertIn('BrowserSettingsPage(', self.sheet)

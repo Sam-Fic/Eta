@@ -23,6 +23,9 @@ internal class AgentSelfAuthorTools(
     companion object {
         const val AUTHOR_TOOL = io.github.mangi.eta.agent.model.AgentSelfSettingsToolCatalog.AUTHOR_TOOL
         const val LIST_TOOLS = io.github.mangi.eta.agent.model.AgentSelfSettingsToolCatalog.LIST_RECIPES
+
+        /** 名字命中多个时最多返回的候选数。 */
+        private const val MAX_CANDIDATES = 10
     }
 
     fun execute(name: String, args: JSONObject): String? = when (name) {
@@ -190,7 +193,7 @@ internal class AgentSelfAuthorTools(
         )) {
             is ToolRecipeParser.ParseResult.Invalid -> return error(parsed.code, parsed.message)
             is ToolRecipeParser.ParseResult.Ok -> {
-                val recipe = parsed.recipe
+                val recipe = parsed.value
 
                 // 环检测：把新配方加进图里再查一次。
                 val prospective = (all.filter { it.name != recipe.name } + recipe)
@@ -295,8 +298,4 @@ internal class AgentSelfAuthorTools(
             .put("code", code)
             .put("message", message)
             .toString()
-
-    private companion object {
-        const val MAX_CANDIDATES = 10
-    }
 }

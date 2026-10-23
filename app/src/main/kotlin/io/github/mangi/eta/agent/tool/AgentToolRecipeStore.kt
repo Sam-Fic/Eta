@@ -29,7 +29,7 @@ internal class AgentToolRecipeStore(
     /** 全部配方（含未启用）。 */
     fun all(): List<ToolRecipe> {
         lock.read {
-            return loadLocked()
+            return loadLocked().values.toList()
         }
     }
 
