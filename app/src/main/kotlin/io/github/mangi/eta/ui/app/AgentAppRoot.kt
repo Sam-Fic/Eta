@@ -109,6 +109,7 @@ import io.github.mangi.eta.ui.screens.browser.AgentBrowserScreen
 import io.github.mangi.eta.ui.screens.chat.AgentChatScreen
 import io.github.mangi.eta.ui.screens.chat.ConversationTokenUsageScreen
 import io.github.mangi.eta.ui.screens.chat.ManageChatsScreen
+import io.github.mangi.eta.ui.screens.chat.ManageFoldersScreen
 import io.github.mangi.eta.ui.screens.chat.TrashScreen
 import io.github.mangi.eta.ui.screens.chat.TrashSearchScreen
 import io.github.mangi.eta.ui.screens.chat.MessageSearchScreen
@@ -537,8 +538,8 @@ fun AgentAppRoot(
                 }
             },
             onOpenManageChats = { pushFromDrawer(AppRoute.ManageChats) },
+            onOpenManageFolders = { pushFromDrawer(AppRoute.ManageFolders) },
             onSelectFolder = { folderId -> agentState.selectFolder(folderId) },
-            onCreateFolder = { name -> agentState.createFolder(name) },
             onRenameFolder = { folderId, name -> agentState.renameFolder(folderId, name) },
             onDeleteFolder = { folderId -> agentState.deleteFolder(folderId) },
             onRestoreConversation = { conversationId -> agentState.restoreConversationFromTrash(conversationId) },
@@ -975,6 +976,16 @@ fun AgentAppRoot(
                     },
                     onDeleteAll = { agentState.deleteAllConversations() },
                     onOpenSearchHistory = { pushRoute(AppRoute.MessageSearch()) },
+                )
+            }
+            composable<AppRoute.ManageFolders> {
+                ManageFoldersScreen(
+                    folders = agentState.conversationPaneState.folders,
+                    conversations = agentState.conversationPaneState.historyConversations,
+                    onBack = ::popRoute,
+                    onCreateFolder = { name -> agentState.createFolder(name) },
+                    onRenameFolder = { folderId, name -> agentState.renameFolder(folderId, name) },
+                    onDeleteFolder = { folderId -> agentState.deleteFolder(folderId) },
                 )
             }
             composable<AppRoute.ConversationTrash> {

@@ -296,14 +296,19 @@
   <string name="drawer_chats_chip">聊天</string>
   <string name="drawer_uncategorized_chip">未分类</string>
   <string name="drawer_new_chat">新建</string>
-  <string name="drawer_new_conversation">新建对话</string>
   <string name="drawer_manage_chats">管理聊天</string>
-  <string name="drawer_new_folder">新建文件夹</string>
+  <string name="drawer_manage_folders">管理文件夹</string>
   <string name="drawer_folder_name">文件夹名称</string>
   <string name="drawer_create_folder_title">新建文件夹</string>
   <string name="drawer_rename_folder_title">重命名文件夹</string>
   <string name="drawer_delete_folder_title">删除文件夹？</string>
   <string name="drawer_delete_folder_message">文件夹中的对话会移回「聊天」，文件夹将被删除。</string>
+  <string name="folders_page_title">管理文件夹</string>
+  <string name="folders_page_empty">还没有文件夹，点右上角新建一个。</string>
+  <string name="folders_page_delete_message">「%1$s」中的对话会移回「聊天」，文件夹将被删除。</string>
+  <plurals name="folders_page_conversation_count">
+    <item quantity="other">%d 个对话</item>
+  </plurals>
   <string name="drawer_move_to_folder">移动到文件夹</string>
   <string name="drawer_trash_title">回收站</string>
   <string name="drawer_trash_empty">回收站是空的</string>

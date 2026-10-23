@@ -208,7 +208,7 @@ internal fun ManageChatsScreen(
  * 破坏性动作用 `IconButtonDefaults.iconButtonColors` 搭配 error 角色色）。
  */
 @Composable
-private fun TopBarIconButton(
+internal fun TopBarIconButton(
     icon: ImageVector,
     contentDescription: String,
     onClick: () -> Unit,

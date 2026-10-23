@@ -53,6 +53,7 @@ internal fun AppRoute.frameDiagnosticPage(): FrameDiagnosticPage = when (this) {
     is AppRoute.AssistantEdit -> FrameDiagnosticPage.AssistantEdit
     AppRoute.UsageStats -> FrameDiagnosticPage.UsageStats
     AppRoute.ManageChats -> FrameDiagnosticPage.ManageChats
+    AppRoute.ManageFolders -> FrameDiagnosticPage.ManageChats
     AppRoute.ConversationTrash -> FrameDiagnosticPage.ManageChats
     AppRoute.ConversationTrashSearch -> FrameDiagnosticPage.ManageChats
     is AppRoute.MessageSearch -> FrameDiagnosticPage.ManageChats

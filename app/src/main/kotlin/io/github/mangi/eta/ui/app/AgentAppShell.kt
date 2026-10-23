@@ -105,8 +105,8 @@ internal fun AgentAppShell(
     onConversationTogglePin: (ConversationSummaryUi) -> Unit = {},
     onConversationExport: (ConversationSummaryUi) -> Unit = {},
     onOpenManageChats: () -> Unit = {},
+    onOpenManageFolders: () -> Unit = {},
     onSelectFolder: (String?) -> Unit = {},
-    onCreateFolder: (String) -> Unit = {},
     onRenameFolder: (String, String) -> Unit = { _, _ -> },
     onDeleteFolder: (String) -> Unit = {},
     onRestoreConversation: (String) -> Unit = {},
@@ -243,12 +243,11 @@ internal fun AgentAppShell(
                 onConversationRename = onConversationRename,
                 onConversationDelete = onConversationDelete,
                 onMoveConversationToFolder = onMoveConversationToFolder,
-                onNewConversation = onNewConversation,
                 onConversationTogglePin = onConversationTogglePin,
                 onConversationExport = onConversationExport,
                 onOpenManageChats = onOpenManageChats,
+                onOpenManageFolders = onOpenManageFolders,
                 onSelectFolder = onSelectFolder,
-                onCreateFolder = onCreateFolder,
                 onRenameFolder = onRenameFolder,
                 onDeleteFolder = onDeleteFolder,
                 onRestoreConversation = onRestoreConversation,
@@ -473,6 +472,7 @@ private fun titleForRoute(route: AppRoute?, currentConversationTitle: String? = 
     is AppRoute.ContextCompression -> stringResource(R.string.route_context_compression)
     is AppRoute.UsageStats -> stringResource(R.string.stats_page_title)
     is AppRoute.ManageChats -> stringResource(R.string.history_page_title)
+    is AppRoute.ManageFolders -> stringResource(R.string.folders_page_title)
     is AppRoute.ConversationTrash -> stringResource(R.string.drawer_trash_title)
     is AppRoute.ConversationTrashSearch -> stringResource(R.string.trash_search_title)
     is AppRoute.MessageSearch -> stringResource(R.string.search_history_hint)

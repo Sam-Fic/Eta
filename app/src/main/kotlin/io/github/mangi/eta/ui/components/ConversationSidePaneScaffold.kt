@@ -62,7 +62,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.HealthAndSafety
-import androidx.compose.material.icons.rounded.CreateNewFolder
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.ManageHistory
 import androidx.compose.material.icons.automirrored.rounded.Chat
@@ -76,7 +75,6 @@ import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.AddComment
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Badge
 import androidx.compose.material3.ButtonDefaults
@@ -86,10 +84,10 @@ import androidx.compose.material3.DrawerState
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.FloatingToolbarDefaults
+import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.IconButtonShapes
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
@@ -223,8 +221,13 @@ private object DrawerMetrics {
     // 胶囊行横向滚动的两端淡出带宽度。与底色同色，滚动到中间时把视口切开的胶囊边缘擦掉。
     val ChipRowEdgeFadeWidth = 24.dp
     val AfterChips = 10.dp
-    val ListBottomPadding = 12.dp
-    val BottomInset = 10.dp
+    // 底部浮动工具栏（M3E HorizontalFloatingToolbar）：高度与离底间距取官方
+    // FloatingToolbarDefaults.ContainerSize / ScreenOffset（64dp / 16dp），
+    // 列表底部再留 12dp，让最后一条会话能完整滚到工具栏上方而不被药丸压住。
+    val ToolbarHeight = 64.dp
+    val ToolbarBottomOffset = 16.dp
+    val ToolbarListGap = 12.dp
+    val ToolbarListBottomPadding = ToolbarHeight + ToolbarBottomOffset + ToolbarListGap
     val ActionIconSize = 20.dp
     val CircleButtonPadding = 10.dp
     val SectionTopPadding = 10.dp
@@ -255,10 +258,9 @@ fun ConversationSidePaneScaffold(
     onMoveConversationToFolder: (ConversationSummaryUi) -> Unit = {},
     onConversationTogglePin: (ConversationSummaryUi) -> Unit = {},
     onConversationExport: (ConversationSummaryUi) -> Unit = {},
-    onNewConversation: () -> Unit,
     onOpenManageChats: () -> Unit = {},
+    onOpenManageFolders: () -> Unit = {},
     onSelectFolder: (String?) -> Unit = {},
-    onCreateFolder: (String) -> Unit = {},
     onRenameFolder: (String, String) -> Unit = { _, _ -> },
     onDeleteFolder: (String) -> Unit = {},
     onRestoreConversation: (String) -> Unit = {},
@@ -323,11 +325,6 @@ fun ConversationSidePaneScaffold(
 
     val selectConversation: (String) -> Unit = { conversationId ->
         onConversationSelected(conversationId)
-        closePaneIfCovering()
-    }
-
-    val createConversationInPane: () -> Unit = {
-        onNewConversation()
         closePaneIfCovering()
     }
 
@@ -444,12 +441,11 @@ fun ConversationSidePaneScaffold(
                     onConversationRename = onConversationRename,
                     onConversationDelete = onConversationDelete,
                     onMoveConversationToFolder = onMoveConversationToFolder,
-                    onNewConversation = createConversationInPane,
                     onConversationTogglePin = onConversationTogglePin,
                     onConversationExport = onConversationExport,
                     onOpenManageChats = onOpenManageChats,
+                    onOpenManageFolders = onOpenManageFolders,
                     onSelectFolder = onSelectFolder,
-                    onCreateFolder = onCreateFolder,
                     onRenameFolder = onRenameFolder,
                     onDeleteFolder = onDeleteFolder,
                     onRestoreConversation = onRestoreConversation,
@@ -527,10 +523,9 @@ private fun ConversationPanePanel(
     onMoveConversationToFolder: (ConversationSummaryUi) -> Unit = {},
     onConversationTogglePin: (ConversationSummaryUi) -> Unit = {},
     onConversationExport: (ConversationSummaryUi) -> Unit = {},
-    onNewConversation: () -> Unit,
     onOpenManageChats: () -> Unit = {},
+    onOpenManageFolders: () -> Unit = {},
     onSelectFolder: (String?) -> Unit = {},
-    onCreateFolder: (String) -> Unit = {},
     onRenameFolder: (String, String) -> Unit = { _, _ -> },
     onDeleteFolder: (String) -> Unit = {},
     onRestoreConversation: (String) -> Unit = {},
@@ -571,10 +566,9 @@ private fun ConversationPanePanel(
         onMoveConversationToFolder = onMoveConversationToFolder,
         onConversationTogglePin = onConversationTogglePin,
         onConversationExport = onConversationExport,
-        onNewConversation = onNewConversation,
         onOpenManageChats = onOpenManageChats,
+        onOpenManageFolders = onOpenManageFolders,
         onSelectFolder = onSelectFolder,
-        onCreateFolder = onCreateFolder,
         onRenameFolder = onRenameFolder,
         onDeleteFolder = onDeleteFolder,
         onRestoreConversation = onRestoreConversation,
@@ -591,7 +585,7 @@ private fun ConversationPanePanel(
 }
 
 @Composable
-private fun FolderNameDialog(
+internal fun FolderNameDialog(
     title: String,
     initialName: String,
     onDismiss: () -> Unit,
@@ -655,10 +649,9 @@ private fun Material3ConversationPane(
     onMoveConversationToFolder: (ConversationSummaryUi) -> Unit,
     onConversationTogglePin: (ConversationSummaryUi) -> Unit,
     onConversationExport: (ConversationSummaryUi) -> Unit,
-    onNewConversation: () -> Unit,
     onOpenManageChats: () -> Unit,
+    onOpenManageFolders: () -> Unit,
     onSelectFolder: (String?) -> Unit,
-    onCreateFolder: (String) -> Unit,
     onRenameFolder: (String, String) -> Unit,
     onDeleteFolder: (String) -> Unit,
     onRestoreConversation: (String) -> Unit = {},
@@ -676,7 +669,6 @@ private fun Material3ConversationPane(
     val visibleConversations = remember(state.conversations, query) { state.searchResults() }
     val groups = remember(visibleConversations) { visibleConversations.groupForDrawer() }
     val folders = state.folders
-    var createFolder by remember { mutableStateOf(false) }
     var folderToRename by remember { mutableStateOf<ConversationFolderUi?>(null) }
     var folderToDelete by remember { mutableStateOf<ConversationFolderUi?>(null) }
     val view = LocalView.current
@@ -706,41 +698,38 @@ private fun Material3ConversationPane(
                 .padding(horizontal = DrawerMetrics.PaneHorizontalPadding),
         ) {
             Spacer(modifier = Modifier.height(DrawerMetrics.TopInset))
-            Material3PaneSearchField(
-                query = state.searchQuery,
-                onSearchChange = onSearchChange,
-                enableSearchFocus = enableSearchFocus,
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // 第一排（自带一行）：新建对话 / 管理聊天
-            val actionCount = 2
+            // 搜索栏与「管理聊天」同排：搜索框吃掉剩余宽度，右侧是一枚与搜索框同高
+            // （官方 Medium 档 56dp）、同容器色的图标按钮。
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                // 官方相连按钮组间距：ButtonGroupDefaults.ConnectedSpaceBetween = 2dp
-                horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Material3DrawerChip(
-                    text = stringResource(R.string.drawer_new_conversation),
-                    position = drawerGroupPosition(0, actionCount),
-                    selected = false,
-                    leadingIcon = Icons.Rounded.AddComment,
-                    onClick = onNewConversation,
-                    modifier = Modifier.weight(1f),
-                )
-                Material3DrawerChip(
-                    text = stringResource(R.string.drawer_manage_chats),
-                    position = drawerGroupPosition(1, actionCount),
-                    selected = false,
-                    leadingIcon = Icons.Rounded.ManageHistory,
+                Box(modifier = Modifier.weight(1f)) {
+                    Material3PaneSearchField(
+                        query = state.searchQuery,
+                        onSearchChange = onSearchChange,
+                        enableSearchFocus = enableSearchFocus,
+                    )
+                }
+                IconButton(
                     onClick = onOpenManageChats,
-                    modifier = Modifier.weight(1f),
-                )
+                    modifier = Modifier.size(IconButtonDefaults.mediumContainerSize()),
+                    colors = IconButtonDefaults.iconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                    ),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.ManageHistory,
+                        contentDescription = stringResource(R.string.drawer_manage_chats),
+                        modifier = Modifier.size(IconButtonDefaults.mediumIconSize),
+                    )
+                }
             }
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // 第二排：左侧可横向滚动的「聊天 / 未分类 / [文件夹…]」，右侧固定「新建文件夹」。
+            // 胶囊行：左侧可横向滚动的「聊天 / 未分类 / [文件夹…]」，右侧固定「管理文件夹」。
             val chipCount = 2 + folders.size
             val chipScrollState = rememberScrollState()
             Row(
@@ -824,133 +813,84 @@ private fun Material3ConversationPane(
                 }
                 Spacer(modifier = Modifier.width(ButtonGroupDefaults.ConnectedSpaceBetween))
                 // 独立胶囊按钮（DrawerGroupPosition.Single）：始终贴右，不随文件夹列表滚动。
+                // 文件夹的新建 / 重命名 / 删除都在独立管理页完成，这里只负责入口。
                 Material3DrawerChip(
-                    text = stringResource(R.string.drawer_new_folder),
+                    text = stringResource(R.string.drawer_manage_folders),
                     position = DrawerGroupPosition.Single,
                     selected = false,
-                    leadingIcon = Icons.Rounded.CreateNewFolder,
-                    onClick = { createFolder = true },
+                    leadingIcon = Icons.Rounded.Folder,
+                    onClick = onOpenManageFolders,
                 )
             }
             Spacer(modifier = Modifier.height(12.dp))
 
-            LazyColumn(
+            // 列表不再给底部工具栏让位：铺满到抽屉底缘，工具栏以药丸形态浮在列表上方。
+            // 底部 contentPadding 预留「工具栏高度 + 离底间距 + 间隙」，最后一条会话仍能完整滚出来。
+            Box(
                 modifier = Modifier
                     .weight(1f)
-                    .streamDiagnosticMeasure("drawer.lazy.measure")
-                    .streamDiagnosticPlacement("drawer.lazy.place")
-                    .streamDiagnosticDraw("drawer.lazy.draw"),
-                contentPadding = PaddingValues(bottom = DrawerMetrics.ListBottomPadding),
-                overscrollEffect = null,
+                    .fillMaxWidth(),
             ) {
-                if (visibleConversations.isEmpty()) {
-                    item(contentType = "drawer-empty") {
-                        Material3EmptyConversations(isSearching = query.isNotBlank())
-                    }
-                } else {
-                    groups.forEachIndexed { groupIndex, group ->
-                        val isLastGroup = groupIndex == groups.lastIndex
-                        item(key = group.key, contentType = "drawer-section") {
-                            Material3DrawerSectionHeader(
-                                label = group.localizedLabel(),
-                                count = group.items.size,
-                            )
-                        }
-                        itemsIndexed(
-                            items = group.items,
-                            key = { _, conversation -> conversation.id },
-                            contentType = { _, _ -> "drawer-conversation" },
-                        ) { index, conversation ->
-                            Material3ConversationRow(
-                                conversation = conversation,
-                                index = index,
-                                count = group.items.size,
-                                isLastGroup = isLastGroup,
-                                selected = conversation.id == state.selectedConversationId,
-                                onClick = { onConversationSelected(conversation.id) },
-                                onRename = { onConversationRename(conversation) },
-                                onDelete = { onConversationDelete(conversation) },
-                                onMoveToFolder = { onMoveConversationToFolder(conversation) },
-                                onTogglePin = { onConversationTogglePin(conversation) },
-                                onExport = { onConversationExport(conversation) },
-                            )
-                        }
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // 底部：五个工具按钮（官方相连图标按钮组）+ 设置
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
-            ) {
-                Material3ConnectedIconButton(
-                    icon = Icons.Rounded.HealthAndSafety,
-                    contentDescription = stringResource(R.string.ui_permission_health_3048bb),
-                    onClick = onOpenPermissions,
-                    position = DrawerGroupPosition.Leading,
-                )
-                Material3ConnectedIconButton(
-                    icon = Icons.Rounded.Memory,
-                    contentDescription = stringResource(R.string.conversation_dock_models),
-                    onClick = onOpenModelProviders,
-                    position = DrawerGroupPosition.Middle,
-                )
-                Material3ConnectedIconButton(
-                    icon = Icons.Rounded.Extension,
-                    contentDescription = stringResource(R.string.route_skills),
-                    onClick = onOpenSkills,
-                    position = DrawerGroupPosition.Middle,
-                )
-                Material3ConnectedIconButton(
-                    icon = Icons.Rounded.BarChart,
-                    contentDescription = stringResource(R.string.stats_page_title),
-                    onClick = onOpenUsageStats,
-                    position = DrawerGroupPosition.Middle,
-                )
-                // 回收站入口：跳转独立页面（底部按钮组末位）。
-                Material3ConnectedIconButton(
-                    icon = Icons.Rounded.DeleteSweep,
-                    contentDescription = stringResource(R.string.drawer_trash_title),
-                    onClick = onOpenTrash,
-                    position = DrawerGroupPosition.Trailing,
-                )
-                Spacer(modifier = Modifier.weight(1f))
-                // 设置入口：跟随相连按钮组同档配色（容器色 / 内容色）。
-                val (settingsContainerColor, settingsContentColor) =
-                    drawerConnectedGroupColors(selected = false)
-                FilledTonalIconButton(
-                    onClick = onOpenSettings,
-                    modifier = Modifier.size(IconButtonDefaults.smallContainerSize()),
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor = settingsContainerColor,
-                        contentColor = settingsContentColor,
-                    ),
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .streamDiagnosticMeasure("drawer.lazy.measure")
+                        .streamDiagnosticPlacement("drawer.lazy.place")
+                        .streamDiagnosticDraw("drawer.lazy.draw"),
+                    contentPadding = PaddingValues(bottom = DrawerMetrics.ToolbarListBottomPadding),
+                    overscrollEffect = null,
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Settings,
-                        contentDescription = stringResource(R.string.route_settings),
-                        modifier = Modifier.size(IconButtonDefaults.smallIconSize),
-                    )
+                    if (visibleConversations.isEmpty()) {
+                        item(contentType = "drawer-empty") {
+                            Material3EmptyConversations(isSearching = query.isNotBlank())
+                        }
+                    } else {
+                        groups.forEachIndexed { groupIndex, group ->
+                            val isLastGroup = groupIndex == groups.lastIndex
+                            item(key = group.key, contentType = "drawer-section") {
+                                Material3DrawerSectionHeader(
+                                    label = group.localizedLabel(),
+                                    count = group.items.size,
+                                )
+                            }
+                            itemsIndexed(
+                                items = group.items,
+                                key = { _, conversation -> conversation.id },
+                                contentType = { _, _ -> "drawer-conversation" },
+                            ) { index, conversation ->
+                                Material3ConversationRow(
+                                    conversation = conversation,
+                                    index = index,
+                                    count = group.items.size,
+                                    isLastGroup = isLastGroup,
+                                    selected = conversation.id == state.selectedConversationId,
+                                    onClick = { onConversationSelected(conversation.id) },
+                                    onRename = { onConversationRename(conversation) },
+                                    onDelete = { onConversationDelete(conversation) },
+                                    onMoveToFolder = { onMoveConversationToFolder(conversation) },
+                                    onTogglePin = { onConversationTogglePin(conversation) },
+                                    onExport = { onConversationExport(conversation) },
+                                )
+                            }
+                        }
+                    }
                 }
+                // 底部入口：权限 / 模型 / 技能 / 用量 / 回收站 / 设置，同一颗居中药丸。
+                Material3DrawerToolbar(
+                    onOpenPermissions = onOpenPermissions,
+                    onOpenModelProviders = onOpenModelProviders,
+                    onOpenSkills = onOpenSkills,
+                    onOpenUsageStats = onOpenUsageStats,
+                    onOpenTrash = onOpenTrash,
+                    onOpenSettings = onOpenSettings,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = DrawerMetrics.ToolbarBottomOffset),
+                )
             }
-            Spacer(modifier = Modifier.height(DrawerMetrics.BottomInset))
         }
     }
 
-    if (createFolder) {
-        FolderNameDialog(
-            title = stringResource(R.string.drawer_create_folder_title),
-            initialName = "",
-            onDismiss = { createFolder = false },
-            onConfirm = { name ->
-                onCreateFolder(name)
-                createFolder = false
-            },
-        )
-    }
     folderToRename?.let { folder ->
         FolderNameDialog(
             title = stringResource(R.string.drawer_rename_folder_title),
@@ -1200,7 +1140,7 @@ private fun rememberDrawerFolderChipShape(
  * `ToggleButton` 默认档）—— 未选中 `surfaceContainerHighest` / `onSurface`，选中
  * `primary` / `onPrimary`。
  *
- * 供组内非 `ToggleButton` 成员（文件夹胶囊的自绘容器、底部图标行、设置图标按钮）取同一套色。
+ * 供组内非 `ToggleButton` 成员（文件夹胶囊的自绘容器等）取同一套色。
  */
 @Composable
 private fun drawerConnectedGroupColors(selected: Boolean): Pair<Color, Color> {
@@ -1210,13 +1150,6 @@ private fun drawerConnectedGroupColors(selected: Boolean): Pair<Color, Color> {
     } else {
         scheme.surfaceContainerHighest to scheme.onSurface
     }
-}
-
-/** 官方相连图标按钮形状，与文字按钮组共用同一套 `ButtonGroupDefaults` 形状令牌。 */
-@Composable
-private fun connectedIconButtonShapes(position: DrawerGroupPosition): IconButtonShapes {
-    val shapes = etaConnectedButtonShapes(position.toEtaConnectedPosition())
-    return IconButtonShapes(shape = shapes.shape, pressedShape = shapes.pressedShape)
 }
 
 /**
@@ -1344,28 +1277,92 @@ private fun Material3DrawerFolderChip(
 }
 
 /**
- * M3 抽屉：底部工具行里的相连图标按钮。
+ * M3 抽屉：底部浮动工具栏。
  *
- * 官方 `FilledTonalIconButton` + 官方 `IconButtonShapes`（形状令牌与同组文字按钮共用），
- * 容器尺寸取 `IconButtonDefaults.smallContainerSize()`、图标取 `smallIconSize`；
- * 容器 / 内容色跟整块抽屉的连体按钮组同档。
+ * 官方 M3E [HorizontalFloatingToolbar] 承载全部入口（权限 / 模型 / 技能 / 用量 / 回收站 / 设置），
+ * 药丸整体居中、悬浮在会话列表上方；容器与内容色取官方 vibrant 档，
+ * 尺寸、内边距、圆角、海拔全部走官方令牌，`expanded = true` 常驻展开。
  */
 @Composable
-private fun Material3ConnectedIconButton(
+private fun Material3DrawerToolbar(
+    onOpenPermissions: () -> Unit,
+    onOpenModelProviders: () -> Unit,
+    onOpenSkills: () -> Unit,
+    onOpenUsageStats: () -> Unit,
+    onOpenTrash: () -> Unit,
+    onOpenSettings: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // 官方 minimumInteractiveBalancedPadding 只在两侧都没有 leading/trailing 内容时生效：
+    // 它会把内容里的 MinimumInteractive…AlignmentLine 当成补偿内边距，把整条工具栏撑高。
+    // 本行布局完全显式（固定尺寸 + 固定间距），显式传空的 leadingContent 让这组补偿归零
+    // （官方参数语义，非 hack，与输入区 / 浏览器工具栏同款处理）。
+    val toolbarColors = FloatingToolbarDefaults.vibrantFloatingToolbarColors()
+    HorizontalFloatingToolbar(
+        expanded = true,
+        colors = toolbarColors,
+        leadingContent = {},
+        modifier = modifier,
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Material3DrawerToolbarButton(
+                icon = Icons.Rounded.HealthAndSafety,
+                contentDescription = stringResource(R.string.ui_permission_health_3048bb),
+                contentColor = toolbarColors.toolbarContentColor,
+                onClick = onOpenPermissions,
+            )
+            Material3DrawerToolbarButton(
+                icon = Icons.Rounded.Memory,
+                contentDescription = stringResource(R.string.conversation_dock_models),
+                contentColor = toolbarColors.toolbarContentColor,
+                onClick = onOpenModelProviders,
+            )
+            Material3DrawerToolbarButton(
+                icon = Icons.Rounded.Extension,
+                contentDescription = stringResource(R.string.route_skills),
+                contentColor = toolbarColors.toolbarContentColor,
+                onClick = onOpenSkills,
+            )
+            Material3DrawerToolbarButton(
+                icon = Icons.Rounded.BarChart,
+                contentDescription = stringResource(R.string.stats_page_title),
+                contentColor = toolbarColors.toolbarContentColor,
+                onClick = onOpenUsageStats,
+            )
+            Material3DrawerToolbarButton(
+                icon = Icons.Rounded.DeleteSweep,
+                contentDescription = stringResource(R.string.drawer_trash_title),
+                contentColor = toolbarColors.toolbarContentColor,
+                onClick = onOpenTrash,
+            )
+            Material3DrawerToolbarButton(
+                icon = Icons.Rounded.Settings,
+                contentDescription = stringResource(R.string.route_settings),
+                contentColor = toolbarColors.toolbarContentColor,
+                onClick = onOpenSettings,
+            )
+        }
+    }
+}
+
+/**
+ * 浮动工具栏里的图标按钮：官方标准 [IconButton] 的 Small 档（40dp 容器 / 24dp 图标），
+ * 内容色直接取工具栏自己的内容色，容器透明，视觉上就是药丸里的一枚裸图标。
+ */
+@Composable
+private fun Material3DrawerToolbarButton(
     icon: ImageVector,
     contentDescription: String?,
+    contentColor: Color,
     onClick: () -> Unit,
-    position: DrawerGroupPosition,
 ) {
-    val (containerColor, contentColor) = drawerConnectedGroupColors(selected = false)
-    FilledTonalIconButton(
+    IconButton(
         onClick = onClick,
-        shapes = connectedIconButtonShapes(position),
         modifier = Modifier.size(IconButtonDefaults.smallContainerSize()),
-        colors = IconButtonDefaults.filledTonalIconButtonColors(
-            containerColor = containerColor,
-            contentColor = contentColor,
-        ),
+        colors = IconButtonDefaults.iconButtonColors(contentColor = contentColor),
     ) {
         Icon(
             imageVector = icon,

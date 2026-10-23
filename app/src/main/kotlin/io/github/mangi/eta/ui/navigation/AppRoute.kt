@@ -157,6 +157,10 @@ sealed interface AppRoute {
     @Serializable
     data object ManageChats : AppRoute
 
+    /** 文件夹管理页：新建 / 重命名 / 删除文件夹；从抽屉的「管理文件夹」入口进入。 */
+    @Serializable
+    data object ManageFolders : AppRoute
+
     /** 回收站：已软删除会话的恢复与彻底清理。 */
     @Serializable
     data object ConversationTrash : AppRoute
