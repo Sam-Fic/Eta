@@ -32,7 +32,6 @@ class ProviderRepositoryTest {
         SettingsDataStore.init(context)
         ProviderRepository.init(context)
         assertTrue(ProviderRepository.context() === context.applicationContext)
-        context.getSharedPreferences("eta_oauth_prefs", Context.MODE_PRIVATE).edit().clear().commit()
         runBlocking {
             SettingsDataStore.setSelection(providerId = null, modelId = null)
         }

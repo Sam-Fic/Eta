@@ -10,7 +10,7 @@ class RemovedProviderPolicyTest {
     @Test fun removedModesAndHostsAreRejected() {
         assertTrue(RemovedProviderPolicy.isRemoved("https://proxy.example/v1", "antigravity"))
         assertTrue(RemovedProviderPolicy.isRemoved("https://proxy.example/v1", authMode = "oauth_antigravity"))
-        assertTrue(RemovedProviderPolicy.isRemoved("https://proxy.example/v1", authMode = ProviderAuthMode.parse("oauth_antigravity")))
+        assertTrue(RemovedProviderPolicy.isRemoved("https://proxy.example/v1", authMode = ProviderAuthModes.parse("oauth_antigravity")))
         listOf("cloudcode-pa.googleapis.com", "daily-cloudcode-pa.googleapis.com", "daily-cloudcode-pa.sandbox.googleapis.com").forEach {
             assertTrue(RemovedProviderPolicy.isRemoved("https://$it/v1internal"))
         }
@@ -20,8 +20,8 @@ class RemovedProviderPolicyTest {
         listOf("https://generativelanguage.googleapis.com/v1beta/openai", "https://chatgpt.com/backend-api/codex", "https://api.anthropic.com", "https://cloudcode-pa.googleapis.com.example.org").forEach {
             assertFalse(RemovedProviderPolicy.isRemoved(it))
         }
-        assertTrue(ProviderAuthMode.isOAuth("oauth"))
-        assertFalse(ProviderAuthMode.isOAuth("oauth_antigravity"))
+        assertTrue(ProviderAuthModes.isOAuth("oauth"))
+        assertFalse(ProviderAuthModes.isOAuth("oauth_antigravity"))
     }
 
     @Test(expected = IllegalArgumentException::class)

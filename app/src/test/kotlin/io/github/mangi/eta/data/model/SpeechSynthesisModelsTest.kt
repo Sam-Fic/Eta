@@ -36,7 +36,7 @@ class SpeechSynthesisModelsTest {
     }
     @Test fun oauthAndAnthropicAreNotSpeechProviders() {
         assertFalse(SpeechSynthesisModels.allowsSpeechEndpoint(AnthropicProviderSetting("a", "a", "https://example.com")))
-        assertFalse(SpeechSynthesisModels.allowsSpeechEndpoint(OpenAiCompatibleProviderSetting("a", "a", "https://example.com", authMode = ProviderAuthMode.OAUTH)))
+        assertFalse(SpeechSynthesisModels.allowsSpeechEndpoint(OpenAiCompatibleProviderSetting("a", "a", "https://example.com", authMode = ProviderAuthModes.OPENAI_CHATGPT)))
         assertTrue(SpeechSynthesisModels.allowsSpeechEndpoint(CustomProviderSetting("a", "a", "https://example.com/v1")))
     }
 

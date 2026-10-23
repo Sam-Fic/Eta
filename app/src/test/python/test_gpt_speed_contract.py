@@ -74,7 +74,11 @@ class GptSpeedContractTest(unittest.TestCase):
 
     def test_codex_uses_official_mapping_without_changing_relay_modes(self):
         tier = source("agent/model/GptServiceTier.kt")
-        codex = between(tier, "if (OpenAiCodexOAuth.isCodexEndpoint(config.baseUrl))", "} else {")
+        codex = between(
+            tier,
+            "if (ProviderConnectionProfile.forAuthMode(config.authMode) == ProviderConnectionProfile.OPENAI_CODEX)",
+            "} else {",
+        )
         self.assertIn("GptSpeedMode.NORMAL -> null", codex)
         self.assertIn('GptSpeedMode.FAST -> "priority"', codex)
         self.assertIn("GptSpeedMode.ULTRA_FAST -> throw AgentModelFailure", codex)

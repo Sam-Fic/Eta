@@ -138,7 +138,7 @@ class ChildGptSpeedContractTest(unittest.TestCase):
         for mode, value in [('NORMAL','default'), ('FAST','fast'), ('ULTRA_FAST','ultrafast')]:
             self.assertIn(f'GptSpeedMode.{mode} -> "{value}"', tier)
         self.assertIn('GptSpeedMode.FAST -> "priority"', tier)
-        self.assertIn('OpenAiCodexOAuth.isCodexEndpoint(config.baseUrl)', tier)
+        self.assertIn('ProviderConnectionProfile.forAuthMode(config.authMode)', tier)
         for name in ('OpenAiChatCompletionsProvider.kt','ResponsesRequestBuilder.kt'):
             self.assertIn('GptServiceTier.apply(', source('agent/model/'+name))
 

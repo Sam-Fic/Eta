@@ -14,21 +14,30 @@ class ProviderRemoteModelSyncContractTest(unittest.TestCase):
     def setUpClass(cls):
         cls.ui = (KOTLIN / "ui/pages/providers/ProviderModelsTab.kt").read_text(encoding="utf-8")
         cls.repo = (KOTLIN / "data/repository/ModelRepository.kt").read_text(encoding="utf-8")
-        cls.refresh = cls.ui.split("val models = RemoteModelFetcher.fetch(requestProvider)", 1)[1].split(
-            "\n                    ArrowPreference(", 1
+        # 拉取分支从读取远端目录开始，到统一的取消处理结束。
+        cls.refresh = cls.ui.split("val fetchedCatalog = RemoteModelFetcher.fetchCatalog(provider)", 1)[1].split(
+            "catch (cancelled: CancellationException)", 1
         )[0]
         cls.sync = cls.repo.split("suspend fun syncRemoteModels(", 1)[1].split(
             "suspend fun addSelectedRemoteModels(", 1
         )[0]
 
+    def test_subscription_accounts_sync_the_whole_catalog_without_filtering(self):
+        oauth = self.refresh.split("if (ProviderAuthModes.isOAuth(provider.authMode))", 1)[1].split(
+            "val models = fetchedCatalog.models", 1
+        )[0]
+        self.assertIn("ModelRepository.syncRemoteCatalog(fetchedCatalog)", oauth)
+        self.assertNotIn("isChatCapableModel", oauth)
+        self.assertIn("R.string.provider_models_sync_summary", oauth)
+
     def test_success_syncs_without_adding_before_reading_latest_keys_and_candidates(self):
         sync_call = re.search(
-            r"val syncResult = ModelRepository\.syncRemoteModels\(\s*"
-            r"provider\.id,\s*chatModels,\s*includeNewModels = false,?\s*\)",
+            r"val syncResult = ModelRepository\.syncRemoteCatalog\(\s*"
+            r"fetchedCatalog,\s*emptySet\(\),?\s*\)",
             self.refresh,
         )
         self.assertIsNotNone(sync_call)
-        filtered = self.refresh.index("val chatModels = models.filter(RemoteModelFetcher::isCatalogModel)")
+        filtered = self.refresh.index("val chatModels = models.filter(RemoteModelFetcher::isChatCapableModel)")
         latest = self.refresh.index("val existingKeys = ModelRepository.modelsByProvider(provider.id)")
         fresh = self.refresh.index("val fresh = chatModels")
         empty_candidates = self.refresh.index("if (fresh.isEmpty())")
@@ -39,20 +48,22 @@ class ProviderRemoteModelSyncContractTest(unittest.TestCase):
         self.assertIn(".map { it.modelId.trim().lowercase() }.toSet()", self.refresh[latest:fresh])
         self.assertIn(".filter { it.modelId.trim().lowercase() !in existingKeys }", self.refresh[fresh:empty_candidates])
         self.assertNotIn("provider.models", self.refresh)
-        self.assertEqual(1, self.refresh.count("ModelRepository.syncRemoteModels("))
+        api_key = self.refresh.split("val models = fetchedCatalog.models", 1)[1]
+        self.assertEqual(1, api_key.count("ModelRepository.syncRemoteCatalog("))
 
     def test_failed_fetch_returns_before_any_sync_and_cancel_is_rethrown(self):
-        failure = self.refresh.split("val chatModels =", 1)[0]
-        self.assertIn(".getOrElse { throwable ->", failure)
+        failure = self.ui.split("getOrElse { throwable ->", 1)[1].split(
+            "if (ProviderAuthModes.isOAuth", 1
+        )[0]
         self.assertIn("R.string.provider_error", failure)
         self.assertRegex(failure, r"return@launch\s*}\s*$")
-        self.assertNotIn("syncRemoteModels", failure)
+        self.assertNotIn("syncRemoteCatalog", failure)
         self.assertNotIn("syncToRemotePreferences", failure)
         self.assertRegex(
-            self.refresh,
+            self.ui,
             r"catch \(cancelled: CancellationException\) \{\s*throw cancelled\s*}",
         )
-        self.assertRegex(self.refresh, r"finally \{\s*isFetching = false\s*}")
+        self.assertRegex(self.ui, r"finally \{\s*isFetching = false\s*}")
 
     def test_applied_sync_updates_runtime_even_when_no_models_were_added(self):
         self.assertRegex(
