@@ -22,6 +22,7 @@ import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.GppMaybe
+import androidx.compose.material.icons.rounded.Handyman
 import androidx.compose.material.icons.rounded.HealthAndSafety
 import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.Info
@@ -377,6 +378,19 @@ internal fun SettingsScreen(
                             )
                         },
                         onClick = { onNavigate(AppRoute.McpServers) },
+                    )
+                }
+
+                row {
+                    EtaClickableRow(
+                        title = stringResource(R.string.settings_tool_recipes),
+                        summary = stringResource(R.string.settings_tool_recipes_summary),
+                        leading = {
+                            PreferenceIcon(
+                                icon = Icons.Rounded.Handyman,
+                            )
+                        },
+                        onClick = { onNavigate(AppRoute.ToolRecipes) },
                     )
                 }
 

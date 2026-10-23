@@ -77,6 +77,7 @@ private val appRouteTypes: List<KClass<out AppRoute>> = listOf(
     AppRoute.MediaIndexSettings::class,
     AppRoute.MobileActionsSettings::class,
     AppRoute.MobileActions::class,
+    AppRoute.ToolRecipes::class,
 )
 
 /** 模式串（destination.route）→ 路由类型；导航目标是复用的，所以只需解析一次。 */

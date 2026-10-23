@@ -48,6 +48,9 @@ internal object ToolRecipeConstants {
 
     /** 设备上允许存在的配方总数上限。 */
     const val MAX_STORED_RECIPES = 64
+
+    /** 配方在 filesDir 下的目录名；管理页、备份与 agent 运行期共用同一路径。 */
+    const val DIRECTORY_NAME = "tool_recipes"
 }
 
 /** 配方的一个步骤。`op` 决定语义，其余字段是固定生成的键值，不接受自由格式。 */

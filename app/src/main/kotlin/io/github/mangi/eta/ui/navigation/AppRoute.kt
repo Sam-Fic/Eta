@@ -201,6 +201,15 @@ sealed interface AppRoute {
     /** 端侧设备动作试用页：指令 → 本地函数调用 → 真实执行。 */
     @Serializable
     data object MobileActions : AppRoute
+
+    /**
+     * 自建工具（配方）管理页：查看 / 启停 / 编辑 / 删除模型给自己写的工具。
+     *
+     * 配方是模型自进化的成果，用户必须能审计、接管与收回，因此它需要独立页面，
+     * 而不是只活在对话里。
+     */
+    @Serializable
+    data object ToolRecipes : AppRoute
 }
 
 @Serializable
