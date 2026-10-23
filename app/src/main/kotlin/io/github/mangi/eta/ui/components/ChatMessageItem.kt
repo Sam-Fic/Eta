@@ -114,6 +114,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -699,6 +700,12 @@ internal enum class UserBubblePosition {
 /** 接缝侧小圆角（组内 User 气泡相接角与尾巴底角共用）。 */
 private val UserBubbleInnerCorner = 2.dp
 
+/**
+ * 组尾气泡右下角尾巴的横向凸出宽度。气泡节点会比本体宽出这一段，让尾巴落在节点边界内，
+ * 按压涟漪才能覆盖到它；本体文字宽度不因此改变（右侧内边距同步加上这段）。
+ */
+private val UserBubbleTailWidth = 5.dp
+
 /** User 气泡普通角半径（附件行复用同档圆角）。 */
 private val UserBubbleCornerRadius = 24.dp
 
@@ -787,9 +794,12 @@ private fun userImageCorners(
 /**
  * 右下角尾巴的独立闭合路径：沿气泡右缘向上突的小竖条。右上角 1/4 圆角、右下角小圆角与接缝一致，
  * 顶边平直、左缘贴气泡右缘、底缘贴气泡底边，不叠入主体（避免半透明背景两次绘制产生色差）。
+ *
+ * [bodyWidth] 是气泡本体的宽度；尾巴落在 `bodyWidth..bodyWidth + UserBubbleTailWidth`。
  */
-private fun Density.userBubbleTailPath(w: Float, h: Float): Path {
-    val tw = 5.dp.toPx()
+private fun Density.userBubbleTailPath(bodyWidth: Float, h: Float): Path {
+    val w = bodyWidth
+    val tw = UserBubbleTailWidth.toPx()
     val th = 8.dp.toPx()
     val rTop = 4.dp.toPx()
     val rBot = UserBubbleInnerCorner.toPx()
@@ -806,13 +816,15 @@ private fun Density.userBubbleTailPath(w: Float, h: Float): Path {
 
 /** 组尾时把尾巴画在气泡背景之外，避免半透明底色与主体叠加出更深的色块。 */
 private fun DrawScope.drawUserBubbleTail(color: Color) {
-    drawPath(userBubbleTailPath(size.width, size.height), color)
+    val bodyWidth = size.width - UserBubbleTailWidth.toPx()
+    drawPath(userBubbleTailPath(bodyWidth, size.height), color)
 }
 
 /**
- * 气泡的裁剪形状：圆角矩形 + 组尾时右下角那条尾巴（两段互不重叠的闭合轮廓）。
+ * 气泡的裁剪形状：圆角矩形本体 + 组尾时右下角那条尾巴（两段互不重叠的闭合轮廓）。
  *
- * 按压涟漪由这个形状裁切，只裁圆角矩形的话尾巴那一小块永远盖不到，按下时会露出一角没被高亮的缺口。
+ * 节点的宽度刻意比本体多出尾巴那一段（见 [UserBubbleTailWidth]），所以尾巴整块都在节点边界内，
+ * 按压涟漪由这个形状裁切后能完整覆盖尾巴，不会留下没被高亮的一角。
  */
 private class UserBubbleShape(
     private val corners: CornerRadii,
@@ -831,10 +843,15 @@ private class UserBubbleShape(
         density: Density,
     ): Outline {
         if (!withTail) return rounded.createOutline(size, layoutDirection, density)
-        val body = rounded.createOutline(size, layoutDirection, density) as Outline.Rounded
+        val bodyWidth = size.width - with(density) { UserBubbleTailWidth.toPx() }
+        val body = rounded.createOutline(
+            size = Size(bodyWidth, size.height),
+            layoutDirection = layoutDirection,
+            density = density,
+        ) as Outline.Rounded
         val path = Path().apply {
             addRoundRect(body.roundRect)
-            addPath(with(density) { userBubbleTailPath(size.width, size.height) })
+            addPath(with(density) { userBubbleTailPath(bodyWidth, size.height) })
         }
         return Outline.Generic(path)
     }
@@ -851,14 +868,15 @@ private fun DrawScope.userBubbleOutlinePath(
     corners: CornerRadii,
     withTail: Boolean,
 ): Path {
-    val w = size.width
+    // 节点比本体宽出尾巴那一段（见 UserBubbleTailWidth），轮廓先回到本体宽度再往外画尾巴。
+    val w = if (withTail) size.width - UserBubbleTailWidth.toPx() else size.width
     val h = size.height
     val maxR = minOf(w, h) / 2f
     val ts = corners.topStart.toPx().coerceAtMost(maxR)
     val te = corners.topEnd.toPx().coerceAtMost(maxR)
     val bs = corners.bottomStart.toPx().coerceAtMost(maxR)
     val be = corners.bottomEnd.toPx().coerceAtMost(maxR)
-    val tw = 5.dp.toPx()
+    val tw = UserBubbleTailWidth.toPx()
     val th = 8.dp.toPx()
     val rTop = 4.dp.toPx()
     val rBot = UserBubbleInnerCorner.toPx()
@@ -1088,8 +1106,28 @@ private fun UserMessageBubble(
 
         // 气泡本体：半透明 primary 底、按组内位置的连续圆角、右对齐、0.82 宽度上限。
         if (hasBubbleBody) {
+            // 组尾的尾巴凸在气泡本体右侧。为了让按压涟漪也覆盖尾巴，这里把气泡节点的测量宽度
+            // 放宽尾巴那一段（本体宽度、文字换行、这一行在列表里的位置都不变），尾巴因此落进
+            // 节点边界内；右下角的内边距同步补上这一段，文字宽度保持原样。
+            val bubbleTailWidth = if (isGroupTail) UserBubbleTailWidth else 0.dp
             BoxWithConstraints(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(
+                        if (isGroupTail) {
+                            Modifier.layout { measurable, constraints ->
+                                val widened = constraints.maxWidth + bubbleTailWidth.roundToPx()
+                                val placeable = measurable.measure(
+                                    constraints.copy(minWidth = widened, maxWidth = widened),
+                                )
+                                layout(constraints.maxWidth, placeable.height) {
+                                    placeable.placeRelative(0, 0)
+                                }
+                            }
+                        } else {
+                            Modifier
+                        },
+                    ),
                 contentAlignment = Alignment.CenterEnd,
             ) {
                 val corners = if (joinsBubble) {
@@ -1097,7 +1135,7 @@ private fun UserMessageBubble(
                 } else {
                     userBubbleCorners(position)
                 }
-                // 裁剪形状把组尾的右下角尾巴一起算进去，涟漪与背景才会完整覆盖到尾块。
+                // 裁剪形状：圆角本体 + 尾巴，涟漪与背景都按这条形状裁切。
                 val bubbleShape: Shape = remember(corners, isGroupTail) {
                     UserBubbleShape(corners, withTail = isGroupTail)
                 }
@@ -1108,7 +1146,10 @@ private fun UserMessageBubble(
                 // 那不是 @Composable 作用域，直接读 `MaterialTheme.colorScheme` 会编译不过。
                 val bubbleStrokeColor = MaterialTheme.colorScheme.primary
                 val bubbleModifier = Modifier
-                    .widthIn(max = maxWidth * UserBubbleWidthFraction)
+                    // 节点宽度上限 = 本体上限 + 尾巴；本体宽度仍受 0.82 约束。
+                    .widthIn(
+                        max = (maxWidth - bubbleTailWidth) * UserBubbleWidthFraction + bubbleTailWidth,
+                    )
                     // 编辑态描边：整条轮廓（含右下角尾巴）一次描完，且必须挂在 clip 之外，
                     // 否则描边会被气泡形状裁掉、尾巴那一段永远缺一块。
                     .then(
@@ -1136,7 +1177,7 @@ private fun UserMessageBubble(
                             Modifier
                         },
                     )
-                    .padding(horizontal = 18.dp, vertical = 12.dp)
+                    .padding(start = 18.dp, end = 18.dp + bubbleTailWidth, top = 12.dp, bottom = 12.dp)
                 Column(modifier = bubbleModifier) {
                     visiblePrompt.conversations.forEach { mention ->
                         Text(
