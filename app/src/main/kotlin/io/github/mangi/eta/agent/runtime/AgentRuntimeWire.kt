@@ -16,6 +16,7 @@ import io.github.mangi.eta.data.model.CustomBody
 import io.github.mangi.eta.data.model.CustomHeader
 import io.github.mangi.eta.data.model.GptSpeedMode
 import io.github.mangi.eta.data.model.ModelReasoningCapabilities
+import io.github.mangi.eta.data.model.ProviderAuthModes
 import io.github.mangi.eta.data.model.ReasoningEffort
 import java.io.Closeable
 import java.util.ArrayList
@@ -193,6 +194,7 @@ internal object AgentRuntimeWire {
     private const val KEY_PROVIDER_SOURCE_TYPE = "provider_source_type"
     private const val KEY_BASE_URL = "base_url"
     private const val KEY_API_KEY = "api_key"
+    private const val KEY_AUTH_MODE = "auth_mode"
     private const val KEY_MODEL = "model"
     private const val KEY_MODEL_DISPLAY_NAME = "model_display_name"
     private const val KEY_CONTEXT_WINDOW = "context_window"
@@ -397,7 +399,11 @@ internal object AgentRuntimeWire {
         putString(KEY_PROVIDER_TYPE, request.config.providerType)
         putString(KEY_PROVIDER_SOURCE_TYPE, request.config.providerSourceType)
         putString(KEY_BASE_URL, request.config.baseUrl)
-        putString(KEY_API_KEY, request.config.apiKey)
+        putString(KEY_AUTH_MODE, request.config.authMode)
+        putString(
+            KEY_API_KEY,
+            request.config.apiKey.takeIf { request.config.authMode == ProviderAuthModes.API_KEY }.orEmpty(),
+        )
         putString(KEY_MODEL, request.config.model)
         putString(KEY_MODEL_DISPLAY_NAME, request.config.modelDisplayName)
         putString("error_reconnect_policy", request.config.errorReconnectPolicy)
@@ -513,7 +519,10 @@ internal object AgentRuntimeWire {
                     .ifBlank { io.github.mangi.eta.data.model.ProviderTypes.OPENAI_COMPATIBLE },
                 providerSourceType = bundle.getString(KEY_PROVIDER_SOURCE_TYPE).orEmpty(),
                 baseUrl = bundle.getString(KEY_BASE_URL).orEmpty(),
-                apiKey = bundle.getString(KEY_API_KEY).orEmpty(),
+                apiKey = bundle.getString(KEY_API_KEY).orEmpty().takeIf {
+                    bundle.getString(KEY_AUTH_MODE, ProviderAuthModes.API_KEY) == ProviderAuthModes.API_KEY
+                }.orEmpty(),
+                authMode = bundle.getString(KEY_AUTH_MODE) ?: ProviderAuthModes.API_KEY,
                 model = bundle.getString(KEY_MODEL).orEmpty(),
                 modelDisplayName = bundle.getString(KEY_MODEL_DISPLAY_NAME).orEmpty(),
                 errorReconnectPolicy = bundle.getString("error_reconnect_policy") ?: "none",
@@ -883,6 +892,7 @@ internal object AgentRuntimeWire {
                 putString("name", event.name)
                 putString("args_preview", event.argsPreview)
                 event.command?.let { putString("command", it) }
+                event.argumentsDetail?.let { putString("arguments_detail", it) }
             }
 
             is AgentEvent.ToolFinished -> {
@@ -894,6 +904,8 @@ internal object AgentRuntimeWire {
                 putInt("image_count", event.imageCount)
                 putInt("image_bytes", event.imageBytes)
                 event.success?.let { putBoolean("success", it) }
+                event.resultDetail?.let { putString("result_detail", it) }
+                if (event.mediaPreviewsJson != "[]") putString("media_previews_json", event.mediaPreviewsJson)
             }
 
             is AgentEvent.HostedToolStarted -> {
@@ -1078,6 +1090,7 @@ internal object AgentRuntimeWire {
             name = bundle.getString("name").orEmpty(),
             argsPreview = bundle.getString("args_preview").orEmpty(),
             command = bundle.getString("command"),
+            argumentsDetail = bundle.getString("arguments_detail"),
         )
 
         "tool_finished" -> AgentEvent.ToolFinished(
@@ -1088,6 +1101,8 @@ internal object AgentRuntimeWire {
             imageCount = bundle.getInt("image_count"),
             imageBytes = bundle.getInt("image_bytes"),
             success = if (bundle.containsKey("success")) bundle.getBoolean("success") else null,
+            resultDetail = bundle.getString("result_detail"),
+            mediaPreviewsJson = bundle.getString("media_previews_json") ?: "[]",
         )
 
         "hosted_tool_started" -> AgentEvent.HostedToolStarted(
