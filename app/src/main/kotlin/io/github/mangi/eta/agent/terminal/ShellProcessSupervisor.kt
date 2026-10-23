@@ -590,6 +590,8 @@ internal fun runOneShotShell(
     environment: TerminalEnvironment = TerminalEnvironment.ANDROID,
     linuxRootfsPath: String? = null,
     linuxSharedMounts: List<SharedFolderMount> = emptyList(),
+    /** 调用方要求的输出上限；文件工具用它精确判断流是否被截断。 */
+    maxOutputBytes: Int = ONE_SHOT_OUTPUT_MAX_BYTES,
 ): OneShotShellResult {
     val process = processSupervisor.startShellProcess(
         identity = identity,
@@ -608,10 +610,12 @@ internal fun runOneShotShell(
         val output = ByteArrayOutputCollector()
         val stderr = ByteArrayOutputCollector()
         val outputThread = thread(name = "agent-terminal-stdout") {
-            process.inputStream.use { input -> output.readFrom(input, ONE_SHOT_OUTPUT_MAX_BYTES) }
+            process.inputStream.use { input -> output.readFrom(input, maxOutputBytes) }
         }
         val stderrThread = thread(name = "agent-terminal-stderr") {
-            process.errorStream.use { input -> stderr.readFrom(input, ONE_SHOT_OUTPUT_MAX_BYTES) }
+            process.errorStream.use { input ->
+                stderr.readFrom(input, minOf(maxOutputBytes, 64 * 1024))
+            }
         }
         val stdinThread = thread(name = "agent-terminal-stdin") {
             process.outputStream.use { out ->

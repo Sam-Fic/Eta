@@ -873,6 +873,70 @@ internal class RootShellTerminalController(
             .toString()
     }
 
+    /**
+     * 精确文件操作（stat/edit/glob/grep）：按环境与身份选择后端，路径命名空间与终端一致。
+     * android+user 复用公共存储授权范围；其余身份交给所选环境的 shell，避免宿主直接解析 guest 链接。
+     */
+    fun fileTool(name: String, args: JSONObject): String {
+        try {
+            val environment = normalizeEnvironment(args.optString("environment", "android"))
+            val rootfsPath = rootfsPathFor(environment)
+            val identity = normalizeIdentity(
+                args.optString("identity").ifBlank { defaultIdentity(environment) }
+            )
+            environmentPreflight(identity, environment, rootfsPath)?.let { return it }
+            val deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(20)
+            fun checkActive() {
+                if (processSupervisor.isClosing) throw FileToolException("CANCELLED", "文件操作已取消")
+                if (identity == "root" && !rootAvailable()) throw FileToolException("ROOT_REQUIRED", "Root 授权已不可用")
+                if (System.nanoTime() >= deadline) throw FileToolException("FILE_TIMEOUT", "文件操作达到时间预算，请缩小范围")
+            }
+            val cwd = normalizeCwd(args.optString("cwd").takeIf(String::isNotEmpty), environment, identity)
+            val backend = if (environment == TerminalEnvironment.ANDROID && identity == "user") {
+                LocalFileToolBackend(
+                    workspace = File(cwd),
+                    home = File(TerminalRuntime.userWorkspacePath),
+                    isCancelled = { checkActive(); false },
+                    pathGuard = { path -> UserFileAccess.resolve(path).absolutePath },
+                )
+            } else {
+                val mounts = sharedMountsFor(environment)
+                ShellFileToolBackend(
+                    environment = if (environment.isLinux) "linux" else "android",
+                    identity = identity,
+                    cwd = cwd,
+                    home = if (environment.isLinux) "/root" else USER_STORAGE,
+                    ensureActive = { checkActive() },
+                ) { command, stdin, outputLimit ->
+                    checkActive()
+                    runOneShotShell(
+                        processSupervisor = processSupervisor,
+                        identity = identity,
+                        command = command,
+                        timeoutSeconds = ((deadline - System.nanoTime()) / 1_000_000_000L + 1).coerceIn(1, 20),
+                        stdin = stdin,
+                        environment = environment,
+                        linuxRootfsPath = rootfsPath,
+                        linuxSharedMounts = mounts,
+                        maxOutputBytes = outputLimit,
+                    )
+                }
+            }
+            return FileToolDispatcher.execute(backend, name, args)
+        } catch (failure: FileToolException) {
+            return errorJson(failure.code, failure.message.orEmpty())
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+            return errorJson("CANCELLED", "文件操作已取消")
+        } catch (failure: IllegalArgumentException) {
+            return errorJson("INVALID_ARGUMENT", failure.message ?: "文件工具参数无效")
+        } catch (failure: org.json.JSONException) {
+            return errorJson("INVALID_ARGUMENT", failure.message ?: "文件参数缺失或类型错误")
+        } catch (_: java.io.IOException) {
+            return errorJson("FILE_IO_ERROR", "文件环境不可访问")
+        }
+    }
+
     private fun normalizeIdentity(identity: String): String {
         val normalized = identity.ifBlank { "root" }.lowercase()
         require(normalized == "root" || normalized == "user") {
