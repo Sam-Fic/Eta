@@ -63,6 +63,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -109,6 +110,7 @@ import io.github.mangi.eta.agent.browser.ported.browser.BrowserHistoryStore
 import io.github.mangi.eta.agent.browser.ported.browser.BrowserTabPool
 import io.github.mangi.eta.agent.browser.ported.browser.UserAgentProfile
 import io.github.mangi.eta.ui.adaptive.EtaButtonStyle
+import io.github.mangi.eta.ui.adaptive.EtaFloatingToolbarConcentricPadding
 import io.github.mangi.eta.ui.adaptive.EtaIconButton
 import io.github.mangi.eta.ui.adaptive.EtaIconSize
 import io.github.mangi.eta.ui.adaptive.EtaMorphChipShape
@@ -924,6 +926,10 @@ private fun BrowserNavToolbar(
             // 把整条工具栏撑高。本行内容布局完全显式（固定间距，整体居中），显式传空的 leadingContent
             // 让这组补偿归零（官方参数语义，非 hack）。
             leadingContent = {},
+            // 端盖同心：首末两枚 40dp 圆钮与药丸端头弧心对齐（环隙与上下等宽）。
+            contentPadding = EtaFloatingToolbarConcentricPadding(
+                IconButtonDefaults.smallContainerSize().width,
+            ),
         ) {
             // 动作组：固定 8dp 间距的一行图标按钮（EtaIconButton 的 `Standard` 档裸图标）。
             Row(

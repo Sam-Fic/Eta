@@ -122,6 +122,7 @@ import io.github.mangi.eta.ui.adaptive.EtaConnectedPosition
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
 import io.github.mangi.eta.ui.adaptive.EtaExpressiveToggleButton
+import io.github.mangi.eta.ui.adaptive.EtaFloatingToolbarConcentricPadding
 import io.github.mangi.eta.ui.adaptive.EtaMorphChipShape
 import io.github.mangi.eta.ui.adaptive.EtaMenuGroup
 import io.github.mangi.eta.ui.adaptive.EtaMenuItemShape
@@ -1302,7 +1303,8 @@ private fun Material3DrawerFolderChip(
  *
  * 官方 M3E [HorizontalFloatingToolbar] 承载全部入口（权限 / 模型 / 技能 / 用量 / 回收站 / 设置），
  * 药丸整体居中、悬浮在会话列表上方；容器与内容色取官方 vibrant 档，
- * 尺寸、内边距、圆角、海拔全部走官方令牌，`expanded = true` 常驻展开。
+ * 高度、圆角、海拔全部走官方令牌，内边距按 [EtaFloatingToolbarConcentricPadding]
+ * 把水平方向收到与端盖同心，`expanded = true` 常驻展开。
  */
 @Composable
 private fun Material3DrawerToolbar(
@@ -1322,6 +1324,11 @@ private fun Material3DrawerToolbar(
     HorizontalFloatingToolbar(
         expanded = true,
         colors = toolbarColors,
+        // 端盖同心：官方 8dp 内边距会让 40dp 圆钮贴住药丸端头（圆心距端盖弧心差 4dp），
+        // 沿弧的留白中段窄、上下宽。水平改取 (64 − 40)/2 = 12dp，圆钮四周留白等宽、与端盖同心。
+        contentPadding = EtaFloatingToolbarConcentricPadding(
+            IconButtonDefaults.smallContainerSize().width,
+        ),
         leadingContent = {},
         modifier = modifier,
     ) {

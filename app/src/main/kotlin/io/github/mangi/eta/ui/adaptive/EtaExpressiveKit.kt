@@ -23,6 +23,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.FloatingToolbarDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -177,6 +178,32 @@ fun EtaIconButton(
             content = content,
         )
     }
+}
+
+// ---------------------------------------------------------------------------
+// 浮动工具栏
+// ---------------------------------------------------------------------------
+
+/**
+ * `HorizontalFloatingToolbar` 端盖同心的内容内边距。
+ *
+ * 官方药丸的端盖是半径 = 容器高一半（64dp ⇒ 32dp）的半圆，官方 `ContentPadding` 各方向都只让出
+ * 8dp：圆钮被官方纵向居中到上下各 (H − d)/2（40dp 钮即 12dp），水平却只贴住 8dp 内边距，圆心落在
+ * 8 + d/2 = 28dp，而端盖弧心在 H/2 = 32dp——两者错开 4dp，沿弧的留白中段窄、上下宽，看着偏心。
+ *
+ * 把水平内边距也取 (H − d)/2（恒等于「端盖半径 − 圆钮半径」），圆心正落在端盖弧心上，
+ * 圆钮四周留白等宽，端盖与圆钮真正同心；纵向仍用官方值（居中后实际留白就是 (H − d)/2，不受影响）。
+ *
+ * @param buttonSize 工具栏两端圆钮的容器边长（一般取 `IconButtonDefaults.smallContainerSize().width`）。
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+fun EtaFloatingToolbarConcentricPadding(buttonSize: Dp): PaddingValues {
+    val officialPadding = FloatingToolbarDefaults.ContentPadding.calculateTopPadding()
+    val concentricPadding = (FloatingToolbarDefaults.ContainerSize - buttonSize) / 2
+    return PaddingValues(
+        horizontal = concentricPadding.coerceAtLeast(officialPadding),
+        vertical = officialPadding,
+    )
 }
 
 // ---------------------------------------------------------------------------
