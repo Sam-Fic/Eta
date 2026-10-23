@@ -12,7 +12,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.ui.adaptive.EtaSwitch
 import io.github.mangi.eta.ui.adaptive.etaSegmentedRowColors
@@ -150,58 +149,6 @@ internal fun SwitchPreference(
                 },
                 enabled = enabled,
             )
-        },
-    )
-}
-
-@Composable
-internal fun WindowSpinnerPreference(
-    items: List<String>,
-    selectedIndex: Int,
-    title: String,
-    modifier: Modifier = Modifier,
-    summary: String? = null,
-    startAction: @Composable (() -> Unit)? = null,
-    bottomAction: (@Composable () -> Unit)? = null,
-    insideMargin: PaddingValues = PaddingValues(16.dp),
-    maxHeight: Dp? = null,
-    enabled: Boolean = true,
-    showValue: Boolean = true,
-    onExpandedChange: ((Boolean) -> Unit)? = null,
-    onSelectedIndexChange: ((Int) -> Unit)? = null,
-) {
-    val view = LocalView.current
-    // ListItem 承载当前值，点击在原位循环到下一项；
-    // 保持单行几何不变，避免为每个 spinner 页面引入新的导航结构。
-    M3PreferenceRow(
-        title = title,
-        summary = summary,
-        enabled = enabled,
-        modifier = modifier,
-        startAction = startAction,
-        onClick = if (enabled && onSelectedIndexChange != null) {
-            {
-                TouchHaptics.click(view)
-                val next = (selectedIndex + 1).mod(items.size)
-                onExpandedChange?.invoke(true)
-                onSelectedIndexChange.invoke(next)
-            }
-        } else {
-            null
-        },
-        trailing = if (showValue && selectedIndex in items.indices) {
-            {
-                Text(
-                    text = items[selectedIndex],
-                    color = if (enabled) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    } else {
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = M3DisabledAlpha)
-                    },
-                )
-            }
-        } else {
-            null
         },
     )
 }

@@ -48,12 +48,12 @@ import io.github.mangi.eta.ui.adaptive.EtaDialogActions
 import io.github.mangi.eta.ui.adaptive.EtaGroupHorizontalPadding
 import io.github.mangi.eta.ui.adaptive.EtaNoticeText
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedDropdownRow
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedGroupSpacing
 import io.github.mangi.eta.ui.app.EnhancementSettingsHistory
 import io.github.mangi.eta.ui.app.rememberDeviceCapabilities
 import io.github.mangi.eta.ui.components.PreferenceIcon
 import io.github.mangi.eta.ui.components.StreamPerformanceDiagnostics
-import io.github.mangi.eta.ui.components.WindowSpinnerPreference
 import io.github.mangi.eta.ui.navigation.AppRoute
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -224,14 +224,14 @@ internal fun SystemTakeoverSettingsScreen(
             }
 
             row {
-                WindowSpinnerPreference(
+                EtaSegmentedDropdownRow(
                     title = stringResource(R.string.ui_long_press_the_power_button_1958d0),
                     items = powerAssistantItems,
                     selectedIndex = powerAssistantTargets.indexOf(powerAssistantTarget),
-                    onSelectedIndexChange = { index ->
+                    onItemSelected = { index ->
                         val target = powerAssistantTargets.getOrNull(index)
-                        ?: return@WindowSpinnerPreference
-                        val targetPrefs = prefs ?: return@WindowSpinnerPreference
+                        ?: return@EtaSegmentedDropdownRow
+                        val targetPrefs = prefs ?: return@EtaSegmentedDropdownRow
                         if (putStringSync(
                                 prefs = targetPrefs,
                                 key = Prefs.Keys.POWER_KEY_ASSISTANT_TARGET,
@@ -248,27 +248,22 @@ internal fun SystemTakeoverSettingsScreen(
                             ).show()
                         }
                     },
-                    startAction = {
-                        PreferenceIcon(
-                            icon = Icons.Rounded.PowerSettingsNew,
-                            enabled = prefs != null,
-                        )
-                    },
+                    icon = Icons.Rounded.PowerSettingsNew,
                     enabled = prefs != null,
                 )
             }
 
             row {
-                WindowSpinnerPreference(
+                EtaSegmentedDropdownRow(
                     title = stringResource(R.string.settings_assistant_entry_mode),
                     summary = stringResource(R.string.settings_assistant_entry_mode_summary),
                     items = assistantEntryItems,
                     selectedIndex = assistantEntryModes.indexOf(assistantEntryMode),
-                    onSelectedIndexChange = { index ->
+                    onItemSelected = { index ->
                         val mode = assistantEntryModes.getOrNull(index)
-                            ?: return@WindowSpinnerPreference
+                            ?: return@EtaSegmentedDropdownRow
                         val targetPrefs = entryModePreferences
-                            ?: return@WindowSpinnerPreference
+                            ?: return@EtaSegmentedDropdownRow
                         if (putStringSync(
                                 prefs = targetPrefs,
                                 key = Prefs.Keys.ASSISTANT_ENTRY_MODE,
@@ -284,11 +279,7 @@ internal fun SystemTakeoverSettingsScreen(
                             ).show()
                         }
                     },
-                    startAction = {
-                        PreferenceIcon(
-                            icon = Icons.Rounded.RecordVoiceOver,
-                        )
-                    },
+                    icon = Icons.Rounded.RecordVoiceOver,
                 )
             }
         }
