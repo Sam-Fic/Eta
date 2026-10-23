@@ -13,7 +13,6 @@ import io.github.mangi.eta.data.model.OpenAiCompatibleProviderSetting
 import io.github.mangi.eta.data.model.ProviderSetting
 import io.github.mangi.eta.data.model.ReasoningEffort
 import io.github.mangi.eta.data.model.SpeechSynthesisModels
-import io.github.mangi.eta.agent.model.oauth.OpenAiCodexOAuth
 import io.github.mangi.eta.data.repository.ModelRepository
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.data.repository.RemoteModelFetcher
@@ -287,7 +286,7 @@ internal class AgentSelfModelTools(private val context: Context) {
             findProvider(enabledProviders(), input)
                 ?: return error("PROVIDER_NOT_FOUND", "找不到可用的供应商：$input")
         }
-        val fetched = RemoteModelFetcher.fetch(OpenAiCodexOAuth.withResolvedAuth(context, provider))
+        val fetched = RemoteModelFetcher.fetch(provider)
             .getOrElse { throwable -> return error("FETCH_FAILED", throwable.message ?: "拉取模型失败") }
         val candidates = fetched.filter(RemoteModelFetcher::isChatCapableModel)
         val sync = ModelRepository.syncRemoteModels(provider.id, candidates, includeNewModels = false)
