@@ -3,6 +3,7 @@ package io.github.mangi.eta.agent.model
 import io.github.mangi.eta.agent.runtime.AgentRunController
 import io.github.mangi.eta.agent.runtime.AgentTokenUsage
 import io.github.mangi.eta.data.model.OpenAiEndpointMode
+import okhttp3.Call
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -46,7 +47,11 @@ internal object OpenAiResponsesProvider : AgentProviderClient {
             .apply {
                 if (config.apiKey.isNotBlank()) add("Authorization", "Bearer ${config.apiKey}")
             }
-            .also { ProviderRequestHeaders.mergeInto(it, config.baseUrl, config.customHeaders, request.sessionId) }
+            .also {
+                ProviderRequestHeaders.mergeInto(
+                    it, config.baseUrl, config.customHeaders, request.sessionId, config.authMode, config.model,
+                )
+            }
             .build()
         val httpRequest = Request.Builder()
             .url(ProviderUrls.openAiResponsesUrl(config.baseUrl))
@@ -72,6 +77,9 @@ internal object OpenAiResponsesProvider : AgentProviderClient {
                 deliveryGuard = deliveryGuard,
                 toolDiagnosticAttempt = request.toolDiagnosticAttempt,
                 requireTerminal = request.requiresCompleteStream,
+                transportFactory = AuthorizedProviderHttp.callFactory(
+                    AgentHttpClient.modelClient, config.providerId, config.authMode, runController,
+                ),
             )
             callbackFailure?.let { throw it }
             ResponsesReasoningState.capture(assistant, config)
@@ -105,6 +113,7 @@ internal object OpenAiResponsesProvider : AgentProviderClient {
         deliveryGuard: ResponsesToolEnvelopeRecovery.DeliveryGuard,
         toolDiagnosticAttempt: AgentToolCallDiagnostics.Attempt? = null,
         requireTerminal: Boolean,
+        transportFactory: Call.Factory = AgentHttpClient.modelClient,
     ): JSONObject {
         val streamedText = StringBuilder()
         val streamedReasoning = StringBuilder()
@@ -385,9 +394,18 @@ internal object OpenAiResponsesProvider : AgentProviderClient {
                         val itemId = event.hostedToolId("web_search")
                         finishHostedTool(itemId, "网页搜索", success = false)
                     }
-                    "response.completed", "response.incomplete", "response.failed" -> {
-                        terminalType = type
+                    "response.completed", "response.done", "response.incomplete", "response.failed" -> {
                         terminal = event.optJSONObject("response") ?: event
+                        terminalType = if (type == "response.done") {
+                            when (terminal.optString("status")) {
+                                "completed" -> "response.completed"
+                                "failed" -> "response.failed"
+                                "incomplete" -> "response.incomplete"
+                                else -> throw AgentModelFailure.incompleteStream("Codex 终止事件缺少有效状态")
+                            }
+                        } else {
+                            type
+                        }
                     }
                     "error" -> throwTopLevelEventError(event)
                 }
@@ -399,6 +417,7 @@ internal object OpenAiResponsesProvider : AgentProviderClient {
             runController = runController,
             onOpen = { code -> onEvent(ProviderEvent.ResponseHeaders(code)) },
             inspectHttpErrorBody = { body -> deliveryGuard.inspectHttpBody(body) },
+            transportFactory = transportFactory,
             onJson = { payload ->
                 val response = AgentResponseFormat.parseJsonObject(payload)
                 // Preserve usage/error delivery and the tool-envelope guard on JSON errors too.

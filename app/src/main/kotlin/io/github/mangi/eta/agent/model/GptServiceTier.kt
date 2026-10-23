@@ -1,8 +1,8 @@
 package io.github.mangi.eta.agent.model
 
-import io.github.mangi.eta.agent.model.oauth.OpenAiCodexOAuth
 import io.github.mangi.eta.data.model.GptSpeedMode
 import io.github.mangi.eta.data.model.isGptSpeedModel
+import io.github.mangi.eta.data.provider.ProviderConnectionProfile
 import org.json.JSONObject
 
 /** Apply only to final OpenAI text request bodies, after custom-body/model merging. */
@@ -15,7 +15,7 @@ internal object GptServiceTier {
         if (!isGptSpeedModel(actualModel)) return
         // Codex calls the UI option Fast, but its request_value() is "priority".
         // Explicit Normal omits the tier; relay-specific values must not leak to Codex.
-        val tier = if (OpenAiCodexOAuth.isCodexEndpoint(config.baseUrl)) {
+        val tier = if (ProviderConnectionProfile.forAuthMode(config.authMode) == ProviderConnectionProfile.OPENAI_CODEX) {
             when (mode) {
                 GptSpeedMode.NORMAL -> null
                 GptSpeedMode.FAST -> "priority"

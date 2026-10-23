@@ -35,6 +35,7 @@ internal object AgentSseClient {
         onJson: (String) -> Unit = { throw AgentModelFailure.unexpectedResponse(null, "application/json", "") },
         shouldIgnoreFailure: () -> Boolean = { false },
         inspectHttpErrorBody: (String) -> Unit = {},
+        transportFactory: Call.Factory = AgentHttpClient.modelClient,
     ) {
         runController.throwIfCancelled()
         val timingId = java.util.UUID.randomUUID().toString().take(8)
@@ -168,7 +169,7 @@ internal object AgentSseClient {
         // cancellation even while sniffing/reading JSON; no generation request is replayed.
         val callFactory = object : Call.Factory {
             override fun newCall(request: Request): Call {
-                val call = AgentHttpClient.modelClient.newCall(request)
+                val call = transportFactory.newCall(request)
                 return object : Call by call {
                     override fun enqueue(responseCallback: Callback) {
                         call.enqueue(object : Callback {

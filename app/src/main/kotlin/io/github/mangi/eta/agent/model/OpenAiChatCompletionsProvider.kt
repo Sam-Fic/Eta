@@ -3,8 +3,10 @@ package io.github.mangi.eta.agent.model
 import io.github.mangi.eta.agent.runtime.AgentRunController
 import io.github.mangi.eta.agent.runtime.AgentTokenUsage
 import io.github.mangi.eta.data.model.OpenAiEndpointMode
+import io.github.mangi.eta.data.model.ProviderAuthModes
 import io.github.mangi.eta.data.model.ProviderSourceTypes
 import io.github.mangi.eta.data.provider.ProviderSourceRegistry
+import okhttp3.Call
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -46,7 +48,11 @@ internal object OpenAiChatCompletionsProvider : AgentProviderClient {
                     add("Authorization", "Bearer ${config.apiKey}")
                 }
             }
-            .also { ProviderRequestHeaders.mergeInto(it, config.baseUrl, config.customHeaders, request.sessionId) }
+            .also {
+                ProviderRequestHeaders.mergeInto(
+                    it, config.baseUrl, config.customHeaders, request.sessionId, config.authMode, config.model,
+                )
+            }
             .build()
 
         val requestJson = request.restrictReconnectPayload(buildRequestJson(config, request.messages, request.tools), capabilities.endpoint)
@@ -64,7 +70,10 @@ internal object OpenAiChatCompletionsProvider : AgentProviderClient {
             runController.throwIfCancelled()
             onEvent(ProviderEvent.RequestStarted)
             AgentWireRequestEstimate.publish(requestJson, capabilities.endpoint, request, onEvent, requestBody.contentLength(), serializedBody)
-            val assistantMessage = readStreamingAssistantMessage(httpRequest, runController, onEvent, request.requiresCompleteStream)
+            val assistantMessage = readStreamingAssistantMessage(
+                httpRequest, runController, onEvent, request.requiresCompleteStream,
+                AuthorizedProviderHttp.callFactory(AgentHttpClient.modelClient, config.providerId, config.authMode, runController),
+            )
             onEvent(ProviderEvent.Completed(assistantMessage.optString("finish_reason").ifBlank { null }))
             return ProviderResponse(assistantMessage)
         } catch (throwable: Throwable) {
@@ -101,6 +110,19 @@ internal object OpenAiChatCompletionsProvider : AgentProviderClient {
                 request.remove("eta_media_reasoning")
                 request.remove(ImageRequestParameters.CONFIG_KEY) // Local image settings never enter text protocols.
                 ProviderReasoning.applyOpenAiCompatibleRequest(request, config)
+                if (config.authMode == ProviderAuthModes.XAI_GROK) {
+                    // 代理按请求头路由模型，正文必须与同一配置一致，并保持订阅所需的流式调用。
+                    request.put("model", config.model)
+                    request.put("stream", true)
+                    request.put("messages", OpenAiRequestMessages.forChatCompletions(messages))
+                    if (tools.length() > 0) {
+                        request.put("tools", tools)
+                        request.put("tool_choice", "auto")
+                    } else {
+                        request.remove("tools")
+                        request.remove("tool_choice")
+                    }
+                }
                 config.summaryOutputLimit?.let {
                     request.put("max_tokens", it)
                     request.remove("max_completion_tokens")
@@ -114,6 +136,7 @@ internal object OpenAiChatCompletionsProvider : AgentProviderClient {
         runController: AgentRunController,
         onEvent: (ProviderEvent) -> Unit,
         requireTerminal: Boolean,
+        transportFactory: Call.Factory = AgentHttpClient.modelClient,
     ): JSONObject {
         val content = StringBuilder()
         val reasoningContent = StringBuilder()
@@ -270,6 +293,7 @@ internal object OpenAiChatCompletionsProvider : AgentProviderClient {
             request = request,
             runController = runController,
             onOpen = { code -> onEvent(ProviderEvent.ResponseHeaders(code)) },
+            transportFactory = transportFactory,
             onEvent = sseEvent@{ _, _, data ->
                 val payload = data.trim()
                 if (payload.isBlank()) return@sseEvent

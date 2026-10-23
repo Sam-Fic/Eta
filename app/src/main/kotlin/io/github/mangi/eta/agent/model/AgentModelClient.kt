@@ -15,6 +15,7 @@ import io.github.mangi.eta.data.model.CustomHeader
 import io.github.mangi.eta.data.model.GptSpeedMode
 import io.github.mangi.eta.data.model.OpenAiEndpointMode
 import io.github.mangi.eta.data.model.ModelReasoningCapabilities
+import io.github.mangi.eta.data.model.ProviderAuthModes
 import io.github.mangi.eta.data.model.ProviderTypes
 import io.github.mangi.eta.data.model.ReasoningEffort
 import io.github.mangi.eta.data.provider.BuiltinProviders
@@ -286,7 +287,14 @@ internal object AgentModelClient {
 
     private fun ModelConfig.validate() {
         require(baseUrl.isNotBlank()) { "请先配置 API 地址" }
-        require(apiKey.isNotBlank()) { "请先配置 API Key" }
+        when {
+            authMode == ProviderAuthModes.API_KEY -> require(apiKey.isNotBlank()) { "请先配置 API Key" }
+            ProviderAuthModes.isOAuth(authMode) -> {
+                require(providerId.isNotBlank()) { "账号登录缺少服务商标识，请重新选择服务商" }
+                require(apiKey.isEmpty()) { "账号登录配置不能包含 API Key" }
+            }
+            else -> error("不支持的服务商认证方式")
+        }
         require(model.isNotBlank()) { "请先配置模型名" }
         require(
             reasoningCapabilities?.mandatory != true ||
@@ -358,6 +366,7 @@ internal object AgentModelClient {
         val assistantId: String = "",
         val gptSpeedMode: GptSpeedMode? = null,
         val errorReconnectPolicy: String = "none",
+        val authMode: String = ProviderAuthModes.API_KEY,
     ) {
         val effectiveReasoningEffort: ReasoningEffort
             get() = reasoningEffort ?: ReasoningEffort.fromLegacy(thinkingEnabled)

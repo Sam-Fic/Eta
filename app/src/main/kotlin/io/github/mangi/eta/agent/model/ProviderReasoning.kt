@@ -35,7 +35,8 @@ internal object ProviderReasoning {
             ProviderSourceTypes.MINIMAX -> unsupportedEffort("MiniMax", effort)
             ProviderSourceTypes.OPENROUTER -> applyOpenRouter(request, effort)
             ProviderSourceTypes.STEPFUN -> applyStepFun(request, effort)
-            ProviderSourceTypes.OPENAI -> applyOpenAi(request, config.model, effort)
+            ProviderSourceTypes.OPENAI -> applyNamedReasoningEffort(request, effort)
+            ProviderSourceTypes.XAI -> applyNamedReasoningEffort(request, effort)
             ProviderSourceTypes.CUSTOM -> applyNamedReasoningEffort(request, effort)
         }
     }
@@ -46,13 +47,6 @@ internal object ProviderReasoning {
     ) {
         if (config.reasoningCapabilities == null) return
         val effort = validatedEffort(config)
-        if (
-            sourceType(config) == ProviderSourceTypes.OPENAI &&
-            effort == ReasoningEffort.MAX &&
-            !supportsOpenAiMax(config.model)
-        ) {
-            unsupportedEffort("OpenAI", effort)
-        }
         request.put(
             "reasoning",
             JSONObject().apply {
@@ -296,16 +290,6 @@ internal object ProviderReasoning {
         }
         request.put("reasoning_effort", clamped.wireValue)
     }
-
-    private fun applyOpenAi(request: JSONObject, modelId: String, effort: ReasoningEffort) {
-        if (effort == ReasoningEffort.MAX && !supportsOpenAiMax(modelId)) {
-            unsupportedEffort("OpenAI", effort)
-        }
-        applyNamedReasoningEffort(request, effort)
-    }
-
-    private fun supportsOpenAiMax(modelId: String): Boolean =
-        ReasoningCapabilityResolver.modelIdMatchesPrefix(modelId, "gpt-5-6")
 
     private fun applyNamedReasoningEffort(request: JSONObject, effort: ReasoningEffort) {
         request.put("reasoning_effort", if (effort == ReasoningEffort.OFF) "none" else effort.wireValue)

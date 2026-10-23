@@ -1,6 +1,7 @@
 package io.github.mangi.eta.agent.model
 
-import io.github.mangi.eta.agent.model.oauth.OpenAiCodexOAuth
+import io.github.mangi.eta.BuildConfig
+import io.github.mangi.eta.data.provider.ProviderConnectionProfile
 
 internal object ProviderUrls {
     fun normalizeBaseUrl(baseUrl: String): String =
@@ -14,8 +15,8 @@ internal object ProviderUrls {
 
     fun openAiModelsUrl(baseUrl: String): String {
         val url = appendPath(baseUrl, "models")
-        return if (OpenAiCodexOAuth.isCodexEndpoint(baseUrl)) {
-            "$url?client_version=${OpenAiCodexOAuth.CLIENT_VERSION}&limit=100"
+        return if (normalizeBaseUrl(baseUrl) == ProviderConnectionProfile.OPENAI_CODEX.baseUrl) {
+            "$url?client_version=${BuildConfig.VERSION_NAME.substringBefore('-').substringBefore('+')}&limit=100"
         } else {
             url
         }

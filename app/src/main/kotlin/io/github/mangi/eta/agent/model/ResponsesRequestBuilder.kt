@@ -1,8 +1,7 @@
 package io.github.mangi.eta.agent.model
 
-import io.github.mangi.eta.agent.model.oauth.OpenAiCodexOAuth
+import io.github.mangi.eta.data.model.ProviderAuthModes
 import io.github.mangi.eta.data.model.SessionGatewayRule
-import io.github.mangi.eta.data.model.ReasoningEffort
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -41,25 +40,9 @@ internal object ResponsesRequestBuilder {
         request.remove("previous_response_id")
         request.remove("reasoning")
         ProviderReasoning.applyResponsesRequest(request, config)
-        config.summaryOutputLimit?.let { request.put("max_output_tokens", it) }
-        if (OpenAiCodexOAuth.isCodexEndpoint(config.baseUrl)) {
-            request.put("include", JSONArray().put("reasoning.encrypted_content"))
-            request.remove("max_output_tokens")
-            val effort = when (config.effectiveReasoningEffort) {
-                ReasoningEffort.OFF, ReasoningEffort.DEFAULT -> "medium"
-                ReasoningEffort.MINIMAL -> "low"
-                ReasoningEffort.MAX -> "high"
-                else -> config.effectiveReasoningEffort.wireValue
-            }
-            request.put(
-                "reasoning",
-                JSONObject()
-                    .put("effort", effort)
-                    .put("summary", "auto"),
-            )
-            if (responseTools.length() > 0 && !request.has("parallel_tool_calls")) {
-                request.put("parallel_tool_calls", true)
-            }
+        CodexResponsesRequest.configure(request, config)
+        if (config.authMode != ProviderAuthModes.OPENAI_CHATGPT) {
+            config.summaryOutputLimit?.let { request.put("max_output_tokens", it) }
         }
         // Apply after custom-body and Codex defaults: a correction must never request parallel calls.
         if (singleToolCall && responseTools.length() > 0) request.put("parallel_tool_calls", false)
@@ -71,7 +54,10 @@ internal object ResponsesRequestBuilder {
                 pathPattern = config.sessionPathPattern,
                 keyField = config.sessionKeyField,
             )
-            if (rule.matches(config.model, url) || OpenAiCodexOAuth.isCodexEndpoint(config.baseUrl)) {
+            if (
+                rule.matches(config.model, url) ||
+                config.authMode == ProviderAuthModes.OPENAI_CHATGPT
+            ) {
                 request.put(rule.safeKeyField(), sessionId)
             }
         }
