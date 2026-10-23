@@ -40,8 +40,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -224,6 +228,7 @@ private object DrawerMetrics {
     // 底部浮动工具栏（M3E HorizontalFloatingToolbar）：高度与离底间距取官方
     // FloatingToolbarDefaults.ContainerSize / ScreenOffset（64dp / 16dp），
     // 列表底部再留 12dp，让最后一条会话能完整滚到工具栏上方而不被药丸压住。
+    // 这里不含导航栏 inset：列表铺到屏幕底缘，导航栏高度在 Material3ConversationPane 里另加。
     val ToolbarHeight = 64.dp
     val ToolbarBottomOffset = 16.dp
     val ToolbarListGap = 12.dp
@@ -688,13 +693,23 @@ private fun Material3ConversationPane(
         color = paneContainerColor,
         contentColor = MaterialTheme.colorScheme.onSurface,
     ) {
+        // 底部导航栏（手势小白条 / 三键栏）只补给工具栏和列表末尾：列表本身铺到屏幕底缘，
+        // 滚动时内容从导航栏下方透出，而不是整块留白。
+        val navigationBarBottom =
+            WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
         Column(
             modifier = Modifier
                 .fillMaxHeight()
-                // 键盘动画期间保持 padding 恒定：padding = safeDrawing − ime（systemBars ∪ displayCutout），
-                // 不读 safeDrawing/ime，键盘动画期间 inset 恒定，抽屉不逐帧重测量/重组。
-                .windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout))
-                .consumeWindowInsets(WindowInsets.systemBars.union(WindowInsets.displayCutout))
+                // 顶部与横向按 systemBars ∪ displayCutout 留白；底部不垫，让列表延伸到屏幕底缘。
+                // 键盘动画期间该并集恒定（ime 只影响 bottom），抽屉不会逐帧重测量/重组。
+                .windowInsetsPadding(
+                    WindowInsets.systemBars.union(WindowInsets.displayCutout)
+                        .only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
+                )
+                .consumeWindowInsets(
+                    WindowInsets.systemBars.union(WindowInsets.displayCutout)
+                        .only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
+                )
                 .padding(horizontal = DrawerMetrics.PaneHorizontalPadding),
         ) {
             Spacer(modifier = Modifier.height(DrawerMetrics.TopInset))
@@ -824,8 +839,9 @@ private fun Material3ConversationPane(
             }
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 列表不再给底部工具栏让位：铺满到抽屉底缘，工具栏以药丸形态浮在列表上方。
-            // 底部 contentPadding 预留「工具栏高度 + 离底间距 + 间隙」，最后一条会话仍能完整滚出来。
+            // 列表不再给底部工具栏让位：铺满到抽屉底缘（含导航栏区域），工具栏以药丸形态浮在列表上方。
+            // 底部 contentPadding 预留「工具栏高度 + 离底间距 + 间隙 + 导航栏高度」，
+            // 最后一条会话仍能完整滚出到工具栏和手势条上方。
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -837,7 +853,9 @@ private fun Material3ConversationPane(
                         .streamDiagnosticMeasure("drawer.lazy.measure")
                         .streamDiagnosticPlacement("drawer.lazy.place")
                         .streamDiagnosticDraw("drawer.lazy.draw"),
-                    contentPadding = PaddingValues(bottom = DrawerMetrics.ToolbarListBottomPadding),
+                    contentPadding = PaddingValues(
+                        bottom = DrawerMetrics.ToolbarListBottomPadding + navigationBarBottom,
+                    ),
                     overscrollEffect = null,
                 ) {
                     if (visibleConversations.isEmpty()) {
@@ -885,7 +903,10 @@ private fun Material3ConversationPane(
                     onOpenSettings = onOpenSettings,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = DrawerMetrics.ToolbarBottomOffset),
+                        // 与列表同一口径：工具栏整体抬到导航栏上方，保持官方 16dp 离底间距。
+                        .padding(
+                            bottom = DrawerMetrics.ToolbarBottomOffset + navigationBarBottom,
+                        ),
                 )
             }
         }

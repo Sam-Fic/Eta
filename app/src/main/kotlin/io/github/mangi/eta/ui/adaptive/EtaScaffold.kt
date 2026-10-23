@@ -5,12 +5,17 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
@@ -249,6 +254,11 @@ private fun EtaMaterialScaffold(
         modifier = modifier.fillMaxSize(),
         // KernelSU 式：整页背景与顶栏同用 surfaceContainer，分段条目（surfaceBright）浮在其上。
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        // 与壳层同一口径：底部不垫导航栏，页面背景与滚动内容铺到屏幕底缘（内容从手势条下方透出），
+        // 导航栏高度由各页在滚动内容末尾或底栏内部补；有 bottomBar 时 innerPadding.bottom 仍是栏高。
+        contentWindowInsets = WindowInsets.systemBars
+            .union(WindowInsets.displayCutout)
+            .only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
         bottomBar = { bottomBar?.invoke() },
         topBar = {
             LargeFlexibleTopAppBar(

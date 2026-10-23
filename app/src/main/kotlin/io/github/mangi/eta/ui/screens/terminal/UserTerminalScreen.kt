@@ -148,8 +148,8 @@ internal fun UserTerminalScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(terminalRootSurface())
-            .imePadding()
-            .navigationBarsPadding(),
+            .imePadding(),
+        // 导航栏留白不垫在整页上：底栏 Surface 铺到屏幕底缘，由底栏自身把内容抬到手势条上方。
     ) {
         Box(
             modifier = Modifier
@@ -238,6 +238,7 @@ private fun EnvironmentSwitchBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .navigationBarsPadding()
                 .padding(horizontal = 12.dp)
                 .padding(vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -635,7 +636,12 @@ private fun TerminalBottomBar(
     val runningTaskCount = state.daemonTasks.count { it.running }
     val stoppedMessage = stringResource(R.string.terminal_stopped)
     Surface(tonalElevation = 3.dp) {
-        Column(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                // Surface 背景延伸到屏幕底缘，控件本体避开手势条。
+                .navigationBarsPadding(),
+        ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
