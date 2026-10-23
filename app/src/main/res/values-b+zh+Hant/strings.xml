@@ -1064,7 +1064,6 @@
   <string name="tool_ui_directly_create_system_timers_up_to_24_hours_87c476">直接建立最長 24 小時的系統計時器</string>
   <string name="tool_ui_create_a_system_alarm_directly_and_open_the_cloc_9aa214">直接建立系統鬧鐘，失敗時開啟時鐘確認</string>
   <string name="tool_ui_directly_execute_a_single_shell_command_c40cef">直接執行單一 shell 指令</string>
-  <string name="tool_ui_directly_control_wi_fi_or_bluetooth_4fa0b9">直接控制 Wi-Fi 或藍牙</string>
   <string name="tool_ui_album_pictures_23bcc2">相簿圖片</string>
   <string name="tool_ui_short_message_17e1a4">簡訊</string>
   <string name="tool_ui_open_web_pages_off_screen_and_keep_a_takeover_br_72972e">在背景開啟網頁，並保留可接管的瀏覽工作階段</string>
@@ -1412,6 +1411,16 @@
   <string name="chat_image_saved">已儲存到相簿</string>
   <string name="chat_image_save_failed">圖片儲存失敗</string>
   <string name="chat_image_load_failed">圖片載入失敗</string>
+  <string name="chat_image_page_of">第 %1$d 張，共 %2$d 張</string>
+  <string name="chat_image_copy_path">複製絕對路徑</string>
+  <string name="chat_image_path_copied">路徑已複製</string>
+  <string name="chat_image_path_copy_failed">路徑複製失敗</string>
+  <string name="chat_image_add_to_conversation">將此圖片繼續作為附件新增至對話</string>
+  <string name="chat_video_add_to_conversation">將此影片繼續作為附件新增至對話</string>
+  <string name="chat_image_open_with">用其他應用程式開啟</string>
+  <string name="chat_image_share">分享</string>
+  <string name="chat_image_open_failed">無法開啟圖片</string>
+  <string name="chat_image_share_failed">分享失敗</string>
   <string name="chat_image_prompt_required">請輸入圖片描述</string>
   <string name="chat_image_generation_empty">模型沒有返回圖片</string>
   <string name="chat_image_generation_unsupported">目前供應商不支援生圖</string>

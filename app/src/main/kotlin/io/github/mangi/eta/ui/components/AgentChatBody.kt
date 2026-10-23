@@ -133,6 +133,7 @@ import io.github.mangi.eta.ui.model.isResumeAfterCompress
 import io.github.mangi.eta.ui.model.isSteerSupplement
 import io.github.mangi.eta.ui.adaptive.EtaType
 import io.github.mangi.eta.ui.adaptive.etaTextStyle
+import io.github.mangi.eta.ui.adaptive.EtaDimens
 import io.github.mangi.eta.ui.layout.MaxChatSuggestionWidth
 import io.github.mangi.eta.ui.layout.rememberPageContentSidePadding
 import kotlin.math.abs
@@ -157,7 +158,6 @@ import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
@@ -166,6 +166,8 @@ import androidx.compose.material3.toShape
 import androidx.graphics.shapes.RoundedPolygon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.IconButtonDefaults
 
 /**
  * 壳层顶栏（含状态栏）占用的总高度。
@@ -438,7 +440,11 @@ internal fun AgentChatBody(
     androidx.compose.runtime.CompositionLocalProvider(
         LocalAgentContextTelemetry provides AgentContextTelemetry(childContexts, modelPickerState.selectedModel?.displayName.orEmpty(), compactingModelName, selectedContextTaskId, onContextTaskSelected)
     ) {
-        ChatImagePreviewHost(gallery = previewGallery) {
+        ChatImagePreviewHost(
+            gallery = previewGallery,
+            onAttachImageToConversation = onAttachImage,
+            onAttachVideoToConversation = onAttachVideo,
+        ) {
             AgentChatScaffold(
                 collaborationConversationId = collaborationConversationId,
                 visibleMessages = visibleMessages,
@@ -2827,7 +2833,7 @@ private fun SuggestionCard(
             Icon(
                 imageVector = item.icon,
                 contentDescription = null,
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(EtaDimens.StatusIconSize),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(modifier = Modifier.height(9.dp))
@@ -3043,7 +3049,7 @@ private fun ExpressiveSuggestionBlob(
                 Icon(
                     imageVector = item.icon,
                     contentDescription = null,
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(ButtonDefaults.IconSize),
                     tint = MaterialTheme.colorScheme.onTertiaryContainer,
                 )
                 Spacer(modifier = Modifier.height(8.dp))

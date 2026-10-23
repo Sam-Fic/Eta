@@ -1056,7 +1056,6 @@
   <string name="tool_ui_directly_create_system_timers_up_to_24_hours_87c476">直接创建最长 24 小时的系统计时器</string>
   <string name="tool_ui_create_a_system_alarm_directly_and_open_the_cloc_9aa214">直接创建系统闹钟，失败时打开时钟确认</string>
   <string name="tool_ui_directly_execute_a_single_shell_command_c40cef">直接执行单条 shell 命令</string>
-  <string name="tool_ui_directly_control_wi_fi_or_bluetooth_4fa0b9">直接控制 Wi-Fi 或蓝牙</string>
   <string name="tool_ui_album_pictures_23bcc2">相册图片</string>
   <string name="tool_ui_short_message_17e1a4">短信</string>
   <string name="tool_ui_open_web_pages_off_screen_and_keep_a_takeover_br_72972e">离屏打开网页，并保持可接管的浏览会话</string>
@@ -1404,6 +1403,16 @@
   <string name="chat_image_saved">已保存到相册</string>
   <string name="chat_image_save_failed">图片保存失败</string>
   <string name="chat_image_load_failed">图片加载失败</string>
+  <string name="chat_image_page_of">第 %1$d 张，共 %2$d 张</string>
+  <string name="chat_image_copy_path">复制绝对路径</string>
+  <string name="chat_image_path_copied">路径已复制</string>
+  <string name="chat_image_path_copy_failed">路径复制失败</string>
+  <string name="chat_image_add_to_conversation">把此图继续作为附件添加到对话中</string>
+  <string name="chat_video_add_to_conversation">把此视频继续作为附件添加到对话中</string>
+  <string name="chat_image_open_with">用其他应用打开</string>
+  <string name="chat_image_share">分享</string>
+  <string name="chat_image_open_failed">无法打开图片</string>
+  <string name="chat_image_share_failed">分享失败</string>
   <string name="chat_image_prompt_required">请输入图片描述</string>
   <string name="chat_image_generation_empty">模型没有返回图片</string>
   <string name="chat_image_generation_unsupported">当前供应商不支持生图</string>

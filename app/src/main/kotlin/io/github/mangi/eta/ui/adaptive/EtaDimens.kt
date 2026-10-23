@@ -31,6 +31,36 @@ object EtaDimens {
     /** 状态标记图标（工具行、朗读按钮等 16dp 状态槽）。 */
     val StatusIconSize = 16.dp
 
+    /**
+     * 极小标记图标（12dp）：仅用于纯装饰性的点状/短划元素。
+     *
+     * 官方未给出该尺寸；12dp 低于 M3 最小图标尺寸（18dp），
+     * 因此只用于不承载语义、不参与点击目标计算的装饰元素。
+     */
+    val MicroIconSize = 12.dp
+
+    /**
+     * 密集布局图标（20dp）：桌面端、高密度列表、紧凑设置页。
+     *
+     * 官方系统图标规范给出的密集模式尺寸为 20dp，但 Compose 未暴露对应令牌，
+     * 故在此定义。触摸目标仍由 `minimumInteractiveComponentSize()` 保证 48dp。
+     */
+    val DenseIconSize = 20.dp
+
+    /**
+     * 空状态提示图标（36dp）：空态里压在主图形下方的次级提示图标。
+     *
+     * 官方未给出该尺寸；与 FAB 大号图标同值但语义不同，故单独定义。
+     */
+    val EmptyStateHintIconSize = 36.dp
+
+    /**
+     * 空状态主图形（72dp）：空状态页面中央的主插图位图标。
+     *
+     * 官方未给出该尺寸。空状态的装饰形状底板另有 [EmptyStateShapeSize]。
+     */
+    val EmptyStateGraphicIconSize = 72.dp
+
     /** 小号确定进度环笔画（输入区上下文用量环、朗读按钮 spinner 同款）。 */
     val SmallRingStroke = 2.5.dp
 

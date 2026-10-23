@@ -1394,6 +1394,16 @@
   <string name="chat_image_saved">Saved to gallery</string>
   <string name="chat_image_save_failed">Couldn\'t save image</string>
   <string name="chat_image_load_failed">Couldn\'t load image</string>
+  <string name="chat_image_page_of">Image %1$d of %2$d</string>
+  <string name="chat_image_copy_path">Copy absolute path</string>
+  <string name="chat_image_path_copied">Path copied</string>
+  <string name="chat_image_path_copy_failed">Couldn\'t copy path</string>
+  <string name="chat_image_add_to_conversation">Add this image to the conversation as an attachment</string>
+  <string name="chat_video_add_to_conversation">Add this video to the conversation as an attachment</string>
+  <string name="chat_image_open_with">Open with other app</string>
+  <string name="chat_image_share">Share</string>
+  <string name="chat_image_open_failed">Couldn\'t open image</string>
+  <string name="chat_image_share_failed">Couldn\'t share image</string>
   <string name="chat_image_prompt_required">Enter a description to generate an image</string>
   <string name="chat_image_generation_empty">The model didn\'t return an image</string>
   <string name="chat_image_generation_unsupported">This provider doesn\'t support image generation</string>

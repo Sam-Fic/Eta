@@ -53,7 +53,6 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DesktopWindows
 import androidx.compose.material.icons.rounded.Summarize
 import androidx.compose.material.icons.rounded.Translate
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -65,6 +64,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Text as M3Text
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -128,6 +128,7 @@ import kotlin.math.max
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import io.github.mangi.eta.ui.adaptive.EtaDimens
 
 internal enum class EtaVoicePhase {
     READY,
@@ -406,6 +407,8 @@ internal fun EtaVoicePanel(
             // 都依赖 LocalOpenChatImagePreview，没有宿主时点击没有任何反应。
             ChatImagePreviewHost(
                 gallery = collectPreviewableChatImages(state.messages, composer.pendingImages),
+                onAttachImageToConversation = composer::attachImage,
+                onAttachVideoToConversation = composer::attachVideo,
             ) {
                 AssistantPanel(
                     state = state,
@@ -1183,7 +1186,7 @@ private fun SelectedScreenContext(
             Icon(
                 imageVector = Icons.Rounded.Close,
                 contentDescription = stringResource(R.string.voice_screen_remove),
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(EtaDimens.StatusIconSize),
                 tint = removeColor,
             )
         }
