@@ -716,11 +716,31 @@ private fun M3VoiceBar(state: VoiceModeState) {
             .padding(horizontal = ComposerConcentricGap),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // 起始侧麦克风状态圆钮：设计稿要求红底 + 白图标，取官方 M3 的 error 角色对
-        // （`error` / `onError`）——全项目的“红”都走这一对令牌，随主题自动适配深浅色。
+        // 起始侧麦克风状态圆钮：正常聆听用主题 primary 角色；仅在报错场景（如麦克风被占用）
+        // 才切到官方 M3 的 error 角色对（`error` / `onError`，红底白图标）——全项目的“红”
+        // 都走这一对令牌，随深浅色主题自适应。颜色随 error 状态以动画过渡更自然，故用
+        // animateColorAsState 包一层。
+        val micCircleColor by animateColorAsState(
+            targetValue = if (state.error != null) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.primary
+            },
+            animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+            label = "voice_mic_circle",
+        )
+        val micIconColor by animateColorAsState(
+            targetValue = if (state.error != null) {
+                MaterialTheme.colorScheme.onError
+            } else {
+                MaterialTheme.colorScheme.onPrimary
+            },
+            animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+            label = "voice_mic_icon",
+        )
         Surface(
             shape = CircleShape,
-            color = MaterialTheme.colorScheme.error,
+            color = micCircleColor,
             modifier = Modifier.size(IconButtonDefaults.smallContainerSize()),
         ) {
             Box(contentAlignment = Alignment.Center) {
@@ -732,7 +752,7 @@ private fun M3VoiceBar(state: VoiceModeState) {
                     },
                     contentDescription = null,
                     modifier = Modifier.size(IconButtonDefaults.smallIconSize),
-                    tint = MaterialTheme.colorScheme.onError,
+                    tint = micIconColor,
                 )
             }
         }
