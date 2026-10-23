@@ -1,12 +1,11 @@
 package io.github.mangi.eta.ui.app
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.only
@@ -18,14 +17,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AddComment
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Menu
-import androidx.compose.material3.ButtonGroupDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SplitButtonDefaults
+import androidx.compose.material3.SplitButtonLayout
 import androidx.compose.material3.Text
-import androidx.compose.material3.ToggleButton
-import androidx.compose.material3.ToggleButtonDefaults
-import androidx.compose.material3.ToggleButtonSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,21 +37,19 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.adaptive.EtaButtonStyle
-import io.github.mangi.eta.ui.adaptive.EtaConnectedGroupRow
 import io.github.mangi.eta.ui.adaptive.EtaIconButton
 import io.github.mangi.eta.ui.adaptive.EtaIconSize
 import io.github.mangi.eta.ui.adaptive.EtaMenuGroup
 import io.github.mangi.eta.ui.adaptive.EtaMenuPopup
-import io.github.mangi.eta.ui.adaptive.etaLabelStyle
-import io.github.mangi.eta.ui.components.ChatInputNonFocusableIconButton
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 
 /**
  * 首页顶栏（Material 3 Expressive）。
  *
- * 一行三件套：菜单色调图标按钮、会话名相连按钮组（左段点击重命名、右段箭头展开溢出菜单）、
- * 新建对话色调图标按钮（横向拉伸占满剩余宽度）。
+ * 一行三件套：菜单色调图标按钮、会话名官方 SplitButton（左段点击重命名、右段箭头展开
+ * 溢出菜单）、新建对话色调图标按钮（横向拉伸占满剩余宽度）。
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun Material3HomeTopBar(
     title: String,
@@ -107,92 +102,83 @@ internal fun Material3HomeTopBar(
         )
         // 会话名按钮在两侧图标之间的剩余空间里居中（与官方 CenterAlignedTopAppBar 的标题布局一致）。
         Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-            // 官方相连按钮组：左段点击重命名会话，右段箭头展开溢出菜单。
+            // 官方 M3 Expressive 拆分按钮：左段主操作（重命名会话）+ 右段菜单箭头。
+            // 形状 / 尺寸 / 内边距 / 图标尺寸全部取 SplitButtonDefaults 默认值：
+            // 尾段在 checked（菜单展开）时按默认 checkedShape 形变为全圆角胶囊。
             var menuExpanded by remember { mutableStateOf(false) }
             val arrowRotation by animateFloatAsState(
                 targetValue = if (menuExpanded) 180f else 0f,
                 animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Float>(),
                 label = "m3-topbar-menu-arrow",
             )
-            EtaConnectedGroupRow {
-                ToggleButton(
-                    checked = false,
-                    onCheckedChange = {
-                        TouchHaptics.click(view)
-                        onRenameCurrentConversation()
-                    },
-                    // weight(fill=false)：Row 先量尾段箭头按钮的固定宽度，剩余宽度才轮到
-                    // 标题按钮；否则长标题会吃满整行，把箭头按钮挤出可见区域。
-                    modifier = Modifier.weight(1f, fill = false),
-                    buttonSize = ToggleButtonSize.Small,
-                    shapes = ButtonGroupDefaults.connectedLeadingButtonShapes(),
-                    // 默认色调档：与右侧箭头按钮、顶栏两侧图标按钮统一走官方色调按钮的
-                    // 默认容器色（secondaryContainer / onSecondaryContainer），不再用 tertiary 强调色。
-                    colors = ToggleButtonDefaults.colors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                        checkedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        checkedContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    ),
-                ) {
-                    Text(
-                        text = title,
-                        // 内容色由官方 ToggleButton 提供；字号与侧栏「新建对话 / 管理聊天」
-                        // 按钮文案同号（Secondary + Medium）。
-                        style = etaLabelStyle(),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                // 弹窗锚点必须落在箭头按钮自己的 Box 上：Popup 以组合位置的布局节点为锚，
-                // 若挂在整行居中的标题 Box 上，菜单会掉到屏幕左侧（汉堡按钮下方）。
-                // 官方 DropdownMenu 的对齐策略是 start-to-start 优先、放不下自动退到
-                // end-to-end，锚在 40dp 的箭头按钮上时右缘自然与按钮右缘对齐。
-                Box {
-                    ChatInputNonFocusableIconButton(
-                        onClick = { menuExpanded = true },
-                        contentDescription = stringResource(R.string.action_more),
-                        connectedShapes = ButtonGroupDefaults.connectedTrailingButtonShapes(),
-                        // 容器色/内容色留空：走该组件在连体组下的默认色调（secondaryContainer）。
-                        containerSize = IconButtonDefaults.smallContainerSize().width,
+            SplitButtonLayout(
+                leadingButton = {
+                    SplitButtonDefaults.TonalLeadingButton(
+                        onClick = {
+                            TouchHaptics.click(view)
+                            onRenameCurrentConversation()
+                        },
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.KeyboardArrowDown,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(IconButtonDefaults.smallIconSize)
-                                .graphicsLayer { rotationZ = arrowRotation },
+                        // 文案样式取官方按钮默认的 labelLarge；长标题在 SplitButtonLayout
+                        // 给首段预留的剩余宽度里省略，不会把尾段挤出可见区域。
+                        Text(
+                            text = title,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
-                    EtaMenuPopup(
-                        expanded = menuExpanded,
-                        onDismissRequest = { menuExpanded = false },
-                    ) {
-                        EtaMenuGroup(index = 0, count = 1) {
-                            TopBarMenuItems(
-                                dismiss = { menuExpanded = false },
-                                onOpenTerminal = onOpenTerminal,
-                                onLaunchKimiWeb = onLaunchKimiWeb,
-                                kimiWebLabel = kimiWebLabel,
-                                canStopKimiWeb = canStopKimiWeb,
-                                onStopKimiWeb = onStopKimiWeb,
-                                onOpenBrowser = onOpenBrowser,
-                                onOpenWorkspace = onOpenWorkspace,
-                                onOpenVoiceSettings = onOpenVoiceSettings,
-                                autoCompressEnabled = autoCompressEnabled,
-                                isCompressingContext = isCompressingContext,
-                                onToggleAutoCompress = onToggleAutoCompress,
-                                onOpenCompressConversation = onOpenCompressConversation,
-                                onOpenSearchHistory = onOpenSearchHistory,
-                                onOpenTokenUsage = onOpenTokenUsage,
-                                onOpenSubAgentStatus = onOpenSubAgentStatus,
-                                canDeleteCurrentConversation = canDeleteCurrentConversation,
-                                onDeleteCurrentConversation = onDeleteCurrentConversation,
+                },
+                trailingButton = {
+                    // 弹窗锚点必须落在箭头按钮自己的 Box 上：Popup 以组合位置的布局节点为锚，
+                    // 若挂在整行居中的标题 Box 上，菜单会掉到屏幕左侧（汉堡按钮下方）。
+                    // 官方 DropdownMenu 的对齐策略是 start-to-start 优先、放不下自动退到
+                    // end-to-end，锚在尾段按钮上时右缘自然与按钮右缘对齐。
+                    Box {
+                        SplitButtonDefaults.TonalTrailingButton(
+                            checked = menuExpanded,
+                            onCheckedChange = { expanded ->
+                                TouchHaptics.click(view)
+                                menuExpanded = expanded
+                            },
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.KeyboardArrowDown,
+                                contentDescription = stringResource(R.string.action_more),
+                                modifier = Modifier
+                                    .size(SplitButtonDefaults.TrailingIconSize)
+                                    .graphicsLayer { rotationZ = arrowRotation },
                             )
                         }
+                        EtaMenuPopup(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false },
+                        ) {
+                            EtaMenuGroup(index = 0, count = 1) {
+                                TopBarMenuItems(
+                                    dismiss = { menuExpanded = false },
+                                    onOpenTerminal = onOpenTerminal,
+                                    onLaunchKimiWeb = onLaunchKimiWeb,
+                                    kimiWebLabel = kimiWebLabel,
+                                    canStopKimiWeb = canStopKimiWeb,
+                                    onStopKimiWeb = onStopKimiWeb,
+                                    onOpenBrowser = onOpenBrowser,
+                                    onOpenWorkspace = onOpenWorkspace,
+                                    onOpenVoiceSettings = onOpenVoiceSettings,
+                                    autoCompressEnabled = autoCompressEnabled,
+                                    isCompressingContext = isCompressingContext,
+                                    onToggleAutoCompress = onToggleAutoCompress,
+                                    onOpenCompressConversation = onOpenCompressConversation,
+                                    onOpenSearchHistory = onOpenSearchHistory,
+                                    onOpenTokenUsage = onOpenTokenUsage,
+                                    onOpenSubAgentStatus = onOpenSubAgentStatus,
+                                    canDeleteCurrentConversation = canDeleteCurrentConversation,
+                                    onDeleteCurrentConversation = onDeleteCurrentConversation,
+                                )
+                            }
+                        }
                     }
-                }
-            }
+                },
+            )
         }
         EtaIconButton(
             icon = Icons.Rounded.AddComment,
