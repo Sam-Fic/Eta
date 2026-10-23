@@ -4,9 +4,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -76,6 +83,10 @@ internal fun AgentTaskPreferenceScreen(
             Scaffold(
                 modifier = Modifier.fillMaxSize(),
                 containerColor = MaterialTheme.colorScheme.surface,
+                // 与全应用同口径：底部不垫导航栏，滚动内容铺到屏幕底缘，导航栏高度补在内容末尾。
+                contentWindowInsets = WindowInsets.systemBars
+                    .union(WindowInsets.displayCutout)
+                    .only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
                 topBar = {
                     TopAppBar(
                         title = {
@@ -113,6 +124,8 @@ internal fun AgentTaskPreferenceScreen(
                             .widthIn(max = 640.dp)
                             .fillMaxSize()
                             .verticalScroll(rememberScrollState())
+                            // 导航栏高度补在滚动内容末尾，页面本身铺到屏幕底缘。
+                            .navigationBarsPadding()
                             .padding(
                                 PaddingValues(
                                     start = 16.dp,

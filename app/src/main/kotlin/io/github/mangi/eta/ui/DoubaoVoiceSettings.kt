@@ -149,6 +149,9 @@ internal fun DoubaoVoiceSettings(onBack: () -> Unit) {
         fileName = ""; consent = false; notice = ""
     }
     LaunchedEffect(home) { if (!home) preview.stop() }
+    // 列表铺到屏幕底缘，导航栏高度只补在滚动内容末尾（与抽屉/兄弟页同口径）。
+    val navigationBarBottom =
+        WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     EtaScaffold(
         title = when {
             showSync -> stringResource(R.string.dv_sync_title)
@@ -205,7 +208,7 @@ internal fun DoubaoVoiceSettings(onBack: () -> Unit) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
                     .padding(horizontal = sidePadding).nestedScroll(scrollConnection).imePadding(),
-                contentPadding = PaddingValues(bottom = 24.dp),
+                contentPadding = PaddingValues(bottom = 24.dp + navigationBarBottom),
             ) {
                 item {
                     // 与兄弟语音页同一套分段列表：说明 / 提示排在页面背景上，输入与动作收进分段组。

@@ -65,7 +65,15 @@ internal fun VoiceSettingsSectionPage(
     content: LazyListScope.() -> Unit,
 ) {
     if (LocalEmbeddedVoiceSettings.current) {
-        LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp), content = content)
+        // 与独立页同一口径：列表铺到屏幕底缘，导航栏高度只补在内容末尾，
+        // 滚动时条目从手势条下方透出，静止时最后一条仍完整露出。
+        val navigationBarBottom =
+            WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 24.dp + navigationBarBottom),
+            content = content,
+        )
     } else {
         EtaScaffoldPage(title = title, onBack = onBack, content = content)
     }
