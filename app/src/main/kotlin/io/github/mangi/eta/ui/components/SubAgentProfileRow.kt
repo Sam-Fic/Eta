@@ -2,9 +2,6 @@ package io.github.mangi.eta.ui.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Assignment
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
@@ -30,9 +27,8 @@ import io.github.mangi.eta.agent.model.ModelFeatureSelection
 import io.github.mangi.eta.data.model.ProviderSetting
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 import io.github.mangi.eta.ui.TtsModelPickerDialog
-import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
-import io.github.mangi.eta.ui.adaptive.EtaSegmentedRadioRow
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedDropdownRow
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.model.AgentModelPickerProjector
@@ -49,14 +45,11 @@ internal fun SubAgentProfileRow(profile: SubAgentProfile, providers: List<Provid
     val currentUsable by rememberUpdatedState(usable)
     var modelPicker by remember(editor, profile.id) { mutableStateOf(false) }
     var thinkingPicker by remember(editor, profile.id) { mutableStateOf(false) }
-    var rolePicker by remember(editor, profile.id) { mutableStateOf(false) }
-    var tierPicker by remember(editor, profile.id, profile.role) { mutableStateOf(false) }
     var profileDraft by remember(editor, profile.id) { mutableStateOf<SubAgentProfileDraftSession?>(null) }
-    var resolutionPicker by remember(editor, profile.id, profile.providerId, profile.modelId, profile.role) { mutableStateOf(false) }
     LaunchedEffect(usable, editor) {
-        if (!usable) { modelPicker = false; thinkingPicker = false; rolePicker = false; tierPicker = false; resolutionPicker = false }
+        if (!usable) { modelPicker = false; thinkingPicker = false }
     }
-    LaunchedEffect(profile.role) { rolePicker = false; tierPicker = false; thinkingPicker = false; modelPicker = false; resolutionPicker = false }
+    LaunchedEffect(profile.role) { thinkingPicker = false; modelPicker = false }
     val config = remember(profile.providerId, profile.modelId, profile.role, providers) {
         val provider = providers.firstOrNull { it.id == profile.providerId && it.isEnabled }
         val model = provider?.models?.firstOrNull { it.id == profile.modelId && it.isEnabled }
@@ -92,70 +85,97 @@ internal fun SubAgentProfileRow(profile: SubAgentProfile, providers: List<Provid
                         trailing = { SubAgentGptSpeedButton(profile, providers, usable) })
                 }
                 item(key = "role") {
-                    Box(Modifier.fillMaxWidth()) {
-                        SubAgentSettingsRow(stringResource(R.string.sap_role), profile.roleLabel, Icons.AutoMirrored.Rounded.Assignment,
-                            stringResource(R.string.spr_select_role_for, profile.name), enabled = usable, dropdown = true,
-                            onClick = { if (currentUsable) rolePicker = !rolePicker })
-                        Box(Modifier.align(Alignment.CenterEnd).size(40.dp)) {
-                            if (usable) SubAgentDropdownMenu(
-                                expanded = rolePicker,
-                                onDismissRequest = { rolePicker = false },
-                                itemCount = 4,
-                                modifier = Modifier.selectableGroup(),
-                            ) {
-                                listOf("implementation" to stringResource(R.string.sap_role_impl), "review" to stringResource(R.string.sap_role_review), "image_generation" to stringResource(R.string.sap_role_image), "video_generation" to stringResource(R.string.sap_role_video)).forEachIndexed { index, (role, label) ->
-                                    SubAgentSelectionItem(
-                                        text = label,
-                                        selected = profile.role == role,
-                                        index = index,
-                                        count = 4,
-                                    ) {
-                                        if (currentUsable) editor?.updateProfile(profile.id) { it.withRole(role) }
-                                        rolePicker = false
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    // 与配置弹窗、上下文压缩页「请求接口」行同款：原位弹出锚定菜单，点选即写入。
+                    val roles = listOf(
+                        "implementation" to stringResource(R.string.sap_role_impl),
+                        "review" to stringResource(R.string.sap_role_review),
+                        "image_generation" to stringResource(R.string.sap_role_image),
+                        "video_generation" to stringResource(R.string.sap_role_video),
+                    )
+                    EtaSegmentedDropdownRow(
+                        title = stringResource(R.string.sap_role),
+                        items = roles.map { it.second },
+                        selectedIndex = roles.indexOfFirst { it.first == profile.role },
+                        onItemSelected = { index ->
+                            val role = roles.getOrNull(index)?.first
+                                ?: return@EtaSegmentedDropdownRow
+                            if (currentUsable) editor?.updateProfile(profile.id) { it.withRole(role) }
+                        },
+                        icon = Icons.AutoMirrored.Rounded.Assignment,
+                        enabled = usable,
+                        description = stringResource(R.string.spr_select_role_for, profile.name),
+                    )
                 }
                 if (profile.supportsTaskTier) item(key = "tier") {
-                    Box(Modifier.fillMaxWidth()) {
-                        SubAgentSettingsRow(stringResource(R.string.sap_task_tier), profile.tier?.let { stringResource(it.labelRes) } ?: stringResource(R.string.sap_tier_unset), Icons.Rounded.AccountTree,
-                            stringResource(R.string.spr_set_tier_for, profile.name), enabled = usable, dropdown = true,
-                            onClick = { if (currentUsable) tierPicker = !tierPicker })
-                        Box(Modifier.align(Alignment.CenterEnd).size(40.dp)) {
-                            if (usable) SubAgentDropdownMenu(
-                                expanded = tierPicker,
-                                onDismissRequest = { tierPicker = false },
-                                itemCount = SubAgentTaskTier.entries.size + 1,
-                                modifier = Modifier.selectableGroup(),
-                            ) {
-                                (listOf<SubAgentTaskTier?>(null) + SubAgentTaskTier.entries).forEachIndexed { index, tier ->
-                                    SubAgentSelectionItem(
-                                        text = tier?.let { stringResource(it.labelRes) } ?: stringResource(R.string.sap_tier_unset),
-                                        selected = profile.tier == tier,
-                                        index = index,
-                                        count = SubAgentTaskTier.entries.size + 1,
-                                    ) {
-                                        if (currentUsable) editor?.updateProfile(profile.id) { latest ->
-                                            if (latest.supportsTaskTier) latest.copy(tier = tier) else latest
-                                        }
-                                        tierPicker = false
-                                    }
-                                }
+                    val tiers = listOf<SubAgentTaskTier?>(null) + SubAgentTaskTier.entries
+                    EtaSegmentedDropdownRow(
+                        title = stringResource(R.string.sap_task_tier),
+                        items = tiers.map { tier ->
+                            tier?.let { stringResource(it.labelRes) } ?: stringResource(R.string.sap_tier_unset)
+                        },
+                        selectedIndex = tiers.indexOf(profile.tier),
+                        onItemSelected = { index ->
+                            if (index !in tiers.indices) return@EtaSegmentedDropdownRow
+                            val tier = tiers[index]
+                            if (currentUsable) editor?.updateProfile(profile.id) { latest ->
+                                if (latest.supportsTaskTier) latest.copy(tier = tier) else latest
                             }
-                        }
-                    }
+                        },
+                        icon = Icons.Rounded.AccountTree,
+                        enabled = usable,
+                        description = stringResource(R.string.spr_set_tier_for, profile.name),
+                    )
                 }
                 if (profile.role == "image_generation") item(key = "resolution") {
-                    SubAgentSettingsRow(stringResource(R.string.sap_default_resolution), profile.imageResolution?.let(io.github.mangi.eta.agent.model.ImageResolutionTier::labelRes)?.let { stringResource(it) } ?: stringResource(R.string.sap_follow_endpoint),
-                        Icons.Rounded.ViewInAr, stringResource(R.string.spr_set_resolution_for, profile.name), enabled = usable && config != null,
-                        onClick = { if (currentUsable && config != null) resolutionPicker = true })
+                    // 与配置弹窗同款：原位弹出锚定菜单；Grok 端点只留低/高，当前值始终保留以免显示错位。
+                    val verifiedGrok = runCatching {
+                        val current = config ?: return@runCatching false
+                        val body = if (current.extraBodyJson.isBlank()) org.json.JSONObject() else org.json.JSONObject(current.extraBodyJson)
+                        io.github.mangi.eta.agent.model.RequestBodyMerge.mergeCustomBody(body, current.customBody)
+                        io.github.mangi.eta.agent.model.GrokImageProfile.applies(current.baseUrl, current.model, body)
+                    }.getOrDefault(false)
+                    val tiers = listOf<String?>(null) + io.github.mangi.eta.agent.model.ImageResolutionTier.values.filter {
+                        !verifiedGrok || it in setOf("low", "high") || it == profile.imageResolution
+                    }
+                    EtaSegmentedDropdownRow(
+                        title = stringResource(R.string.sap_default_resolution),
+                        items = tiers.map { tier ->
+                            tier?.let(io.github.mangi.eta.agent.model.ImageResolutionTier::labelRes)?.let { stringResource(it) }
+                                ?: stringResource(R.string.sap_follow_endpoint)
+                        },
+                        selectedIndex = tiers.indexOf(profile.imageResolution),
+                        onItemSelected = { index ->
+                            if (index !in tiers.indices) return@EtaSegmentedDropdownRow
+                            val tier = tiers[index]
+                            if (currentUsable) editor?.updateProfile(profile.id) { latest ->
+                                if (latest.providerId == profile.providerId && latest.modelId == profile.modelId && latest.role == "image_generation") latest.copy(imageResolution = tier) else latest
+                            }
+                        },
+                        icon = Icons.Rounded.ViewInAr,
+                        enabled = usable && config != null,
+                        description = stringResource(R.string.spr_set_resolution_for, profile.name),
+                    )
                 }
                 item(key = "thinking") {
-                    SubAgentSettingsRow(stringResource(R.string.sap_thinking), thinkingLabel,
-                        Icons.Rounded.AutoAwesome, stringResource(R.string.spr_adjust_thinking_for, profile.name), enabled = usable && canThink,
-                        onClick = { if (currentUsable && canThink) thinkingPicker = true })
+                    // 当前值不在可选档位里时用行上状态文本占位，占位项不可写入。
+                    val matchedIndex = if (canThink) efforts.indexOf(effective) else -1
+                    val effortLabels = efforts.map { effort -> stringResource(effort.labelRes) }
+                    val items = if (matchedIndex >= 0) effortLabels else listOf(thinkingLabel) + effortLabels
+                    EtaSegmentedDropdownRow(
+                        title = stringResource(R.string.sap_thinking),
+                        items = items,
+                        selectedIndex = if (matchedIndex >= 0) matchedIndex else 0,
+                        onItemSelected = { index ->
+                            val next = efforts.getOrNull(if (matchedIndex >= 0) index else index - 1)
+                            if (next != null && currentUsable) editor?.updateProfile(profile.id) { latest ->
+                                if (latest.role == profile.role && latest.providerId == profile.providerId && latest.modelId == profile.modelId)
+                                    latest.copy(reasoning = next) else latest
+                            }
+                        },
+                        icon = Icons.Rounded.AutoAwesome,
+                        enabled = usable && canThink,
+                        description = stringResource(R.string.spr_adjust_thinking_for, profile.name),
+                    )
                 }
                 addParallelLimitItem(profile, config, usable)
             }
@@ -212,46 +232,6 @@ internal fun SubAgentProfileRow(profile: SubAgentProfile, providers: List<Provid
             if (profileDraft === session) profileDraft = null
         }, onRetry = { if (draftRetry != null) draftRetry() else session.editor.retry() })
     }
-    if (usable && resolutionPicker && config != null) {
-        val verifiedGrok = runCatching {
-            val body = if (config.extraBodyJson.isBlank()) org.json.JSONObject() else org.json.JSONObject(config.extraBodyJson)
-            io.github.mangi.eta.agent.model.RequestBodyMerge.mergeCustomBody(body, config.customBody)
-            io.github.mangi.eta.agent.model.GrokImageProfile.applies(config.baseUrl, config.model, body)
-        }.getOrDefault(false)
-        EtaDialog(show = true, title = stringResource(R.string.sap_default_resolution),
-            onDismissRequest = { resolutionPicker = false }) {
-            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-                Text(
-                    text = stringResource(R.string.spr_resolution_note) +
-                        if (verifiedGrok) stringResource(R.string.spr_resolution_grok) else stringResource(R.string.spr_resolution_generic),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 13.dp),
-                )
-                // 与主表单「默认分辨率」二级弹窗同一套 KernelSU 式分段单选列表：
-                // 首末项自动外圆角、行间留缝，选中态与单选语义由 EtaSegmentedRadioRow 承载。
-                EtaSegmentedColumn(Modifier.fillMaxWidth()) {
-                    (listOf<String?>(null) + io.github.mangi.eta.agent.model.ImageResolutionTier.values).forEach { tier ->
-                        val allowed = !verifiedGrok || tier == null || tier in setOf("low", "high")
-                        item(key = tier ?: "endpoint") {
-                            EtaSegmentedRadioRow(
-                                title = tier?.let(io.github.mangi.eta.agent.model.ImageResolutionTier::labelRes)?.let { stringResource(it) }
-                                    ?: stringResource(R.string.sap_follow_endpoint),
-                                selected = profile.imageResolution == tier,
-                                enabled = usable && allowed,
-                                onClick = {
-                                    if (currentUsable) editor?.updateProfile(profile.id) { latest ->
-                                        if (latest.providerId == profile.providerId && latest.modelId == profile.modelId && latest.role == "image_generation") latest.copy(imageResolution = tier) else latest
-                                    }
-                                    resolutionPicker = false
-                                },
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
     if (usable && modelPicker) {
         val all = AgentModelPickerProjector.project(providers, profile.providerId, profile.modelId)
         val models = all.copy(providerGroups = all.providerGroups.map { group ->
@@ -296,7 +276,6 @@ internal fun SubAgentSettingsRow(
     icon: ImageVector,
     description: String,
     enabled: Boolean = true,
-    dropdown: Boolean = false,
     badge: String? = null,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
@@ -336,7 +315,7 @@ internal fun SubAgentSettingsRow(
                 }
                 trailing?.invoke()
                 Icon(
-                    imageVector = if (dropdown) Icons.Rounded.ExpandMore else Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                    imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                     contentDescription = null,
                 )
             }
