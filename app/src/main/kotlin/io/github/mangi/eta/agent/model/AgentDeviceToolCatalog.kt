@@ -20,6 +20,20 @@ internal object AgentDeviceToolCatalog {
         tools
             .put(
                 function(
+                    "inspect_app",
+                    "读取当前 Android 用户中指定应用的版本、UID、安装来源与路径、启用状态和请求权限，不要求应用具有桌面入口。" +
+                        "只支持 Eta 所属用户，不跨工作资料查询。权限列表按 permission_offset/permission_limit 分页。",
+                    properties(
+                        "package_name" to string("精确 Android 包名", 255),
+                        "user_id" to integer("Eta 所属 Android 用户 id，通常无需传入", 0, 2_147_483_647),
+                        "permission_offset" to integer("请求权限列表的起始索引，默认 0", 0, 2_147_483_647),
+                        "permission_limit" to integer("最多返回权限数量，默认 100", 1, 200),
+                    ),
+                    "package_name",
+                ),
+            )
+            .put(
+                function(
                     "set_alarm",
                     "直接创建系统闹钟，不要用 GUI。涉及相对日期时先用 get_current_context 换算；hour/minute 使用设备本地时间。系统不接受直达操作时可能只打开时钟页面。",
                     properties(
@@ -83,6 +97,15 @@ internal object AgentDeviceToolCatalog {
                     properties(
                         "mode" to enumString("铃声模式", "normal", "vibrate", "silent"),
                     ),
+                    "mode",
+                ),
+            )
+            .put(
+                function(
+                    "set_sound_mode",
+                    "切换铃声模式（normal/vibrate/silent），与 set_ringer_mode 同效，免 Root。" +
+                        "只影响电话和通知，不改变媒体音量。",
+                    properties("mode" to enumString("铃声模式", "normal", "vibrate", "silent")),
                     "mode",
                 ),
             )
@@ -210,11 +233,102 @@ internal object AgentDeviceToolCatalog {
             .put(searchFunction("search_messages", "检索短信，可按发送方或正文关键词筛选。结果属于敏感个人内容。"))
             .put(searchFunction("search_downloads", "检索系统下载记录，可按文件名或说明筛选。"))
             .put(searchFunction("search_coloros_notes", "检索 ColorOS 便签和待办，可按标题或正文筛选。仅在安装并可访问 ColorOS 便签时可用。"))
+            .put(
+                function(
+                    "search_notes",
+                    "search_coloros_notes 的别称，检索 ColorOS 便签和待办。" +
+                        "原始便签不可读时回退到历史索引；current_only=true 时只查原始便签，不回退。",
+                    properties(
+                        "query" to string("可选关键词，最多 200 字"),
+                        "limit" to integer("最多返回数量，默认 10", 1, 30),
+                        "current_only" to boolean("仅使用当前原始便签来源，不回退历史索引"),
+                    ),
+                ),
+            )
+            .put(
+                function(
+                    "read_note",
+                    "按 note_id 读取一条 ColorOS 便签的标题、正文和更新时间。需 Root 直达便签 Provider。",
+                    properties("note_id" to string("便签返回的原始 UUID", 36)),
+                    "note_id",
+                ),
+            )
+            .put(
+                function(
+                    "list_calendars",
+                    "列出当前用户可写入的系统日历（calendar_id、名称、账户、是否只读）。" +
+                        "创建日程前不确定写哪个日历时先调用；返回空表示需要先在日历应用中建日历。",
+                    properties(),
+                ),
+            )
+            .put(
+                function(
+                    "read_calendar_event",
+                    "按原始 event_id 读取单条系统日历事件的完整字段、提醒与重复规则。" +
+                        "event_id 必须来自 search_calendar_events，不要传系统记忆里的文档 ID。",
+                    properties("event_id" to integer("日程 id", 1, 2_147_483_647)),
+                    "event_id",
+                ),
+            )
+            .put(emptyFunction("get_flashlight", "读取手电筒开关状态。状态来自 CameraManager 托管灯光连接，读取不开灯。"))
+            .put(emptyFunction("get_sound_state", "读取铃声模式、勿扰状态和各音频通道当前/最大音量，不修改任何设置。"))
+            .put(emptyFunction("get_hotspot", "读取个人热点是否开启；普通应用只读，不改变热点。"))
+            .put(
+                function(
+                    "get_display_state",
+                    "读取屏幕亮度百分比、自动亮度、自动旋转与息屏时长。需 Root 才能读取系统当前亮度。",
+                    properties(),
+                ),
+            )
+            .put(
+                function(
+                    "get_device_state",
+                    "读取一个系统开关的当前状态，只读、不修改。target 支持 wifi/bluetooth/mobile_data/" +
+                        "airplane_mode/location/nfc/battery_saver/auto_rotate/auto_brightness/dark_mode/night_light。" +
+                        "返回 enabled=null 表示当前设备无法确认该状态。",
+                    properties(
+                        "target" to enumString(
+                            "设备能力",
+                            "wifi", "bluetooth", "mobile_data", "airplane_mode", "location", "nfc",
+                            "battery_saver", "auto_rotate", "auto_brightness", "dark_mode", "night_light",
+                        ),
+                    ),
+                    "target",
+                ),
+            )
             .put(searchFunction("search_coloros_recordings", "检索 ColorOS 录音应用中的普通录音和通话录音，返回名称、时长、类型和文件路径。"))
             .put(searchFunction("search_recording_summaries", "检索 ColorOS 录音关联的转写摘要和便签内容。仅在录音应用生成过摘要时可用。"))
             .put(searchFunction("search_coloros_memories", "检索 ColorOS 系统记忆，可读取已收集的信息、账单、日程、取件码、快递、地点和附件等关联内容。"))
             .put(searchFunction("search_saved_places", "检索系统记忆中保存或识别的地点。"))
             .put(searchFunction("search_personal_orders", "检索系统记忆中识别的外卖、购物、快递、票券和出行订单。"))
+            .put(personalSearchFunction("search_bills", "按商户、内容和时间查找账单记录。"))
+            .put(personalSearchFunction("search_todos", "查询系统从个人信息中提取的待办线索，未识别时间的记录不能按时间命中。"))
+            .put(personalSearchFunction("search_calendar_todos", "查询日历中的待办及其计划时间。"))
+            .put(personalSearchFunction("search_memory_collections", "查找已保存的记忆合集，不支持业务时间筛选。"))
+            .put(personalSearchFunction("search_daily_events", "查找系统记录或推断的生活事件，不把推断当成确认事实。"))
+            .put(personalSearchFunction("search_flights", "按航班、机场和计划起飞时间检索行程。"))
+            .put(personalSearchFunction("search_hotels", "按酒店、地址、订单和入住时间检索预订。"))
+            .put(personalSearchFunction("search_trains", "按车次、车站和出发时间检索行程。"))
+            .put(
+                function(
+                    "read_personal_item",
+                    "使用个人数据查询返回的 ref 读取索引详情；不能用该引用直接修改原始记录。",
+                    properties("ref" to string("查询结果返回的完整 ref", 160)),
+                    "ref",
+                ),
+            )
+            .put(
+                function(
+                    "summarize_bills",
+                    "精确汇总匹配的账单索引，区分收入、支出、转账和未知类型；最多完整汇总 1000 条，" +
+                        "范围过大时失败而不返回部分总额。",
+                    properties(
+                        "query" to string("可选关键词，最多 200 字"),
+                        "start_time" to string("包含的起始时间，带时区偏移的 ISO 8601", 64),
+                        "end_time" to string("不包含的结束时间，带时区偏移的 ISO 8601", 64),
+                    ),
+                ),
+            )
             .put(searchFunction("search_qq_chat_images", "检索 QQ 聊天图片缓存，返回最近文件的时间、大小、类型和私有路径。仅在安装 QQ 且缓存仍存在时可用。"))
             .put(searchFunction("search_wechat_chat_images", "检索微信聊天图片缓存，返回最近文件的时间、大小和私有路径。仅在安装微信且缓存仍存在时可用。"))
             .put(
@@ -471,6 +585,118 @@ internal object AgentDeviceToolCatalog {
             )
             .put(
                 function(
+                    "create_calendar_events",
+                    "在同一个日历里批量创建多条日程（最多 30 条），逐条写入并各自读回校验。" +
+                        "每一项的字段与 create_calendar_event 相同；calendar_id 可整体指定，先用 list_calendars 确认。" +
+                        "中途失败会停止后续写入并返回 CALENDAR_BATCH_PARTIAL 与已创建列表；" +
+                        "此时先 search_calendar_events 确认，只补建失败项，不要重复整批。",
+                    properties(
+                        "calendar_id" to integer("可选的日历 id", 1, 2_147_483_647),
+                        "events" to JSONObject()
+                            .put("type", "array")
+                            .put("minItems", 1)
+                            .put("maxItems", 30)
+                            .put("description", "日程数组，每项必须含 title 与 start")
+                            .put(
+                                "items",
+                                JSONObject()
+                                    .put("type", "object")
+                                    .put(
+                                        "properties",
+                                        properties(
+                                            "title" to string("日程标题，最多 200 字", 200),
+                                            "start" to string("开始时间：YYYY-MM-DDTHH:MM 或全天 YYYY-MM-DD", 40),
+                                            "end" to string("可选结束时间，格式同 start", 40),
+                                            "description" to string("可选备注", 1_000),
+                                            "location" to string("可选地点", 200),
+                                            "reminder_minutes" to integer("可选提前提醒分钟数", 0, 20_160),
+                                        ),
+                                    )
+                                    .put("required", JSONArray().put("title").put("start")),
+                            ),
+                    ),
+                    "events",
+                ),
+            )
+            .put(
+                function(
+                    "create_note",
+                    "直接创建 ColorOS 便签并读回校验，不打开便签界面。需 Root。" +
+                        "标题可为空；正文最多 20000 字。返回 ok=false 且 code=NOTE_CREATE_UNVERIFIED 时，" +
+                        "先用 search_coloros_notes 确认，不要重复创建。",
+                    properties(
+                        "content" to string("便签正文，最多 20000 字", 20_000),
+                        "title" to string("可选标题，最多 200 字", 200),
+                    ),
+                    "content",
+                ),
+            )
+            .put(
+                function(
+                    "delete_note",
+                    "把一条 ColorOS 便签移入回收站并读回确认。需 Root；note_id 必须是 create_note/read_note 返回的原始 UUID。",
+                    properties("note_id" to string("便签的原始 UUID", 36)),
+                    "note_id",
+                ),
+            )
+            .put(
+                function(
+                    "set_alarm_enabled",
+                    "启用或停用一个系统闹钟，不改时间。需 Root；优先 alarm_id，否则用 match_time/match_label。" +
+                        "匹配多个时返回候选，取 alarm_id 重试一次；找不到可先用 list_alarms 查看。",
+                    properties(
+                        "alarm_id" to integer("闹钟 id，优先使用", 1, 2_147_483_647),
+                        "match_time" to string("按时间定位，HH:MM", 5),
+                        "match_label" to string("按标签关键词定位", 100),
+                        "enabled" to boolean("true 启用，false 停用"),
+                    ),
+                    "enabled",
+                ),
+            )
+            .put(
+                function(
+                    "update_alarm_time",
+                    "只修改系统闹钟的触发时间（hour/minute），其余字段不变。定位方式同 set_alarm_enabled。" +
+                        "一次性闹钟触发时间会自动重算；重复规则变更请先 delete_alarm 再用 set_alarm 重建。",
+                    properties(
+                        "alarm_id" to integer("闹钟 id，优先使用", 1, 2_147_483_647),
+                        "match_time" to string("按原时间定位，HH:MM", 5),
+                        "match_label" to string("按标签关键词定位", 100),
+                        "hour" to integer("新小时，0 到 23", 0, 23),
+                        "minute" to integer("新分钟，0 到 59", 0, 59),
+                    ),
+                    "hour", "minute",
+                ),
+            )
+            .put(
+                function(
+                    "set_flashlight",
+                    "开启或关闭手电筒并回读状态，不操作相机界面。普通应用即可使用；" +
+                        "返回 FLASHLIGHT_BUSY 表示闪光灯被相机占用，不要重复调用。",
+                    properties("enabled" to boolean("true 开灯，false 关灯")),
+                    "enabled",
+                ),
+            )
+            .put(
+                function(
+                    "set_screen_timeout",
+                    "设置自动息屏时长并回读校验，需 Root。seconds 允许 15 到 1800。",
+                    properties("seconds" to integer("息屏秒数", 15, 1_800)),
+                    "seconds",
+                ),
+            )
+            .put(
+                function(
+                    "set_hotspot",
+                    "开启或关闭个人热点。普通应用通常没有修改特权，" +
+                        "此时会打开无线设置并返回 HOTSPOT_PANEL_FALLBACK/ok=false；" +
+                        "告诉用户去面板操作，不要重复调用本工具。",
+                    properties("enabled" to boolean("true 开热点，false 关热点")),
+                    "enabled",
+                ),
+            )
+            .put(
+                function(
                     "manage_file",
                     "复制、移动、删除、重命名设备上的文件或目录，免 Root（应用已持所有文件访问权限）。" +
                         "跨存储或私有路径失败时自动用 Root 保底。写入后回读校验（目标存在、源已消失）。" +
@@ -666,6 +892,21 @@ internal object AgentDeviceToolCatalog {
             properties(
                 "query" to string("可选关键词，最多 200 字"),
                 "limit" to integer("最多返回数量，默认 10", 1, 30),
+            ),
+        )
+
+    /** 个人数据历史索引查询：可按带时区的 ISO 8601 时间筛选并分页。 */
+    private fun personalSearchFunction(name: String, description: String): JSONObject =
+        function(
+            name,
+            "$description 结果来自历史索引，可能延迟；返回 ref 可读取详情。",
+            properties(
+                "query" to string("可选关键词，最多 200 字"),
+                "start_time" to string("包含的起始时间，带时区偏移的 ISO 8601", 64),
+                "end_time" to string("不包含的结束时间，带时区偏移的 ISO 8601", 64),
+                "limit" to integer("最多返回数量，默认 10", 1, 30),
+                "offset" to integer("分页起始偏移，默认 0", 0, 10_000),
+                "sort" to enumString("排序方向，默认 newest", "newest", "oldest"),
             ),
         )
 

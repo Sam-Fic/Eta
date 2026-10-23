@@ -9,6 +9,48 @@ internal object AgentTextSystemToolCatalog {
         tools
             .put(
                 AgentToolSchema.function(
+                    name = "type_text",
+                    description = "向输入框写入文本，结果会读回校验。默认 mode=replace 把整个输入框替换为 text，text 为空即清空；" +
+                        "mode=append 在当前光标处插入。指定 index 时写入该 editable 节点，不必先点击；不指定时写入当前输入焦点。" +
+                        "submit=true 写入后按输入法回车，用于搜索、发送；结果 submitted=false 时说明文本已写入但未提交，改为点击发送按钮，不要重复输入。" +
+                        "中文、emoji、长文本都直接传入，无需借助剪贴板。",
+                    parameters = JSONObject()
+                        .put("type", "object")
+                        .put(
+                            "properties",
+                            JSONObject()
+                                .put("text", JSONObject().put("type", "string").put("maxLength", 4_000))
+                                .put(
+                                    "mode",
+                                    JSONObject()
+                                        .put("type", "string")
+                                        .put("enum", JSONArray().put("replace").put("append"))
+                                        .put("description", "replace 整体替换（默认），append 在光标处插入。")
+                                )
+                                .put(
+                                    "index",
+                                    JSONObject()
+                                        .put("type", "integer")
+                                        .put("description", "可选，editable 节点 index；仅 replace 可用，必须同时传入同一次观察的 observation_id。")
+                                )
+                                .put(
+                                    "observation_id",
+                                    JSONObject()
+                                        .put("type", "string")
+                                        .put("description", "指定 index 时必传，与 index 来自同一次最近的观察。")
+                                )
+                                .put(
+                                    "submit",
+                                    JSONObject()
+                                        .put("type", "boolean")
+                                        .put("description", "写入后按输入法回车提交，默认 false。")
+                                )
+                        )
+                        .put("required", JSONArray().put("text"))
+                )
+            )
+            .put(
+                AgentToolSchema.function(
                     name = "input_text",
                     description = "向真正获得输入焦点的输入框键入不超过 1000 字符的文本。默认 mode=append，会在当前光标插入或替换选区；密码等不可读输入框会拒绝重建，请用 replace_text 提供完整值。",
                     parameters = JSONObject()
