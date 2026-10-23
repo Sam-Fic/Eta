@@ -312,6 +312,14 @@ internal fun SettingsScreen(
                 }
 
                 row {
+                    EtaClickableRow(
+                        title = stringResource(R.string.web_tools_settings_title),
+                        leading = { PreferenceIcon(icon = Icons.Rounded.TravelExplore) },
+                        onClick = { onNavigate(AppRoute.WebToolsSettings) },
+                    )
+                }
+
+                row {
                     SwitchPref(
                         context = context,
                         prefs = agentPrefs,

@@ -57,6 +57,9 @@ sealed interface AppRoute {
     data object TtsSettings : AppRoute
 
     @Serializable
+    data object WebToolsSettings : AppRoute
+
+    @Serializable
     data object VoiceSettings : AppRoute
 
     /** 「我的声音」内的豆包音色子页；独立路由才能复用 NavHost 的入栈/出栈转场。 */

@@ -167,6 +167,7 @@ internal object AgentModelClient {
                 selfSettingsTools = Prefs.isEnabled(Prefs.Keys.AGENT_SELF_SETTINGS_TOOLS),
                 mediaSearchTools = Prefs.isEnabled(Prefs.Keys.AGENT_MEDIA_SEARCH_TOOLS),
                 capabilities = capabilities,
+                localWebSearch = !config.usesHostedWebSearch,
             )
             for (index in 0 until additionalTools.length()) {
                 tools.put(additionalTools.opt(index))
@@ -360,6 +361,10 @@ internal object AgentModelClient {
     ) {
         val effectiveReasoningEffort: ReasoningEffort
             get() = reasoningEffort ?: ReasoningEffort.fromLegacy(thinkingEnabled)
+
+        /** Responses 接口启用托管搜索时不注册本地 web_search，避免同名工具冲突。 */
+        val usesHostedWebSearch: Boolean
+            get() = hostedWebSearchEnabled && openAiEndpointMode == OpenAiEndpointMode.RESPONSES
     }
 
     @Serializable

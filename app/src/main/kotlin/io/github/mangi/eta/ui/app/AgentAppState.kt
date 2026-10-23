@@ -100,6 +100,7 @@ import io.github.mangi.eta.data.datastore.SettingsDataStore
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 
 import io.github.mangi.eta.ui.model.AgentChatHomeUiState
+import io.github.mangi.eta.ui.model.QueuedMessageUi
 import io.github.mangi.eta.ui.model.isSteerSupplement
 import io.github.mangi.eta.ui.model.hasPartialAssistantAfterLastUser
 import io.github.mangi.eta.ui.model.canContinueDisconnectedRun
@@ -206,6 +207,16 @@ internal class AgentAppState(
     }
 
     fun currentDraftField() = conversationDrafts.field(selectedConversationId)
+
+    /**
+     * 流式期间短按发送暂存的待发消息，按会话隔离。
+     * 当前运行正常结束后按顺序续发队首；用户主动停止时保留队列不自动发出。
+     */
+    private val queuedMessagesByConversation = androidx.compose.runtime.mutableStateMapOf<String, List<QueuedMessageUi>>()
+
+    /** 当前会话的排队消息；运行结束后按顺序自动发出。 */
+    val queuedMessages: List<QueuedMessageUi>
+        get() = selectedConversationId?.let { queuedMessagesByConversation[it] }.orEmpty()
 
     private val skillZipImportGateway = skillZipImportGateway ?: CoreSkillZipImportGateway(appContext)
     private val runConversationIds = mutableMapOf<String, String>()
@@ -2604,7 +2615,17 @@ internal class AgentAppState(
                 pendingImages.isNotEmpty() ||
                 pendingFileReferences.isNotEmpty() || pendingMentions.isNotEmpty()
             ) {
-                steerCurrentRun(submittedText ?: currentDraftField().text.toString())
+                val conversationId = selectedConversationId
+                // 纯文字短按排队；附件、引用、编辑态与暂停中的插话仍立即送入当前运行。
+                if (
+                    conversationId != null && homeState.isStreaming && !homeState.isPaused &&
+                    homeState.messageEdit == null && pendingImages.isEmpty() &&
+                    pendingFileReferences.isEmpty() && pendingMentions.isEmpty() && prompt.isNotBlank()
+                ) {
+                    enqueueQueuedMessage(conversationId, prompt)
+                } else {
+                    steerCurrentRun(submittedText ?: currentDraftField().text.toString())
+                }
             }
             return
         }
@@ -2740,6 +2761,76 @@ internal class AgentAppState(
         )
     }
 
+    /** 把纯文字消息追加到会话队尾，并清空该会话草稿（正文已移入队列，不再保留在输入框）。 */
+    private fun enqueueQueuedMessage(conversationId: String, text: String) {
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) return
+        val queue = queuedMessagesByConversation[conversationId].orEmpty()
+        queuedMessagesByConversation[conversationId] = queue + QueuedMessageUi(
+            id = "queued-${UUID.randomUUID()}",
+            content = trimmed,
+        )
+        conversationDrafts.replace(conversationId, "")
+    }
+
+    /** 撤回队尾消息：从队列移除并合并回主输入框继续编辑。 */
+    fun recallQueuedMessage(id: String) {
+        val conversationId = selectedConversationId ?: return
+        val queue = queuedMessagesByConversation[conversationId].orEmpty()
+        val item = queue.firstOrNull { it.id == id } ?: return
+        queuedMessagesByConversation[conversationId] = queue.filterNot { it.id == id }
+        val existing = currentDraftField().text.toString()
+        conversationDrafts.replace(
+            conversationId,
+            if (existing.isBlank()) item.content else existing + "\n" + item.content,
+        )
+    }
+
+    /** 立即插话：把排队消息送入当前运行，并从队列中移除。 */
+    fun steerQueuedMessage(id: String) {
+        if (rejectConversationArchiveMutation()) return
+        val conversationId = selectedConversationId ?: return
+        val queue = queuedMessagesByConversation[conversationId].orEmpty()
+        val item = queue.firstOrNull { it.id == id } ?: return
+        if (!homeState.isStreaming || homeState.isPaused) return
+        queuedMessagesByConversation[conversationId] = queue.filterNot { it.id == id }
+        steerCurrentRun(item.content)
+    }
+
+    /**
+     * 运行自然结束后续发队首；用户主动停止时由调用方跳过，保留队列不自动发出。
+     * @return 是否已真正发出（发出后调用方不应再对本轮次启动压缩，避免与新运行抢占）。
+     */
+    private fun flushQueuedMessages(conversationId: String): Boolean {
+        val queue = queuedMessagesByConversation[conversationId].orEmpty()
+        val next = queue.firstOrNull() ?: return false
+        if (conversationId != selectedConversationId) return false
+        if (homeState.isStreaming || homeState.isPaused || homeState.isCompressingContext) return false
+        if (homeState.messageEdit != null) return false
+        if (conversationId.isReadOnlyExternalArchiveConversation()) return false
+        if (conversationRevisionBusy || conversationArchiveBusy) return false
+        if (io.github.mangi.eta.agent.runtime.AgentExecutionService.backupMaintenance) return false
+        if (rejectSendIfModelUnavailable()) return false
+        val history = AgentConversationRevisionReducer.commitVisibleAssistantIntoHistory(
+            homeState.history,
+            homeState.messages,
+        )
+        if (rejectSendIfContextWindowExceeded(history, next.content, emptyList(), emptyList())) return false
+        queuedMessagesByConversation[conversationId] = queue.drop(1)
+        startPreparedSend(
+            prompt = next.content,
+            uiImages = emptyList(),
+            modelImages = emptyList(),
+            fileReferences = emptyList(),
+            persistedImages = emptyList(),
+            history = history,
+            editBoundary = null,
+            conversationId = conversationId,
+            preserveDraft = true,
+        )
+        return true
+    }
+
     private fun startPreparedSend(
         prompt: String,
         uiImages: List<PendingImageUi>,
@@ -2749,10 +2840,19 @@ internal class AgentAppState(
         history: List<AgentModelClient.ConversationMessage>,
         editBoundary: AgentConversationRevisionReducer.Boundary?,
         conversationId: String,
+        preserveDraft: Boolean = false,
     ) {
         if (conversationId != selectedConversationId || rejectSendIfModelUnavailable()) return
         if (rejectSendIfCompressing()) return
-        val runtimePrompt = AgentFileReferencePromptCodec.format(prompt, fileReferences, homeState.pendingConversationMentions.toMentionedConversations())
+        val runtimePrompt = AgentFileReferencePromptCodec.format(
+            prompt,
+            fileReferences,
+            if (preserveDraft) {
+                emptyList()
+            } else {
+                homeState.pendingConversationMentions.toMentionedConversations()
+            },
+        )
         val runId = "run-${UUID.randomUUID()}"
         val userMessage = UserMessageUi(
             id = editBoundary?.userMessage?.id ?: "user-$runId",
@@ -2810,15 +2910,20 @@ internal class AgentAppState(
             history = history,
             userHistoryMessage = userHistoryMessage,
             messages = messages,
-            state = homeState.copy(
-                input = "",
-                pendingImages = emptyList(),
-                pendingFileReferences = emptyList(),
-                pendingConversationMentions = emptyList(),
-                messageEdit = null,
-            ),
+            state = if (preserveDraft) {
+                // 队列续发：正文已在队列里，草稿与引用保留给用户继续编辑。
+                homeState.copy(messageEdit = null)
+            } else {
+                homeState.copy(
+                    input = "",
+                    pendingImages = emptyList(),
+                    pendingFileReferences = emptyList(),
+                    pendingConversationMentions = emptyList(),
+                    messageEdit = null,
+                )
+            },
             reasoningEffort = homeState.reasoningEffort,
-            consumeDraft = true,
+            consumeDraft = !preserveDraft,
             logicalTurnId = editBoundary?.logicalTurnId ?: runId,
         )
     }
@@ -4737,7 +4842,7 @@ internal class AgentAppState(
         }
         persistConversations()
         if (startPendingCompress && pendingManualCompress != null) {
-            conversationId?.let(::onConversationRunSettled)
+            conversationId?.let { onConversationRunSettled(it, flushQueue = false) }
                 ?: startPendingManualCompress()
         }
     }
@@ -6111,6 +6216,8 @@ internal class AgentAppState(
                         setConversationCompressing(conversationId, false)
                     }
                     startPendingManualCompress()
+                    // 压缩期间被挡下的排队消息在压缩结束后继续续发。
+                    flushQueuedMessages(conversationId)
                 }
             }
         }
@@ -6248,7 +6355,8 @@ internal class AgentAppState(
             }
         )
         if (conversationId != null) {
-            onConversationRunSettled(conversationId)
+            // 用户主动停止（含重试等待中停止）时保留队列，不自动续发。
+            onConversationRunSettled(conversationId, flushQueue = stoppedDuringRetry == null)
         }
     }
 
@@ -7328,7 +7436,9 @@ internal class AgentAppState(
         return runConversationIds.entries.firstOrNull { it.value == conversationId }?.key
     }
 
-    private fun onConversationRunSettled(conversationId: String) {
+    private fun onConversationRunSettled(conversationId: String, flushQueue: Boolean = true) {
+        // 压缩与续发互斥：队列已有待发消息时优先续发，不再为本轮次排压缩。
+        if (flushQueue && flushQueuedMessages(conversationId)) return
         val pending = pendingManualCompress
         if (pending != null && (pending.conversationId == null || pending.conversationId == conversationId)) {
             startPendingManualCompress()
@@ -7666,6 +7776,8 @@ internal fun buildToolsState(context: Context): AgentToolsUiState =
                 id = "web",
                 title = context.getString(R.string.state_web_browsing_e56105),
                 tools = listOf(
+                    ToolItemUi("web_search", context.getString(R.string.tool_web_search), context.getString(R.string.tool_web_search_description)),
+                    ToolItemUi("fetch_url", context.getString(R.string.tool_fetch_url), context.getString(R.string.tool_fetch_url_description)),
                     ToolItemUi("browser_use", context.getString(R.string.tool_ui_agent_browser_a66bd5), context.getString(R.string.tool_ui_open_web_pages_off_screen_and_keep_a_takeover_br_72972e)),
                     ToolItemUi("browser_read", context.getString(R.string.tool_ui_read_web_pages_4f0bb9), context.getString(R.string.tool_ui_extract_rendered_text_lists_and_links_8bdcdd)),
                     ToolItemUi("browser_interact", context.getString(R.string.tool_ui_web_page_interaction_331b3f), context.getString(R.string.tool_ui_find_click_and_enter_page_elements_8f102d)),

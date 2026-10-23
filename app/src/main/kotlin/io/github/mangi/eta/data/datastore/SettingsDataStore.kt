@@ -19,6 +19,7 @@ import io.github.mangi.eta.data.model.AppearanceThemeMode
 import io.github.mangi.eta.data.model.AppearanceTopBarBlurStyle
 import io.github.mangi.eta.data.model.ErrorReconnectPolicy
 import io.github.mangi.eta.data.model.Settings
+import io.github.mangi.eta.data.model.WebToolsSettings
 import io.github.mangi.eta.data.repository.ConversationUsageTotals
 import io.github.mangi.eta.data.repository.ModelUsageDelta
 import java.io.File
@@ -29,6 +30,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 internal object SettingsDataStore {
     private const val STORE_NAME = "eta_settings"
@@ -67,6 +71,8 @@ internal object SettingsDataStore {
     private val RETIRED_CONVERSATIONS = intPreferencesKey("retired_conversations")
     private val RETIRED_MESSAGES = intPreferencesKey("retired_messages")
     private val RETIRED_HEATMAP_JSON = stringPreferencesKey("retired_heatmap_json")
+    private val WEB_TOOLS_SETTINGS = stringPreferencesKey("web_tools_settings_v1")
+    private val webToolsJson = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private const val SELECTED_MODEL_BY_PROVIDER_PREFIX = "selected_model_id_by_provider."
     private const val LINUX_BACKEND_PREFIX = "linux_backend."
 
@@ -104,6 +110,24 @@ internal object SettingsDataStore {
     }
 
     suspend fun settings(): Settings = settingsFlow().first()
+
+    fun webToolsSettingsFlow(): Flow<WebToolsSettings> {
+        ensureInitialized()
+        return dataStore.data
+            .map { prefs ->
+                prefs[WEB_TOOLS_SETTINGS]?.let { raw ->
+                    runCatching { webToolsJson.decodeFromString<WebToolsSettings>(raw) }.getOrNull()
+                } ?: WebToolsSettings()
+            }
+            .distinctUntilChanged()
+    }
+
+    suspend fun webToolsSettings(): WebToolsSettings = webToolsSettingsFlow().first()
+
+    suspend fun setWebToolsSettings(settings: WebToolsSettings) {
+        ensureInitialized()
+        dataStore.edit { prefs -> prefs[WEB_TOOLS_SETTINGS] = webToolsJson.encodeToString(settings) }
+    }
 
     suspend fun updateSettings(transform: (Settings) -> Settings) {
         ensureInitialized()

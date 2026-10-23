@@ -267,6 +267,7 @@ private fun toolDescription(tool: ToolItemUi, rootGranted: Boolean): String =
 @Composable
 private fun toolActionText(action: AgentToolsAction?): String = when (action) {
     AgentToolsAction.OpenBrowser -> stringResource(R.string.action_open_browser)
+    AgentToolsAction.OpenWebToolsSettings -> stringResource(R.string.web_tools_configure_action)
     AgentToolsAction.OpenPermissions -> stringResource(R.string.tools_manage_permissions)
     AgentToolsAction.OpenEnhancements -> stringResource(R.string.tools_view_enhancements)
     else -> stringResource(R.string.ui_view_description)

@@ -42,6 +42,7 @@ import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.RemoveRedEye
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.SmartToy
+import androidx.compose.material.icons.rounded.TravelExplore
 import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.padding
@@ -200,6 +201,15 @@ private fun settingsSearchEntries(taskBackendInstalled: Boolean?): List<Settings
                 icon = Icons.Rounded.Refresh,
                 group = groupModelFeatures,
                 action = SettingsSearchAction.Route(AppRoute.ErrorReconnectSettings),
+            ),
+        )
+        add(
+            SettingsSearchEntry(
+                title = stringResource(R.string.web_tools_settings_title),
+                summary = stringResource(R.string.tool_web_search_description),
+                icon = Icons.Rounded.TravelExplore,
+                group = groupModelFeatures,
+                action = SettingsSearchAction.Route(AppRoute.WebToolsSettings),
             ),
         )
 

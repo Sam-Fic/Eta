@@ -148,6 +148,7 @@ composeCompiler {
 
 dependencies {
     implementation(libs.commons.compress)
+    implementation(libs.jsoup)
     implementation(libs.xz)
     compileOnly(libs.libxposed.api)
     // UI 侧 RemotePreferences 写入桥：通过 XposedService 将配置提交到 LSPosed 数据库；

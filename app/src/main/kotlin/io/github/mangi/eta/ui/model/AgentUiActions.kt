@@ -25,6 +25,10 @@ sealed interface AgentHomeAction {
     data class FolderAttached(val uri: String) : AgentHomeAction
     data class FilePathAttached(val path: String) : AgentHomeAction
     data class RemoveFileReference(val id: String) : AgentHomeAction
+    /** 排队消息立即插话送入当前运行。 */
+    data class SteerQueuedMessage(val id: String) : AgentHomeAction
+    /** 排队消息撤回到主输入框继续编辑。 */
+    data class RecallQueuedMessage(val id: String) : AgentHomeAction
     data class EditMessage(val id: String) : AgentHomeAction
     data object CancelMessageEdit : AgentHomeAction
     data class DeleteMessage(val id: String) : AgentHomeAction
@@ -73,6 +77,8 @@ sealed interface AgentChatAction {
     data class FolderAttached(val uri: String) : AgentChatAction
     data class FilePathAttached(val path: String) : AgentChatAction
     data class RemoveFileReference(val id: String) : AgentChatAction
+    data class SteerQueuedMessage(val id: String) : AgentChatAction
+    data class RecallQueuedMessage(val id: String) : AgentChatAction
     data class EditMessage(val id: String) : AgentChatAction
     data object CancelMessageEdit : AgentChatAction
     data class DeleteMessage(val id: String) : AgentChatAction
@@ -87,6 +93,7 @@ sealed interface AgentToolsAction {
     data object OpenPermissions : AgentToolsAction
     data object NavigateBack : AgentToolsAction
     data object OpenBrowser : AgentToolsAction
+    data object OpenWebToolsSettings : AgentToolsAction
 }
 
 sealed interface AgentSkillsAction {

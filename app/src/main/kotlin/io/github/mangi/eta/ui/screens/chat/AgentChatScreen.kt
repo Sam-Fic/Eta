@@ -12,6 +12,7 @@ import io.github.mangi.eta.ui.components.chatConversationCompositionKey
 import io.github.mangi.eta.ui.model.AgentChatAction
 import io.github.mangi.eta.ui.model.AgentChatUiState
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
+import io.github.mangi.eta.ui.model.QueuedMessageUi
 
 /**
  * 独立对话页：与首页聊天主舞台共用同一套消息/输入组件，
@@ -23,6 +24,9 @@ internal fun AgentChatScreen(
     // homeState, and a caller-side read would recompose the whole navigation entry.
     stateProvider: () -> AgentChatUiState,
     conversationMentions: ConversationMentionInputUi = ConversationMentionInputUi(),
+    queuedMessages: List<QueuedMessageUi> = emptyList(),
+    onSteerQueuedMessage: (String) -> Unit = {},
+    onRecallQueuedMessage: (String) -> Unit = {},
     modelPickerState: AgentModelPickerUiState,
     autoCompressEnabled: Boolean,
     requestOverheadTokens: Int = 0,
@@ -73,6 +77,9 @@ internal fun AgentChatScreen(
             pendingImages = state.pendingImages,
             pendingFileReferences = state.pendingFileReferences,
             conversationMentions = conversationMentions,
+            queuedMessages = queuedMessages,
+            onSteerQueuedMessage = onSteerQueuedMessage,
+            onRecallQueuedMessage = onRecallQueuedMessage,
             messageEdit = state.messageEdit,
             assistantId = state.assistantId,
             onReasoningEffortChange = { onAction(AgentChatAction.ReasoningEffortChanged(it)) },

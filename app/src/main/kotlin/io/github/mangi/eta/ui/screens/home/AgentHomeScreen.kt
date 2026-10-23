@@ -12,6 +12,7 @@ import io.github.mangi.eta.ui.components.chatConversationCompositionKey
 import io.github.mangi.eta.ui.model.AgentChatHomeUiState
 import io.github.mangi.eta.ui.model.AgentHomeAction
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
+import io.github.mangi.eta.ui.model.QueuedMessageUi
 
 /**
  * AgentChatHome：首屏为聊天主舞台。
@@ -25,6 +26,9 @@ internal fun AgentHomeScreen(
     // homeState, and a caller-side read would recompose the whole navigation entry.
     stateProvider: () -> AgentChatHomeUiState,
     conversationMentions: ConversationMentionInputUi = ConversationMentionInputUi(),
+    queuedMessages: List<QueuedMessageUi> = emptyList(),
+    onSteerQueuedMessage: (String) -> Unit = {},
+    onRecallQueuedMessage: (String) -> Unit = {},
     modelPickerState: AgentModelPickerUiState,
     autoCompressEnabled: Boolean,
     requestOverheadTokens: Int = 0,
@@ -78,6 +82,9 @@ internal fun AgentHomeScreen(
             pendingImages = state.pendingImages,
             pendingFileReferences = state.pendingFileReferences,
             conversationMentions = conversationMentions,
+            queuedMessages = queuedMessages,
+            onSteerQueuedMessage = onSteerQueuedMessage,
+            onRecallQueuedMessage = onRecallQueuedMessage,
             messageEdit = state.messageEdit,
             assistantId = state.assistantId,
             onReasoningEffortChange = { onAction(AgentHomeAction.ReasoningEffortChanged(it)) },

@@ -133,6 +133,7 @@ import io.github.mangi.eta.ui.screens.terminal.SharedFoldersScreen
 import io.github.mangi.eta.ui.screens.terminal.TerminalEntryScreen
 import io.github.mangi.eta.ui.screens.terminal.WorkspaceScreen
 import io.github.mangi.eta.ui.screens.tools.AgentToolsScreen
+import io.github.mangi.eta.ui.screens.tools.WebToolsSettingsScreen
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -628,6 +629,9 @@ fun AgentAppRoot(
                             onAttach = agentState::attachConversationMention,
                             onRemove = agentState::removeConversationMention,
                         ),
+                        queuedMessages = agentState.queuedMessages,
+                        onSteerQueuedMessage = agentState::steerQueuedMessage,
+                        onRecallQueuedMessage = agentState::recallQueuedMessage,
                         modelPickerState = agentState.modelPickerState,
                         autoCompressEnabled = agentState.autoCompressEnabled,
                         requestOverheadTokens = agentState.requestOverheadTokens,
@@ -655,6 +659,8 @@ fun AgentAppRoot(
                                 is AgentHomeAction.FilePathAttached -> agentState.attachFilePath(action.path)
                                 is AgentHomeAction.RemoveFileReference ->
                                     agentState.removePendingFileReference(action.id)
+                                is AgentHomeAction.SteerQueuedMessage -> agentState.steerQueuedMessage(action.id)
+                                is AgentHomeAction.RecallQueuedMessage -> agentState.recallQueuedMessage(action.id)
                                 is AgentHomeAction.EditMessage -> agentState.beginMessageEdit(action.id)
                                 AgentHomeAction.CancelMessageEdit -> agentState.cancelMessageEdit()
                                 is AgentHomeAction.DeleteMessage -> {
@@ -702,6 +708,9 @@ fun AgentAppRoot(
                             onAttach = agentState::attachConversationMention,
                             onRemove = agentState::removeConversationMention,
                         ),
+                        queuedMessages = agentState.queuedMessages,
+                        onSteerQueuedMessage = agentState::steerQueuedMessage,
+                        onRecallQueuedMessage = agentState::recallQueuedMessage,
                         modelPickerState = agentState.modelPickerState,
                         autoCompressEnabled = agentState.autoCompressEnabled,
                         requestOverheadTokens = agentState.requestOverheadTokens,
@@ -734,6 +743,8 @@ fun AgentAppRoot(
                                 is AgentChatAction.FilePathAttached -> agentState.attachFilePath(action.path)
                                 is AgentChatAction.RemoveFileReference ->
                                     agentState.removePendingFileReference(action.id)
+                                is AgentChatAction.SteerQueuedMessage -> agentState.steerQueuedMessage(action.id)
+                                is AgentChatAction.RecallQueuedMessage -> agentState.recallQueuedMessage(action.id)
                                 is AgentChatAction.EditMessage -> agentState.beginMessageEdit(action.id)
                                 AgentChatAction.CancelMessageEdit -> agentState.cancelMessageEdit()
                                 is AgentChatAction.DeleteMessage -> {
@@ -813,6 +824,7 @@ fun AgentAppRoot(
                             AgentToolsAction.OpenBrowser -> pushRoute(AppRoute.Browser)
                             AgentToolsAction.OpenEnhancements -> pushRoute(AppRoute.SystemEnhance)
                             AgentToolsAction.OpenPermissions -> pushRoute(AppRoute.Permissions)
+                            AgentToolsAction.OpenWebToolsSettings -> pushRoute(AppRoute.WebToolsSettings)
                         }
                     },
                 )
@@ -1127,6 +1139,9 @@ fun AgentAppRoot(
             }
             composable<AppRoute.ErrorReconnectSettings> {
                 ErrorReconnectSettingsScreen(onBack = ::popRoute)
+            }
+            composable<AppRoute.WebToolsSettings> {
+                WebToolsSettingsScreen(onBack = ::popRoute)
             }
             composable<AppRoute.VoiceSettings> {
                 io.github.mangi.eta.ui.VoiceSettingsScreen(

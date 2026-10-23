@@ -124,6 +124,7 @@ import io.github.mangi.eta.ui.model.ConversationMentionInputUi
 import io.github.mangi.eta.ui.model.SkillSlashMention
 import io.github.mangi.eta.ui.model.PendingFileReferenceUi
 import io.github.mangi.eta.ui.model.PendingImageUi
+import io.github.mangi.eta.ui.model.QueuedMessageUi
 import kotlin.math.roundToInt
 import android.content.Intent
 import androidx.compose.foundation.layout.height
@@ -197,6 +198,10 @@ internal fun AgentChatInputBar(
     pendingImages: List<PendingImageUi>,
     pendingFileReferences: List<PendingFileReferenceUi>,
     conversationMentions: ConversationMentionInputUi = ConversationMentionInputUi(),
+    /** 流式期间短按发送排队的消息；显示在输入栏上方的胶囊里。 */
+    queuedMessages: List<QueuedMessageUi> = emptyList(),
+    onSteerQueuedMessage: (String) -> Unit = {},
+    onRecallQueuedMessage: (String) -> Unit = {},
     isEditingMessage: Boolean,
     collaborationConversationId: String? = null,
     assistantId: String = "",
@@ -485,6 +490,9 @@ internal fun AgentChatInputBar(
             pendingImages = pendingImages,
             pendingFileReferences = pendingFileReferences,
             conversationMentions = conversationMentions,
+            queuedMessages = queuedMessages,
+            onSteerQueuedMessage = onSteerQueuedMessage,
+            onRecallQueuedMessage = onRecallQueuedMessage,
             onStartVoiceMode = onStartVoiceMode,
             onStopVoiceMode = onStopVoiceMode,
             onCancelMessageEdit = onCancelMessageEdit,

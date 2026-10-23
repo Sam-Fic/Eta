@@ -452,6 +452,7 @@ private fun titleForRoute(route: AppRoute?, currentConversationTitle: String? = 
     is AppRoute.TitleModel -> stringResource(R.string.title_model_title)
     is AppRoute.ErrorReconnectSettings -> stringResource(R.string.error_reconnect_title)
     is AppRoute.TtsSettings -> stringResource(R.string.tts_title)
+    is AppRoute.WebToolsSettings -> stringResource(R.string.web_tools_settings_title)
     is AppRoute.VoiceModeSettings -> stringResource(R.string.voice_mode_title)
     is AppRoute.AppearanceSettings -> stringResource(R.string.appearance_title)
     is AppRoute.DataBackup -> stringResource(R.string.data_backup_title)

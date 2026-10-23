@@ -24,12 +24,14 @@ junit = "4.13.2"
 json = "20260522"
 robolectric = "4.16.1"
 commonsCompress = "1.28.0"
+jsoup = "1.23.2"
 xz = "1.12"
 androidx-baselineprofile = "1.5.0"
 androidx-benchmark-macro-junit4 = "1.5.0"
 
 [libraries]
 commons-compress = { group = "org.apache.commons", name = "commons-compress", version.ref = "commonsCompress" }
+jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
 xz = { group = "org.tukaani", name = "xz", version.ref = "xz" }
 androidx-benchmark-macro-junit4 = { group = "androidx.benchmark", name = "benchmark-macro-junit4", version.ref = "androidx-benchmark-macro-junit4" }
 libxposed-api = { group = "io.github.libxposed", name = "api", version.ref = "libxposedApi" }

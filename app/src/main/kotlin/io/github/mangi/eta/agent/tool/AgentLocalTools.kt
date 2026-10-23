@@ -18,6 +18,12 @@ import io.github.mangi.eta.agent.device.RootShellDeviceController
 import io.github.mangi.eta.agent.device.BoundedRootCommandExecutor
 import io.github.mangi.eta.agent.model.AgentMediaSearchToolCatalog
 import io.github.mangi.eta.agent.model.AgentModelClient
+import io.github.mangi.eta.agent.model.AgentHttpClient
+import io.github.mangi.eta.agent.device.LocalNetworkPermission
+import io.github.mangi.eta.agent.web.AgentWebTools
+import io.github.mangi.eta.agent.web.WebHttpTransport
+import io.github.mangi.eta.data.repository.WebToolsSettingsRepository
+import kotlinx.coroutines.runBlocking
 import io.github.mangi.eta.agent.model.AgentScreenObservationContract
 import io.github.mangi.eta.agent.model.AgentSelfSettingsToolCatalog
 import io.github.mangi.eta.agent.model.AgentSensitiveToolPolicy
@@ -164,6 +170,12 @@ internal class AgentLocalTools(
         rootAvailable,
         conversationId = browserConversationId,
     )
+    /** 网页搜索与静态读取使用独立匿名请求，不共享浏览器会话和 Cookie。 */
+    private val webTools = AgentWebTools(
+        transport = WebHttpTransport(AgentHttpClient.client),
+        localNetworkAccess = { LocalNetworkPermission.accessState(context).name.lowercase(Locale.ROOT) },
+        runtimeConfig = { runBlocking { WebToolsSettingsRepository.resolveRuntimeConfig(context) } },
+    )
     private val selfSettingsTools = AgentSelfSettingsTools()
     private val selfModelTools = AgentSelfModelTools(context)
     private val selfSubAgentTools = AgentSelfSubAgentTools(agentConversationId)
@@ -237,6 +249,7 @@ internal class AgentLocalTools(
         io.github.mangi.eta.agent.device.VirtualDisplaySession.holdOnCancelledRun(browserRunId)
         publishedObservation.set(PublishedObservation())
         AgentBrowserSession.interruptAgentAction(browserRunId)
+        webTools.close()
         terminalController.interruptAll()
         kotlin.concurrent.thread(name = "agent-skill-view-release", isDaemon = true) {
             terminalController.closeAll()
@@ -472,6 +485,10 @@ internal class AgentLocalTools(
                 "keep_virtual_result" -> textResult(keepVirtualResult(args))
                 "open_uri" -> textResult(openUri(args))
                 "browser_use" -> browserUse(args, toolCall.id)
+                "web_search", "fetch_url" -> {
+                    if (!browserToolsEnabled()) textResult(errorResult("BROWSER_TOOLS_DISABLED", "请先启用网页搜索、读取与浏览器工具"))
+                    else textResult(webTools.execute(toolCall.name, args))
+                }
                 "observe_screen" -> observeScreen(args)
                 "tap" -> afterAction(tap(args))
                 "tap_area" -> afterAction(tapArea(args))

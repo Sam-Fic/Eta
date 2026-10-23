@@ -124,6 +124,7 @@ import io.github.mangi.eta.ui.model.MessageEditUiState
 import io.github.mangi.eta.ui.model.ConversationMentionInputUi
 import io.github.mangi.eta.ui.model.PendingFileReferenceUi
 import io.github.mangi.eta.ui.model.PendingImageUi
+import io.github.mangi.eta.ui.model.QueuedMessageUi
 import io.github.mangi.eta.ui.model.ThinkingMessageUi
 import io.github.mangi.eta.ui.model.ToolActivityMessageUi
 import io.github.mangi.eta.ui.model.ToolActivityStatusUi
@@ -250,6 +251,9 @@ internal fun AgentChatBody(
     pendingImages: List<PendingImageUi>,
     pendingFileReferences: List<PendingFileReferenceUi>,
     conversationMentions: ConversationMentionInputUi = ConversationMentionInputUi(),
+    queuedMessages: List<QueuedMessageUi> = emptyList(),
+    onSteerQueuedMessage: (String) -> Unit = {},
+    onRecallQueuedMessage: (String) -> Unit = {},
     messageEdit: MessageEditUiState?,
     collaborationConversationId: String? = null,
     assistantId: String = "",
@@ -473,6 +477,9 @@ internal fun AgentChatBody(
                 pendingImages = pendingImages,
                 pendingFileReferences = pendingFileReferences,
                 conversationMentions = conversationMentions,
+                queuedMessages = queuedMessages,
+                onSteerQueuedMessage = onSteerQueuedMessage,
+                onRecallQueuedMessage = onRecallQueuedMessage,
                 messageEdit = messageEdit,
                 assistantId = assistantId,
                 voiceState = voiceState,
@@ -564,6 +571,9 @@ internal fun AgentChatScaffold(
     pendingImages: List<PendingImageUi>,
     pendingFileReferences: List<PendingFileReferenceUi>,
     conversationMentions: ConversationMentionInputUi = ConversationMentionInputUi(),
+    queuedMessages: List<QueuedMessageUi> = emptyList(),
+    onSteerQueuedMessage: (String) -> Unit = {},
+    onRecallQueuedMessage: (String) -> Unit = {},
     messageEdit: MessageEditUiState?,
     collaborationConversationId: String? = null,
     assistantId: String = "",
@@ -666,6 +676,9 @@ internal fun AgentChatScaffold(
                 pendingImages = pendingImages,
                 pendingFileReferences = pendingFileReferences,
             conversationMentions = conversationMentions,
+                queuedMessages = queuedMessages,
+                onSteerQueuedMessage = onSteerQueuedMessage,
+                onRecallQueuedMessage = onRecallQueuedMessage,
                 messageEdit = messageEdit,
                 assistantId = assistantId,
                 voiceState = voiceState,
@@ -2194,6 +2207,9 @@ private fun AgentChatBottomBar(
     pendingImages: List<PendingImageUi>,
     pendingFileReferences: List<PendingFileReferenceUi>,
     conversationMentions: ConversationMentionInputUi = ConversationMentionInputUi(),
+    queuedMessages: List<QueuedMessageUi> = emptyList(),
+    onSteerQueuedMessage: (String) -> Unit = {},
+    onRecallQueuedMessage: (String) -> Unit = {},
     messageEdit: MessageEditUiState?,
     collaborationConversationId: String? = null,
     assistantId: String = "",
@@ -2286,6 +2302,9 @@ private fun AgentChatBottomBar(
                 pendingImages = pendingImages,
                 pendingFileReferences = pendingFileReferences,
             conversationMentions = conversationMentions,
+                queuedMessages = queuedMessages,
+                onSteerQueuedMessage = onSteerQueuedMessage,
+                onRecallQueuedMessage = onRecallQueuedMessage,
                 isEditingMessage = messageEdit != null,
                 assistantId = assistantId,
                 voiceState = voiceState,

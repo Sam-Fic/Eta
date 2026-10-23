@@ -22,6 +22,8 @@ internal class AgentTraceFormatter(
     fun summarizeArguments(toolCall: AgentModelClient.ToolCall): String =
         when (toolCall.name) {
             BROWSER_TOOL_NAME -> summarizeBrowserArguments(toolCall.argumentsJson)
+            "web_search" -> "搜索公开网页"
+            "fetch_url" -> summarizeFetchArguments(toolCall.argumentsJson)
             "open_uri" -> summarizeOpenUriArguments(toolCall.argumentsJson)
             "terminal" -> summarizeTerminalArguments(toolCall.argumentsJson)
             "run_command" -> summarizeRunCommandArguments(toolCall.argumentsJson)
@@ -128,6 +130,12 @@ internal class AgentTraceFormatter(
             val host = safeHttpHost(arguments.optString("url"))
             listOfNotNull(action, host).joinToString(" · ")
         }.getOrElse { localizedText(R.string.trace_action_browser, "浏览器操作") }
+
+    private fun summarizeFetchArguments(argumentsJson: String): String = runCatching {
+        val arguments = JSONObject(argumentsJson)
+        val label = if (arguments.has("document_id")) "续读网页正文" else "读取网页正文"
+        listOfNotNull(label, safeHttpHost(arguments.optString("url"))).joinToString(" · ")
+    }.getOrDefault("读取网页正文")
 
     private fun summarizeRunCommandArguments(argumentsJson: String): String =
         runCatching {
@@ -296,6 +304,7 @@ internal class AgentTraceFormatter(
         result: AgentModelClient.ToolResult,
     ): String {
         val json = parseResultJson(result)
+        if (toolName == "web_search" || toolName == "fetch_url") return summarizeWebResult(toolName, json)
         // 终端 exit_code != 0 时 ok=false 但没有 code 字段，必须走专用分支保留退出码与输出
         if (toolName == "terminal" || toolName == "run_command") {
             return summarizeTerminalResult(json)
@@ -365,6 +374,31 @@ internal class AgentTraceFormatter(
 
     private fun parseResultJson(result: AgentModelClient.ToolResult): JSONObject? =
         runCatching { JSONObject(result.content) }.getOrNull()
+
+    /** 网页错误正文、搜索词和页面标题可能回显私密 URL，只保留动作、主机与计数。 */
+    private fun summarizeWebResult(toolName: String, json: JSONObject?): String {
+        val label = if (toolName == "web_search") "网页搜索" else "网页读取"
+        if (json == null) return label
+        if (!json.optBoolean("ok", true)) {
+            val code = json.optString("code").takeIf { it.matches(Regex("[A-Z][A-Z0-9_]{0,79}")) }
+            return listOfNotNull("${label}失败", code?.let { "code=$it" }).joinToString(" · ")
+        }
+        return buildList {
+            if (toolName == "web_search") {
+                add("已搜索公开网页")
+                val count = json.optJSONArray("results")?.length() ?: json.firstNonNegativeInt("count")
+                count?.let { add("$it 条结果") }
+            } else {
+                add("已读取网页正文")
+                sequenceOf("final_url", "url").map { json.optString(it) }.mapNotNull(::safeHttpHost).firstOrNull()?.let(::add)
+                val chars = (json.opt("text") as? String)?.length
+                    ?: json.firstNonNegativeInt("returned_chars", "text_chars")
+                chars?.let { add(formatCharCount(it)) }
+                if (json.optBoolean("has_more")) add("还有正文")
+            }
+            if (json.optBoolean("truncated")) add("内容不完整")
+        }.joinToString(" · ")
+    }
 
     /** 失败摘要保留 code= 标记，供运行日志提取稳定错误码；message 是工具侧给出的中文原因。 */
     private fun summarizeFailure(json: JSONObject?): String {

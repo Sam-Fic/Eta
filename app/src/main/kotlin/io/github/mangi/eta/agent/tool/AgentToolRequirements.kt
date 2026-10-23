@@ -28,6 +28,7 @@ internal object AgentToolRequirements {
             RootRequirement.NONE,
             "ask_user",
             "get_current_context", "search_apps", "launch_app", "keep_virtual_result", "open_uri", "browser_use", "text_to_speech",
+            "web_search", "fetch_url",
             "observe_screen", "tap", "tap_area", "tap_element", "long_press",
             "long_press_element", "swipe", "scroll", "scroll_element", "input_text",
             "replace_text", "clear_text", "set_clipboard", "get_clipboard", "paste_text",

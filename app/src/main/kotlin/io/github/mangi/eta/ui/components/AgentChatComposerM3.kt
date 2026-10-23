@@ -11,12 +11,15 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -41,6 +44,7 @@ import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Description
@@ -131,6 +135,7 @@ import io.github.mangi.eta.ui.model.AgentModelPickerUiState
 import io.github.mangi.eta.ui.model.ConversationMentionInputUi
 import io.github.mangi.eta.ui.model.PendingFileReferenceUi
 import io.github.mangi.eta.ui.model.PendingImageUi
+import io.github.mangi.eta.ui.model.QueuedMessageUi
 import java.time.LocalTime
 import java.util.Calendar
 import kotlin.math.abs
@@ -229,6 +234,10 @@ internal fun Material3ComposerBody(
     pendingImages: List<PendingImageUi>,
     pendingFileReferences: List<PendingFileReferenceUi>,
     conversationMentions: ConversationMentionInputUi,
+    /** 流式期间短按发送暂存的排队消息；渲染在输入栏上方的可撤回胶囊里。 */
+    queuedMessages: List<QueuedMessageUi> = emptyList(),
+    onSteerQueuedMessage: (String) -> Unit = {},
+    onRecallQueuedMessage: (String) -> Unit = {},
     onStartVoiceMode: (VoiceEntryMode) -> Unit,
     onStopVoiceMode: () -> Unit,
     onCancelMessageEdit: () -> Unit,
@@ -315,6 +324,13 @@ internal fun Material3ComposerBody(
             .onGloballyPositioned { onPositionedTopPx(it.positionInWindow().y.toInt()) },
     ) {
         val voiceActive = voiceState.active || voiceState.error != null
+        M3ComposerQueueStrip(
+            items = queuedMessages,
+            canSteerNow = isStreaming && !isPaused,
+            onSteer = onSteerQueuedMessage,
+            onRecall = onRecallQueuedMessage,
+            modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp),
+        )
         HorizontalFloatingToolbar(
             expanded = true,
             // 官方 vibrant 变体：容器 primaryContainer、内容 onPrimaryContainer
@@ -514,6 +530,8 @@ internal fun Material3ComposerBody(
                         when (trailing) {
                             // 语音进行中：参考稿的粉色圆钮取官方 tertiaryContainer 角色。
                             ComposerTrailing.VOICE_STOP -> M3VoiceStopButton(onStop = onStopVoiceMode)
+                            // 生成中发送：正文先排入上方队列，结束后自动发出；
+                            // 想立刻送进当前运行则点队列项的闪电图标立即插话。
                             ComposerTrailing.SEND -> M3ComposerSendButton(
                                 sendMode = sendMode,
                                 isPaused = isPaused,
@@ -1156,6 +1174,76 @@ private fun M3ComposerSendButton(
         "continue", "send" -> FilledIconButton(onClick = click, modifier = modifier, content = content)
         "blocked" -> OutlinedIconButton(onClick = click, modifier = modifier, content = content)
         else -> IconButton(onClick = click, modifier = modifier, enabled = false, content = content)
+    }
+}
+
+/**
+ * 输入栏上方的排队消息胶囊：每条显示正文摘要。
+ * 点击正文把该条合并回主输入框继续编辑；生成中点击闪电图标立即插话送进当前运行。
+ */
+@Composable
+private fun M3ComposerQueueStrip(
+    items: List<QueuedMessageUi>,
+    canSteerNow: Boolean,
+    onSteer: (String) -> Unit,
+    onRecall: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val view = LocalView.current
+    AnimatedVisibility(
+        visible = items.isNotEmpty(),
+        enter = fadeIn() + expandVertically(),
+        exit = fadeOut() + shrinkVertically(),
+        modifier = modifier,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            items.forEach { item ->
+                Surface(
+                    shape = MaterialTheme.shapes.extraLarge,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("composer-queue-item"),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = item.content,
+                            style = etaTextStyle(EtaType.Secondary),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .weight(1f)
+                                // 点击正文 = 撤回队列并合并回输入框继续编辑。
+                                .clickable {
+                                    TouchHaptics.click(view)
+                                    onRecall(item.id)
+                                }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                        )
+                        if (canSteerNow) {
+                            IconButton(
+                                onClick = {
+                                    TouchHaptics.click(view)
+                                    onSteer(item.id)
+                                },
+                                modifier = Modifier
+                                    .padding(end = 4.dp)
+                                    .size(IconButtonDefaults.smallContainerSize()),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Bolt,
+                                    contentDescription = stringResource(R.string.chat_queue_steer_now),
+                                    modifier = Modifier.size(IconButtonDefaults.smallIconSize),
+                                )
+                            }
+                        } else {
+                            Spacer(modifier = Modifier.width(16.dp))
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

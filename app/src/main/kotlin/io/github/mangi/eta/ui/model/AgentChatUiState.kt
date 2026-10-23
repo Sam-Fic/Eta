@@ -65,6 +65,16 @@ internal data class AgentChatUiState(
     val gptSpeedMode: GptSpeedMode = GptSpeedMode.NORMAL,
 )
 
+/**
+ * 流式回复期间短按发送后暂存的待发消息：当前运行结束后按队列顺序自动发出。
+ * 仅承载纯文字；带附件 / 引用 / 编辑态的内容仍走立即插话，避免附件在延迟发送中失真。
+ */
+@Immutable
+internal data class QueuedMessageUi(
+    val id: String,
+    val content: String,
+)
+
 @Immutable
 sealed interface AgentChatMessageUi {
     val id: String

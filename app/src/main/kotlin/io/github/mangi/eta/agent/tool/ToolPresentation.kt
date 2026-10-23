@@ -120,6 +120,8 @@ internal object ToolPresentation {
         "launch_app" -> R.string.tool_launch_app
         "open_uri" -> R.string.tool_open_uri
         "browser_use" -> R.string.tool_browser_use
+        "web_search" -> R.string.tool_web_search
+        "fetch_url" -> R.string.tool_fetch_url
         "delegate_task" -> R.string.tool_delegate_task
         "get_task_result" -> R.string.tool_get_task_result
         "cancel_task" -> R.string.tool_cancel_task
@@ -225,7 +227,7 @@ internal object ToolPresentation {
         "browser_use" -> Icons.Rounded.Language
         "网页浏览" -> Icons.Rounded.Language
         "web_search", "web_search_call", "网页搜索" -> Icons.Rounded.TravelExplore
-        "browser_read" -> Icons.AutoMirrored.Rounded.MenuBook
+        "browser_read", "fetch_url" -> Icons.AutoMirrored.Rounded.MenuBook
         "browser_interact" -> Icons.Rounded.AdsClick
         "browser_screenshot" -> Icons.Rounded.ScreenshotMonitor
         "file_search", "file_search_call", "文件搜索" -> Icons.AutoMirrored.Rounded.ManageSearch

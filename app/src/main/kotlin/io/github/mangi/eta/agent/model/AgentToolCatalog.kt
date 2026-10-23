@@ -17,6 +17,7 @@ internal object AgentToolCatalog {
         selfSettingsTools: Boolean = true,
         mediaSearchTools: Boolean = false,
         capabilities: AgentToolCapabilities = AgentToolCapabilities(rootAvailable = true),
+        localWebSearch: Boolean = true,
     ): JSONArray =
         capabilities.project(JSONArray().also { tools ->
             AgentQuestionToolCatalog.appendTo(tools)
@@ -30,7 +31,10 @@ internal object AgentToolCatalog {
                 sensitiveReadTools = deviceSensitiveReadTools,
                 sensitiveActionTools = deviceSensitiveActionTools,
             )
-            if (browserTools) AgentBrowserToolCatalog.appendTo(tools)
+            if (browserTools) {
+                AgentWebToolCatalog.appendTo(tools, includeSearch = localWebSearch)
+                AgentBrowserToolCatalog.appendTo(tools)
+            }
             AgentSkillToolCatalog.appendTo(
                 tools,
                 githubDiscovery = skillGitHubDiscovery,
