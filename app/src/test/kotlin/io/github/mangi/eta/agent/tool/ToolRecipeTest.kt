@@ -6,7 +6,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertThrows
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 
 /**
  * 自进化配方的纯逻辑测试。
@@ -16,6 +20,7 @@ import org.junit.Test
  * 2. 配方校验（名字、步骤白名单、参数声明）
  * 3. 组合链的 Root 推导与环检测
  */
+@RunWith(RobolectricTestRunner::class)
 class ToolRecipeTest {
 
     @Test
@@ -265,6 +270,120 @@ class ToolRecipeTest {
         parameters = JSONObject().put("type", "object").put("properties", JSONObject()),
         steps = steps,
     )
+
+    @Test
+    fun storeIsProcessWideSoUiAndAgentSeeTheSameRecipes() {
+        // 管理页停用/删除配方后，agent 侧必须立刻看到：两个实例会各持一份缓存，
+        // 模型就会继续调用已被用户收回的工具。
+        val context = RuntimeEnvironment.getApplication()
+        val first = AgentToolRecipeStore.get(context)
+        val second = AgentToolRecipeStore.get(context)
+
+        assertTrue("必须返回同一实例", first === second)
+        assertEquals(
+            "管理页与 agent 必须落在同一目录",
+            ToolRecipePaths.directory(context).absolutePath,
+            File(context.filesDir, ToolRecipeConstants.DIRECTORY_NAME).absolutePath,
+        )
+    }
+
+    @Test
+    fun shareRoundTripPreservesSteps() {
+        val original = recipe(
+            name = "shared_tool",
+            steps = listOf(
+                ToolRecipeStep.HttpRequest(
+                    url = "https://api.test/{{q}}",
+                    method = "POST",
+                    headers = mapOf("X-Test" to "1"),
+                    body = "{\"q\":\"{{q}}\"}",
+                    bodyIsJson = true,
+                ),
+                ToolRecipeStep.Literal("done"),
+            ),
+        ).copy(description = "分享用配方", enabled = true, version = 9)
+
+        val payload = ToolRecipeShareFormat.encode(listOf(original))
+        val decoded = ToolRecipeShareFormat.decode(payload)
+
+        assertEquals(1, decoded.size)
+        val restored = decoded.single()
+        assertEquals("shared_tool", restored.name)
+        assertEquals("分享用配方", restored.description)
+        // 分享的是「配方本身」，不带本机状态：导入一律停用，版本与时间戳重置。
+        assertFalse("导入的配方必须默认停用", restored.enabled)
+        assertEquals(1, restored.version)
+        val http = restored.steps.first() as ToolRecipeStep.HttpRequest
+        assertEquals("POST", http.method)
+        assertEquals("https://api.test/{{q}}", http.url)
+        assertEquals("{\"q\":\"{{q}}\"}", http.body)
+        assertTrue(http.bodyIsJson)
+        assertEquals("1", http.headers["X-Test"])
+    }
+
+    @Test
+    fun shareRejectsUnknownFormatAndVersion() {
+        val wrongFormat = JSONObject().put("format", "other").put("schemaVersion", 1)
+            .put("recipes", org.json.JSONArray())
+            .toString()
+        val wrongVersion = JSONObject().put("format", ToolRecipeShareFormat.FORMAT)
+            .put("schemaVersion", 99)
+            .put("recipes", org.json.JSONArray())
+            .toString()
+
+        assertThrows(ToolRecipeShareException::class.java) { ToolRecipeShareFormat.decode(wrongFormat) }
+        assertThrows(ToolRecipeShareException::class.java) { ToolRecipeShareFormat.decode(wrongVersion) }
+    }
+
+    @Test
+    fun shareRejectsPackageWithInvalidStep() {
+        // 分享文件是不可信输入：步骤 op 不在白名单里必须整份拒绝，不能半可用。
+        val payload = JSONObject()
+            .put("format", ToolRecipeShareFormat.FORMAT)
+            .put("schemaVersion", ToolRecipeShareFormat.SCHEMA_VERSION)
+            .put(
+                "recipes",
+                org.json.JSONArray().put(
+                    JSONObject()
+                        .put("name", "bad_tool")
+                        .put("description", "坏配方")
+                        .put("steps", org.json.JSONArray().put(JSONObject().put("op", "run_arbitrary_code"))),
+                ),
+            )
+            .toString()
+
+        val failure = runCatching { ToolRecipeShareFormat.decode(payload) }.exceptionOrNull()
+        assertTrue("坏步骤必须被拒绝", failure is ToolRecipeShareException)
+    }
+
+    @Test
+    fun shareDetectsCompositionTargetOutsideThePackage() {
+        val inner = recipe("inner_tool", listOf(ToolRecipeStep.Literal("x")))
+        val outer = recipe("outer_tool", listOf(ToolRecipeStep.Compose("inner_tool")))
+
+        // 两份一起导出：组合目标在包内，无缺失。
+        assertTrue(ToolRecipeShareFormat.missingCompositionTargets(listOf(inner, outer)).isEmpty())
+        // 只导出外层：组合目标缺失，导入到其它设备会失败。
+        assertEquals(setOf("inner_tool"), ToolRecipeShareFormat.missingCompositionTargets(listOf(outer)))
+    }
+
+    @Test
+    fun importedRecipesAreImmediatelyUsableAfterSave() {
+        val dir = tempDir()
+        val store = AgentToolRecipeStore(dir)
+        val payload = ToolRecipeShareFormat.encode(
+            listOf(recipe("migrated_tool", listOf(ToolRecipeStep.Literal("hi")))),
+        )
+
+        val imported = ToolRecipeShareFormat.decode(payload)
+        imported.forEach { recipe ->
+            assertTrue(store.save(recipe) is AgentToolRecipeStore.SaveResult.Ok)
+        }
+
+        val reloaded = AgentToolRecipeStore(dir).find("migrated_tool")
+        assertNotNull("导入的配方应落盘并可被 agent 侧读取", reloaded)
+        assertFalse("导入默认停用，需用户确认后才交给模型", reloaded!!.enabled)
+    }
 
     private fun tempDir(): File {
         val dir = File(System.getProperty("java.io.tmpdir"), "eta-recipe-test-${System.nanoTime()}")

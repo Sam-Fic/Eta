@@ -29,6 +29,7 @@ import androidx.compose.material.icons.rounded.Dashboard
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.Handyman
 import androidx.compose.material.icons.rounded.HealthAndSafety
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Inventory2
@@ -248,6 +249,15 @@ private fun settingsSearchEntries(taskBackendInstalled: Boolean?): List<Settings
                 icon = Icons.Rounded.AccountTree,
                 group = groupContextExtensions,
                 action = SettingsSearchAction.Route(AppRoute.McpServers),
+            ),
+        )
+        add(
+            SettingsSearchEntry(
+                title = stringResource(R.string.settings_tool_recipes),
+                summary = stringResource(R.string.settings_tool_recipes_summary),
+                icon = Icons.Rounded.Handyman,
+                group = groupContextExtensions,
+                action = SettingsSearchAction.Route(AppRoute.ToolRecipes),
             ),
         )
         add(

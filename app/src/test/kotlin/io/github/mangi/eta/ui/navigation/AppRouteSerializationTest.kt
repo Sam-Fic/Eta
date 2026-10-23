@@ -34,6 +34,7 @@ class AppRouteSerializationTest {
             AppRoute.ModelProviders,
             AppRoute.McpServers,
             AppRoute.McpServerDetail("mcp-server"),
+            AppRoute.ToolRecipes,
             AppRoute.ModelProviderDetail("provider"),
             AppRoute.ModelProviderNew(NewProviderType.OpenAiCompatible),
             AppRoute.ModelProviderNew(NewProviderType.Anthropic),

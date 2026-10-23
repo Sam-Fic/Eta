@@ -357,6 +357,26 @@ internal class AgentToolRecipeStore(
 
     private fun fileFor(name: String): File = File(recipesDir, "$name.json")
 
+    companion object {
+        @Volatile
+        private var instance: AgentToolRecipeStore? = null
+
+        /**
+         * 进程级唯一实例。
+         *
+         * 管理页与 agent 运行期必须共用同一份缓存：否则用户在设置页停用/删除配方后，
+         * agent 那一侧仍拿着自己的旧缓存，模型会继续看到已被用户收回的工具。
+         *
+         * @param context 任意 Context，内部只用 applicationContext 取 filesDir。
+         */
+        fun get(context: android.content.Context): AgentToolRecipeStore =
+            instance ?: synchronized(this) {
+                instance ?: AgentToolRecipeStore(
+                    File(context.applicationContext.filesDir, ToolRecipeConstants.DIRECTORY_NAME),
+                ).also { instance = it }
+            }
+    }
+
     /** 保存结果。 */
     sealed interface SaveResult {
         data class Ok(val recipe: ToolRecipe) : SaveResult
