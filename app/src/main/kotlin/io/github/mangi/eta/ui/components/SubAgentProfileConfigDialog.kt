@@ -231,9 +231,7 @@ private fun SubAgentDraftSettingRow(
 }
 
 /** 配置表单的二级选择页；都留在同一页面表面内，不再叠对话框。 */
-private enum class ProfileDraftSubPage { MODEL, THINKING, RESOLUTION }
-
-private data class DraftChoice<T>(val value: T, val label: String)
+private enum class ProfileDraftSubPage { MODEL }
 
 @Composable
 internal fun SubAgentProfileConfigDialog(
@@ -416,8 +414,7 @@ internal fun SubAgentProfileConfigDialog(
                                                 ?: if (draft.modelId.isBlank()) stringResource(R.string.sap_select_model) else stringResource(R.string.sap_model_unavailable),
                                             Icons.Rounded.ViewInAr, stringResource(R.string.sap_draft_model), usable,
                                             badge = boundConfig?.providerName,
-                                            onClick = { if (usable) subPage = ProfileDraftSubPage.MODEL },
-                                            onLongClick = { if (usable && canThink) subPage = ProfileDraftSubPage.THINKING })
+                                            onClick = { if (usable) subPage = ProfileDraftSubPage.MODEL })
                                     }
                                     if (canEditSpeed) item(key = "speed") {
                                         SubAgentDraftSettingRow(stringResource(R.string.sap_gpt_speed), gptSpeedDisplayName(draft.gptSpeedForModel()),
@@ -476,15 +473,53 @@ internal fun SubAgentProfileConfigDialog(
                                         )
                                     }
                                     if (draft.role == "image_generation") item(key = "resolution") {
-                                        SubAgentDraftSettingRow(stringResource(R.string.sap_default_resolution),
-                                            draft.imageResolution?.let(ImageResolutionTier::labelRes)?.let { stringResource(it) } ?: stringResource(R.string.sap_follow_endpoint),
-                                            Icons.Rounded.Image, stringResource(R.string.sap_draft_resolution), usable && boundConfig != null,
-                                            onClick = { if (usable) subPage = ProfileDraftSubPage.RESOLUTION })
+                                        // 与职责/任务分工同款：原位弹出锚定菜单；Grok 端点只留低/高，但当前值始终保留以免取值显示错位。
+                                        val tierValues = (listOf<String?>(null) + ImageResolutionTier.values.filter {
+                                            !verifiedGrok || it in setOf("low", "high") || it == draft.imageResolution
+                                        })
+                                        val tierLabels = tierValues.map { tier ->
+                                            tier?.let(ImageResolutionTier::labelRes)?.let { stringResource(it) }
+                                                ?: stringResource(R.string.sap_follow_endpoint)
+                                        }
+                                        EtaSegmentedDropdownRow(
+                                            title = stringResource(R.string.sap_default_resolution),
+                                            items = tierLabels,
+                                            selectedIndex = tierValues.indexOf(draft.imageResolution),
+                                            onItemSelected = { index ->
+                                                val value: String? = if (index in tierValues.indices) tierValues[index]
+                                                    else return@EtaSegmentedDropdownRow
+                                                if (session.canCommit(latestEditor, latestEnabled)) {
+                                                    session.edit { profile ->
+                                                        if (profile.role == "image_generation") profile.copy(imageResolution = value) else profile
+                                                    }
+                                                }
+                                            },
+                                            icon = Icons.Rounded.Image,
+                                            enabled = usable && boundConfig != null,
+                                            description = stringResource(R.string.sap_draft_resolution),
+                                        )
                                     }
                                     item(key = "thinking") {
-                                        SubAgentDraftSettingRow(stringResource(R.string.sap_thinking), thinkingLabel,
-                                            Icons.Rounded.AutoAwesome, stringResource(R.string.sap_draft_thinking), usable && canThink,
-                                            onClick = { if (usable && canThink) subPage = ProfileDraftSubPage.THINKING })
+                                        // 当前值不在可选档位里（无模型/端点不支持/未启用/需重选）时用行上状态文本占位，
+                                        // 占位项不可写入，语义与原二级选择页的提示保持一致。
+                                        val matchedIndex = if (canThink) efforts.indexOf(effective) else -1
+                                        val effortLabels = efforts.map { effort -> stringResource(effort.labelRes) }
+                                        val items = if (matchedIndex >= 0) effortLabels
+                                            else listOf(thinkingLabel) + effortLabels
+                                        EtaSegmentedDropdownRow(
+                                            title = stringResource(R.string.sap_thinking),
+                                            items = items,
+                                            selectedIndex = if (matchedIndex >= 0) matchedIndex else 0,
+                                            onItemSelected = { index ->
+                                                val next = efforts.getOrNull(if (matchedIndex >= 0) index else index - 1)
+                                                if (next != null && session.canCommit(latestEditor, latestEnabled)) {
+                                                    session.edit { it.copy(reasoning = next) }
+                                                }
+                                            },
+                                            icon = Icons.Rounded.AutoAwesome,
+                                            enabled = usable && canThink,
+                                            description = stringResource(R.string.sap_draft_thinking),
+                                        )
                                     }
                                 }
                                 EtaFormTextField(session.parallelValue, { if (usable) session.editParallel(it) },
@@ -518,41 +553,6 @@ internal fun SubAgentProfileConfigDialog(
                                     subPage = null
                                 },
                             )
-                            ProfileDraftSubPage.THINKING -> SubAgentDraftChoicePage(
-                                title = stringResource(R.string.sap_thinking),
-                                description = stringResource(R.string.sap_draft_only_note) +
-                                    if (draft.isMedia) stringResource(R.string.sap_tier_endpoint_note) else "",
-                                choices = efforts.map { effort -> DraftChoice(effort, stringResource(effort.labelRes)) },
-                                isSelected = { it == effective },
-                                enabled = usable,
-                                onBack = { subPage = null },
-                                onSelected = { next ->
-                                    if (session.canCommit(latestEditor, latestEnabled) && next in efforts) {
-                                        session.edit { it.copy(reasoning = next) }
-                                    }
-                                    subPage = null
-                                },
-                            )
-                            ProfileDraftSubPage.RESOLUTION -> {
-                                val choices = (listOf<String?>(null) + ImageResolutionTier.values
-                                    .filter { !verifiedGrok || it in setOf("low", "high") })
-                                    .map { tier -> DraftChoice(tier, tier?.let(ImageResolutionTier::labelRes)?.let { stringResource(it) } ?: stringResource(R.string.sap_follow_endpoint)) }
-                                SubAgentDraftChoicePage(
-                                    title = stringResource(R.string.sap_default_resolution),
-                                    choices = choices,
-                                    isSelected = { draft.imageResolution == it },
-                                    enabled = usable && boundConfig != null,
-                                    onBack = { subPage = null },
-                                    onSelected = { value ->
-                                        if (session.canCommit(latestEditor, latestEnabled)) {
-                                            session.edit { profile ->
-                                                if (profile.role == "image_generation") profile.copy(imageResolution = value) else profile
-                                            }
-                                        }
-                                        subPage = null
-                                    },
-                                )
-                            }
                         }
                     }
                 }
@@ -669,52 +669,6 @@ private fun SubAgentDraftModelPage(
                                 },
                             )
                         }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/** 草稿的通用单选页：点选即写入并返回表单。 */
-@Composable
-private fun <T> SubAgentDraftChoicePage(
-    title: String,
-    choices: List<DraftChoice<T>>,
-    isSelected: (T) -> Boolean,
-    enabled: Boolean,
-    onBack: () -> Unit,
-    onSelected: (T) -> Unit,
-    description: String? = null,
-) {
-    EtaScaffoldPage(
-        title = title,
-        onBack = onBack,
-        modifier = Modifier.imePadding(),
-    ) {
-        description?.takeIf { it.isNotBlank() }?.let { text ->
-            item(key = "description") {
-                Text(
-                    text = text,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                )
-            }
-        }
-        item(key = "choices") {
-            EtaSegmentedColumn(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
-                    .padding(bottom = EtaSegmentedGroupSpacing),
-            ) {
-                choices.forEach { choice ->
-                    item(key = choice.label) {
-                        EtaSegmentedRadioRow(
-                            title = choice.label,
-                            selected = isSelected(choice.value),
-                            enabled = enabled,
-                            onClick = { onSelected(choice.value) },
-                        )
                     }
                 }
             }
