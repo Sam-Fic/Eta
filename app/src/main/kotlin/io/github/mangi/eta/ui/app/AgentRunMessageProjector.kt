@@ -2,6 +2,8 @@ package io.github.mangi.eta.ui.app
 
 import android.os.SystemClock
 import java.lang.ref.WeakReference
+import io.github.mangi.eta.agent.media.AgentToolMediaPreviews
+import io.github.mangi.eta.agent.model.AgentSensitiveToolPolicy
 import io.github.mangi.eta.agent.runtime.AgentEvent
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
 import io.github.mangi.eta.ui.model.incrementalSnapshot
@@ -567,6 +569,7 @@ internal class AgentRunMessageProjector(
             status = ToolActivityStatusUi.Running,
             argumentsSummary = event.argsPreview,
             command = event.command,
+            argumentsDetail = event.argumentsDetail,
         )
         if (isSealed(runId) || messages.any { it.id == message.id }) return messages
         recordToolEvent(runId, event.round)
@@ -598,6 +601,12 @@ internal class AgentRunMessageProjector(
                     status = status,
                     resultSummary = event.resultSummary,
                     imageCount = event.imageCount,
+                    resultDetail = event.resultDetail,
+                    mediaPreviews = AgentToolMediaPreviews.decode(event.mediaPreviewsJson),
+                    // 敏感工具的事件里本来就带着原文（供当次查看），是否落库由会话存储层决定；
+                    // 记录里没有原文时才需要用一句话解释「为什么只剩一句完成」。
+                    detailsWithheld = AgentSensitiveToolPolicy.isSensitive(event.name) &&
+                        event.resultDetail == null,
                 )
             } else {
                 message

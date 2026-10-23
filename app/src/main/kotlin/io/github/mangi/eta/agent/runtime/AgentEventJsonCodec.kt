@@ -87,8 +87,8 @@ internal object AgentEventJsonCodec {
         is AgentEvent.UserSupplementReceived -> copy(text = "", requestId = "", imagesJson = "[]")
         is AgentEvent.QuestionRequested -> null
         is AgentEvent.QuestionResolved -> copy(answer = null)
-        is AgentEvent.ToolStarted -> copy(argsPreview = "", command = null)
-        is AgentEvent.ToolFinished -> copy(resultSummary = "")
+        is AgentEvent.ToolStarted -> copy(argsPreview = "", command = null, argumentsDetail = null)
+        is AgentEvent.ToolFinished -> copy(resultSummary = "", resultDetail = null, mediaPreviewsJson = "[]")
         is AgentEvent.HostedToolStarted -> this
         is AgentEvent.HostedToolFinished -> this
         is AgentEvent.ToolImagesAttached -> this

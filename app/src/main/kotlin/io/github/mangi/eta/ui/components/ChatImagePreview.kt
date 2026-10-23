@@ -89,6 +89,7 @@ import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
 import io.github.mangi.eta.ui.model.AgentMessageUi
 import io.github.mangi.eta.ui.model.PendingImageUi
+import io.github.mangi.eta.ui.model.ToolActivityMessageUi
 import io.github.mangi.eta.ui.model.UserMessageUi
 import io.github.mangi.eta.ui.model.fullImageSourceAt
 import kotlinx.coroutines.Dispatchers
@@ -192,6 +193,8 @@ internal fun collectPreviewableChatImages(
                 }
             }
             is AgentMessageUi -> imageSources(message).forEach(out::add)
+            // 工具卡片里读到的图也进画廊，左右滑动就能连着看这一轮的所有观察。
+            is ToolActivityMessageUi -> message.mediaPreviews.forEach(out::add)
             else -> Unit
         }
     }

@@ -352,6 +352,20 @@ data class ToolActivityMessageUi(
     val command: String? = null,
     val resultSummary: String? = null,
     val imageCount: Int = 0,
+    /**
+     * 展开区展示的完整调用参数（已脱敏、已截断）。为 null 表示这类工具的原始参数
+     * 不进入会话记录（敏感工具），或旧记录没有保存过。
+     */
+    val argumentsDetail: String? = null,
+    /** 展开区展示的完整返回内容（已脱敏、已截断）。 */
+    val resultDetail: String? = null,
+    /** 工具当次读到的图片小预览（data URL），点击可全屏查看。 */
+    val mediaPreviews: List<String> = emptyList(),
+    /**
+     * 敏感工具：原文只在当次运行中可见，不写入会话记录。重开会话后如果一条细节都没有，
+     * 卡片明确说明原因，而不是只留一句「完成」。
+     */
+    val detailsWithheld: Boolean = false,
 ) : AgentChatMessageUi
 
 enum class ToolActivityStatusUi {

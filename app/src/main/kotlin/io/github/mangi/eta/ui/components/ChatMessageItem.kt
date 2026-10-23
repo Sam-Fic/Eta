@@ -31,6 +31,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -46,6 +47,7 @@ import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
@@ -3445,10 +3447,14 @@ private fun ToolActivityInline(
     }
 
     val title = message.argumentsSummary.ifBlank { toolDisplayName(message.toolName) }
-    // 没有命令、没有结果、也不是浏览器行时，展开后只剩一句「已完成」——
-    // 这种行直接不可展开（箭头一并隐藏），不做「点开只有一句话」的空交互。
+    // 展开区至少要有一样真东西可看：命令、参数、结果、工具读到的图片，或浏览器入口。
+    // 全都为空的行保持不可展开（箭头一并隐藏），不做「点开只有一句话」的空交互。
     val hasDetails = !message.command.isNullOrBlank() ||
         !message.resultSummary.isNullOrBlank() ||
+        !message.argumentsDetail.isNullOrBlank() ||
+        !message.resultDetail.isNullOrBlank() ||
+        message.mediaPreviews.isNotEmpty() ||
+        message.detailsWithheld ||
         showBrowserShortcut
     val browserSubtitle = browserSnapshot?.let { snapshot ->
         when {
@@ -3539,56 +3545,97 @@ private fun ToolActivityInline(
             WorkCardExpandedBody(modifier = Modifier.toggleProbe(toggleProbeRef, "content")) {
                 val bodyReady = rememberDeferredBody(deferOneFrame = expandedByTap)
                 if (bodyReady) {
-                    if (!message.command.isNullOrBlank()) {
-                        ToolCommandBlock(
-                            command = message.command,
-                            context = message.argumentsSummary,
-                        )
-                    }
-                    if (message.resultSummary != null && message.resultSummary.isNotBlank()) {
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        // 敏感工具的原文不落库：重开会话后只剩一句「完成」时，说清楚为什么。
+                        if (message.detailsWithheld &&
+                            message.argumentsDetail.isNullOrBlank() &&
+                            message.resultDetail.isNullOrBlank()
+                        ) {
                             Text(
-                                text = stringResource(R.string.ui_result_0a2c91),
+                                text = stringResource(R.string.tool_detail_sensitive),
                                 style = chatQuaternaryStyle(),
                                 color = etaOnSurfaceVariant(),
                             )
-                            HapticSelectionContainer {
+                        }
+                        if (!message.command.isNullOrBlank()) {
+                            ToolCommandBlock(
+                                command = message.command,
+                                context = message.argumentsSummary,
+                            )
+                        }
+                        // 完整调用参数：工具真正收到的字段。命令块已经把命令原文
+                        // 摆在上面时，参数里不再重复这一项（由 formatter 去掉）。
+                        message.argumentsDetail?.takeIf { it.isNotBlank() }?.let { detail ->
+                            ToolDetailBlock(
+                                text = detail,
+                                label = stringResource(R.string.tool_detail_arguments),
+                                copyLabel = stringResource(R.string.tool_detail_copy_arguments),
+                            )
+                        }
+                        if (message.mediaPreviews.isNotEmpty()) {
+                            ToolMediaStrip(sources = message.mediaPreviews)
+                        }
+                        if (!message.resultSummary.isNullOrBlank() || !message.resultDetail.isNullOrBlank()) {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(
-                                    text = message.resultSummary,
-                                    style = chatTertiaryStyle(),
-                                    // 结果是内容而非辅助信息，用主前景色保证可读性。
-                                    color = etaOnSurface(),
-                                    maxLines = 10,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                            // 图片张数：结果摘要往往只描述「看到了什么」，
-                            // 不说明带回了多少张图，这里补一行计数。
-                            if (imageCountLabel != null) {
-                                Text(
-                                    text = imageCountLabel,
+                                    text = stringResource(R.string.ui_result_0a2c91),
                                     style = chatQuaternaryStyle(),
                                     color = etaOnSurfaceVariant(),
                                 )
+                                // 摘要是一行结论，完整返回内容在下面：模型当时读到的就是那份文本。
+                                // 有完整内容时摘要只留首行，避免终端输出的预览行重复一遍。
+                                message.resultSummary?.takeIf { it.isNotBlank() }?.let { summary ->
+                                    val summaryLine = if (message.resultDetail.isNullOrBlank()) {
+                                        summary
+                                    } else {
+                                        summary.lineSequence().firstOrNull().orEmpty()
+                                    }
+                                    if (summaryLine.isNotBlank()) {
+                                        HapticSelectionContainer {
+                                            Text(
+                                                text = summaryLine,
+                                                style = chatTertiaryStyle(),
+                                                color = etaOnSurface(),
+                                            )
+                                        }
+                                    }
+                                }
+                                message.resultDetail?.takeIf { it.isNotBlank() }?.let { detail ->
+                                    ToolDetailBlock(
+                                        text = detail,
+                                        // 「结果」标题就在上面，这里不再重复一遍。
+                                        label = null,
+                                        copyLabel = stringResource(R.string.tool_detail_copy_result),
+                                    )
+                                }
+                                // 图片张数：结果摘要往往只描述「看到了什么」，
+                                // 不说明带回了多少张图，这里补一行计数。
+                                if (imageCountLabel != null) {
+                                    Text(
+                                        text = imageCountLabel,
+                                        style = chatQuaternaryStyle(),
+                                        color = etaOnSurfaceVariant(),
+                                    )
+                                }
                             }
                         }
-                    }
-                    if (showBrowserShortcut) {
-                        browserSnapshot?.takeIf { it.available }?.let { snapshot ->
-                            BrowserPagePreview(
-                                snapshot = snapshot,
-                                enableLivePreview = enableLivePreview,
-                            )
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End,
-                        ) {
-                            TextButton(onClick = onOpenBrowser) {
-                                Text(
-                                    text = stringResource(R.string.ui_open_current_browser_58358e),
-                                    style = MaterialTheme.typography.labelLarge,
+                        if (showBrowserShortcut) {
+                            browserSnapshot?.takeIf { it.available }?.let { snapshot ->
+                                BrowserPagePreview(
+                                    snapshot = snapshot,
+                                    enableLivePreview = enableLivePreview,
                                 )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End,
+                            ) {
+                                TextButton(onClick = onOpenBrowser) {
+                                    Text(
+                                        text = stringResource(R.string.ui_open_current_browser_58358e),
+                                        style = MaterialTheme.typography.labelLarge,
+                                    )
+                                }
                             }
                         }
                     }
@@ -3796,8 +3843,156 @@ private fun ToolCommandBlock(
     )
 }
 
-// ── Run trace：轻量入口行 ─────────────────────────────────────────────
+/**
+ * 工具卡片展开区的通用文本块：调用参数与完整返回内容共用。
+ *
+ * 文本按原样展示（等宽、可选中、可复制），高度到上限后在块内滚动——
+ * 展开都点了，就不该再截成一行省略号。超过上限的部分由格式化层截断并注明。
+ */
+@Composable
+private fun ToolDetailBlock(
+    text: String,
+    copyLabel: String,
+    modifier: Modifier = Modifier,
+    label: String? = null,
+) {
+    @Suppress("DEPRECATION")
+    val clipboardManager = LocalClipboardManager.current
+    var copied by remember(text) { mutableStateOf(false) }
+    LaunchedEffect(copied) {
+        if (copied) {
+            kotlinx.coroutines.delay(1_400)
+            copied = false
+        }
+    }
 
+    val detailBody: @Composable () -> Unit = {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 12.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (!label.isNullOrBlank()) {
+                Text(
+                    text = label,
+                    style = chatTertiaryStyle(),
+                    color = etaOnSurfaceVariant(),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+            } else {
+                Spacer(modifier = Modifier.weight(1f))
+            }
+            ChatIconAction(
+                onClick = {
+                    clipboardManager.setText(AnnotatedString(text))
+                    copied = true
+                },
+                minWidth = 28.dp,
+                minHeight = 28.dp,
+            ) {
+                Icon(
+                    imageVector = if (copied) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
+                    contentDescription = if (copied) stringResource(R.string.copy_copied) else copyLabel,
+                    modifier = Modifier.size(EtaDimens.StatusIconSize),
+                    tint = if (copied) etaPrimary() else etaOnSurfaceVariant().copy(alpha = 0.8f),
+                )
+            }
+        }
+        ChatHairlineDivider(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp))
+        HapticSelectionContainer {
+            Text(
+                text = text,
+                style = chatTertiaryStyle().copy(fontFamily = FontFamily.Monospace),
+                color = etaOnSurface(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = ToolDetailMaxHeight)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+            )
+        }
+    }
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        content = { Column { detailBody() } },
+    )
+}
+
+private val ToolDetailMaxHeight = 280.dp
+
+/**
+ * 工具读到的图片：一张卡片最多三张缩略图，点击走聊天图片的全屏预览。
+ * 这些是工具当次真正送进模型的图（截图、读图、网页截图），不是缩略占位。
+ */
+@Composable
+private fun ToolMediaStrip(
+    sources: List<String>,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.tool_detail_images),
+            style = chatQuaternaryStyle(),
+            color = etaOnSurfaceVariant(),
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            sources.forEach { source ->
+                ToolMediaThumbnail(source = source)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun ToolMediaThumbnail(
+    source: String,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    var bitmap by remember(source) { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(source) {
+        bitmap = withContext(Dispatchers.IO) {
+            ChatImageBytes.load(context, source)?.bitmap
+        }
+    }
+    Box(
+        modifier = modifier
+            .size(96.dp)
+            .clip(MaterialTheme.shapes.medium)
+            .background(MaterialTheme.colorScheme.surfaceContainer),
+        contentAlignment = Alignment.Center,
+    ) {
+        val image = bitmap
+        if (image != null) {
+            ChatClickableImage(
+                source = source,
+                bitmap = image,
+                contentDescription = stringResource(R.string.chat_image_preview),
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+        } else {
+            LoadingIndicator(
+                modifier = Modifier.size(16.dp),
+                color = etaOnSurfaceVariant(),
+            )
+        }
+    }
+}
+
+// ── Run trace：轻量入口行 ─────────────────────────────────────────────
 @Composable
 private fun RunTraceRow(
     message: RunTraceMessageUi,

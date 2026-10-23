@@ -5,6 +5,7 @@ import io.github.mangi.eta.agent.runtime.AgentAppContext
 import io.github.mangi.eta.agent.runtime.localizedText
 import java.net.URI
 import java.util.Locale
+import org.json.JSONArray
 import org.json.JSONObject
 
 /** 工具摘要面向用户展示，不包含敏感参数；终端命令通过独立字段提供给用户核对。 */
@@ -111,6 +112,77 @@ internal class AgentTraceFormatter(
             .replace(SENSITIVE_HEADER) { match ->
                 "${match.groupValues[1]}${match.groupValues[2]}<已隐藏>"
             }
+
+    /**
+     * 卡片展开后展示的完整调用参数：工具真正收到的字段原样保留（含路径、命令、查询词），
+     * 只隐藏凭据与内联媒体。
+     *
+     * 敏感工具（[AgentSensitiveToolPolicy]）在这里不做屏蔽——用户就在自己的屏幕上，
+     * 展开时理应看到模型到底怎么调的；这类工具的原文由会话存储层在写库时剔除，
+     * 只有当场能看到，重开会话后不再保留。
+     */
+    fun detailArguments(toolCall: AgentModelClient.ToolCall): String? {
+        val json = runCatching { JSONObject(toolCall.argumentsJson) }.getOrNull()
+        if (json != null && (toolCall.name == "terminal" || toolCall.name == "run_command")) {
+            // 命令原文已经由 displayCommand 单独成块，参数里去掉这一项，避免同一段命令出现两次。
+            json.remove("command")
+            if (json.length() == 0) return null
+            return formatDetailPayload(json.toString(2), MAX_ARGUMENT_DETAIL_CHARS)
+        }
+        return formatDetailPayload(toolCall.argumentsJson, MAX_ARGUMENT_DETAIL_CHARS)
+    }
+
+    /** 卡片展开后展示的完整返回内容：模型当时读到的就是这份文本，超长时截断（同样只当场展示）。 */
+    fun detailResult(
+        toolName: String,
+        result: AgentModelClient.ToolResult,
+    ): String? {
+        val json = parseResultJson(result)
+        val body = when {
+            json == null -> result.content.trim()
+            toolName == "terminal" || toolName == "run_command" -> terminalDetail(json)
+            else -> runCatching { json.toString(2) }.getOrDefault(result.content)
+        }
+        return body.takeIf { it.isNotBlank() }?.finishDetail(MAX_RESULT_DETAIL_CHARS)
+    }
+
+    /** 终端输出按流展开，避免把整段 stdout 压进一条转义过的 JSON 字符串。 */
+    private fun terminalDetail(json: JSONObject): String = buildString {
+        if (json.has("exit_code") && !json.isNull("exit_code")) {
+            append("exit_code: ").append(json.optInt("exit_code")).append('\n')
+        }
+        if (json.optBoolean("timed_out", false)) append("timed_out: true\n")
+        json.optString("stdout").takeIf { it.isNotBlank() }?.let {
+            append("stdout:\n").append(it.trimEnd()).append('\n')
+        }
+        json.optString("stderr").takeIf { it.isNotBlank() }?.let {
+            append("stderr:\n").append(it.trimEnd()).append('\n')
+        }
+        if (isEmpty()) append(json.toString(2))
+    }.trimEnd()
+
+    private fun formatDetailPayload(raw: String, maxChars: Int): String? {
+        val trimmed = raw.trim()
+        if (trimmed.isEmpty()) return null
+        val pretty = runCatching { JSONObject(trimmed).toString(2) }
+            .recoverCatching { JSONArray(trimmed).toString(2) }
+            .getOrDefault(trimmed)
+        return pretty.finishDetail(maxChars)
+    }
+
+    /** 凭据与内联媒体先脱敏，再按上限截断；两处都走同一入口，卡片与日志口径一致。 */
+    private fun String.finishDetail(maxChars: Int): String {
+        val redacted = redactDisplaySecrets().replace(INLINE_MEDIA) { match ->
+            localizedText(
+                R.string.trace_detail_inline_media,
+                "<已省略 %1\$d KB 内联数据>",
+                match.groupValues[2].length / 1024,
+            )
+        }
+        if (redacted.length <= maxChars) return redacted
+        return redacted.take(maxChars) +
+            localizedText(R.string.trace_detail_truncated, "\n… （已截断，共 %1\$d 字符）", redacted.length)
+    }
 
     /** 外部 URI 摘要不记录 path、query、fragment 或用户信息。 */
     fun summarizeOpenUriArguments(argumentsJson: String): String =
@@ -703,6 +775,9 @@ internal class AgentTraceFormatter(
     private companion object {
         const val BROWSER_TOOL_NAME = "browser_use"
         const val MAX_DISPLAY_COMMAND_CHARS = 4_000
+        /** 卡片展开区展示的参数/结果上限。参数短，结果可能是一整页文件内容。 */
+        const val MAX_ARGUMENT_DETAIL_CHARS = 4_000
+        const val MAX_RESULT_DETAIL_CHARS = 8_000
         const val MAX_QUERY_SUMMARY_CHARS = 30
         const val MAX_LISTED_APP_NAMES = 3
         const val MAX_TERMINAL_PREVIEW_LINES = 3
@@ -715,6 +790,10 @@ internal class AgentTraceFormatter(
         )
         val SENSITIVE_HEADER = Regex(
             """(?i)\b(Authorization|Proxy-Authorization|X-Api-Key)(\s*:\s*)[^'"\r\n;&|]+"""
+        )
+        /** 内联 base64 图片/音视频：展开区只保留体积提示，避免整段 data URL 撑爆卡片与数据库。 */
+        val INLINE_MEDIA = Regex(
+            """(data:[A-Za-z0-9.+-]+/[A-Za-z0-9.+-]+;base64,)([A-Za-z0-9+/=\r\n]{64,})"""
         )
         val BROWSER_ACTIONS = setOf(
             "navigate",

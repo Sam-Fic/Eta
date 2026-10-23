@@ -128,6 +128,11 @@ internal data class ConversationMessageEntity(
     @ColumnInfo(name = "tool_status") val toolStatus: String? = null,
     @ColumnInfo(name = "arguments_summary") val argumentsSummary: String? = null,
     @ColumnInfo(name = "result_summary") val resultSummary: String? = null,
+    /** 工具卡片展开后展示的完整参数/结果（已脱敏、已截断）；敏感工具不写入。 */
+    @ColumnInfo(name = "arguments_detail") val argumentsDetail: String? = null,
+    @ColumnInfo(name = "result_detail") val resultDetail: String? = null,
+    /** 工具当次读到的图片小预览：data URL 的 JSON 数组。 */
+    @ColumnInfo(name = "media_json") val mediaJson: String = "[]",
     @ColumnInfo(name = "image_count") val imageCount: Int = 0,
     @ColumnInfo(name = "tools_json") val toolsJson: String = "[]",
     @ColumnInfo(name = "generated_at_millis") val generatedAtMillis: Long? = null,

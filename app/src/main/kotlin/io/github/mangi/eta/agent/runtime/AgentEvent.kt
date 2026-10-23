@@ -170,10 +170,16 @@ internal sealed interface AgentEvent {
         val name: String,
         val argsPreview: String,
         val command: String? = null,
+        /**
+         * 卡片展开区展示的完整调用参数（已脱敏、已截断）。敏感工具按策略不进入持久会话，
+         * 这里为 null。只供用户核对，不参与模型请求。
+         */
+        val argumentsDetail: String? = null,
     ) : AgentEvent {
         override fun toLogLine(): String =
             "tool_started round=$round, name=${name.toSafeLogToken()}, " +
-                "args_chars=${argsPreview.length}, command_chars=${command?.length ?: 0}"
+                "args_chars=${argsPreview.length}, command_chars=${command?.length ?: 0}, " +
+                "detail_chars=${argumentsDetail?.length ?: 0}"
     }
 
     data class ToolFinished(
@@ -185,10 +191,15 @@ internal sealed interface AgentEvent {
         val imageBytes: Int,
         /** 可选：旧版本 Runtime 不发送，消费端缺省时回退到摘要文本判断。 */
         val success: Boolean? = null,
+        /** 卡片展开区展示的完整返回内容（已脱敏、已截断）。敏感工具为 null。 */
+        val resultDetail: String? = null,
+        /** 工具带回来的图片小预览（data URL 的 JSON 数组），供卡片直接展示。 */
+        val mediaPreviewsJson: String = "[]",
     ) : AgentEvent {
         override fun toLogLine(): String =
             "tool_finished round=$round, name=${name.toSafeLogToken()}, " +
-                "${resultSummary.toSafeResultLogFields()}, images=$imageCount, image_bytes=$imageBytes"
+                "${resultSummary.toSafeResultLogFields()}, images=$imageCount, image_bytes=$imageBytes, " +
+                "detail_chars=${resultDetail?.length ?: 0}, previews=${mediaPreviewsJson.length}"
     }
 
     data class HostedToolStarted(

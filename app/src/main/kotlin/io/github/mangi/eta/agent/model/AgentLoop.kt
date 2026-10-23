@@ -1,5 +1,6 @@
 package io.github.mangi.eta.agent.model
 
+import io.github.mangi.eta.agent.media.AgentToolMediaPreviews
 import io.github.mangi.eta.agent.question.AgentQuestionCoordinator
 import io.github.mangi.eta.agent.runtime.AgentEvent
 import io.github.mangi.eta.agent.runtime.AgentRunController
@@ -1252,6 +1253,7 @@ internal class AgentLoop(
                 name = toolCall.name,
                 argsPreview = traceFormatter.summarizeArguments(toolCall),
                 command = traceFormatter.displayCommand(toolCall),
+                argumentsDetail = traceFormatter.detailArguments(toolCall),
             )
         )
 
@@ -1301,6 +1303,7 @@ internal class AgentLoop(
                 name = toolCall.name,
                 argsPreview = traceFormatter.summarizeArguments(toolCall),
                 command = traceFormatter.displayCommand(toolCall),
+                argumentsDetail = traceFormatter.detailArguments(toolCall),
             )
         )
         val result = AgentModelClient.ToolResult(
@@ -1330,6 +1333,8 @@ internal class AgentLoop(
                 imageCount = result.images.size,
                 imageBytes = result.images.sumOf { it.bytes },
                 success = traceFormatter.isSuccessResult(result),
+                resultDetail = traceFormatter.detailResult(toolCall.name, result),
+                mediaPreviewsJson = AgentToolMediaPreviews.encode(result.images),
             )
         )
     }

@@ -2329,6 +2329,14 @@
   <string name="trace_failed_timeout">失敗 · 執行逾時</string>
   <string name="trace_failed_exit_code">失敗 · 退出碼 %d</string>
   <string name="trace_stderr_warning">警告 · stderr\n%1$s</string>
+  <string name="trace_detail_inline_media">&lt;已省略 %1$d KB 內嵌資料&gt;</string>
+  <string name="trace_detail_truncated">\n… （已截斷，共 %1$d 字元）</string>
+
+  <string name="tool_detail_arguments">呼叫參數</string>
+  <string name="tool_detail_images">工具讀到的圖片</string>
+  <string name="tool_detail_sensitive">參數與結果依隱私策略不寫入會話記錄</string>
+  <string name="tool_detail_copy_arguments">複製參數</string>
+  <string name="tool_detail_copy_result">複製結果</string>
 
   <string name="trace_apps_none">未找到符合的應用程式</string>
   <string name="trace_app_name_separator">、</string>

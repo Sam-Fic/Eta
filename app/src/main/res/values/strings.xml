@@ -2353,6 +2353,14 @@
   <string name="trace_failed_timeout">Failed · execution timed out</string>
   <string name="trace_failed_exit_code">Failed · exit code %d</string>
   <string name="trace_stderr_warning">Warning · stderr\n%1$s</string>
+  <string name="trace_detail_inline_media">&lt;inline data omitted: %1$d KB&gt;</string>
+  <string name="trace_detail_truncated">\n… (truncated, %1$d characters in total)</string>
+
+  <string name="tool_detail_arguments">Arguments</string>
+  <string name="tool_detail_images">Images the tool received</string>
+  <string name="tool_detail_sensitive">Arguments and output stay out of the conversation record</string>
+  <string name="tool_detail_copy_arguments">Copy arguments</string>
+  <string name="tool_detail_copy_result">Copy result</string>
 
   <string name="trace_apps_none">No matching apps found</string>
   <string name="trace_app_name_separator">", "</string>

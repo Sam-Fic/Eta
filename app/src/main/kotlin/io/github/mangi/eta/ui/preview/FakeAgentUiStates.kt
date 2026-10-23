@@ -113,6 +113,9 @@ internal object FakeAgentUiStates {
                 argumentsSummary = "{\"include_screenshot\":true}",
                 resultSummary = "ok=true, chars=1820, images=1",
                 imageCount = 1,
+                argumentsDetail = "{\n  \"include_screenshot\": true,\n  \"include_ui_tree\": true,\n  \"max_nodes\": 120\n}",
+                resultDetail = "{\n  \"ok\": true,\n  \"package\": \"com.android.settings\",\n" +
+                    "  \"nodes\": 96,\n  \"text\": \"设置 · 显示 · 亮度\"\n}",
             ),
         ),
         input = "",

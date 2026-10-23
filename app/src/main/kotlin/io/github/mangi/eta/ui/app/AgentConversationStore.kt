@@ -6,6 +6,8 @@ import androidx.room.withTransaction
 import io.github.mangi.eta.ui.model.CloudUsageReceiptCodec
 import io.github.mangi.eta.agent.model.AgentConversationCodec
 import io.github.mangi.eta.agent.model.AgentContextCompactor
+import io.github.mangi.eta.agent.model.AgentSensitiveToolPolicy
+import io.github.mangi.eta.agent.media.AgentToolMediaPreviews
 import io.github.mangi.eta.agent.model.AgentTurnIdentity
 import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.agent.model.ConversationCheckpointTooLargeException
@@ -269,7 +271,14 @@ internal object AgentConversationStore {
                 imageSources = emptyList(), imageIsVideo = emptyList(), imageDurationsMs = emptyList())
             is AgentMessageUi -> last.copy(content = last.content.take(2048))
             is ThinkingMessageUi -> last.copy(content = "")
-            is ToolActivityMessageUi -> last.copy(command = null, resultSummary = null, argumentsSummary = "")
+            is ToolActivityMessageUi -> last.copy(
+                command = null,
+                resultSummary = null,
+                argumentsSummary = "",
+                argumentsDetail = null,
+                resultDetail = null,
+                mediaPreviews = emptyList(),
+            )
             is SystemNoticeMessageUi -> last.copy(detail = null)
             else -> null
         }
@@ -651,18 +660,27 @@ internal object AgentConversationStore {
                 type = AgentQuestionPersistence.TYPE, content = AgentQuestionPersistence.encode(this), renderMarkdown = false,
             )
 
-            is ToolActivityMessageUi -> ConversationMessageEntity(
-                id = id,
-                conversationId = conversationId,
-                sortIndex = sortIndex,
-                type = TYPE_TOOL,
-                content = command.orEmpty(),
-                toolName = toolName,
-                toolStatus = status.name,
-                argumentsSummary = argumentsSummary,
-                resultSummary = resultSummary,
-                imageCount = imageCount,
-            )
+            is ToolActivityMessageUi -> {
+                // 敏感工具的原始参数/结果按策略不落库，即便运行时事件已经过滤过一次，
+                // 这里再按工具名兜底，避免旧数据或新增工具漏过。
+                val sensitive = AgentSensitiveToolPolicy.isSensitive(toolName)
+                ConversationMessageEntity(
+                    id = id,
+                    conversationId = conversationId,
+                    sortIndex = sortIndex,
+                    type = TYPE_TOOL,
+                    content = command.orEmpty(),
+                    toolName = toolName,
+                    toolStatus = status.name,
+                    argumentsSummary = argumentsSummary,
+                    resultSummary = resultSummary,
+                    argumentsDetail = argumentsDetail.takeUnless { sensitive },
+                    resultDetail = resultDetail.takeUnless { sensitive },
+                    mediaJson = if (sensitive) AgentToolMediaPreviews.EMPTY
+                    else AgentToolMediaPreviews.encodePreviews(mediaPreviews),
+                    imageCount = imageCount,
+                )
+            }
 
             is ToolSummaryMessageUi -> ConversationMessageEntity(
                 id = id,
@@ -753,6 +771,11 @@ internal object AgentConversationStore {
                 command = content.takeIf(String::isNotBlank),
                 resultSummary = resultSummary,
                 imageCount = imageCount,
+                argumentsDetail = argumentsDetail,
+                resultDetail = resultDetail,
+                mediaPreviews = AgentToolMediaPreviews.decode(mediaJson),
+                detailsWithheld = AgentSensitiveToolPolicy.isSensitive(toolName.orEmpty()) &&
+                    argumentsDetail.isNullOrBlank() && resultDetail.isNullOrBlank(),
             )
 
             TYPE_TOOL_SUMMARY -> ToolSummaryMessageUi(

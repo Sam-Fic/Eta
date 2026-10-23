@@ -27,7 +27,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         MediaIndexEntity::class,
         MediaSourceEntity::class,
     ],
-    version = 35,
+    version = 36,
     exportSchema = false,
 )
 internal abstract class EtaDatabase : RoomDatabase() {
@@ -79,6 +79,7 @@ internal abstract class EtaDatabase : RoomDatabase() {
                         MIGRATION_32_33,
                         MIGRATION_33_34,
                         MIGRATION_34_35,
+                        MIGRATION_35_36,
                     )
                     .fallbackToDestructiveMigration(dropAllTables = true)
                     .build()
@@ -216,6 +217,19 @@ internal abstract class EtaDatabase : RoomDatabase() {
         // 会话回收站：deleted_at 非空表示在回收站里，等待恢复或永久清理。
         internal val MIGRATION_33_34 = Migration(33, 34) { database ->
             database.execSQL("ALTER TABLE conversations ADD COLUMN deleted_at INTEGER")
+        }
+
+        // 工具卡片详情：完整参数、完整返回内容与图片小预览，三列都带默认值，不动既有数据。
+        internal val MIGRATION_35_36 = Migration(35, 36) { database ->
+            fun addColumnIfMissing(table: String, column: String, definition: String) {
+                if (!tableHasColumn(database, table, column)) {
+                    database.execSQL("ALTER TABLE $table ADD COLUMN $column $definition")
+                }
+            }
+            // 工具卡片展开区：完整参数与返回内容，以及工具读到的图片小预览。
+            addColumnIfMissing("conversation_messages", "arguments_detail", "TEXT")
+            addColumnIfMissing("conversation_messages", "result_detail", "TEXT")
+            addColumnIfMissing("conversation_messages", "media_json", "TEXT NOT NULL DEFAULT '[]'")
         }
 
         // 媒体语义搜索：仅新建 media_index / media_source 两表，不动既有数据。

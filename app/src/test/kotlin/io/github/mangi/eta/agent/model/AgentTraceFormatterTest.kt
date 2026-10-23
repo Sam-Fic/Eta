@@ -502,4 +502,70 @@ class AgentTraceFormatterTest {
         assertTrue(summary.contains("PROJECT_HAS_UNCOMMITTED_CHANGES"));assertTrue(summary.contains("未提交"));assertFalse(summary.contains("执行中"))
     }
 
+
+    // ── 卡片展开区：完整参数与完整返回内容 ─────────────────────────────
+
+    @Test fun detailArgumentsExposeInvocationFieldsAndHideSecrets() {
+        val inlineMedia = "data:image/png;base64," + "A".repeat(200)
+        val call = AgentModelClient.ToolCall(
+            "call-1",
+            "write_file",
+            """{"path":"/sdcard/Download/notes.txt","content":"API_KEY=sk-live-123","image":"$inlineMedia","timeout_ms":5000}""",
+        )
+        val detail = formatter.detailArguments(call)
+        assertTrue(detail!!.contains("/sdcard/Download/notes.txt"))
+        assertTrue(detail.contains("timeout_ms"))
+        assertFalse(detail.contains("sk-live-123"))
+        assertFalse(detail.contains("AAAA"))
+        assertTrue(detail.contains("已省略"))
+    }
+
+    @Test fun detailArgumentsDoNotRepeatTheCommandBlock() {
+        val call = AgentModelClient.ToolCall(
+            "call-2",
+            "run_command",
+            """{"command":"ls -la /sdcard","timeout_ms":30000}""",
+        )
+        val detail = formatter.detailArguments(call)
+        assertTrue(detail!!.contains("timeout_ms"))
+        assertFalse(detail.contains("ls -la /sdcard"))
+
+        // 只有命令时命令块已经把全部内容展示完，不再叠一个空参数块。
+        assertNull(
+            formatter.detailArguments(
+                AgentModelClient.ToolCall("call-3", "run_command", """{"command":"pwd"}"""),
+            ),
+        )
+    }
+
+    @Test fun detailResultKeepsTheWholeTerminalOutput() {
+        val result = AgentModelClient.ToolResult(
+            """{"ok":true,"exit_code":0,"stdout":"line1\nline2\nline3\nline4\nline5","stderr":""}""",
+        )
+        val detail = formatter.detailResult("run_command", result)
+        assertTrue(detail!!.contains("exit_code: 0"))
+        assertTrue(detail.contains("line1"))
+        // 摘要只留三行预览，展开区必须能看到最后一行。
+        assertTrue(detail.contains("line5"))
+        assertTrue(detail.lines().size >= 6)
+    }
+
+    @Test fun detailResultPrettyPrintsJsonAndDropsInlineMedia() {
+        val inlineMedia = "data:image/jpeg;base64," + "B".repeat(120)
+        val detail = formatter.detailResult(
+            "list_directory",
+            AgentModelClient.ToolResult("""{"ok":true,"path":"/sdcard","entries":[{"name":"a.txt"}],"thumb":"$inlineMedia"}"""),
+        )
+        assertTrue(detail!!.contains("\"/sdcard\""))
+        assertTrue(detail.contains("a.txt"))
+        assertFalse(detail.contains("BBBB"))
+    }
+
+    @Test fun detailResultIsTruncatedWithAnExplicitMarker() {
+        val long = "x".repeat(20_000)
+        val detail = formatter.detailResult("read_file", AgentModelClient.ToolResult(long))
+        assertTrue(detail!!.length < 9_000)
+        assertTrue(detail.contains("已截断"))
+    }
+
 }
