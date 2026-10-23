@@ -130,7 +130,8 @@ internal class DiagnosticRowTokens(private val capacity: Int = 1024) {
 }
 
 internal fun diagnosticRowType(raw: String): String = when (raw) {
-    "user", "agent", "thinking", "tool", "message", "work-header", "work-tool", "work-thinking", "work-summary" -> raw
+    "user", "agent", "thinking", "tool", "message", "work-header", "work-tool", "work-thinking",
+    "work-question", "work-summary" -> raw
     else -> "unknown"
 }
 

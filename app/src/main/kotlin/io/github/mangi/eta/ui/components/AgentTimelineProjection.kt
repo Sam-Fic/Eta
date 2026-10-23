@@ -1,7 +1,9 @@
 package io.github.mangi.eta.ui.components
 
+import io.github.mangi.eta.agent.question.AgentQuestionStatus
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
 import io.github.mangi.eta.ui.model.AgentMessageUi
+import io.github.mangi.eta.ui.model.AgentQuestionMessageUi
 import io.github.mangi.eta.ui.model.ContextCompactedMessageUi
 import io.github.mangi.eta.ui.model.ErrorReconnectMessageUi
 import io.github.mangi.eta.ui.model.RunTraceMessageUi
@@ -37,8 +39,8 @@ internal sealed interface AgentTimelineEntry {
  * 把消息流投影为时间线条目。
  *
  * [aggressive]（激进折叠档）改变的是**归组**而非收起时机：每一轮只保留最后一条非空正文回复，
- * 它之前的中间文字回复、提示/重连等与思考/工具步骤并进同一张工作过程卡片（一整轮合成一张卡），
- * 由 [toLazyTimelineRows] 的折叠策略统一收起 —— 最终展示只剩用户消息与最后一条回复。
+ * 它之前的中间文字回复、提示/重连等、已作答/已取消的提问卡与思考/工具步骤并进同一张工作过程卡片
+ * （一整轮合成一张卡），由 [toLazyTimelineRows] 的折叠策略统一收起 —— 最终展示只剩用户消息与最后一条回复。
  * 普通/不折叠两档传 false，条目结构与旧版逐条投影完全一致。
  */
 internal fun List<AgentChatMessageUi>.toTimelineEntries(aggressive: Boolean = false): List<AgentTimelineEntry> = buildList(size) {
@@ -91,7 +93,7 @@ internal fun List<AgentChatMessageUi>.toTimelineEntries(aggressive: Boolean = fa
             if (workMessages.size >= WORK_PROCESS_UI_BATCH_LIMIT) flushWorkProcess()
             return@forEach
         }
-        // 激进档：最终回复之前的中间回复与提示一并并入卡片；回复后的尾巴保持原样。
+        // 激进档：最终回复之前的中间回复、提示与已作答提问卡一并并入卡片；回复后的尾巴保持原样。
         if (aggressive && !passedFinal && turnFinalId != null && message.isAggressiveFoldable()) {
             workMessages += message
             if (workMessages.size >= WORK_PROCESS_UI_BATCH_LIMIT) flushWorkProcess()
@@ -143,8 +145,11 @@ private fun List<AgentChatMessageUi>.aggressiveTurnFinalReplyIds(): List<String?
 }
 
 /**
- * 激进档允许并入本轮卡片的消息。问答卡、建议芯片等交互件与未知类型一律保持直接可见，
+ * 激进档允许并入本轮卡片的消息。建议芯片等仍需点击的交互件与未知类型一律保持直接可见，
  * 避免把可点的东西藏进卡片；流式中的回复也照常显示，保住「等待响应」的行内指示。
+ *
+ * 提问卡只有还在等人回答（[AgentQuestionStatus.Waiting]）时才必须留在卡片外；一旦已回答/取消/中断，
+ * 它就是只读回执，与本轮其余步骤一起收进卡片 —— 否则它会夹在前后两张卡片之间，整轮折叠不完整。
  */
 private fun AgentChatMessageUi.isAggressiveFoldable(): Boolean = when (this) {
     is ThinkingMessageUi,
@@ -155,6 +160,7 @@ private fun AgentChatMessageUi.isAggressiveFoldable(): Boolean = when (this) {
     is RunTraceMessageUi,
     is ContextCompactedMessageUi,
     -> true
+    is AgentQuestionMessageUi -> status != AgentQuestionStatus.Waiting
     is AgentMessageUi -> !isStreaming
     else -> false
 }

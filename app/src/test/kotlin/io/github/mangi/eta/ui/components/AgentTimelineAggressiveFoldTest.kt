@@ -1,7 +1,9 @@
 package io.github.mangi.eta.ui.components
 
+import io.github.mangi.eta.agent.question.AgentQuestionAnswer
 import io.github.mangi.eta.agent.question.AgentQuestionOption
 import io.github.mangi.eta.agent.question.AgentQuestionRequest
+import io.github.mangi.eta.agent.question.AgentQuestionStatus
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
 import io.github.mangi.eta.ui.model.AgentMessageUi
 import io.github.mangi.eta.ui.model.AgentQuestionMessageUi
@@ -12,6 +14,7 @@ import io.github.mangi.eta.ui.model.ThinkingMessageUi
 import io.github.mangi.eta.ui.model.ToolActivityMessageUi
 import io.github.mangi.eta.ui.model.ToolActivityStatusUi
 import io.github.mangi.eta.ui.model.UserMessageUi
+import io.github.mangi.eta.ui.model.incrementalSnapshot
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -123,7 +126,8 @@ class AgentTimelineAggressiveFoldTest {
         assertEquals(listOf("u1", "work-t1", "final", "n1", "chips"), entries.map { it.key })
     }
 
-    @Test fun interactiveQuestionCardStaysOutsideTheAbsorbedCard() {
+    @Test fun waitingQuestionCardStaysOutsideTheAbsorbedCard() {
+        // 还在等人回答的提问必须保持可点，不能被藏进卡片。
         val messages: List<AgentChatMessageUi> = listOf(
             UserMessageUi("u1", "task"),
             thinking("t1"),
@@ -133,6 +137,107 @@ class AgentTimelineAggressiveFoldTest {
 
         val entries = messages.toTimelineEntries(aggressive = true)
         assertEquals(listOf("u1", "work-t1", "q1", "final"), entries.map { it.key })
+    }
+
+    @Test fun answeredQuestionCardIsAbsorbedSoTheRunFoldsIntoOneCard() {
+        // 边界：问答卡夹在前后两段工具步骤之间。回答问题后它只是只读回执，
+        // 必须并进本轮同一张卡片，否则激进档会在两张卡片中间漏出一张「已回答」卡片。
+        val answered = question("q1").copy(
+            status = AgentQuestionStatus.Answered,
+            answer = AgentQuestionAnswer("option", "a"),
+        )
+        val messages: List<AgentChatMessageUi> = listOf(
+            UserMessageUi("u1", "task"),
+            thinking("t1"), tool("a1"),
+            answered,
+            thinking("t2"), tool("a2"),
+            AgentMessageUi("final", "answer"),
+        )
+
+        val entries = messages.toTimelineEntries(aggressive = true)
+        assertEquals(listOf("u1", "work-t1", "final"), entries.map { it.key })
+        assertEquals(messages, entries.flattenMessages())
+
+        val rows = entries.toLazyTimelineRows(
+            emptyMap(), isStreaming = false, foldedWorkKeys = entries.autoFoldedWorkKeys(enabled = true),
+        )
+        assertEquals(listOf("u1", "work-t1", "final"), rows.map { it.key })
+        assertTrue(rows.filterIsInstance<AgentTimelineRow.WorkHeader>().single().folded)
+    }
+
+    @Test fun cancelledQuestionIsAbsorbedToo() {
+        // 用户取消/中断的提问也只剩只读回执，同样是本轮步骤的一部分。
+        val messages: List<AgentChatMessageUi> = listOf(
+            UserMessageUi("u1", "task"),
+            thinking("t1"),
+            question("q1").copy(status = AgentQuestionStatus.Cancelled),
+            thinking("t2"),
+            AgentMessageUi("final", "answer"),
+        )
+
+        assertEquals(listOf("u1", "work-t1", "final"), messages.toTimelineEntries(aggressive = true).map { it.key })
+    }
+
+    @Test fun answeredQuestionAfterTheFinalReplyKeepsItsOwnRow() {
+        // 最终回复之后的尾巴保持原样：这里是「轮末回执」，不是夹在两段步骤中间。
+        val answered = question("q1").copy(
+            status = AgentQuestionStatus.Answered,
+            answer = AgentQuestionAnswer("option", "a"),
+        )
+        val messages: List<AgentChatMessageUi> = listOf(
+            UserMessageUi("u1", "task"),
+            thinking("t1"),
+            AgentMessageUi("final", "answer"),
+            answered,
+        )
+
+        assertEquals(listOf("u1", "work-t1", "final", "q1"), messages.toTimelineEntries(aggressive = true).map { it.key })
+    }
+
+    @Test fun answeredQuestionAloneStillFormsOneCard() {
+        // 整轮只有一次问答（没有工具、没有中间回复）：也要自成一张卡片，而不是漏成独立行。
+        val answered = question("q1").copy(
+            status = AgentQuestionStatus.Answered,
+            answer = AgentQuestionAnswer("option", "a"),
+        )
+        val messages: List<AgentChatMessageUi> = listOf(
+            UserMessageUi("u1", "task"),
+            answered,
+            AgentMessageUi("final", "answer"),
+        )
+
+        val entries = messages.toTimelineEntries(aggressive = true)
+        assertEquals(listOf("u1", "work-q1", "final"), entries.map { it.key })
+        assertEquals(listOf(answered), steps(entries).single().messages)
+    }
+
+    @Test fun projectionCacheFollowsQuestionStatusChange() {
+        // 作答会让提问卡从独立行并入卡片：条目数量变了，缓存必须退回全量投影。
+        val cache = AgentTimelineProjectionCache(
+            fullProjection = { it.toTimelineEntries(aggressive = true) },
+            aggressiveGrouping = true,
+        )
+        val waiting: List<AgentChatMessageUi> = listOf(
+            UserMessageUi("u1", "task"),
+            thinking("t1"), question("q1"),
+            thinking("t2"),
+            AgentMessageUi("final", "answer"),
+        )
+        assertEquals(waiting.toTimelineEntries(aggressive = true), cache.project(waiting))
+        assertEquals(listOf("u1", "work-t1", "q1", "work-t2", "final"), cache.project(waiting).map { it.key })
+
+        // 单槽替换（真实会话的增量快照）也必须与全量投影一致。
+        val answered = waiting.map { message ->
+            if (message is AgentQuestionMessageUi) message.copy(
+                status = AgentQuestionStatus.Answered,
+                answer = AgentQuestionAnswer("option", "a"),
+            ) else message
+        }
+        assertEquals(
+            answered.toTimelineEntries(aggressive = true),
+            cache.project(answered.incrementalSnapshot()),
+        )
+        assertEquals(listOf("u1", "work-t1", "final"), cache.project(answered).map { it.key })
     }
 
     @Test fun streamingIntermediateReplyIsNeverAbsorbed() {

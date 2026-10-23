@@ -117,6 +117,7 @@ import io.github.mangi.eta.ui.model.latestBilledContextTokens
 import io.github.mangi.eta.ui.model.canContinueDisconnectedRun
 import io.github.mangi.eta.ui.model.isRetryableFailure
 import io.github.mangi.eta.ui.model.AgentMessageUi
+import io.github.mangi.eta.ui.model.AgentQuestionMessageUi
 import io.github.mangi.eta.ui.model.SystemNoticeMessageUi
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
 import io.github.mangi.eta.ui.model.MessageEditUiState
@@ -1676,6 +1677,7 @@ internal fun AgentConversationMessages(
                         is AgentTimelineRow.WorkStep -> when (row.message) {
                             is ToolActivityMessageUi -> "work-tool"
                             is ThinkingMessageUi -> "work-thinking"
+                            is AgentQuestionMessageUi -> "work-question"
                             else -> "work-summary"
                         }
                     }
@@ -1696,6 +1698,7 @@ internal fun AgentConversationMessages(
                         is AgentTimelineRow.WorkStep -> when (entry.message) {
                             is ToolActivityMessageUi -> "work-tool"
                             is ThinkingMessageUi -> "work-thinking"
+                            is AgentQuestionMessageUi -> "work-question"
                             else -> "work-summary"
                         }
                     },

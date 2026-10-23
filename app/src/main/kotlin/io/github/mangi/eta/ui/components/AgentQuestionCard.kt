@@ -2,6 +2,7 @@ package io.github.mangi.eta.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -54,13 +55,14 @@ import io.github.mangi.eta.ui.model.AgentQuestionMessageUi
 internal fun AgentQuestionCard(
     message: AgentQuestionMessageUi,
     modifier: Modifier = Modifier,
+    compact: Boolean = false,
     onDraftChanged: (AgentQuestionAnswer) -> Unit,
     onSubmit: () -> Unit,
 ) {
     // A recycled chat slot must not inherit another conversation/run/call/question's controls.
     key(AgentQuestionProjection.messageId(message.request)) {
         // M3 Expressive：卡片内所有可点区域都要有官方按下反馈。
-        AgentQuestionCardContent(message, modifier, onDraftChanged, onSubmit)
+        AgentQuestionCardContent(message, modifier, compact, onDraftChanged, onSubmit)
     }
 }
 
@@ -68,6 +70,7 @@ internal fun AgentQuestionCard(
 private fun AgentQuestionCardContent(
     message: AgentQuestionMessageUi,
     modifier: Modifier,
+    compact: Boolean,
     onDraftChanged: (AgentQuestionAnswer) -> Unit,
     onSubmit: () -> Unit,
 ) {
@@ -88,8 +91,7 @@ private fun AgentQuestionCardContent(
         if (!expanded) releaseAnchor()
         expanded = !expanded
     }
-    // Reuse the steps' actual outlined shell, including its sole 16dp message gutters.
-    WorkProcessCardSlice(part = WorkProcessCardPart.Whole, modifier = modifier) {
+    val cardContent: @Composable () -> Unit = {
         Column(Modifier.fillMaxWidth().testTag("question-card-surface")) {
             QuestionDisclosureHeader(
                 expanded = expanded,
@@ -163,6 +165,13 @@ private fun AgentQuestionCardContent(
                 }
             }
         }
+    }
+    // compact 模式渲染在工作过程卡片内部，不再携带自己的卡片外壳，避免卡中卡。
+    if (compact) {
+        Box(modifier = modifier.fillMaxWidth()) { cardContent() }
+    } else {
+        // Reuse the steps' actual outlined shell, including its sole 16dp message gutters.
+        WorkProcessCardSlice(part = WorkProcessCardPart.Whole, modifier = modifier) { cardContent() }
     }
 }
 

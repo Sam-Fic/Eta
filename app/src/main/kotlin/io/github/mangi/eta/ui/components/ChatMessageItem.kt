@@ -442,7 +442,7 @@ internal fun ChatMessageItem(
     onThinkingToggle: ((String, Boolean) -> Unit)? = null,
 ) {
     when (message) {
-        is io.github.mangi.eta.ui.model.AgentQuestionMessageUi -> AgentQuestionCard(message, modifier,
+        is io.github.mangi.eta.ui.model.AgentQuestionMessageUi -> AgentQuestionCard(message, modifier, compact = compact,
             onDraftChanged = { draft -> actions.onQuestionDraftChanged(message.request.conversationId, message.request.questionId, draft) },
             onSubmit = { actions.onSubmitQuestionAnswer(message.request.conversationId, message.request.questionId) })
         is UserMessageUi -> UserMessageBubble(
@@ -563,6 +563,8 @@ internal fun AgentWorkProcessHeader(
     val toolCount = messages.count { it is ToolActivityMessageUi }
     // 激进档卡片可能没有工具调用、只有被并进来的中间回复，组头据此读作「N 条中间回复」。
     val replyCount = messages.count { it is AgentMessageUi && it.content.isNotBlank() }
+    // 已作答的提问卡同样会被并进来：只有问答的组不该顶着工具锤子图标。
+    val questionCount = messages.count { it is io.github.mangi.eta.ui.model.AgentQuestionMessageUi }
     val runningTool = if (running) {
         messages.lastOrNull { message ->
             message is ToolActivityMessageUi && message.status == ToolActivityStatusUi.Running
@@ -643,8 +645,8 @@ internal fun AgentWorkProcessHeader(
                 leadingIcon = when {
                     runningTool != null -> ToolPresentation.icon(runningTool.toolName)
                     running -> Icons.Rounded.AutoAwesome
-                    // 纯回复卡片（一整轮只剩被收起的中间回复）用对话图标，区别于工具堆叠。
-                    toolCount == 0 && replyCount > 0 -> Icons.Rounded.QuestionAnswer
+                    // 纯回复/纯问答卡片（一整轮只剩被收起的中间回复或问答）用对话图标，区别于工具堆叠。
+                    toolCount == 0 && (replyCount > 0 || questionCount > 0) -> Icons.Rounded.QuestionAnswer
                     else -> Icons.Rounded.Build
                 },
                 leadingTint = headerLeadingTint,

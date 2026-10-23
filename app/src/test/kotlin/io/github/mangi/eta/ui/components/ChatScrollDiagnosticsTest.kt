@@ -187,7 +187,7 @@ class ChatScrollDiagnosticsTest {
     @Test fun supportedRowTypesRemainRecognizable() {
         listOf(
             "message", "user", "agent", "thinking", "tool", "work",
-            "work-header", "work-tool", "work-thinking", "work-summary",
+            "work-header", "work-tool", "work-thinking", "work-question", "work-summary",
         ).forEach { assertEquals(it, chatScrollTraceType(it)) }
         assertEquals("other", chatScrollTraceType("MESSAGE"))
         assertEquals("other", chatScrollTraceType("message|private"))

@@ -2,6 +2,7 @@ package io.github.mangi.eta.ui.components
 
 import androidx.compose.runtime.staticCompositionLocalOf
 import io.github.mangi.eta.ui.model.AgentMessageUi
+import io.github.mangi.eta.ui.model.AgentQuestionMessageUi
 import io.github.mangi.eta.ui.model.ThinkingMessageUi
 import io.github.mangi.eta.ui.model.ToolActivityMessageUi
 import io.github.mangi.eta.ui.model.UserMessageUi
@@ -22,6 +23,7 @@ internal fun timelineDiagnosticRowType(row: AgentTimelineRow): String = when (ro
     is AgentTimelineRow.WorkStep -> when (row.message) {
         is ToolActivityMessageUi -> "work-tool"
         is ThinkingMessageUi -> "work-thinking"
+        is AgentQuestionMessageUi -> "work-question"
         else -> "work-summary"
     }
 }

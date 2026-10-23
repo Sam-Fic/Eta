@@ -279,7 +279,7 @@ private val chatScrollTraceInstances = AtomicLong()
 
 internal fun chatScrollTraceType(type: String): String = when (type) {
     "message", "user", "agent", "thinking", "tool", "work",
-    "work-header", "work-tool", "work-thinking", "work-summary" -> type
+    "work-header", "work-tool", "work-thinking", "work-question", "work-summary" -> type
     else -> "other"
 }
 
