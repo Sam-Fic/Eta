@@ -32,7 +32,8 @@ class SubAgentProfileDialogContractTest(unittest.TestCase):
                          'SubAgentDraftSettingRow(stringResource(R.string.sap_gpt_speed)',
                          'gptSpeedDisplayName(draft.gptSpeedForModel())'):
             self.assertIn(required, text)
-        edit = text.split('if (canEditSpeed) item(key = "speed")', 1)[1].split('SubAgentDraftSettingRow(stringResource(R.string.sap_role)', 1)[0]
+        # 速度行与职责行之间只允许速度行自身的提交逻辑；职责/任务分工已改为行内下拉菜单。
+        edit = text.split('if (canEditSpeed) item(key = "speed")', 1)[1].split('item(key = "role")', 1)[0]
         for required in ('session.edit { profile ->',
                          'profile.providerId != draft.providerId', 'profile.modelId != draft.modelId',
                          'profile.role != draft.role',

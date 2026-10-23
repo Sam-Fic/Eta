@@ -51,6 +51,7 @@ import io.github.mangi.eta.ui.adaptive.EtaPageSurface
 import io.github.mangi.eta.ui.adaptive.EtaScaffold
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedDropdownRow
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedGroupSpacing
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedRadioRow
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
@@ -230,7 +231,7 @@ private fun SubAgentDraftSettingRow(
 }
 
 /** 配置表单的二级选择页；都留在同一页面表面内，不再叠对话框。 */
-private enum class ProfileDraftSubPage { MODEL, THINKING, ROLE, TIER, RESOLUTION }
+private enum class ProfileDraftSubPage { MODEL, THINKING, RESOLUTION }
 
 private data class DraftChoice<T>(val value: T, val label: String)
 
@@ -429,14 +430,50 @@ internal fun SubAgentProfileConfigDialog(
                                             })
                                     }
                                     item(key = "role") {
-                                        SubAgentDraftSettingRow(stringResource(R.string.sap_role), draft.roleLabel,
-                                            Icons.AutoMirrored.Rounded.Assignment, stringResource(R.string.sap_draft_role), usable,
-                                            onClick = { if (usable) subPage = ProfileDraftSubPage.ROLE })
+                                        // 与上下文压缩页「请求接口」行同款：原位弹出锚定菜单，点选即写入草稿。
+                                        val roles = listOf(
+                                            "implementation" to stringResource(R.string.sap_role_impl),
+                                            "review" to stringResource(R.string.sap_role_review),
+                                            "image_generation" to stringResource(R.string.sap_role_image),
+                                            "video_generation" to stringResource(R.string.sap_role_video),
+                                        )
+                                        EtaSegmentedDropdownRow(
+                                            title = stringResource(R.string.sap_role),
+                                            items = roles.map { it.second },
+                                            selectedIndex = roles.indexOfFirst { it.first == draft.role },
+                                            onItemSelected = { index ->
+                                                val value: String? = roles.getOrNull(index)?.first
+                                                    ?: return@EtaSegmentedDropdownRow
+                                                if (session.canCommit(latestEditor, latestEnabled)) {
+                                                    session.edit { profile -> profile.withRole(requireNotNull(value)) }
+                                                }
+                                            },
+                                            icon = Icons.AutoMirrored.Rounded.Assignment,
+                                            enabled = usable,
+                                            description = stringResource(R.string.sap_draft_role),
+                                        )
                                     }
                                     if (draft.supportsTaskTier) item(key = "tier") {
-                                        SubAgentDraftSettingRow(stringResource(R.string.sap_task_tier), draft.tier?.let { stringResource(it.labelRes) } ?: stringResource(R.string.sap_tier_unset),
-                                            Icons.Rounded.AccountTree, stringResource(R.string.sap_draft_tier), usable,
-                                            onClick = { if (usable) subPage = ProfileDraftSubPage.TIER })
+                                        val tiers = listOf<SubAgentTaskTier?>(null) + SubAgentTaskTier.entries
+                                        EtaSegmentedDropdownRow(
+                                            title = stringResource(R.string.sap_task_tier),
+                                            items = tiers.map { tier ->
+                                                tier?.let { stringResource(it.labelRes) } ?: stringResource(R.string.sap_tier_unset)
+                                            },
+                                            selectedIndex = tiers.indexOf(draft.tier),
+                                            onItemSelected = { index ->
+                                                if (index !in tiers.indices ||
+                                                    !session.canCommit(latestEditor, latestEnabled)
+                                                ) return@EtaSegmentedDropdownRow
+                                                val tier = tiers[index]
+                                                session.edit { profile ->
+                                                    if (profile.supportsTaskTier) profile.copy(tier = tier) else profile
+                                                }
+                                            },
+                                            icon = Icons.Rounded.AccountTree,
+                                            enabled = usable,
+                                            description = stringResource(R.string.sap_draft_tier),
+                                        )
                                     }
                                     if (draft.role == "image_generation") item(key = "resolution") {
                                         SubAgentDraftSettingRow(stringResource(R.string.sap_default_resolution),
@@ -496,44 +533,6 @@ internal fun SubAgentProfileConfigDialog(
                                     subPage = null
                                 },
                             )
-                            ProfileDraftSubPage.ROLE -> {
-                                val choices = listOf(
-                                    "implementation" to stringResource(R.string.sap_role_impl),
-                                    "review" to stringResource(R.string.sap_role_review),
-                                    "image_generation" to stringResource(R.string.sap_role_image),
-                                    "video_generation" to stringResource(R.string.sap_role_video),
-                                ).map { DraftChoice<String?>(it.first, it.second) }
-                                SubAgentDraftChoicePage(
-                                    title = stringResource(R.string.sap_role),
-                                    choices = choices,
-                                    isSelected = { draft.role == it },
-                                    enabled = usable,
-                                    onBack = { subPage = null },
-                                    onSelected = { value ->
-                                        if (session.canCommit(latestEditor, latestEnabled)) {
-                                            session.edit { profile -> profile.withRole(requireNotNull(value)) }
-                                        }
-                                        subPage = null
-                                    },
-                                )
-                            }
-                            ProfileDraftSubPage.TIER -> {
-                                val choices = (listOf<SubAgentTaskTier?>(null) + SubAgentTaskTier.entries)
-                                    .map { tier -> DraftChoice(tier, tier?.let { stringResource(it.labelRes) } ?: stringResource(R.string.sap_tier_unset)) }
-                                SubAgentDraftChoicePage(
-                                    title = stringResource(R.string.sap_task_tier),
-                                    choices = choices,
-                                    isSelected = { draft.tier == it },
-                                    enabled = usable,
-                                    onBack = { subPage = null },
-                                    onSelected = { tier ->
-                                        if (session.canCommit(latestEditor, latestEnabled)) {
-                                            session.edit { profile -> if (profile.supportsTaskTier) profile.copy(tier = tier) else profile }
-                                        }
-                                        subPage = null
-                                    },
-                                )
-                            }
                             ProfileDraftSubPage.RESOLUTION -> {
                                 val choices = (listOf<String?>(null) + ImageResolutionTier.values
                                     .filter { !verifiedGrok || it in setOf("low", "high") })

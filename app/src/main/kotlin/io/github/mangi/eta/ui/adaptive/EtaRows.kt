@@ -27,6 +27,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -183,6 +185,9 @@ fun EtaClickableRow(
  * KernelSU `SegmentedDropdownItem` 对应物：行尾以 primary 色显示当前选中文案，
  * 菜单锚定在按下位置展开（`EtaOffsetAnchoredMenu`），选中项带 Check 前导图标。
  *
+ * @param description 行的无障碍描述（TalkBack 播报与测试定位用）；挂在行本体的合并语义节点上，
+ *        与 [SubAgentSettingsRow] 等兄弟行的 contentDescription 约定一致。
+ *
  * 轻触反馈（展开菜单、选中条目）由本行自己触发，调用方**不要**在 `onItemSelected`
  * 或 `onClick` 里再写 `TouchHaptics.click`。
  */
@@ -197,6 +202,7 @@ fun EtaSegmentedDropdownRow(
     summary: String? = null,
     enabled: Boolean = true,
     onClick: (() -> Unit)? = null,
+    description: String? = null,
 ) {
     val view = LocalView.current
     var expanded by remember { mutableStateOf(false) }
@@ -218,6 +224,11 @@ fun EtaSegmentedDropdownRow(
 
     Box(modifier = modifier.trackPressPosition { anchorOffset = it.round() }) {
         EtaSegmentedRow(
+            modifier = if (description != null) {
+                Modifier.semantics { contentDescription = description }
+            } else {
+                Modifier
+            },
             onClick = rowClick,
             enabled = enabled,
             // 前导图标对齐 PreferenceIcon：24dp + 尾部 8dp，保证标题起点与其它设置行一致。
