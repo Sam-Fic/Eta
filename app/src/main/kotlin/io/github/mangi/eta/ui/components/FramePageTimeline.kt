@@ -3,7 +3,7 @@ package io.github.mangi.eta.ui.components
 /** Static labels only: never route.toString(), IDs, URLs, names, or user content. */
 internal enum class FrameDiagnosticPage {
     Unknown, Transition, BrowserOverlay, ConversationDrawer,
-    Home, Chat, Browser, Terminal, Tools, AgentTaskPreference, VirtualDisplayRecovery, Haptics, Skills, Permissions, SystemEnhance, Settings, SpeechSettings, TtsSettings, VoiceSettings, AuxiliaryVision, TitleModel, ErrorReconnectSettings, SubAgents, VoiceModeSettings, AppearanceSettings, DataBackup, Memory, LinuxEnvironment, SharedFolders, Workspace, LinuxFiles, ModelProviders, McpServers, McpServerDetail, ModelProviderDetail, ModelProviderAuthMethod, ModelProviderNew, ContextCompression, Assistants, AssistantEdit, UsageStats, ManageChats;
+    Home, Chat, Browser, Terminal, Tools, AgentTaskPreference, VirtualDisplayRecovery, Haptics, Skills, Permissions, SystemEnhance, Settings, SpeechSettings, TtsSettings, VoiceSettings, AuxiliaryVision, TitleModel, ErrorReconnectSettings, SubAgents, VoiceModeSettings, AppearanceSettings, DataBackup, Memory, LinuxEnvironment, SharedFolders, Workspace, LinuxFiles, ModelProviders, McpServers, McpServerDetail, ModelProviderDetail, ModelProviderAuthMethod, ModelProviderNew, ContextCompression, Assistants, AssistantEdit, UsageStats, ManageChats, ToolRecipes;
 
     val frameStage: String = "frame.page.$name"
 }

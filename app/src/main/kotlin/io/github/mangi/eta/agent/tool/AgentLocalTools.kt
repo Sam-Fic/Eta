@@ -183,7 +183,8 @@ internal class AgentLocalTools(
     private val selfMcpTools = AgentSelfMcpTools(context)
     private val mediaSearchTools = AgentMediaSearchTools(context)
     /** 自进化底座：模型可自行创建声明式配方（工具），配方即时注册为可调用工具。 */
-    internal val recipeStore = AgentToolRecipeStore(File(context.filesDir, "tool_recipes"))
+    // 与设置页共用进程级唯一 store：用户停用/删除配方后，agent 侧立即看到，不会继续暴露已收回的工具。
+    internal val recipeStore = AgentToolRecipeStore.get(context)
     private val recipeExecutor = AgentToolRecipeExecutor(
         context = context,
         root = rootCommandExecutor,

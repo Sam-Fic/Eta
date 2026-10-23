@@ -12,6 +12,8 @@ import io.github.mangi.eta.agent.media.index.Float16VectorCodec
 import io.github.mangi.eta.agent.media.index.MediaExtraction
 import io.github.mangi.eta.agent.media.index.MediaSourceScanner
 import io.github.mangi.eta.agent.skill.SkillRuntime
+import io.github.mangi.eta.agent.tool.ToolRecipeConstants
+import io.github.mangi.eta.agent.tool.ToolRecipePaths
 import io.github.mangi.eta.agent.terminal.AndroidBusyBox
 import io.github.mangi.eta.agent.terminal.LinuxDistribution
 import io.github.mangi.eta.agent.terminal.LinuxEnvironmentPaths
@@ -60,7 +62,8 @@ import kotlinx.serialization.json.Json
 /**
  * Eta用户数据备份。schema 1 只有对话、提供商和记忆；schema 2 补上助手、技能、MCP、设置、附件和可选 Linux 环境；
  * schema 5 补上可选媒体语义索引（向量行不进本清单，写在独立条目 `media-index/records.jsonl`）；
- * schema 6 补上可选已下载模型（文件写在 `models/` 下，元数据在 [models]）。
+ * schema 6 补上可选已下载模型（文件写在 `models/` 下，元数据在 [models]）；
+ * schema 7 补上模型自进化成果「配方」（数据本就在 `filesDir/tool_recipes`，这里纳入清单元数据）。
  */
 @Serializable
 internal data class EtaBackupDocument(
@@ -86,6 +89,12 @@ internal data class EtaBackupDocument(
     val settings: EtaSettingsBackup? = null,
     val mediaIndex: EtaBackupMediaIndex? = null,
     val models: EtaModelBackupDocument? = null,
+    /**
+     * 模型自建的配方（工具）数量。
+     *
+     * 配方数据本身在 `filesDir/tool_recipes`，与技能一样随应用数据一起被系统备份带走；\     * 清单元数据只记数量，供导入前预览与导入后核对。
+     */
+    val recipeCount: Int = 0,
     val includeLinuxEnvironment: Boolean = false,
     val linuxWorkspaceIncluded: Boolean = false,
     val attachmentCount: Int = 0,
@@ -96,7 +105,7 @@ internal data class EtaBackupDocument(
 ) {
     companion object {
         const val FORMAT = "eta-backup"
-        const val SCHEMA_VERSION = 6
+        const val SCHEMA_VERSION = 7
         const val MIN_SUPPORTED_SCHEMA = 1
         const val MANIFEST_NAME = "eta-backup.json"
     }
@@ -179,6 +188,8 @@ internal data class EtaBackupSummary(
     val assistantCount: Int = 0,
     val mcpCount: Int = 0,
     val skillCount: Int = 0,
+    /** 自建配方（模型给自己写的工具）数量；schema 7 起有值，旧备份为 0。 */
+    val recipeCount: Int = 0,
     val attachmentCount: Int = 0,
     val includedLinuxEnvironment: Boolean = false,
     val mediaIndexCount: Int = 0,
@@ -770,6 +781,7 @@ internal object EtaBackupRepository {
             models = models,
             includeLinuxEnvironment = options.includeLinuxEnvironment,
             linuxWorkspaceIncluded = true,
+            recipeCount = ToolRecipePaths.count(context),
             attachmentCount = countFiles(chatImages),
             importedFileCount = countFiles(imports),
             agentPreferences = Prefs.exportAgentPreferences(),
@@ -983,10 +995,13 @@ internal object EtaBackupRepository {
         }
         document.assistantMemories.keys.forEach { io.github.mangi.eta.data.model.AssistantStorage.id(it) }
         BackupSubAgentConfig.validateExternalPreferences(document.agentPreferences, ConversationSubAgentPreferences())
+        require(document.mcpServers.size <= 10_000) { "备份中的 MCP 服务器过多" }
         val mcpIds = document.mcpServers.map { it.id }
         if (mcpIds.size != mcpIds.toSet().size || mcpIds.any(String::isBlank)) {
             throw EtaBackupException("备份中的 MCP 服务器存在重复或无效 ID")
         }
+        // 配方只是数量元数据（数据随应用数据走），但要挡住伪造的巨大数量与负数。
+        require(document.recipeCount in 0..ToolRecipeConstants.MAX_STORED_RECIPES) { "备份中的配方数量无效" }
         document.mediaIndex?.let { meta ->
             if (meta.modelId.isBlank() || meta.vectorDim !in 1..4096 || meta.count !in 0..BackupArchiveSafety.ENTRY_LIMIT) {
                 throw EtaBackupException("备份中的媒体语义索引元数据无效")
@@ -1240,6 +1255,7 @@ internal object EtaBackupRepository {
         assistantCount = assistants?.profiles?.size ?: 0,
         mcpCount = mcpServers.size,
         skillCount = skillFiles.keys.map { it.substringBefore('/') }.filter { it.isNotBlank() }.toSet().size,
+        recipeCount = recipeCount,
         attachmentCount = attachmentCount + importedFileCount,
         includedLinuxEnvironment = includeLinuxEnvironment,
         mediaIndexCount = mediaIndex?.count ?: 0,

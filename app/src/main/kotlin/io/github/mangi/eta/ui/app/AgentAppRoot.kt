@@ -123,6 +123,7 @@ import io.github.mangi.eta.ui.screens.memory.AgentMemoryScreen
 import io.github.mangi.eta.ui.screens.permissions.PermissionHealthScreen
 import io.github.mangi.eta.ui.screens.settings.MobileActionsScreen
 import io.github.mangi.eta.ui.screens.settings.MobileActionsSettingsScreen
+import io.github.mangi.eta.ui.screens.tools.ToolRecipesScreen
 import io.github.mangi.eta.ui.screens.skills.AgentSkillsScreen
 import io.github.mangi.eta.ui.screens.stats.UsageStatsScreen
 import io.github.mangi.eta.ui.screens.terminal.DaemonTasksScreen
@@ -1276,6 +1277,11 @@ fun AgentAppRoot(
                 val route = entry.toRoute<AppRoute.McpServerDetail>()
                 McpServerDetailScreen(
                     serverId = route.serverId,
+                    onBack = ::popRoute,
+                )
+            }
+            composable<AppRoute.ToolRecipes> {
+                ToolRecipesScreen(
                     onBack = ::popRoute,
                 )
             }

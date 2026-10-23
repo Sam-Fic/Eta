@@ -15,6 +15,7 @@ import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
+import androidx.compose.material.icons.rounded.Handyman
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -24,6 +25,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
@@ -31,6 +33,7 @@ import io.github.mangi.eta.data.repository.EtaBackupExportOptions
 import io.github.mangi.eta.data.repository.EtaBackupRepository
 import io.github.mangi.eta.data.repository.EtaBackupSummary
 import io.github.mangi.eta.data.repository.EtaModelBackupSummary
+import io.github.mangi.eta.agent.tool.ToolRecipePaths
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
@@ -77,6 +80,8 @@ internal fun DataBackupScreen(
     var mediaBytes by remember { mutableStateOf<Long?>(null) }
     var includeModels by remember { mutableStateOf(false) }
     var modelSummary by remember { mutableStateOf(EtaModelBackupSummary.EMPTY) }
+    var recipeCount by remember { mutableStateOf(0) }
+    var recipeBytes by remember { mutableStateOf(0L) }
     LaunchedEffect(Unit) {
         linuxBytes = withContext(Dispatchers.IO) {
             EtaBackupRepository.linuxEnvironmentBytes(context)
@@ -85,6 +90,11 @@ internal fun DataBackupScreen(
             EtaBackupRepository.mediaIndexEstimateBytes(context)
         }
         modelSummary = EtaBackupRepository.downloadedModels(context)
+        // 配方随应用数据一起被系统备份带走，这里只报数量与体积，让用户知道备份里有什么。
+        withContext(Dispatchers.IO) {
+            recipeCount = ToolRecipePaths.count(context)
+            recipeBytes = ToolRecipePaths.bytes(context)
+        }
     }
     val linuxSizeLabel = linuxBytes?.takeIf { it > 0L }?.let { Formatter.formatShortFileSize(context, it) }
     val mediaSizeLabel = mediaBytes?.takeIf { it > 0L }?.let { Formatter.formatShortFileSize(context, it) }
@@ -199,6 +209,20 @@ internal fun DataBackupScreen(
                 title = stringResource(R.string.data_backup_warning_title),
                 summary = stringResource(R.string.data_backup_warning_summary),
             )
+        }
+        item(key = "recipes") {
+            // 配方随应用数据备份，但用户常以为「备份」不含自进化成果；明确写出来，并指向可分享/编辑的管理页。
+            EtaSegmentedColumn(
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                title = stringResource(R.string.recipe_share_section),
+            ) {
+                item {
+                    RecipeBackupRow(
+                        count = recipeCount,
+                        bytes = recipeBytes,
+                    )
+                }
+            }
         }
         item(key = "actions-card") {
             EtaSegmentedColumn(
@@ -508,6 +532,36 @@ private fun BackupActionRow(
 
 private fun defaultBackupFileName(context: Context): String =
     context.getString(R.string.data_backup_file_name, SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date()))
+/** 备份页里的配方说明行：数量 + 体积 + 指向管理页的提示。 */
+@Composable
+private fun RecipeBackupRow(
+    count: Int,
+    bytes: Long,
+) {
+    EtaSegmentedRow(
+        modifier = Modifier.fillMaxWidth(),
+        leadingContent = {
+            Icon(
+                imageVector = Icons.Rounded.Handyman,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        },
+        content = { M3Text(text = stringResource(R.string.data_backup_recipes, count)) },
+        supportingContent = {
+            M3Text(
+                text = if (count == 0) {
+                    stringResource(R.string.recipe_empty_summary)
+                } else {
+                    stringResource(
+                        R.string.data_backup_recipes_size,
+                        Formatter.formatShortFileSize(LocalContext.current, bytes),
+                    )
+                },
+            )
+        },
+    )
+}
 
 private fun defaultModelBackupFileName(context: Context): String =
     context.getString(R.string.backup_models_file_name, SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date()))
