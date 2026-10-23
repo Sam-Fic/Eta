@@ -814,12 +814,6 @@ private fun Density.userBubbleTailPath(bodyWidth: Float, h: Float): Path {
     }
 }
 
-/** 组尾时把尾巴画在气泡背景之外，避免半透明底色与主体叠加出更深的色块。 */
-private fun DrawScope.drawUserBubbleTail(color: Color) {
-    val bodyWidth = size.width - UserBubbleTailWidth.toPx()
-    drawPath(userBubbleTailPath(bodyWidth, size.height), color)
-}
-
 /**
  * 气泡的裁剪形状：圆角矩形本体 + 组尾时右下角那条尾巴（两段互不重叠的闭合轮廓）。
  *
@@ -1166,7 +1160,6 @@ private fun UserMessageBubble(
                             Modifier
                         },
                     )
-                    .then(if (isGroupTail) Modifier.drawBehind { drawUserBubbleTail(bubbleBg) } else Modifier)
                     .then(bubbleSurface)
                     // 展开 / 收起操作行的按压区只覆盖气泡本身：接在 clip 之后，官方涟漪
                     // （LocalIndication）会一起被裁到气泡形状上，不再是整行宽的直角高亮块。
