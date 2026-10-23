@@ -270,7 +270,8 @@ class SubAgentProfileConfigDialogTest {
         assertEquals(actionsBeforeScroll, compose.onNodeWithText("取消").fetchSemanticsNode().boundsInRoot)
         compose.onNodeWithText("确认").assertIsDisplayed()
         compose.onNodeWithContentDescription("草稿任务分工").performScrollTo().performClick()
-        compose.onNodeWithText("复杂任务").performScrollTo().assertIsDisplayed().performClick()
+        // 任务分工已改为行内下拉菜单：选项在弹出层里，没有可滚动祖先，不走 performScrollTo。
+        compose.onNodeWithText("复杂任务").assertIsDisplayed().performClick()
         compose.onNodeWithContentDescription("草稿任务分工").assertIsDisplayed()
         compose.onNodeWithText("确认").assertIsDisplayed()
         compose.onNodeWithText("取消").assertIsDisplayed().performClick()
