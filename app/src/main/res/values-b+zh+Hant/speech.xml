@@ -12,12 +12,13 @@
     <string name="speech_model">語音模型</string>
     <string name="speech_model_zipformer">Zipformer 中英雙語（2023）</string>
     <string name="speech_model_x_asr">X-ASR 中英串流（480 ms）</string>
+    <string name="speech_model_sense_voice">SenseVoice 中英日韓粵（2025）</string>
     <string name="speech_source">下載來源</string>
     <string name="speech_source_hugging_face">Hugging Face</string>
     <string name="speech_source_model_scope">ModelScope</string>
-    <string name="speech_pack_summary">中英雙語 · %1$s · 下載後離線使用</string>
+    <string name="speech_pack_summary">%1$s · 下載後離線使用</string>
     <string name="speech_privacy">僅點擊後收音，不上傳錄音。再次點擊或說完停頓後停止，文字留在輸入框，不自動傳送。離開聊天或切到背景停止收音。</string>
-    <string name="speech_download_confirm">將從 %2$s 下載約 %1$s 的中英雙語模型，可能產生流量費用。下載校驗完成後仍需手動開啟。模型權重的上游授權尚未明確，請僅按適用授權使用。</string>
+    <string name="speech_download_confirm">將從 %2$s 下載約 %1$s 的離線語音模型，可能產生流量費用。下載校驗完成後仍需手動開啟。模型權重的上游授權尚未明確，請僅按適用授權使用。</string>
     <string name="speech_start">開始語音輸入</string>
     <string name="speech_stop">停止語音輸入</string>
     <string name="speech_listening">正在收音，再次點擊停止</string>

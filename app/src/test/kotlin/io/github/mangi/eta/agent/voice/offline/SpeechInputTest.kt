@@ -64,6 +64,11 @@ class SpeechInputTest {
             assertTrue(model.assets.all { it.bytes > 0 })
             // 权重文件必须有哈希；仅上游未公布哈希的文本文件允许为空（退化为仅校验长度）。
             assertTrue(model.assets.all { it.sha256?.matches(Regex("[0-9a-f]{64}")) ?: it.name.endsWith(".txt") })
+            // 独立托管的资产（如 Silero VAD）必须直接指向 HTTPS 文件本身，且仍由上面的哈希钉住。
+            assertTrue(model.assets.all { asset ->
+                val url = asset.url
+                url == null || (url.startsWith("https://") && url.endsWith(asset.name))
+            })
             assertTrue(model.totalBytes > 0)
             // 下载源必须带固定 revision（ModelScope 镜像按内容哈希校验，同样钉住文件哈希）。
             assertTrue(model.sources.isNotEmpty())
@@ -72,9 +77,10 @@ class SpeechInputTest {
             assertEquals(model.sources.size, model.sources.map { it.id }.toSet().size)
         }
         // 默认模型必须能按未知 id 回退，偏好损坏也不能让启动失败。
+        assertEquals(SpeechModelCatalog.SENSE_VOICE_ID, SpeechModelCatalog.defaultModel.id)
         assertEquals(SpeechModelCatalog.defaultModel, SpeechModelCatalog.model(null))
         assertEquals(SpeechModelCatalog.defaultModel, SpeechModelCatalog.model("does-not-exist"))
-        // 两个引擎族都要有模型，否则第二个运行库等于白打包。
+        // 每个引擎族都要有模型，否则对应的运行库等于白打包。
         assertEquals(
             SpeechModelCatalog.Engine.entries.toSet(),
             SpeechModelCatalog.models.map { it.engine }.toSet(),

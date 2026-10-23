@@ -15,10 +15,11 @@
   Weights are NOT in git or APK. Weight licensing is not declared by upstream metadata;
   the engine Apache license does not grant model rights. The download confirmation
   discloses this limitation.
-- No Operit application source or Silero VAD is included. The implementation uses
-  sherpa-ncnn's own endpoint detector (1.2 s trailing silence after decoded speech).
+- No Operit application source is included. The streaming models use their own endpoint
+  detector (1.2 s trailing silence); the SenseVoice pack uses Silero VAD, downloaded with
+  the model (see `third_party/sherpa-onnx/NOTICE.md`).
 - User opt-in only. Speech pack is verified in private no-backup storage; microphone
-  permission is requested at explicit tap. Download does not enable dictation.
+  permission is requested at explicit tap. Download does not enable speech input.
 - Incremental results update only the captured draft selection. User edits/send stop
   capture instead of overwriting text. Second tap, lifecycle STOP/disposal, drawer,
   edit mode and new generation cancel recording. No automatic sending, audio files,

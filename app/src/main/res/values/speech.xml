@@ -12,12 +12,13 @@
     <string name="speech_model">Speech model</string>
     <string name="speech_model_zipformer">Zipformer bilingual zh-en (2023)</string>
     <string name="speech_model_x_asr">X-ASR zh-en streaming (480 ms)</string>
+    <string name="speech_model_sense_voice">SenseVoice zh-en-ja-ko-yue (2025)</string>
     <string name="speech_source">Download source</string>
     <string name="speech_source_hugging_face">Hugging Face</string>
     <string name="speech_source_model_scope">ModelScope</string>
-    <string name="speech_pack_summary">Chinese and English · %1$s · Works offline after download</string>
+    <string name="speech_pack_summary">%1$s · Works offline after download</string>
     <string name="speech_privacy">Recording starts only on tap. Audio stays on device. Tap again or pause after speaking to stop. Text stays in the composer and is not sent automatically. Leaving chat or backgrounding the app stops recording.</string>
-    <string name="speech_download_confirm">Download about %1$s of Chinese/English model files from %2$s? Data charges may apply. Enable speech input manually after verification. Upstream model licensing is not declared; use only as permitted by applicable rights.</string>
+    <string name="speech_download_confirm">Download about %1$s of offline speech model files from %2$s? Data charges may apply. Enable speech input manually after verification. Upstream model licensing is not declared; use only as permitted by applicable rights.</string>
     <string name="speech_start">Start dictation</string>
     <string name="speech_stop">Stop dictation</string>
     <string name="speech_listening">Listening; tap again to stop</string>

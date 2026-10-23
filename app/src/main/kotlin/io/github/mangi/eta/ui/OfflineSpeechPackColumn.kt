@@ -41,7 +41,7 @@ internal fun OfflineSpeechPackColumn(modifier: Modifier = Modifier) {
     val state by OfflineSpeechPack.state.collectAsState()
     var modelPicker by remember { mutableStateOf(false) }
     var confirmDownload by remember { mutableStateOf(false) }
-    // 摘要与确认文案都带下载体积，体积随所选模型变化（141 MB / 586 MB）。
+    // 摘要与确认文案都带下载体积，体积随所选模型变化。
     val size = remember(state.model) { Formatter.formatShortFileSize(context, state.model.totalBytes) }
     // 下载中不允许改选，避免下载目录与所选模型不一致。
     val canChoose = !state.downloading && !state.checking
@@ -164,10 +164,10 @@ internal fun OfflineSpeechPackColumn(modifier: Modifier = Modifier) {
 }
 
 private val SpeechModelCatalog.Model.labelRes: Int
-    get() = if (id == SpeechModelCatalog.X_ASR_ID) {
-        R.string.speech_model_x_asr
-    } else {
-        R.string.speech_model_zipformer
+    get() = when (id) {
+        SpeechModelCatalog.SENSE_VOICE_ID -> R.string.speech_model_sense_voice
+        SpeechModelCatalog.X_ASR_ID -> R.string.speech_model_x_asr
+        else -> R.string.speech_model_zipformer
     }
 
 @Composable

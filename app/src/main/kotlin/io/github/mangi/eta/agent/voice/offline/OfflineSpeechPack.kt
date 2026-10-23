@@ -41,13 +41,25 @@ internal object OfflineSpeechPack {
         val app = context.applicationContext
         scope.launch {
             val stored = prefs(app)
-            val model = SpeechModelCatalog.model(stored.getString("model", null))
+            val model = withContext(Dispatchers.IO) { initialModel(app, stored.getString("model", null)) }
             val source = model.source(SpeechModelCatalog.SourceId.from(stored.getString("source", null)))
             val ready = withContext(Dispatchers.IO) { verify(directory(app, model), model) }
             val enabled = ready && stored.getBoolean("enabled", false)
             if (!ready) stored.edit().putBoolean("enabled", false).apply()
             mutable.value = State(checking = false, ready = ready, enabled = enabled, model = model, source = source)
         }
+    }
+
+    /**
+     * 旧版本只提供 Zipformer，且下载后不会写 `model` 偏好。默认模型切到 SenseVoice 后，
+     * 若本机已经完整下载了旧默认包，继续沿用它，避免升级后突然要求重新下载 240 MB。
+     */
+    private fun initialModel(app: Context, storedId: String?): SpeechModelCatalog.Model {
+        if (storedId != null) return SpeechModelCatalog.model(storedId)
+        val legacy = SpeechModelCatalog.model(SpeechModelCatalog.ZIPFORMER_ID)
+        val dir = directory(app, legacy)
+        return if (legacy.assets.all { File(dir, it.name).length() == it.bytes }) legacy
+        else SpeechModelCatalog.defaultModel
     }
 
     /** 模型文件被备份恢复后重新校验；取消进行中的下载，避免旧任务发布过期状态。 */
@@ -110,7 +122,7 @@ internal object OfflineSpeechPack {
                         val target = File(dir, asset.name)
                         if (!valid(target, asset)) {
                             val partial = File(dir, asset.name + ".part")
-                            val connection = URI(source.baseUrl + asset.name).toURL()
+                            val connection = URI(asset.url ?: (source.baseUrl + asset.name)).toURL()
                                 .openConnection() as HttpURLConnection
                             connection.connectTimeout = 15_000
                             connection.readTimeout = 15_000
