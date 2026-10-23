@@ -750,38 +750,46 @@ private fun contentUriAbsolutePath(context: Context, source: String): String? {
 /**
  * 预览源 → 可授予临时读权限的 content uri + MIME，供“用其他应用打开”与“分享”共用。
  *
- * - 本地文件（file://、绝对路径、/workspace、minis://）：直接走 FileProvider，不复制字节；
- * - 拿不到本地路径的源（http(s)、data:、Photo Picker content uri）：把预览已加载的字节
- *   落一份 chat-files/ 缓存（FileProvider 已声明该路径），再分享缓存文件。
+ * FileProvider 在 file_paths.xml 只声明了 cacheDir/chat-files/ 这一个根，因此无论源是
+ * 本地绝对路径（含 /workspace、minis:// 折算到的宿主路径）、http(s)、data: 还是
+ * content://，都统一把文件/字节落进 chat-files/ 缓存，再对该缓存文件生成 content uri；
+ * 绝不直接对非缓存根路径调用 getUriForFile（否则抛 IllegalArgumentException 闪退）。
+ * 整段 IO 与 Uri 生成都包在 runCatching 中，失败向上返回 null 由调用方降级提示。
  */
 private fun previewSharePayload(
     context: Context,
     source: String,
     loaded: LoadedChatImage?,
-): Pair<Uri, String>? {
+): Pair<Uri, String>? = runCatching {
+    val authority = "${context.packageName}.fileprovider"
+    val directory = java.io.File(context.cacheDir, "chat-files")
+    if (!directory.isDirectory && !directory.mkdirs()) return@runCatching null
+
     val localPath = previewAbsolutePath(context, source)
-    if (localPath != null && !localPath.startsWith("content://") && !localPath.startsWith("http")) {
+    // 本地真实文件（折算后的宿主路径、cache 缓存、外部存储等任意可读路径）：复制到
+    // chat-files/ 缓存目录，避免直接分享宿主路径触发 FileProvider 根校验异常。
+    if (localPath != null &&
+        !localPath.startsWith("content://", ignoreCase = true) &&
+        !localPath.startsWith("http://", ignoreCase = true) &&
+        !localPath.startsWith("https://", ignoreCase = true)
+    ) {
         val file = java.io.File(localPath)
         if (file.isFile) {
             val mime = loaded?.mimeType
                 ?: AgentVideoCodec.sniffFile(file)
                 ?: "application/octet-stream"
-            val uri = FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                file,
-            )
-            return uri to mime
+            val target = java.io.File(directory, chatImageFileName(mime))
+            file.copyTo(target, overwrite = true)
+            return@runCatching FileProvider.getUriForFile(context, authority, target) to mime
         }
     }
-    val payload = loaded ?: return null
-    val directory = java.io.File(context.cacheDir, "chat-files")
-    if (!directory.isDirectory && !directory.mkdirs()) return null
+    // 其余无法定位本地文件的源（http(s)、data:、Photo Picker content uri 等）：依赖
+    // 预览已加载进内存的字节落缓存；没有字节则无法分享，返回 null 由调用方提示失败。
+    val payload = loaded ?: return@runCatching null
     val cacheFile = java.io.File(directory, chatImageFileName(payload.mimeType))
-    if (runCatching { cacheFile.writeBytes(payload.bytes) }.isFailure) return null
-    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", cacheFile)
-    return uri to payload.mimeType
-}
+    cacheFile.writeBytes(payload.bytes)
+    FileProvider.getUriForFile(context, authority, cacheFile) to payload.mimeType
+}.getOrNull()
 
 @Composable
 private fun ChatImagePreviewPage(
