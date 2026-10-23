@@ -37,6 +37,11 @@ internal class ClockAppLocator(private val context: Context) {
         )
     }
 
+    /** 时钟 ContentProvider 候选 URI：AOSP/MIUI deskclock 的 authority 即包名，路径为 /alarm。 */
+    fun providerUris(): List<String> = preferredPackages().flatMap { pkg ->
+        listOf("content://$pkg/alarm", "content://$pkg/alarms")
+    }
+
     private companion object {
         // 标准闹钟/计时器 intent：设备上真正响应它们的时钟应用即系统时钟实现。
         val RESOLVER_ACTIONS = listOf(

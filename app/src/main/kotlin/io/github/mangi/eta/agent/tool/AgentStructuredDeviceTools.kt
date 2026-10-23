@@ -141,16 +141,28 @@ internal class AgentStructuredDeviceTools(
     private fun setAlarm(args: JSONObject): String {
         val hour = args.getInt("hour")
         val minute = args.getInt("minute")
+        val label = args.optString("label").trim().takeIf(String::isNotBlank)
+        val repeatDays = args.optJSONArray("repeat_days")
+        val vibrate = args.optBoolean("vibrate", true)
+
+        // Provider 直插优先：端到端生效且不弹 UI。MIUI 等系统的 SET_ALARM intent 会
+        // 忽略 extras 只弹界面（假成功），provider 写入可绕开；不可用时回退 intent。
+        if (repeatDays == null || dayOfWeekMask(repeatDays) != null) {
+            privateDatabaseTools.insertAlarmViaProvider(
+                hour,
+                minute,
+                label,
+                dayOfWeekMask(repeatDays) ?: 0L,
+                vibrate,
+            )?.let { return it.put("hour", hour).put("minute", minute).toString() }
+        }
         val intent = Intent(AlarmClock.ACTION_SET_ALARM)
             .putExtra(AlarmClock.EXTRA_HOUR, hour)
             .putExtra(AlarmClock.EXTRA_MINUTES, minute)
             .putExtra(AlarmClock.EXTRA_SKIP_UI, true)
-            .putExtra(AlarmClock.EXTRA_VIBRATE, args.optBoolean("vibrate", true))
+            .putExtra(AlarmClock.EXTRA_VIBRATE, vibrate)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        args.optString("label").trim().takeIf(String::isNotBlank)?.let {
-            intent.putExtra(AlarmClock.EXTRA_MESSAGE, it)
-        }
-        val repeatDays = args.optJSONArray("repeat_days")
+        label?.let { intent.putExtra(AlarmClock.EXTRA_MESSAGE, it) }
         if (repeatDays != null && repeatDays.length() > 0) {
             intent.putIntegerArrayListExtra(
                 AlarmClock.EXTRA_DAYS,
@@ -164,6 +176,31 @@ internal class AgentStructuredDeviceTools(
             fallbackAction = AlarmClock.ACTION_SHOW_ALARMS,
             tool = "set_alarm",
         ).put("hour", hour).put("minute", minute).toString()
+    }
+
+    /**
+     * daysofweek 位掩码（provider 写入用）。语义按真机（小米 deskclock）实测：
+     * 周一=1、周二=2、周三=4、周四=8、周五=16、周六=32、周日=64；
+     * 周一至周五=31，每天=127。无法识别的日期名返回 null，调用方回退
+     * intent 路径（EXTRA_DAYS 由时钟应用自行解释）。
+     */
+    private fun dayOfWeekMask(repeatDays: JSONArray?): Long? {
+        if (repeatDays == null || repeatDays.length() == 0) return 0L
+        var mask = 0L
+        for (index in 0 until repeatDays.length()) {
+            val bit = when (repeatDays.getString(index).trim().lowercase(Locale.ROOT)) {
+                "mon", "monday" -> 1L
+                "tue", "tues", "tuesday" -> 2L
+                "wed", "weds", "wednesday" -> 4L
+                "thu", "thur", "thurs", "thursday" -> 8L
+                "fri", "friday" -> 16L
+                "sat", "saturday" -> 32L
+                "sun", "sunday" -> 64L
+                else -> return null
+            }
+            mask = mask or bit
+        }
+        return mask
     }
 
     private fun setTimer(args: JSONObject): String {
