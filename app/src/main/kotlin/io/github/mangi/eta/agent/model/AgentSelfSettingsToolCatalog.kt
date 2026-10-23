@@ -16,6 +16,8 @@ internal object AgentSelfSettingsToolCatalog {
     const val MANAGE_SUBAGENTS = "eta_manage_subagents"
     const val MANAGE_HISTORY = "eta_manage_history"
     const val CONFIGURE_MCP = "eta_configure_mcp"
+    const val AUTHOR_TOOL = "eta_author_tool"
+    const val LIST_RECIPES = "eta_list_recipes"
 
     fun appendTo(tools: JSONArray) {
         tools
@@ -550,6 +552,130 @@ internal object AgentSelfSettingsToolCatalog {
                                 ),
                         )
                         .put("required", JSONArray().put("action")),
+                ),
+            )
+            .put(
+                AgentToolSchema.function(
+                    name = AUTHOR_TOOL,
+                    description = "Write yourself a new tool: a recipe is a declarative list of fixed steps, not code. " +
+                        "A recipe you save appears as a callable recipe_<name> tool in your NEXT request, so create it, " +
+                        "then call it on a later turn. " +
+                        "action=create needs name, description, parameters and steps; action=update changes an existing one; " +
+                        "action=delete removes it; action=enable and action=disable turn it on or off. " +
+                        "The recipe object is {name, description, parameters, steps}. " +
+                        "parameters is a JSON Schema object: {type:\"object\", properties:{<arg>:{type:\"string\",description:\"...\"}}, required:[...]}. " +
+                        "steps is a list, each step is {op:..., ...}, and op is one of: " +
+                        "http_request {url, method?, headers?, body?, body_is_json?}; " +
+                        "root_shell {command, timeout_ms?} (needs Root); " +
+                        "settings_read {namespace, key}; settings_write {namespace, key, value}; " +
+                        "file_read {path, max_bytes?}; file_write {path, content, append?}; " +
+                        "content_query {uri, projection?, selection?, limit?} (needs Root); " +
+                        "compose {recipe, pass_output?} to call another recipe; literal {text}. " +
+                        "namespace is system, secure or global. " +
+                        "Any {{arg}} placeholder in a step is filled from the tool call arguments; put every placeholder you use in parameters, " +
+                        "otherwise the recipe is rejected. " +
+                        "name must be 3 to 40 lowercase letters, digits or underscores and must not collide with an existing recipe. " +
+                        "When a name already exists you get the candidate list back: pick the exact name and call again once, do not repeat the same call. " +
+                        "A recipe must not compose itself, and composing must not form a loop. " +
+                        "Write the recipe only when the user asked for a capability the built-in tools cannot provide, " +
+                        "and tell the user the new tool name in your reply.",
+                    parameters = JSONObject()
+                        .put("type", "object")
+                        .put(
+                            "properties",
+                            JSONObject().put(
+                                "action",
+                                JSONObject()
+                                    .put("type", "string")
+                                    .put(
+                                        "enum",
+                                        JSONArray().put("create").put("update").put("delete").put("enable").put("disable"),
+                                    )
+                                    .put("description", "Required. What to do with a recipe."),
+                            ).put(
+                                "name",
+                                JSONObject()
+                                    .put("type", "string")
+                                    .put("maxLength", 40)
+                                    .put(
+                                        "description",
+                                        "Recipe name: 3 to 40 lowercase letters, digits or underscores, starting with a letter. " +
+                                            "The tool it becomes is recipe_<name>.",
+                                    ),
+                            ).put(
+                                "recipe",
+                                JSONObject()
+                                    .put("type", "object")
+                                    .put(
+                                        "description",
+                                        "create and update only: the full recipe definition " +
+                                            "{name, description, parameters, steps}. Send every field, not a patch.",
+                                    )
+                                    .put(
+                                        "properties",
+                                        JSONObject()
+                                            .put(
+                                                "name",
+                                                JSONObject()
+                                                    .put("type", "string")
+                                                    .put("maxLength", 40)
+                                                    .put("description", "Recipe name, same rules as the name field above."),
+                                            )
+                                            .put(
+                                                "description",
+                                                JSONObject()
+                                                    .put("type", "string")
+                                                    .put("maxLength", 1200)
+                                                    .put("description", "What the new tool does, in one or two sentences."),
+                                            )
+                                            .put(
+                                                "parameters",
+                                                JSONObject()
+                                                    .put("type", "object")
+                                                    .put(
+                                                        "description",
+                                                        "JSON Schema of the arguments: " +
+                                                            "{type:\"object\", properties:{arg:{type,description}}, required:[arg]}.",
+                                                    ),
+                                            )
+                                            .put(
+                                                "steps",
+                                                JSONObject()
+                                                    .put("type", "array")
+                                                    .put("maxItems", 24)
+                                                    .put(
+                                                        "description",
+                                                        "Ordered steps. Each step is {op:...} where op is one of " +
+                                                            "http_request, root_shell, settings_read, settings_write, " +
+                                                            "file_read, file_write, content_query, compose, literal.",
+                                                    ),
+                                            ),
+                                    )
+                                    .put("required", JSONArray().put("name").put("description").put("parameters").put("steps")),
+                            ),
+                        )
+                        .put("required", JSONArray().put("action")),
+                ),
+            )
+            .put(
+                AgentToolSchema.function(
+                    name = LIST_RECIPES,
+                    description = "List the recipes you wrote earlier: their name, what they do, whether they are enabled, " +
+                        "whether they need Root, their arguments and their steps. " +
+                        "Pass name to see one recipe in full, or leave it out to see them all. " +
+                        "Call this before updating a recipe, so you change the one you mean instead of guessing.",
+                    parameters = JSONObject()
+                        .put("type", "object")
+                        .put(
+                            "properties",
+                            JSONObject().put(
+                                "name",
+                                JSONObject()
+                                    .put("type", "string")
+                                    .put("maxLength", 40)
+                                    .put("description", "Optional: exact recipe name. Omit to list all of them."),
+                            ),
+                        ),
                 ),
             )
     }

@@ -41,6 +41,69 @@ class AgentDeviceToolCatalogTest {
         assertFalse("send_message" in reads)
         assertFalse("send_message" in actions)
         assertTrue("app_state_control" in actions)
+        // 日程与闹钟管理属于敏感操作组：无 Root 时对模型隐藏，不放入直达/只读组。
+        assertTrue("create_calendar_event" in actions)
+        assertTrue("update_calendar_event" in actions)
+        assertTrue("delete_calendar_event" in actions)
+        assertTrue("delete_alarm" in actions)
+        assertTrue("update_alarm" in actions)
+        assertFalse("create_calendar_event" in direct)
+        assertFalse("create_calendar_event" in reads)
+        assertFalse("delete_alarm" in reads)
+        // 系统控制：铃声模式免 Root 直达；勿扰/亮度/电源/应用管理为敏感操作；应用清单为敏感只读。
+        assertTrue("set_ringer_mode" in direct)
+        assertFalse("set_ringer_mode" in reads)
+        assertTrue("set_do_not_disturb" in actions)
+        assertTrue("set_brightness" in actions)
+        assertTrue("screen_action" in actions)
+        assertTrue("manage_app" in actions)
+        assertFalse("set_do_not_disturb" in direct)
+        assertFalse("manage_app" in reads)
+        assertTrue("list_installed_apps" in reads)
+        assertFalse("list_installed_apps" in direct)
+        // Root 深度控制：写操作归入敏感操作组；诊断读取归入敏感只读组。
+        assertTrue("manage_file" in actions)
+        assertTrue("system_property" in actions)
+        assertTrue("display_control" in actions)
+        assertTrue("deep_launch" in actions)
+        assertTrue("package_control" in actions)
+        assertTrue("user_control" in actions)
+        assertTrue("appops_control" in actions)
+        assertTrue("power_control" in actions)
+        assertTrue("ime_control" in actions)
+        assertTrue("connect_wifi" in actions)
+        assertTrue("set_timezone" in actions)
+        assertTrue("search_settings" in reads)
+        assertTrue("dumpsys_diag" in reads)
+        assertFalse("manage_file" in direct)
+        assertFalse("system_property" in reads)
+        assertFalse("power_control" in direct)
+        assertFalse("dumpsys_diag" in actions)
+    }
+
+    @Test
+    fun selfAuthoringToolsArePublishedWithTheSelfSettingsGroup() {
+        val tools = AgentToolCatalog.build(
+            terminalTools = false,
+            browserTools = false,
+            selfSettingsTools = true,
+        ).toolNames()
+
+        // 自进化：模型写工具与列出工具的接口。
+        assertTrue("eta_author_tool" in tools)
+        assertTrue("eta_list_recipes" in tools)
+    }
+
+    @Test
+    fun selfAuthoringToolsDisappearWithTheSelfSettingsSwitch() {
+        val tools = AgentToolCatalog.build(
+            terminalTools = false,
+            browserTools = false,
+            selfSettingsTools = false,
+        ).toolNames()
+
+        assertFalse("eta_author_tool" in tools)
+        assertFalse("eta_list_recipes" in tools)
     }
 
     @Test

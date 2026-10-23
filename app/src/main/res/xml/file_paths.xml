@@ -4,4 +4,5 @@
     <cache-path name="browser_shares" path="browser-shares/" />
     <cache-path name="chat_files" path="chat-files/" />
     <cache-path name="camera_captures" path="camera-captures/" />
+    <cache-path name="apk_share" path="apk-share/" />
 </paths>

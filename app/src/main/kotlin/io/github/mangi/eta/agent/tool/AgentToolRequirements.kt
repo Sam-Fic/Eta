@@ -33,11 +33,14 @@ internal object AgentToolRequirements {
             "replace_text", "clear_text", "set_clipboard", "get_clipboard", "paste_text",
             "wait", "wait_for_text", "wait_for_package", "open_system_panel",
             "set_alarm", "set_timer", "device_status", "media_control", "set_volume",
+            "set_ringer_mode", "list_installed_apps",
             "search_notification_history", "recent_app_activity", "app_usage_summary",
             "get_current_location", "get_device_environment", "memory_get", "memory_write",
             "skills_list", "skills_read", "skills_read_resource", "skills_list_curated",
             "skills_inspect_github", "skills_install_from_github", "skills_install_local",
             "eta_get_settings", "eta_set_settings", "eta_manage_models", "eta_manage_subagents", "eta_manage_history", "eta_configure_mcp",
+            // 自进化：自写配方本身不需要 Root（配方内含需 Root 的步骤时按配方单独判定）。
+            "eta_author_tool", "eta_list_recipes",
             "semantic_search_media",
         )
         register(
@@ -45,18 +48,32 @@ internal object AgentToolRequirements {
             "press_key", "network_info", "get_setting", "recent_notifications",
             "search_personal_orders", "terminal", "run_command", "read_file",
             "write_file", "list_directory", "read_image",
+            // 免 Root 走公开 API（Settings / 通知 Policy / 无障碍），Root 作为保底直达。
+            "set_setting", "set_device_state", "set_do_not_disturb", "set_brightness",
+            "screen_action", "manage_app",
+            // 文件管理免 Root 已可全盘操作（MANAGE_EXTERNAL_STORAGE），Root 仅保底私有路径。
+            "manage_file",
+            // 输入法列表/当前值、Wi-Fi 面板降级、自动时间开关有免 Root 路径。
+            "ime_control", "connect_wifi", "set_timezone",
         )
         register(
             RootRequirement.REQUIRED,
             "start_virtual_session", "finish_virtual_session", "inspect_virtual_backend", "top_memory_apps", "top_storage_apps", "wifi_credentials", "read_sms_code",
-            "get_logcat", "set_setting", "set_device_state", "app_state_control",
+            "get_logcat", "app_state_control",
             "list_alarms", "list_active_timers", "get_health_summary", "search_clipboard_history",
             "search_media", "search_audio", "search_recordings", "search_files",
             "search_calendar_events", "search_contacts", "search_call_history", "search_messages",
             "search_downloads", "search_coloros_notes", "search_coloros_recordings",
             "search_recording_summaries", "search_coloros_memories", "search_saved_places",
             "search_qq_chat_images", "search_wechat_chat_images",
+            // 日程与闹钟的修改/删除必须 Root 直达 Provider / 时钟数据库；无 Root 时对模型隐藏，避免必然失败的调用。
+            "update_calendar_event", "delete_calendar_event", "delete_alarm", "update_alarm",
+            // Root 深度控制：全部依赖系统命令直达，无 Root 时对模型隐藏，避免必然失败的调用。
+            "search_settings", "dumpsys_diag", "system_property", "display_control",
+            "deep_launch", "package_control", "user_control", "appops_control", "power_control",
         )
+        // 创建日程在无 Root 时退化为打开日历预填界面，因此按 PARTIAL 注册。
+        register(RootRequirement.PARTIAL, "create_calendar_event")
         listOf(
             "observe_screen", "tap", "tap_area", "tap_element", "long_press",
             "long_press_element", "swipe", "scroll", "scroll_element", "input_text",
@@ -75,6 +92,10 @@ internal object AgentToolRequirements {
             "search_coloros_notes", "search_coloros_recordings", "search_recording_summaries",
             "search_coloros_memories", "search_saved_places",
         ).forEach { name -> put(name, getValue(name).copy(colorOs = true)) }
+        // 闹钟直写只对 ColorOS 时钟库成立；非 ColorOS 设备直接隐藏，避免模型调用必然失败的工具。
+        listOf("delete_alarm", "update_alarm").forEach { name ->
+            put(name, getValue(name).copy(colorOs = true))
+        }
         // 系统记忆优先使用 Hook 桥接，框架失联时仍有独立的 Root 快照来源。
         listOf("search_coloros_memories", "search_saved_places", "search_personal_orders").forEach { name ->
             put(name, getValue(name).copy(lsposedRequirement = LsposedRequirement.OPTIONAL))

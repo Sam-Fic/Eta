@@ -388,6 +388,11 @@ internal class AgentRuntimeRunExecutor(
                         .getOrElse { AgentMemoryContextBuilder.empty(request.config.contextWindow) }
                 },
                 additionalTools = mcpTools,
+                // 自进化配方：每轮重新读取，已启用的配方即时出现在模型工具列表里。
+                recipeTools = JSONArray().also { array ->
+                    executor.recipeStore.schemas(rootAvailable = io.github.mangi.eta.agent.device.RootAccess.isGranted)
+                        .forEach { array.put(it) }
+                },
                 linuxEnvironmentLabelProvider = { when (LinuxEnvironmentSettingsRepository.current(appContext)) {
                     LinuxDistribution.ALPINE -> "Alpine"
                     LinuxDistribution.DEBIAN -> "Debian"

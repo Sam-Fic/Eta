@@ -66,7 +66,15 @@ internal class AgentTraceFormatter(
             "skills_list_curated" -> localizedText(R.string.trace_action_skills_curated, "浏览精选技能")
             "skills_inspect_github" -> localizedText(R.string.trace_action_skills_inspect, "查看技能详情")
             "skills_install_from_github" -> localizedText(R.string.trace_action_skills_install, "安装技能")
-            else -> {
+            // 自建配方工具：名字是动态注册的 recipe_<name>，显示配方名比通用文案有用。
+            else -> if (toolCall.name.startsWith("recipe_")) {
+                val recipeName = toolCall.name.removePrefix("recipe_")
+                localizedText(
+                    R.string.trace_dev_recipe_tool,
+                    "调用自建工具 %1\$s",
+                    recipeName,
+                )
+            } else {
                 val label = DEVICE_ACTION_LABELS[toolCall.name]
                 when {
                     label == null -> localizedText(R.string.trace_action_prepare, "准备执行")
@@ -695,6 +703,11 @@ internal class AgentTraceFormatter(
         val DEVICE_ACTION_LABELS: Map<String, Pair<Int, String>> = mapOf(
             "set_alarm" to (R.string.trace_dev_set_alarm to "设置闹钟"),
             "set_timer" to (R.string.trace_dev_set_timer to "设置计时器"),
+            "delete_alarm" to (R.string.trace_dev_delete_alarm to "删除闹钟"),
+            "update_alarm" to (R.string.trace_dev_update_alarm to "修改闹钟"),
+            "create_calendar_event" to (R.string.trace_dev_create_calendar_event to "创建日程"),
+            "update_calendar_event" to (R.string.trace_dev_update_calendar_event to "修改日程"),
+            "delete_calendar_event" to (R.string.trace_dev_delete_calendar_event to "删除日程"),
             "device_status" to (R.string.trace_dev_device_status to "查看设备状态"),
             "network_info" to (R.string.trace_dev_network_info to "查看网络信息"),
             "top_memory_apps" to (R.string.trace_dev_top_memory_apps to "查看内存占用排行"),
@@ -736,6 +749,27 @@ internal class AgentTraceFormatter(
             "set_setting" to (R.string.trace_dev_set_setting to "修改系统设置"),
             "set_device_state" to (R.string.trace_dev_set_device_state to "修改设备状态"),
             "app_state_control" to (R.string.trace_dev_app_state_control to "管理应用状态"),
+            "set_ringer_mode" to (R.string.trace_dev_set_ringer_mode to "切换铃声模式"),
+            "set_do_not_disturb" to (R.string.trace_dev_set_do_not_disturb to "设置勿扰模式"),
+            "set_brightness" to (R.string.trace_dev_set_brightness to "调整屏幕亮度"),
+            "screen_action" to (R.string.trace_dev_screen_action to "屏幕电源动作"),
+            "list_installed_apps" to (R.string.trace_dev_list_installed_apps to "查看已安装应用"),
+            "manage_app" to (R.string.trace_dev_manage_app to "管理应用"),
+            "manage_file" to (R.string.trace_dev_manage_file to "管理文件"),
+            "system_property" to (R.string.trace_dev_system_property to "管理系统属性"),
+            "display_control" to (R.string.trace_dev_display_control to "调整显示参数"),
+            "deep_launch" to (R.string.trace_dev_deep_launch to "直达应用界面"),
+            "package_control" to (R.string.trace_dev_package_control to "管理安装包"),
+            "user_control" to (R.string.trace_dev_user_control to "管理用户"),
+            "appops_control" to (R.string.trace_dev_appops_control to "管控应用权限行为"),
+            "power_control" to (R.string.trace_dev_power_control to "电源策略控制"),
+            "ime_control" to (R.string.trace_dev_ime_control to "管理输入法"),
+            "connect_wifi" to (R.string.trace_dev_connect_wifi to "连接 Wi-Fi"),
+            "set_timezone" to (R.string.trace_dev_set_timezone to "设置时区"),
+            "search_settings" to (R.string.trace_dev_search_settings to "搜索系统设置"),
+            "dumpsys_diag" to (R.string.trace_dev_dumpsys_diag to "系统诊断"),
+            "eta_author_tool" to (R.string.trace_dev_eta_author_tool to "编写自建工具"),
+            "eta_list_recipes" to (R.string.trace_dev_eta_list_recipes to "查看自建工具"),
         )
     }
 }

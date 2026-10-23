@@ -95,6 +95,8 @@ internal object AgentModelClient {
         skillContextProvider: () -> SkillContext = { skillContext },
         memoryContextProvider: () -> AgentMemoryContext = { memoryContext },
         additionalTools: JSONArray = JSONArray(),
+        /** 模型自建配方的 function schema；每轮重新读取，因此新建的配方下一轮即可调用。 */
+        recipeTools: JSONArray = JSONArray(),
         capabilitiesProvider: () -> AgentToolCapabilities = { AgentToolCapabilities(rootAvailable = false) },
         sessionId: String = java.util.UUID.randomUUID().toString(),
         onEvent: (AgentEvent) -> Unit = {},
@@ -168,6 +170,10 @@ internal object AgentModelClient {
             )
             for (index in 0 until additionalTools.length()) {
                 tools.put(additionalTools.opt(index))
+            }
+            // 自进化配方工具放在最后：模型读完内置工具后，额外看到自己写的工具。
+            for (index in 0 until recipeTools.length()) {
+                tools.put(recipeTools.opt(index))
             }
             if (compactionArchive != null) tools.put(AgentCompactionArchive.tool())
             return tools

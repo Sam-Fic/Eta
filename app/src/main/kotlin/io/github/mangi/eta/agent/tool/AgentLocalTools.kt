@@ -170,6 +170,15 @@ internal class AgentLocalTools(
     private val selfHistoryTools = AgentSelfHistoryTools(context, agentConversationId)
     private val selfMcpTools = AgentSelfMcpTools(context)
     private val mediaSearchTools = AgentMediaSearchTools(context)
+    /** 自进化底座：模型可自行创建声明式配方（工具），配方即时注册为可调用工具。 */
+    internal val recipeStore = AgentToolRecipeStore(File(context.filesDir, "tool_recipes"))
+    private val recipeExecutor = AgentToolRecipeExecutor(
+        context = context,
+        root = rootCommandExecutor,
+        store = recipeStore,
+        rootAvailable = rootAvailable,
+    )
+    private val selfAuthorTools = AgentSelfAuthorTools(recipeStore, rootAvailable)
     private val terminalController = RootShellTerminalController(
         processSupervisor = io.github.mangi.eta.agent.terminal.ShellProcessSupervisor(skillsDirectoryProvider = { runSkillsRoot }),
         logger = logger,
@@ -450,6 +459,10 @@ internal class AgentLocalTools(
                     "未确认主屏焦点仍为Eta自身，本次未执行；请重新打开Eta，或按原偏好打开其它应用并重新观察，勿重放旧坐标",
                 ))
             }
+            // 自进化配方工具：名字是动态注册的 `recipe_<name>`，必须在静态 when 之前拦截。
+            if (toolCall.name.startsWith(ToolRecipeConstants.TOOL_PREFIX)) {
+                return@runCatching textResult(executeRecipeTool(toolCall.name, args))
+            }
             when (toolCall.name) {
                 "get_current_context" -> textResult(DeviceContextTool.current(context))
                 "text_to_speech" -> textResult(textToSpeech(args))
@@ -504,6 +517,8 @@ internal class AgentLocalTools(
                 AgentSelfSettingsToolCatalog.MANAGE_HISTORY -> textResult(selfSettingsTool { selfHistoryTools.execute(args) })
                 AgentSelfSettingsToolCatalog.CONFIGURE_MCP -> textResult(selfSettingsTool { selfMcpTools.execute(args) })
                 AgentMediaSearchToolCatalog.SEARCH_MEDIA -> textResult(mediaSearchTool { mediaSearchTools.execute(args) })
+                AgentSelfAuthorTools.AUTHOR_TOOL -> textResult(selfAuthorTool { selfAuthorTools.execute(AgentSelfAuthorTools.AUTHOR_TOOL, args) ?: "" })
+                AgentSelfAuthorTools.LIST_TOOLS -> textResult(selfAuthorTool { selfAuthorTools.execute(AgentSelfAuthorTools.LIST_TOOLS, args) ?: "" })
                 else -> textResult(
                     errorResult(
                         code = "UNKNOWN_TOOL",
@@ -529,6 +544,46 @@ internal class AgentLocalTools(
                 result.copy(sensitive = true)
             }
         }
+
+    /**
+     * 执行一份自进化配方。
+     *
+     * 配方是模型自己创建的，因此这里把「自建工具」视为敏感操作：
+     * 结果不写入持久会话，且必须落在敏感操作组开关的授权范围内。
+     */
+    private fun executeRecipeTool(toolName: String, args: JSONObject): String {
+        if (!deviceSensitiveActionToolsEnabled()) {
+            return errorResult("DEVICE_SENSITIVE_ACTION_TOOLS_DISABLED", "请先允许敏感设备操作后再使用自建工具")
+        }
+        val recipeName = toolName.removePrefix(ToolRecipeConstants.TOOL_PREFIX)
+        val recipe = recipeStore.find(recipeName)
+            ?: return errorResult(
+                "RECIPE_NOT_FOUND",
+                "配方「$recipeName」不存在或已被删除；调用 eta_list_recipes 看看现有哪些，不要重复同样的调用",
+            )
+        if (!recipe.enabled) {
+            return errorResult("RECIPE_DISABLED", "配方「$recipeName」已停用；用 eta_author_tool enable 启用它")
+        }
+        // 需要 Root 的配方在无 Root 时不可执行（工具层本就不会暴露，这里是兜底）。
+        if (!rootAvailable() && store_RequiresRoot(recipe)) {
+            return errorResult("ROOT_REQUIRED", "该配方需要 Root 权限；未授权前不要重复调用本工具")
+        }
+        return recipeExecutor.execute(recipe, args)
+    }
+
+    /** 配方（含组合链）是否需要 Root——需要完整配方图才能推导组合链上的 Root 需求。 */
+    private fun store_RequiresRoot(recipe: ToolRecipe): Boolean {
+        val all = recipeStore.all()
+        return recipeStore.rootDependentRecipes(all).contains(recipe.name) || recipe.requiresRoot
+    }
+
+    /** 自写工具的统一门禁：关闭开关后，模型重放旧的写配方调用也直接拒绝。 */
+    private fun selfAuthorTool(block: () -> String): String {
+        if (!selfSettingsToolsEnabled()) {
+            return errorResult("SELF_SETTINGS_TOOLS_DISABLED", "应用自身配置工具已关闭，本次未执行")
+        }
+        return block()
+    }
 
     private fun deviceToolPermissionError(
         toolName: String,
@@ -1947,6 +2002,7 @@ internal class AgentLocalTools(
             "top_storage_apps",
             "media_control",
             "set_volume",
+            "set_ringer_mode",
         )
         val DEVICE_SENSITIVE_READ_TOOL_NAMES = setOf(
             "get_setting",
@@ -1980,11 +2036,35 @@ internal class AgentLocalTools(
             "search_personal_orders",
             "search_qq_chat_images",
             "search_wechat_chat_images",
+            "list_installed_apps",
+            // Root 诊断读取：输出包含系统内部状态，原始结果不进入持久会话。
+            "search_settings",
+            "dumpsys_diag",
         )
         val DEVICE_SENSITIVE_ACTION_TOOL_NAMES = setOf(
             "set_setting",
             "set_device_state",
             "app_state_control",
+            "create_calendar_event",
+            "update_calendar_event",
+            "delete_calendar_event",
+            "delete_alarm",
+            "update_alarm",
+            "set_do_not_disturb",
+            "set_brightness",
+            "screen_action",
+            "manage_app",
+            "manage_file",
+            "system_property",
+            "display_control",
+            "deep_launch",
+            "package_control",
+            "user_control",
+            "appops_control",
+            "power_control",
+            "ime_control",
+            "connect_wifi",
+            "set_timezone",
         )
         val DEVICE_TOOL_NAMES =
             DEVICE_DIRECT_TOOL_NAMES + DEVICE_SENSITIVE_READ_TOOL_NAMES +

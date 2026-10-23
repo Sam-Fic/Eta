@@ -72,12 +72,26 @@ internal class AgentPersonalDataTools(
     private fun searchCalendarEvents(args: JSONObject): AgentModelClient.ToolResult = query(
         tool = "search_calendar_events",
         uri = "content://com.android.calendar/events",
-        projection = listOf("_id", "title", "description", "eventLocation", "dtstart", "dtend", "allDay", "calendar_displayName"),
+        projection = listOf(
+            "_id", "title", "description", "eventLocation", "dtstart", "dtend", "allDay",
+            "calendar_displayName", "rrule", "hasAlarm",
+        ),
         sort = "dtstart DESC",
         searchableColumns = listOf("title", "description", "eventLocation"),
         fixedWhere = "deleted=0",
         args = args,
-    )
+    ) { row ->
+        // 附带本地可读时间与 id，供 update_calendar_event / delete_calendar_event 直接定位。
+        val start = row.optString("dtstart").trim().toLongOrNull()
+        val end = row.optString("dtend").trim().toLongOrNull()
+        val allDay = row.optString("allDay") == "1"
+        start?.let {
+            row.put("start_local", CalendarEventFormats.formatSchedule(it, allDay))
+            row.put("start_epoch_ms", it)
+        }
+        end?.let { row.put("end_local", CalendarEventFormats.formatSchedule(it, allDay)) }
+        row.optString("rrule").takeIf { it.isNotBlank() }?.let { row.put("repeat", CalendarEventFormats.repeatLabel(it)) }
+    }
 
     private fun searchContacts(args: JSONObject): AgentModelClient.ToolResult = query(
         tool = "search_contacts",

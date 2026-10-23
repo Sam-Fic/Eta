@@ -101,6 +101,10 @@ internal object AgentOverlayVisibilityPolicy {
         "paste_text",
         "press_key",
         "open_system_panel",
+        // 会拉起系统界面（设置面板 / 安装器 / 卸载器 / 电源菜单）的工具同样需要浮层避让。
+        "set_device_state",
+        "manage_app",
+        "screen_action",
     )
 
     private val foregroundOperationTools = setOf(
@@ -108,6 +112,22 @@ internal object AgentOverlayVisibilityPolicy {
         *foregroundDrivingTools.toTypedArray(),
     )
 
+    /**
+     * 需要撤销入口浮层（聊天输入面）的工具：要么 Eta 在前台驾驶界面，要么把用户交给
+     * 系统应用/系统界面去完成确认（闹钟、日历预填、设置面板、安装/卸载界面、电源菜单）。
+     * 后者不揭示操作浮层——那是用户的手动确认环节，不是 Eta 在驾驶。
+     */
     private val entrySurfaceDismissalTools =
-        foregroundOperationTools + setOf("set_alarm", "set_timer")
+        foregroundOperationTools + setOf(
+            "set_alarm",
+            "set_timer",
+            "create_calendar_event",
+            "set_device_state",
+            "manage_app",
+            "screen_action",
+            // 免 Root 降级路径会打开系统界面让用户确认：Wi-Fi 面板、输入法选择器、日期时间设置。
+            "connect_wifi",
+            "ime_control",
+            "set_timezone",
+        )
 }

@@ -155,14 +155,14 @@ class AgentModelClientLoopTest {
         val executed = mutableListOf<String>()
         val provider = ScriptedProvider(listOf(
             { request, _ ->
-                // 用带引号的 JSON 字面量精确匹配工具名：裸子串 "set_setting" 会误命中
-                // 永远合法的 "eta_set_settings"（Eta 自身配置工具，RootRequirement.NONE）。
-                assertTrue(request.tools.toString().contains("\"set_setting\""))
+                // 用带引号的 JSON 字面量精确匹配工具名：裸子串 "app_state_control" 不会误命中
+                // 任何其他工具（set_setting 已升级为免 Root 的 PARTIAL，无 Root 时仍在目录中）。
+                assertTrue(request.tools.toString().contains("\"app_state_control\""))
                 assertTrue(request.messages.toString().contains("相关应用私有文件与数据库"))
                 assistant(finishReason = "tool_calls", toolCalls = listOf(toolCall("first", "get_current_context", "{}")))
             },
             { request, _ ->
-                assertFalse(request.tools.toString().contains("\"set_setting\""))
+                assertFalse(request.tools.toString().contains("\"app_state_control\""))
                 assertFalse(request.messages.toString().contains("相关应用私有文件与数据库"))
                 assertTrue(request.messages.toString().contains("identity=user"))
                 assistant(finishReason = "tool_calls", toolCalls = listOf(

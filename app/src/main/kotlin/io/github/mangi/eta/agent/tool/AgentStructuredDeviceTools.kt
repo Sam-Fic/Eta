@@ -9,6 +9,7 @@ import android.media.AudioManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
+import android.nfc.NfcAdapter
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Environment
@@ -39,13 +40,19 @@ internal class AgentStructuredDeviceTools(
     private val personalDataTools = AgentPersonalDataTools(root)
     private val colorOsMemoryTools = AgentColorOsMemoryTools(context, root)
     private val personalContextTools = AgentPersonalContextTools(context)
-    private val privateDatabaseTools = AgentPrivateDatabaseTools(context, root)
+    private val privateDatabaseTools = AgentPrivateDatabaseTools(context, root, rootAvailable)
+    private val calendarTools = AgentCalendarTools(context, root, rootAvailable)
+    private val systemControlTools = AgentSystemControlTools(context, root, rootAvailable)
+    private val rootControlTools = AgentRootControlTools(context, root, rootAvailable)
     private val notificationHistory by lazy { NotificationHistoryRepository(context) }
 
     fun execute(name: String, args: JSONObject): AgentModelClient.ToolResult? =
         personalDataTools.execute(name, args)
             ?: personalContextTools.execute(name, args)
             ?: privateDatabaseTools.execute(name, args)
+            ?: calendarTools.execute(name, args)
+            ?: systemControlTools.execute(name, args)
+            ?: rootControlTools.execute(name, args)
             ?: when (name) {
             "search_coloros_memories" -> colorOsMemoryTools.search(args)
             "search_saved_places" -> colorOsMemoryTools.searchSavedPlaces(args)
@@ -349,21 +356,184 @@ internal class AgentStructuredDeviceTools(
     private fun setSetting(args: JSONObject): String {
         val namespace = args.getString("namespace").lowercase(Locale.ROOT)
         val key = args.getString("key")
-        val result = root.execute(
-            "settings --user current put ${shellQuote(namespace)} ${shellQuote(key)} " +
-                shellQuote(args.getString("value")),
-        )
-        return rootMutationResult("set_setting", result)
+        val value = args.getString("value")
+        // 免 Root：持有「修改系统设置」权限时直接写 Settings；失败（键被系统独占/静默拒绝）再回读判定。
+        val wrote = if (Settings.System.canWrite(context)) {
+            try {
+                when (namespace) {
+                    "system" -> Settings.System.putString(context.contentResolver, key, value)
+                    "secure" -> Settings.Secure.putString(context.contentResolver, key, value)
+                    "global" -> Settings.Global.putString(context.contentResolver, key, value)
+                    else -> false
+                }
+            } catch (_: SecurityException) {
+                false
+            } catch (_: RuntimeException) {
+                false
+            }
+        } else {
+            false
+        }
+        if (!wrote && rootAvailable()) {
+            val result = root.execute(
+                "settings --user current put ${shellQuote(namespace)} ${shellQuote(key)} " +
+                    shellQuote(value),
+            )
+            return rootMutationResult("set_setting", result)
+        }
+        if (!wrote) {
+            return error(
+                "WRITE_SETTINGS_REQUIRED",
+                "修改系统设置需要「修改系统设置」权限：请在 设置 → 应用 → Eta → 修改系统设置 中授予，" +
+                    "或提供 Root 后重试。未授权前不要重复调用本工具。",
+            )
+        }
+        // 回读校验：数值型设置允许格式差异（"1" 与 "1.0"）。
+        val readBack = readSettingValue(namespace, key)
+        val verified = readBack == value ||
+            (
+                readBack?.toDoubleOrNull() != null && value.toDoubleOrNull() != null &&
+                    readBack.toDouble() == value.toDouble()
+                )
+        if (!verified) {
+            return error(
+                "SETTING_NOT_APPLIED",
+                "写入后回读不一致（期望「$value」，实际「${readBack ?: "空"}」）；" +
+                    "该键可能只允许系统进程修改。请勿重复调用",
+            )
+        }
+        return ok("set_setting")
+            .put("namespace", namespace)
+            .put("key", key)
+            .put("value", value)
+            .put("method", "public_api")
+            .toString()
     }
 
+    private fun readSettingValue(namespace: String, key: String): String? = try {
+        when (namespace) {
+            "system" -> Settings.System.getString(context.contentResolver, key)
+            "secure" -> Settings.Secure.getString(context.contentResolver, key)
+            "global" -> Settings.Global.getString(context.contentResolver, key)
+            else -> null
+        }
+    } catch (_: Exception) {
+        null
+    }
+
+    /**
+     *  Wi-Fi/蓝牙/飞行模式/移动数据/NFC/热点开关。有 Root 且存在直达命令时直达并回读校验；
+     * 其余情况（无 Root、热点、Root 命令失败）统一打开对应设置面板，由用户手动操作。
+     */
     private fun setDeviceState(args: JSONObject): String {
         val enabled = args.getBoolean("enabled")
-        val command = when (args.getString("target").lowercase(Locale.ROOT)) {
+        val target = args.getString("target").lowercase(Locale.ROOT)
+        val rootCommand = when (target) {
             "wifi" -> "cmd wifi set-wifi-enabled ${if (enabled) "enabled" else "disabled"}"
             "bluetooth" -> "cmd bluetooth_manager ${if (enabled) "enable" else "disable"}"
-            else -> return error("INVALID_ARGUMENT", "不支持的设备状态")
+            "airplane_mode" -> if (enabled) {
+                "cmd connectivity airplane-mode enable || " +
+                    "(settings put global airplane_mode_on 1 && " +
+                    "am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true)"
+            } else {
+                "cmd connectivity airplane-mode disable || " +
+                    "(settings put global airplane_mode_on 0 && " +
+                    "am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false)"
+            }
+            "mobile_data" -> "svc data ${if (enabled) "enable" else "disable"}"
+            "nfc" -> "svc nfc ${if (enabled) "enable" else "disable"}"
+            // 热点没有稳定的系统直达命令，任何情况下都走设置面板。
+            "hotspot" -> null
+            else -> return error(
+                "INVALID_ARGUMENT",
+                "target 仅支持 wifi/bluetooth/airplane_mode/mobile_data/nfc/hotspot",
+            )
         }
-        return rootMutationResult("set_device_state", root.execute(command))
+        if (rootAvailable() && rootCommand != null) {
+            val result = root.execute(rootCommand, timeoutMillis = RADIO_COMMAND_TIMEOUT_MS)
+            if (result.ok) {
+                // 蓝牙/NFC 的开启是异步的，给一个有界窗口轮询回读。
+                val deadline = android.os.SystemClock.elapsedRealtime() + RADIO_VERIFY_TIMEOUT_MS
+                var verified = verifyRadioState(target, enabled)
+                while (verified == false && android.os.SystemClock.elapsedRealtime() < deadline) {
+                    Thread.sleep(RADIO_VERIFY_INTERVAL_MS)
+                    verified = verifyRadioState(target, enabled)
+                }
+                if (verified != false) {
+                    return ok("set_device_state")
+                        .put("target", target)
+                        .put("enabled", enabled)
+                        .put("method", "root")
+                        .put("verified", verified == true)
+                        .put(
+                            "summary",
+                            "已${if (enabled) "开启" else "关闭"}${radioLabel(target)}" +
+                                if (verified != true) "（命令已执行，但无法回读确认状态）" else "",
+                        )
+                        .toString()
+                }
+                // Root 命令执行成功但状态未变：落到面板让用户手动确认，不视为已成功。
+            }
+        }
+        val panelIntent = radioPanelIntent(target)
+            ?: return error(
+                "RADIO_PANEL_UNAVAILABLE",
+                "没有可打开${radioLabel(target)}设置的系统界面；请用户手动在设置中操作",
+            )
+        val launched = runCatching { context.startActivity(panelIntent) }.isSuccess
+        return if (launched) {
+            JSONObject()
+                .put("ok", false)
+                .put("code", "RADIO_PANEL_FALLBACK")
+                .put("target", target)
+                .put("message", "已打开${radioLabel(target)}设置面板；请在面板中${if (enabled) "开启" else "关闭"}。不要重复调用本工具")
+                .toString()
+        } else {
+            error("RADIO_PANEL_FAILED", "无法打开${radioLabel(target)}设置面板；请用户手动在设置中操作")
+        }
+    }
+
+    /** 回读开关状态；返回 null 表示当前设备无法验证该状态。 */
+    private fun verifyRadioState(target: String, enabled: Boolean): Boolean? = try {
+        when (target) {
+            "wifi" -> context.getSystemService(android.net.wifi.WifiManager::class.java)
+                ?.isWifiEnabled == enabled
+            "bluetooth" -> context.getSystemService(android.bluetooth.BluetoothManager::class.java)
+                ?.adapter?.isEnabled == enabled
+            "airplane_mode" -> Settings.Global.getInt(
+                context.contentResolver,
+                Settings.Global.AIRPLANE_MODE_ON,
+                -1,
+            ) == if (enabled) 1 else 0
+            "mobile_data" -> context.getSystemService(android.telephony.TelephonyManager::class.java)
+                ?.isDataEnabled == enabled
+            "nfc" -> NfcAdapter.getDefaultAdapter(context)?.isEnabled == enabled
+            else -> null
+        }
+    } catch (_: Exception) {
+        null
+    }
+
+    private fun radioLabel(target: String): String = when (target) {
+        "wifi" -> "Wi-Fi"
+        "bluetooth" -> "蓝牙"
+        "airplane_mode" -> "飞行模式"
+        "mobile_data" -> "移动数据"
+        "nfc" -> "NFC"
+        "hotspot" -> "热点"
+        else -> target
+    }
+
+    private fun radioPanelIntent(target: String): Intent? {
+        val action = when (target) {
+            "wifi" -> Settings.ACTION_WIFI_SETTINGS
+            "bluetooth" -> Settings.ACTION_BLUETOOTH_SETTINGS
+            "airplane_mode" -> Settings.ACTION_AIRPLANE_MODE_SETTINGS
+            "mobile_data" -> Settings.ACTION_DATA_USAGE_SETTINGS
+            "nfc" -> Settings.ACTION_NFC_SETTINGS
+            else -> Settings.ACTION_WIRELESS_SETTINGS
+        }
+        return Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 
     private fun appStateControl(args: JSONObject): String {
@@ -693,5 +863,8 @@ internal class AgentStructuredDeviceTools(
         )
         val WIFI_STATUS_SSID = Regex("""\bSSID:\s*([^,\r\n]+)""")
         val WIFI_STATUS_RSSI = Regex("""\bRSSI:\s*(-?\d+)""")
+        const val RADIO_COMMAND_TIMEOUT_MS = 20_000L
+        const val RADIO_VERIFY_TIMEOUT_MS = 3_000L
+        const val RADIO_VERIFY_INTERVAL_MS = 250L
     }
 }

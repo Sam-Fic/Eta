@@ -121,8 +121,32 @@ internal object ToolPresentation {
         "open_system_panel" -> R.string.tool_open_system_panel
         "set_alarm" -> R.string.tool_set_alarm
         "set_timer" -> R.string.tool_set_timer
+        "delete_alarm" -> R.string.tool_delete_alarm
+        "update_alarm" -> R.string.tool_update_alarm
+        "create_calendar_event" -> R.string.tool_create_calendar_event
+        "update_calendar_event" -> R.string.tool_update_calendar_event
+        "delete_calendar_event" -> R.string.tool_delete_calendar_event
         "device_status" -> R.string.tool_device_status
         "set_device_state" -> R.string.tool_set_device_state
+        "set_ringer_mode" -> R.string.tool_set_ringer_mode
+        "set_do_not_disturb" -> R.string.tool_set_do_not_disturb
+        "set_brightness" -> R.string.tool_set_brightness
+        "screen_action" -> R.string.tool_screen_action
+        "list_installed_apps" -> R.string.tool_list_installed_apps
+        "manage_app" -> R.string.tool_manage_app
+        "manage_file" -> R.string.tool_manage_file
+        "system_property" -> R.string.tool_system_property
+        "display_control" -> R.string.tool_display_control
+        "deep_launch" -> R.string.tool_deep_launch
+        "package_control" -> R.string.tool_package_control
+        "user_control" -> R.string.tool_user_control
+        "appops_control" -> R.string.tool_appops_control
+        "power_control" -> R.string.tool_power_control
+        "ime_control" -> R.string.tool_ime_control
+        "connect_wifi" -> R.string.tool_connect_wifi
+        "set_timezone" -> R.string.tool_set_timezone
+        "search_settings" -> R.string.tool_search_settings
+        "dumpsys_diag" -> R.string.tool_dumpsys_diag
         "network_info" -> R.string.tool_network_info
         "wifi_credentials" -> R.string.tool_wifi_credentials
         "media_control" -> R.string.tool_media_control
@@ -146,6 +170,8 @@ internal object ToolPresentation {
         "eta_manage_subagents" -> R.string.tool_eta_manage_subagents
         "eta_manage_history" -> R.string.tool_eta_manage_history
         "eta_configure_mcp" -> R.string.tool_eta_configure_mcp
+        "eta_author_tool" -> R.string.tool_eta_author_tool
+        "eta_list_recipes" -> R.string.tool_eta_list_recipes
         "semantic_search_media" -> R.string.tool_semantic_search_media
         "device_actions" -> R.string.tool_device_actions
         // OpenAI Responses 托管工具：provider 只透传协议类型，展示名在此统一本地化。
@@ -211,9 +237,30 @@ internal object ToolPresentation {
         "set_alarm" -> Icons.Rounded.Alarm
         "set_timer" -> Icons.Rounded.Alarm
         "list_alarms", "list_active_timers" -> Icons.Rounded.Alarm
+        "delete_alarm", "update_alarm" -> Icons.Rounded.Alarm
+        "create_calendar_event", "update_calendar_event", "delete_calendar_event" -> Icons.Rounded.CalendarMonth
         "device_status" -> Icons.Rounded.Smartphone
         "set_device_state" -> Icons.Rounded.Smartphone
         "get_device_environment" -> Icons.Rounded.Smartphone
+        "set_ringer_mode" -> Icons.AutoMirrored.Rounded.VolumeUp
+        "set_do_not_disturb" -> Icons.Rounded.Notifications
+        "set_brightness" -> Icons.Rounded.Tune
+        "screen_action" -> Icons.Rounded.Bolt
+        "list_installed_apps" -> Icons.Rounded.Apps
+        "manage_app" -> Icons.Rounded.Apps
+        "manage_file" -> Icons.Rounded.Folder
+        "system_property" -> Icons.Rounded.Tune
+        "display_control" -> Icons.Rounded.AspectRatio
+        "deep_launch" -> Icons.Rounded.RocketLaunch
+        "package_control" -> Icons.Rounded.Apps
+        "user_control" -> Icons.Rounded.People
+        "appops_control" -> Icons.Rounded.Lock
+        "power_control" -> Icons.Rounded.BatteryChargingFull
+        "ime_control" -> Icons.Rounded.Keyboard
+        "connect_wifi" -> Icons.Rounded.Wifi
+        "set_timezone" -> Icons.Rounded.Schedule
+        "search_settings" -> Icons.Rounded.ManageSearch
+        "dumpsys_diag" -> Icons.Rounded.MonitorHeart
         "network_info" -> Icons.Rounded.Wifi
         "wifi_credentials" -> Icons.Rounded.Wifi
         "media_control" -> Icons.Rounded.PlayArrow
@@ -258,12 +305,20 @@ internal object ToolPresentation {
         "eta_manage_subagents" -> SubAgents
         "eta_manage_history" -> Icons.Rounded.History
         "eta_configure_mcp" -> Icons.Rounded.Extension
+        "eta_author_tool" -> Icons.Rounded.AutoFixHigh
+        "eta_list_recipes" -> Icons.Rounded.Inventory2
         "skills_list", "skills_list_curated" -> Icons.AutoMirrored.Rounded.MenuBook
         "skills_read", "skills_read_resource" -> Icons.Rounded.Description
         "skills_inspect_github" -> Icons.Rounded.Code
         "skills_install_from_github" -> Icons.Rounded.Download
         "skills_install_local" -> Icons.Rounded.FolderOpen
-        else -> if (toolId.startsWith("mcp_")) Icons.Rounded.Extension else FallbackIcon
+        else -> if (toolId.startsWith("mcp_")) {
+            Icons.Rounded.Extension
+        } else if (toolId.startsWith("recipe_")) {
+            Icons.Rounded.AutoFixHigh
+        } else {
+            FallbackIcon
+        }
     }
 
     /** 显示名：有本地化资源用资源，否则回退工具 id 原文。 */

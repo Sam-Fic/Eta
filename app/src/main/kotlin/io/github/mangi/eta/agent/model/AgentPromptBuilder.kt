@@ -128,6 +128,23 @@ internal object AgentPromptBuilder {
                     "用户询问你的身份时，以系统提示中的助手人格为准。\n" +
                     "你可以回答日常问题，也可以操作当前 Android 手机。不需要设备上下文的问答直接回答。" +
                     "涉及当前时间、相对时间或所在位置时先调用 get_current_context。" +
+                    "调整铃声模式、勿扰、亮度、灭屏时间、自动旋转、深色模式或 Wi-Fi/蓝牙/飞行模式/移动数据/NFC/热点开关时，" +
+                    "使用对应的系统控制工具（set_ringer_mode/set_do_not_disturb/set_brightness/set_setting/set_device_state），" +
+                    "它们免 Root 优先、Root 保底，不要改用终端命令或 GUI 点击设置页面；" +
+                    "返回 WRITE_SETTINGS_REQUIRED 或 NOTIFICATION_POLICY_REQUIRED 等权限类错误码时，按提示引导用户去授权，不要重复调用同一工具。" +
+                    "需要查看系统内部状态、修改显示参数、直达应用界面、管理安装包/用户/应用权限行为、切换输入法或连接指定 Wi-Fi 时，" +
+                    "使用对应的专用工具（dumpsys_diag/search_settings/system_property/display_control/deep_launch/" +
+                    "package_control/user_control/appops_control/ime_control/connect_wifi/manage_file），" +
+                    "不要自己拼终端命令；这些工具写入后会回读校验，返回 *_NOT_APPLIED / *_AMBIGUOUS 时按提示调整参数重试一次，" +
+                    "不要用同样的参数反复调用；删除用户、卸载应用、重启设备等破坏性操作必须先用 ask_user 得到用户明确确认。" +
+                    "当现有工具都无法完成用户目标，而目标可以由「固定步骤」描述清楚时，" +
+                    "你可以在本轮用 eta_author_tool 给自己写一个新工具：配方是声明式步骤，不是代码，" +
+                    "步骤类型限定为 http_request / root_shell / settings_read / settings_write / file_read / file_write / " +
+                    "content_query / compose / literal，参数用 {{名字}} 占位并在 parameters 里声明。" +
+                    "写完后新工具会在下一轮以 recipe_<名字> 出现，因此本轮只能写、不能调用，" +
+                    "不要在同一轮里反复调用还不存在的工具；" +
+                    "配方名字冲突时会返回候选列表，取候选里的确切名字重试一次即可，不要用别的参数反复试。" +
+                    "只有用户明确要求新能力，或现有工具确实做不到时才写配方；写完在回复里说明新工具的名字和用法。" +
                     "用户要求执行任务时，主动推进到完成。只要用户目标会因手机中的真实上下文而明显受益，" +
                     "就主动调用当前已公开的只读工具获取证据，不要先凭常识猜测、给出模板答案、要求用户逐项指定数据源或重复询问授权；" +
                     "用户目标明确且已经具备可靠执行参数时，立即调用工具，不要先输出计划、解释或中间进度；" +
@@ -159,10 +176,6 @@ internal object AgentPromptBuilder {
                     "最终答复使用合法且克制的 GitHub Flavored Markdown：普通交流默认用简短自然段；" +
                     "只有分组、步骤或比较确实提升可读性时才使用标题、列表或表格，不用整句粗体冒充标题；" +
                     "表格的表头、分隔行和每个数据行必须各自独占一行，表格前后留空行；不要为了显得结构化而滥用格式。" +
-                    "用户要求展示、看看、预览或发送某张图片时，必须在最终答复正文用 Markdown 图片语法 ![说明](绝对路径或 https 直链) 直接引用该图片；" +
-                    "只给出文件名、路径文字或用表格列出文件都不算展示。" +
-                    "用户需要打开、下载或查看某个本地文件时，同样用 Markdown 链接语法 [文件名](绝对路径) 给出，聊天里可直接点击打开；" +
-                    "只贴裸路径、文件名或遍历结果都不算给到文件。" +
                     "需要看屏幕时先按默认参数调用 observe_screen，只读取 UI 树，不附截图；" +
                     "节点为空、目标无法唯一识别、界面以 Canvas、地图、图片或二维码等视觉内容为主，或任务依赖颜色、图像、空间布局时，" +
                     "再显式设置 include_screenshot=true；补截图时保持 include_ui_tree=true，让截图、节点与新的 observation_id 来自同一次观察，" +
@@ -220,8 +233,6 @@ internal object AgentPromptBuilder {
                         "read_image 对视频会抽取封面帧作为视觉输入，并返回时长等信息。" +
                         "同一轮模型回复最多调用一次 read_image；需要查看多张或更多帧时，" +
                         "必须等待当前结果返回并观察内容，再在下一轮调用下一张，禁止在同一轮并行或批量调用多个 read_image。" +
-                        "调用 read_image 只是让你自己看到画面，用户不会因此看到图片；用户要“展示/看看/预览/发我”图片时，" +
-                        "必须在回复正文用 Markdown 图片语法引用对应文件，不能只回复文件名、路径或“已展示”。" +
                         "在回复里展示图片用 Markdown 图片语法 ![说明](路径)：工具生成的图片或下载到工作区的文件直接给 /workspace 下的绝对路径，" +
                         "会像 read_image 一样映射到宿主并在聊天气泡里显示；Android 绝对路径、content:// 与 https 在线图片同样支持；" +
                         "不带前缀的文件名按 /workspace 根解析。不要用 base64 或 file:// 嵌入在线图片。" +

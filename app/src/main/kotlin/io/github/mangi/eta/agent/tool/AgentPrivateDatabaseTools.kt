@@ -4,8 +4,10 @@ import android.content.Context
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import io.github.mangi.eta.agent.device.BoundedRootCommandExecutor
+import io.github.mangi.eta.agent.device.RootAccess
 import io.github.mangi.eta.agent.model.AgentModelClient
 import java.io.File
+import java.util.Calendar
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -13,10 +15,13 @@ import org.json.JSONObject
 internal class AgentPrivateDatabaseTools(
     private val context: Context,
     private val root: BoundedRootCommandExecutor,
+    private val rootAvailable: () -> Boolean = { RootAccess.isGranted },
 ) {
     fun execute(name: String, args: JSONObject): AgentModelClient.ToolResult? = when (name) {
         "list_alarms" -> sensitive(readDatabase(CLOCK_DATABASE, "CLOCK_DATA_UNAVAILABLE") { listAlarms(it, args) })
         "list_active_timers" -> sensitive(readDatabase(CLOCK_DATABASE, "CLOCK_DATA_UNAVAILABLE") { listTimers(it, args) })
+        "delete_alarm" -> sensitive(deleteAlarm(args))
+        "update_alarm" -> sensitive(updateAlarm(args))
         "search_clipboard_history" -> sensitive(readDatabase(CLIPBOARD_DATABASE, "CLIPBOARD_HISTORY_UNAVAILABLE") { searchClipboard(it, args) })
         "get_health_summary" -> sensitive(readDatabase(HEALTH_DATABASE, "HEALTH_DATA_UNAVAILABLE") { healthSummary(it, args) })
         else -> null
@@ -130,23 +135,359 @@ internal class AgentPrivateDatabaseTools(
 
     private fun readDatabase(source: DatabaseSource, unavailableCode: String, block: (SQLiteDatabase) -> String): String =
         synchronized(snapshotLock) {
-            val userId = context.dataDir.parentFile?.name?.toIntOrNull()
-                ?: return@synchronized error(unavailableCode, "无法确定当前 Android 用户")
-            val sourcePath = source.path.replace("{user}", userId.toString())
-            val snapshot = createSnapshot(sourcePath, source.maxBytes)
-                ?: return@synchronized error(unavailableCode, source.unavailableMessage)
-            try {
-                runCatching {
-                    SQLiteDatabase.openDatabase(
-                        snapshot.absolutePath,
-                        null,
-                        SQLiteDatabase.OPEN_READONLY or SQLiteDatabase.NO_LOCALIZED_COLLATORS,
-                    ).use(block)
-                }.getOrElse { error(unavailableCode, source.unavailableMessage) }
-            } finally {
-                deleteSnapshot(snapshot)
+            withDatabase(source, block) ?: error(unavailableCode, source.unavailableMessage)
+        }
+
+    /** 快照 + 只读打开 + 用后删除；块内抛异常同样按不可用处理。 */
+    private fun <T> withDatabase(source: DatabaseSource, block: (SQLiteDatabase) -> T): T? {
+        val userId = context.dataDir.parentFile?.name?.toIntOrNull() ?: return null
+        val sourcePath = source.path.replace("{user}", userId.toString())
+        val snapshot = createSnapshot(sourcePath, source.maxBytes) ?: return null
+        return try {
+            runCatching {
+                SQLiteDatabase.openDatabase(
+                    snapshot.absolutePath,
+                    null,
+                    SQLiteDatabase.OPEN_READONLY or SQLiteDatabase.NO_LOCALIZED_COLLATORS,
+                ).use(block)
+            }.getOrNull()
+        } finally {
+            deleteSnapshot(snapshot)
+        }
+    }
+
+    // ---------------------------------------------------------------- 闹钟修改（Root 直达时钟数据库）
+
+    private sealed interface ClockRead {
+        data class Ok(val rows: List<JSONObject>) : ClockRead
+        data object SchemaUnsupported : ClockRead
+        data object Unavailable : ClockRead
+    }
+
+    private sealed interface ClockPrecondition {
+        data class Ready(val sqlite: String) : ClockPrecondition
+        data class Failed(val error: String) : ClockPrecondition
+    }
+
+    private data class AlarmTarget(val id: Long, val row: JSONObject)
+
+    private sealed interface AlarmResolution {
+        data class Found(val target: AlarmTarget) : AlarmResolution
+        data class Failed(val error: String) : AlarmResolution
+    }
+
+    private fun deleteAlarm(args: JSONObject): String {
+        val precondition = clockWritePreconditions()
+        if (precondition is ClockPrecondition.Failed) return precondition.error
+        return when (val resolution = resolveAlarm(args)) {
+            is AlarmResolution.Failed -> resolution.error
+            is AlarmResolution.Found -> {
+                val target = resolution.target
+                val databasePath = clockDatabasePath()
+                    ?: return error("CLOCK_DATA_UNAVAILABLE", "无法定位 ColorOS 时钟数据库")
+                val sql = "PRAGMA busy_timeout=3000; DELETE FROM alarms WHERE _id=${target.id};"
+                val result = root.execute(
+                    "${shellQuote(precondition.sqlite)} ${shellQuote(databasePath)} ${shellQuote(sql)}",
+                    timeoutMillis = 15_000L,
+                    maxOutputBytes = 8 * 1024,
+                )
+                if (!result.ok) return error("CLOCK_WRITE_FAILED", "删除命令执行失败（exit=${result.exitCode}）")
+                when (val after = readAlarms("_id=?", arrayOf(target.id.toString()))) {
+                    is ClockRead.Ok ->
+                        if (after.rows.isEmpty()) {
+                            ok("delete_alarm")
+                                .put("alarm_id", target.id)
+                                .put("hour", target.row.optLongValue("hour"))
+                                .put("minute", target.row.optLongValue("minutes"))
+                                .put("label", target.row.optString("message"))
+                                .put(
+                                    "summary",
+                                    "已删除闹钟 ${clockTime(target.row)}${labelSuffix(target.row)}",
+                                )
+                                .put("note", "若时钟界面仍显示该闹钟，重新打开时钟应用即可刷新；不要重复调用本工具")
+                                .toString()
+                        } else {
+                            error("ALARM_DELETE_NOT_APPLIED", "删除后仍能读到该闹钟，未生效；请稍后重试或到时钟应用里手动删除")
+                        }
+                    is ClockRead.SchemaUnsupported -> error("CLOCK_SCHEMA_UNSUPPORTED", "当前时钟数据库结构暂不受支持")
+                    is ClockRead.Unavailable -> error("CLOCK_DATA_UNAVAILABLE", "删除已执行，但读取时钟数据校验失败")
+                }
             }
         }
+    }
+
+    private fun updateAlarm(args: JSONObject): String {
+        val precondition = clockWritePreconditions()
+        if (precondition is ClockPrecondition.Failed) return precondition.error
+        return when (val resolution = resolveAlarm(args)) {
+            is AlarmResolution.Failed -> resolution.error
+            is AlarmResolution.Found -> {
+                val target = resolution.target
+                val current = target.row
+                val sets = mutableListOf<String>()
+                val changed = mutableListOf<String>()
+                val expected = mutableMapOf<String, String>()
+                if (args.has("enabled")) {
+                    val enabled = if (args.optBoolean("enabled")) 1 else 0
+                    sets += "enabled=$enabled"
+                    changed += "enabled"
+                    expected["enabled"] = enabled.toString()
+                }
+                if (args.has("vibrate")) {
+                    val vibrate = if (args.optBoolean("vibrate")) 1 else 0
+                    sets += "vibrate=$vibrate"
+                    changed += "vibrate"
+                    expected["vibrate"] = vibrate.toString()
+                }
+                if (args.has("label")) {
+                    val label = args.optString("label").trim()
+                    sets += "message='${CalendarEventFormats.escapeSqlString(label)}'"
+                    changed += "label"
+                    expected["message"] = label
+                }
+                val hour = args.optLongValue("hour")?.toInt()
+                val minute = args.optLongValue("minute")?.toInt()
+                if (hour != null && hour !in 0..23) return error("INVALID_ARGUMENT", "hour 必须在 0 到 23")
+                if (minute != null && minute !in 0..59) return error("INVALID_ARGUMENT", "minute 必须在 0 到 59")
+                if (hour != null || minute != null) {
+                    val newHour = hour ?: (current.optLongValue("hour")?.toInt() ?: 0)
+                    val newMinute = minute ?: (current.optLongValue("minutes")?.toInt() ?: 0)
+                    sets += "hour=$newHour"
+                    sets += "minutes=$newMinute"
+                    changed += "time"
+                    expected["hour"] = newHour.toString()
+                    expected["minutes"] = newMinute.toString()
+                    // 一次性闹钟（daysofweek=0）直接重算下次触发时间；重复闹钟交给时钟应用重算。
+                    if ((current.optLongValue("daysofweek") ?: 0L) == 0L) {
+                        sets += "alarmtime=${nextOneShotTriggerMillis(newHour, newMinute)}"
+                    }
+                }
+                if (sets.isEmpty()) {
+                    return ok("update_alarm")
+                        .put("alarm_id", target.id)
+                        .put("changed", JSONArray())
+                        .put("summary", "没有提供要修改的字段，闹钟保持不变")
+                        .toString()
+                }
+                val databasePath = clockDatabasePath()
+                    ?: return error("CLOCK_DATA_UNAVAILABLE", "无法定位 ColorOS 时钟数据库")
+                val sql = "PRAGMA busy_timeout=3000; UPDATE alarms SET ${sets.joinToString(", ")} WHERE _id=${target.id};"
+                val result = root.execute(
+                    "${shellQuote(precondition.sqlite)} ${shellQuote(databasePath)} ${shellQuote(sql)}",
+                    timeoutMillis = 15_000L,
+                    maxOutputBytes = 8 * 1024,
+                )
+                if (!result.ok) return error("CLOCK_WRITE_FAILED", "修改命令执行失败（exit=${result.exitCode}）")
+                when (val after = readAlarms("_id=?", arrayOf(target.id.toString()))) {
+                    is ClockRead.Ok -> {
+                        val row = after.rows.firstOrNull()
+                            ?: return error("ALARM_UPDATE_NOT_APPLIED", "更新后读不到该闹钟，未生效")
+                        val mismatch = expected.entries.firstOrNull { (column, value) ->
+                            row.fieldString(column) != value
+                        }
+                        if (mismatch != null) {
+                            return error(
+                                "ALARM_UPDATE_NOT_APPLIED",
+                                "字段 ${mismatch.key} 期望为 ${mismatch.value}，实际为 ${row.fieldString(mismatch.key) ?: "空"}；未生效",
+                            )
+                        }
+                        val repeatNote = if ("time" in changed && (current.optLongValue("daysofweek") ?: 0L) != 0L) {
+                            "重复闹钟的下次触发时间由时钟应用在下次打开时重算"
+                        } else {
+                            null
+                        }
+                        return ok("update_alarm")
+                            .put("alarm_id", target.id)
+                            .put("changed", JSONArray(changed))
+                            .put("hour", row.optLongValue("hour"))
+                            .put("minute", row.optLongValue("minutes"))
+                            .put("label", row.optString("message"))
+                            .put("enabled", (row.optLongValue("enabled") ?: 0L) == 1L)
+                            .put("vibrate", (row.optLongValue("vibrate") ?: 0L) == 1L)
+                            .put("summary", "已修改闹钟 ${clockTime(row)}${labelSuffix(row)}：" + changed.joinToString("、"))
+                            .also { payload -> repeatNote?.let { payload.put("note", it) } }
+                            .toString()
+                    }
+                    is ClockRead.SchemaUnsupported -> error("CLOCK_SCHEMA_UNSUPPORTED", "当前时钟数据库结构暂不受支持")
+                    is ClockRead.Unavailable -> error("CLOCK_DATA_UNAVAILABLE", "修改已执行，但读取时钟数据校验失败")
+                }
+            }
+        }
+    }
+
+    /** Root + sqlite3 两项前置检查；不满足时返回可展示给模型的错误 JSON。 */
+    private fun clockWritePreconditions(): ClockPrecondition {
+        if (!rootAvailable()) {
+            return ClockPrecondition.Failed(
+                error("ROOT_REQUIRED", "直接修改系统闹钟需要 Root 权限；可用 set_alarm 创建新闹钟"),
+            )
+        }
+        val sqlite = sqliteBinary()
+            ?: return ClockPrecondition.Failed(
+                error("CLOCK_SQLITE_UNAVAILABLE", "系统缺少 sqlite3，无法直接改写时钟数据库；可用 set_alarm 创建新闹钟"),
+            )
+        return ClockPrecondition.Ready(sqlite)
+    }
+
+    private fun clockDatabasePath(): String? {
+        val userId = context.dataDir.parentFile?.name?.toIntOrNull() ?: return null
+        return CLOCK_DATABASE.path.replace("{user}", userId.toString())
+    }
+
+    private fun sqliteBinary(): String? {
+        val result = root.execute(
+            "command -v sqlite3 2>/dev/null; ls /system/bin/sqlite3 /system/xbin/sqlite3 2>/dev/null",
+            timeoutMillis = 8_000L,
+            maxOutputBytes = 4 * 1024,
+        )
+        if (!result.ok) return null
+        return result.stdout.lineSequence()
+            .map(String::trim)
+            .firstOrNull { it == "sqlite3" || it.startsWith("/") }
+    }
+
+    /**
+     * 定位闹钟：alarm_id 优先；否则按 match_time(HH:MM) 与 match_label 组合定位。
+     * 匹配多个时返回候选列表，让模型带 alarm_id 重试一次，而不是替它猜。
+     */
+    private fun resolveAlarm(args: JSONObject): AlarmResolution {
+        val alarmId = args.optLongValue("alarm_id")
+        val matchTime = args.optString("match_time").trim()
+        val matchLabel = args.optString("match_label").trim()
+        if (alarmId == null && matchTime.isEmpty() && matchLabel.isEmpty()) {
+            return AlarmResolution.Failed(
+                error(
+                    "INVALID_ARGUMENT",
+                    "请提供 alarm_id，或提供 match_time(HH:MM) / match_label 定位闹钟；可先用 list_alarms 查看已有闹钟",
+                ),
+            )
+        }
+        if (matchTime.isNotEmpty() && !CLOCK_TIME.matches(matchTime)) {
+            return AlarmResolution.Failed(error("INVALID_ARGUMENT", "match_time 格式应为 HH:MM"))
+        }
+        val conditions = mutableListOf<String>()
+        val selectionArgs = mutableListOf<String>()
+        if (alarmId != null) conditions += "_id=$alarmId"
+        if (matchTime.isNotEmpty()) {
+            val (hour, minute) = matchTime.split(":")
+            conditions += "hour=${hour.toInt()} AND minutes=${minute.toInt()}"
+        }
+        if (matchLabel.isNotEmpty()) {
+            conditions += "message LIKE ? ESCAPE '\\' COLLATE NOCASE"
+            selectionArgs += "%${CalendarEventFormats.escapeLike(matchLabel)}%"
+        }
+        return when (val read = readAlarms(conditions.joinToString(" AND "), selectionArgs.toTypedArray())) {
+            is ClockRead.Unavailable -> AlarmResolution.Failed(
+                error("CLOCK_DATA_UNAVAILABLE", "ColorOS 时钟数据暂时不可访问（需要 Root）"),
+            )
+            is ClockRead.SchemaUnsupported -> AlarmResolution.Failed(
+                error("CLOCK_SCHEMA_UNSUPPORTED", "当前时钟数据库结构暂不受支持"),
+            )
+            is ClockRead.Ok -> when (read.rows.size) {
+                0 -> AlarmResolution.Failed(
+                    error(
+                        "ALARM_NOT_FOUND",
+                        "没有找到匹配的闹钟；可先用 list_alarms 查看已有闹钟，再用 alarm_id 精确定位",
+                    ),
+                )
+                1 -> AlarmResolution.Found(AlarmTarget(read.rows[0].optLongValue("_id") ?: 0L, read.rows[0]))
+                else -> AlarmResolution.Failed(
+                    JSONObject()
+                        .put("ok", false)
+                        .put("code", "ALARM_AMBIGUOUS")
+                        .put(
+                            "message",
+                            "找到 ${read.rows.size} 个匹配的闹钟；请从候选里取 alarm_id 后重试一次，不要重复同样的调用",
+                        )
+                        .put(
+                            "candidates",
+                            JSONArray().also { array ->
+                                read.rows.take(10).forEach { row ->
+                                    array.put(
+                                        JSONObject()
+                                            .put("alarm_id", row.optLongValue("_id"))
+                                            .put("time", clockTime(row))
+                                            .put("label", row.optString("message"))
+                                            .put("enabled", (row.optLongValue("enabled") ?: 0L) == 1L),
+                                    )
+                                }
+                            },
+                        )
+                        .toString(),
+                )
+            }
+        }
+    }
+
+    private fun readAlarms(selection: String?, selectionArgs: Array<String>?): ClockRead =
+        withClockSnapshot { database ->
+            if (!database.hasColumns("alarms", setOf("_id", "hour", "minutes", "enabled"))) {
+                ClockRead.SchemaUnsupported
+            } else {
+                ClockRead.Ok(
+                    database.rows(
+                        table = "alarms",
+                        columns = ALARM_COLUMNS,
+                        selection = selection,
+                        selectionArgs = selectionArgs,
+                        order = "enabled DESC, alarmtime ASC",
+                        limit = 10,
+                    ),
+                )
+            }
+        } ?: ClockRead.Unavailable
+
+    private fun <T> withClockSnapshot(block: (SQLiteDatabase) -> T): T? {
+        val path = clockDatabasePath() ?: return null
+        val snapshot = createSnapshot(path, CLOCK_DATABASE.maxBytes) ?: return null
+        return try {
+            runCatching {
+                SQLiteDatabase.openDatabase(
+                    snapshot.absolutePath,
+                    null,
+                    SQLiteDatabase.OPEN_READONLY or SQLiteDatabase.NO_LOCALIZED_COLLATORS,
+                ).use(block)
+            }.getOrNull()
+        } finally {
+            deleteSnapshot(snapshot)
+        }
+    }
+
+    private fun clockTime(row: JSONObject): String {
+        val hour = (row.optLongValue("hour") ?: 0L).toInt()
+        val minute = (row.optLongValue("minutes") ?: 0L).toInt()
+        return "%02d:%02d".format(hour, minute)
+    }
+
+    private fun labelSuffix(row: JSONObject): String {
+        val label = row.optString("message").trim()
+        return if (label.isEmpty()) "" else "「$label」"
+    }
+
+    /** 一次性闹钟的下次触发时间：今天已过就顺延到明天。 */
+    private fun nextOneShotTriggerMillis(hour: Int, minute: Int): Long {
+        val now = System.currentTimeMillis()
+        val next = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, hour)
+            set(Calendar.MINUTE, minute)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        if (next.timeInMillis <= now) next.add(Calendar.DAY_OF_YEAR, 1)
+        return next.timeInMillis
+    }
+
+    private fun JSONObject.optLongValue(name: String): Long? = when (val value = opt(name)) {
+        is Number -> value.toLong()
+        is String -> value.trim().toLongOrNull()
+        else -> null
+    }
+
+    private fun JSONObject.fieldString(name: String): String? = when (val value = opt(name)) {
+        null -> null
+        is Number -> if (value.toDouble() == value.toLong().toDouble()) value.toLong().toString() else value.toString()
+        else -> value.toString()
+    }
 
     private fun createSnapshot(source: String, maxBytes: Long): File? {
         cleanupStaleSnapshots()
@@ -237,6 +578,8 @@ internal class AgentPrivateDatabaseTools(
         .put("truncated", items.length() == limit)
         .toString()
 
+    private fun ok(tool: String): JSONObject = JSONObject().put("ok", true).put("tool", tool)
+
     private fun cleanupStaleSnapshots() {
         context.cacheDir.listFiles()?.filter { it.name.startsWith(SNAPSHOT_PREFIX) }?.forEach(File::delete)
     }
@@ -257,6 +600,10 @@ internal class AgentPrivateDatabaseTools(
         const val SNAPSHOT_PREFIX = "eta-private-data-"
         const val MAX_FIELD_CHARS = 4_000
         const val DAY_MS = 24L * 60 * 60 * 1_000
+        val ALARM_COLUMNS = listOf(
+            "_id", "hour", "minutes", "daysofweek", "alarmtime", "enabled", "message", "vibrate",
+        )
+        val CLOCK_TIME = Regex("^([01]?\\d|2[0-3]):[0-5]\\d$")
         val CLOCK_DATABASE = DatabaseSource(
             "/data/user_de/{user}/com.coloros.alarmclock/databases/alarms.db",
             32L * 1024 * 1024,

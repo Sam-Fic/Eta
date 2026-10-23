@@ -3,7 +3,9 @@ package io.github.mangi.eta.agent.model
 /** 标记原始参数或结果不得进入持久会话的工具。 */
 internal object AgentSensitiveToolPolicy {
     fun isSensitive(toolName: String): Boolean =
-        toolName.startsWith("mcp_") || toolName in sensitiveTools
+        toolName.startsWith("mcp_") ||
+            toolName.startsWith("recipe_") ||
+            toolName in sensitiveTools
 
     private val sensitiveTools = setOf(
         "delegate_task",
@@ -16,6 +18,7 @@ internal object AgentSensitiveToolPolicy {
         "get_setting",
         "wifi_credentials",
         "recent_notifications",
+        "list_installed_apps",
         "search_notification_history",
         "recent_app_activity",
         "app_usage_summary",
@@ -48,8 +51,34 @@ internal object AgentSensitiveToolPolicy {
         "semantic_search_media",
         "read_image",
         "set_setting",
+        // 系统控制写入：参数与结果反映用户对本机开关的实时控制，原始内容不进入持久会话。
+        "set_do_not_disturb",
+        "set_brightness",
+        "screen_action",
+        "manage_app",
         "memory_get",
         "memory_write",
+        // 日程与闹钟写入：参数与结果包含用户的个人安排，原始内容不进入持久会话。
+        "create_calendar_event",
+        "update_calendar_event",
+        "delete_calendar_event",
+        "delete_alarm",
+        "update_alarm",
+        // Root 深度控制与文件管理：参数与结果涉及系统内部状态、用户文件路径与网络凭据，
+        // 原始内容不进入持久会话。
+        "manage_file",
+        "system_property",
+        "display_control",
+        "deep_launch",
+        "package_control",
+        "user_control",
+        "appops_control",
+        "power_control",
+        "ime_control",
+        "connect_wifi",
+        "set_timezone",
+        "search_settings",
+        "dumpsys_diag",
         // 参数可能携带供应商密钥与端点；原始结果不进入持久会话。
         "eta_manage_models",
         // 参数可能携带 MCP 服务器的端点与 Bearer 密钥；原始结果不进入持久会话。
@@ -58,5 +87,8 @@ internal object AgentSensitiveToolPolicy {
         "eta_manage_history",
         // 参数是手机上的本地目录，结果含本机 Skill 的文件路径；原始结果不进入持久会话。
         "skills_install_local",
+        // 自进化：模型自己写的配方及其执行结果，可能包含系统状态与用户数据。
+        "eta_author_tool",
+        "eta_list_recipes",
     )
 }

@@ -933,6 +933,7 @@ open class AgentAccessibilityService : AccessibilityService() {
             "RECENTS" -> GLOBAL_ACTION_RECENTS
             "NOTIFICATIONS" -> GLOBAL_ACTION_NOTIFICATIONS
             "QUICK_SETTINGS" -> GLOBAL_ACTION_QUICK_SETTINGS
+            "POWER_DIALOG" -> GLOBAL_ACTION_POWER_DIALOG
             else -> return NodeActionResult.failure("INVALID_ARGUMENT", "不支持的系统动作")
         }
         return runNodeActionOnMainSync {

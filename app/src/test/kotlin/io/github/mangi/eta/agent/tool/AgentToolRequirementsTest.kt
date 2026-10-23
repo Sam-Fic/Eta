@@ -67,7 +67,8 @@ class AgentToolRequirementsTest {
     fun legacyRootArgumentsAreDeniedEvenWhenCallingAMixedToolDirectly() {
         assertTrue(AgentToolRequirements.rootDenied("terminal", JSONObject().put("identity", "root"), false))
         assertTrue(AgentToolRequirements.rootDenied("press_key", JSONObject().put("button", "PASTE"), false))
-        assertTrue(AgentToolRequirements.rootDenied("set_setting", JSONObject(), false))
+        // set_setting 已升级为 PARTIAL（免 Root 走 WRITE_SETTINGS），无 Root 时不再整体拒绝。
+        assertFalse(AgentToolRequirements.rootDenied("set_setting", JSONObject(), false))
         assertFalse(AgentToolRequirements.rootDenied("terminal", JSONObject().put("identity", "user"), false))
         assertFalse(AgentToolRequirements.rootDenied("set_setting", JSONObject(), true))
     }

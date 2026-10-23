@@ -28,7 +28,9 @@ class AgentLocalToolsPermissionTest {
         )
         root.set(false)
         listOf(
-            "set_setting" to "{}",
+            // set_setting 已升级为免 Root（WRITE_SETTINGS 权限），不再被 Root 门禁拦截；
+            // 这里改用仍然 REQUIRED 的 get_logcat 验证旧调用在 Root 撤销后直接拒绝。
+            "get_logcat" to "{}",
             "terminal" to "{\"action\":\"open\",\"identity\":\"root\"}",
             "press_key" to "{\"button\":\"PASTE\"}",
         ).forEach { (name, args) ->
