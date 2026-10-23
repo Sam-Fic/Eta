@@ -14,6 +14,7 @@ class AgentFileVisionToolCatalogTest {
         assertTrue(readImageDescription().contains("下一轮读取下一张"))
         assertTrue(readImageDescription().contains("视频"))
         assertTrue(readImageDescription().contains("/workspace"))
+        assertTrue(readImageDescription().contains("Markdown 图片语法"))
     }
 
     private fun readImageDescription(): String {

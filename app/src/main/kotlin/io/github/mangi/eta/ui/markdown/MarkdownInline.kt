@@ -357,7 +357,13 @@ internal class MarkdownInlineBuilder(
 
     private fun linkAnnotation(url: String) = LinkAnnotation.Url(
         url = url,
-        styles = TextLinkStyles(style = SpanStyle(color = style.linkColor, fontWeight = FontWeight.Medium)),
+        styles = TextLinkStyles(
+            style = SpanStyle(
+                color = style.linkColor,
+                fontWeight = FontWeight.Medium,
+                textDecoration = TextDecoration.Underline,
+            ),
+        ),
     )
 
     private fun codeSpanText(node: ASTNode): String {

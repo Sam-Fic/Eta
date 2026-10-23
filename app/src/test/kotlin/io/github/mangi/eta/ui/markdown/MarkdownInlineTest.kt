@@ -112,6 +112,16 @@ class MarkdownInlineTest {
         assertTrue(paragraph.text.hasSpanCovering("Ctrl") { it.fontFamily == FontFamily.Monospace })
     }
 
+    @Test
+    fun linksAreUnderlinedToStandOutFromBodyText() {
+        val paragraph = paragraphOf("打开 [报告](/workspace/report.pdf) 查看")
+        val styled = selectableLinkText(paragraph.text)
+
+        assertTrue(styled.text.contains("报告"))
+        val start = styled.text.indexOf("报告")
+        assertTrue(styled.spanStyles.any { it.start <= start && it.end >= start + 2 && it.item.textDecoration == TextDecoration.Underline })
+    }
+
     private fun paragraphOf(source: String, isComplete: Boolean = true): MarkdownParagraph =
         DocumentGfmParserSession().parse(source, isComplete = isComplete)
             .document.blocks.filterIsInstance<MarkdownParagraph>().single()
