@@ -229,8 +229,6 @@ internal class SmoothTextRevealCoordinator {
                 val frameNanos = withFrameNanos { it }
                 if (animationsHeld) break
                 StreamPerformanceDiagnostics.record("reveal.frameGap", frameNanos - previousFrameNanos)
-                val elapsedSeconds = ((frameNanos - previousFrameNanos) / NANOS_PER_SECOND)
-                    .coerceIn(0f, MAX_FRAME_DELTA_SECONDS)
                 previousFrameNanos = frameNanos
 
                 // 淡入窗按真实帧时刻变老：已经追平、只剩渐变的字素靠这里收尾。
@@ -240,22 +238,14 @@ internal class SmoothTextRevealCoordinator {
 
                 if (record.progress < record.targetCount) {
                     StreamPerformanceDiagnostics.measure("reveal.step") {
-                        val totalBacklog = records.values.sumOf { candidate ->
-                            max(0.0, (candidate.targetCount - candidate.progress).toDouble())
-                        }.toFloat()
-                        StreamPerformanceDiagnostics.record("reveal.backlog", value = totalBacklog.toLong())
+                        // 到达即显现：已排版出来的字素当帧跨过显现线并登记出现时刻，
+                        // 不再按打字机速度排队等待；呈现节奏完全交给固定时长的淡入上浮。
                         val previous = record.progress
-                        record.progress = advanceSmoothReveal(
-                            current = record.progress,
-                            target = record.targetCount,
-                            elapsedSeconds = elapsedSeconds,
-                            totalBacklog = totalBacklog,
-                        )
+                        record.progress = record.targetCount
                         val delta = record.progress - previous
                         if (delta > 0f) {
                             onRevealAdvanced?.invoke(delta)
-                            // 本帧新跨过完整显现线的字素带上同一出现时刻；淡入时长是固定的，
-                            // 由帧时钟按真实经过时间驱动渐变与上浮。
+                            // 同一帧到达的字素共用同一出现时刻，各自按真实帧时刻老化。
                             record.fadeDurationNanos = REVEAL_FADE_NANOS
                             record.noteRevealedGlyphs(frameNanos)
                         }
@@ -994,34 +984,12 @@ internal fun commonUtf16PrefixLength(first: String, second: String): Int {
     return index
 }
 
-internal fun smoothRevealSpeed(totalBacklog: Float): Float =
-    max(BASE_REVEAL_GRAPHEMES_PER_SECOND, totalBacklog / TARGET_CATCH_UP_SECONDS)
-        .coerceAtMost(MAX_REVEAL_GRAPHEMES_PER_SECOND)
-
 /**
  * 单个字素淡入与上浮的固定时长。这是"每个字的动画时间"本身，不随文字生成速度变化：
- * 生成再快，也只是淡入窗里同时排下更多字素，单个字的动画时长不变。
+ * 生成再快，也只是同一帧有更多字素一起开始动画，单个字的动画时长不变。
  */
 internal const val REVEAL_FADE_NANOS = 160_000_000L
 
-internal fun advanceSmoothReveal(
-    current: Float,
-    target: Float,
-    elapsedSeconds: Float,
-    totalBacklog: Float,
-): Float {
-    if (current >= target) return target
-    // 帧间隔已在调用侧限制在 MAX_FRAME_DELTA_SECONDS 内，单帧推进量由自适应速度决定。
-    // 不能再加每帧 1 字素的硬上限，否则积压时追赶速度失效，输出会稳定滞后于模型。
-    val advance = (smoothRevealSpeed(totalBacklog) * elapsedSeconds).coerceAtLeast(0f)
-    return (current + advance).coerceAtMost(target)
-}
-
-private const val NANOS_PER_SECOND = 1_000_000_000f
-private const val MAX_FRAME_DELTA_SECONDS = 0.05f
-private const val BASE_REVEAL_GRAPHEMES_PER_SECOND = 36f
-private const val MAX_REVEAL_GRAPHEMES_PER_SECOND = 240f
-private const val TARGET_CATCH_UP_SECONDS = 0.20f
 /** 字素刚出现时相对最终位置的下沉比例（按行高衡量）。 */
 private const val FADE_RISE_LINE_FRACTION = 0.12f
 /** 低于这个不透明度的字素不再单独建层，直接跳过。 */

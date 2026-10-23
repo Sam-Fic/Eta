@@ -335,7 +335,8 @@ class SmoothTextRevealCoordinatorTest {
             yield()
             val resumed = coordinator.drawSnapshot(key)!!.progress
             assertTrue(resumed > frozen)
-            assertTrue(resumed < longer.length)
+            // 恢复后新到的字素直接显现，动画只由固定时长的淡入负责，不再排队追赶。
+            assertEquals(longer.length.toFloat(), resumed, 0f)
         } finally {
             job.cancelAndJoin()
         }
@@ -404,19 +405,21 @@ class SmoothTextRevealCoordinatorTest {
     fun fastArrivalKeepsEarlierGlyphsFadingForTheirFullDuration() = runBlocking {
         val coordinator = SmoothTextRevealCoordinator()
         val key = RevealBlockKey(0)
-        attach(coordinator, key, "abcdefghijklmnopqrstuvwxyz0123456789")
+        val state = attachState(coordinator, key, "abcdefghijklmnopqrstuvwxyz")
         val clock = TestFrameClock()
         val job = launch(clock, start = CoroutineStart.UNDISPATCHED) { coordinator.runFrameClock() }
         try {
-            // 一帧吃掉一大段积压：这批字素全部在同一帧出现。
+            // 到达即显现：第一帧就把这批字素全部纳入淡入窗，不需要逐字排队等待。
             clock.send(0L)
             clock.send(50_000_000L)
             yield()
             val burst = coordinator.drawSnapshot(key)!!
-            assertTrue("burst progress=${burst.progress}", burst.progress >= 8f)
+            assertEquals(burst.boundaries.lastIndex.toFloat(), burst.progress, 0f)
             assertTrue(burst.liveFade)
 
-            // 紧接着再显现一批：两批允许同时播放动画，上一批并不需要先播完。
+            // 紧接着又到一批：两批允许同时播放动画，上一批并不需要先播完。
+            val longer = "abcdefghijklmnopqrstuvwxyz0123456789"
+            state.onTextLayout(longer, layout(longer))
             clock.send(100_000_000L)
             yield()
             val overlapping = coordinator.drawSnapshot(key)!!
@@ -455,6 +458,18 @@ class SmoothTextRevealCoordinatorTest {
         state.attach(node)
         state.onTextLayout(text, layout(text))
         return node
+    }
+
+    private fun attachState(
+        coordinator: SmoothTextRevealCoordinator,
+        key: RevealBlockKey,
+        text: String,
+    ): SmoothTextRevealState {
+        val state = SmoothTextRevealState(key, coordinator)
+        val node = SmoothTextRevealNode(state)
+        state.attach(node)
+        state.onTextLayout(text, layout(text))
+        return state
     }
 
     private fun layout(text: String): TextLayoutResult = textMeasurer.measure(

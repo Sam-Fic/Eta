@@ -68,7 +68,7 @@ class SmoothTextRevealCoordinatorTest {
     }
 
     @Test
-    fun oneFrameCarriesAdvanceAcrossBlocksInSourceOrder() = runBlocking {
+    fun oneFrameRevealsEveryArrivedBlockWithoutBacklog() = runBlocking {
         val coordinator = SmoothTextRevealCoordinator()
         val keys = (0 until 10).map { RevealBlockKey(it * 20) }
         keys.reversed().forEach { attach(coordinator, it, "abcdefghij") }
@@ -84,29 +84,18 @@ class SmoothTextRevealCoordinatorTest {
             clock.send(50_000_000L)
             yield()
 
-            // The retained 240-grapheme/s ceiling gives 12 graphemes in 50 ms:
-            // consume the first leaf and carry the remaining two to the next.
-            assertEquals(10f, coordinator.drawSnapshot(keys[0])!!.progress, 0f)
-            assertEquals(2f, coordinator.drawSnapshot(keys[1])!!.progress, 0f)
-            keys.drop(2).forEach { assertEquals(0f, coordinator.drawSnapshot(it)!!.progress, 0f) }
-            assertEquals(keys.take(2).toSet(), coordinator.started.value)
+            // 到达即显现：同一帧内所有已就绪的块一起跨过显现线，不再按帧预算排队。
+            keys.forEach { assertEquals(10f, coordinator.drawSnapshot(it)!!.progress, 0f) }
+            assertEquals(keys.toSet(), coordinator.started.value)
             assertEquals(1, feedbackFrames)
-            assertEquals(12f, feedbackAdvance, 0f)
-            assertFalse(coordinator.drained.value)
+            assertEquals(100f, feedbackAdvance, 0f)
+            assertTrue(coordinator.drained.value)
 
-            clock.send(100_000_000L)
-            yield()
-            assertEquals(10f, coordinator.drawSnapshot(keys[1])!!.progress, 0f)
-            assertEquals(4f, coordinator.drawSnapshot(keys[2])!!.progress, 0f)
-            keys.drop(3).forEach { assertEquals(0f, coordinator.drawSnapshot(it)!!.progress, 0f) }
-            assertEquals(keys.take(3).toSet(), coordinator.started.value)
-            assertEquals(2, feedbackFrames)
-            assertEquals(24f, feedbackAdvance, 0f)
-
+            // 淡入窗走完后帧时钟自会停下，不会再有任何推进。
             repeat(60) { clock.send((it + 3) * 50_000_000L) }
             yield()
             assertTrue(coordinator.drained.value)
-            assertEquals(keys.toSet(), coordinator.started.value)
+            assertEquals(1, feedbackFrames)
         } finally {
             frameJob.cancelAndJoin()
         }

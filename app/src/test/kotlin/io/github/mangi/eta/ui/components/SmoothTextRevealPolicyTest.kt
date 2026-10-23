@@ -125,77 +125,6 @@ class SmoothTextRevealPolicyTest {
     }
 
     @Test
-    fun revealSpeedUsesBaseRateThenCatchesUpAndCaps() {
-        assertEquals(36f, smoothRevealSpeed(totalBacklog = 0f), FLOAT_TOLERANCE)
-        assertEquals(45f, smoothRevealSpeed(totalBacklog = 9f), FLOAT_TOLERANCE)
-        assertEquals(100f, smoothRevealSpeed(totalBacklog = 20f), FLOAT_TOLERANCE)
-        assertEquals(240f, smoothRevealSpeed(totalBacklog = 1_000f), FLOAT_TOLERANCE)
-    }
-
-    @Test
-    fun normalFrameAdvancesFractionallyAtBaseRate() {
-        assertEquals(
-            0.6f,
-            advanceSmoothReveal(
-                current = 0f,
-                target = 10f,
-                elapsedSeconds = 1f / 60f,
-                totalBacklog = 1f,
-            ),
-            FLOAT_TOLERANCE,
-        )
-    }
-
-    @Test
-    fun catchUpAdvancesMultipleGraphemesWithinSpeedCap() {
-        // 240 字/秒的速度上限 × 单帧最大 50ms，一帧最多推进 12 个字素。
-        assertEquals(
-            15f,
-            advanceSmoothReveal(
-                current = 3f,
-                target = 100f,
-                elapsedSeconds = 0.05f,
-                totalBacklog = 1_000f,
-            ),
-            FLOAT_TOLERANCE,
-        )
-    }
-
-    @Test
-    fun frameAdvanceClampsInvalidTimeAndTargetBounds() {
-        assertEquals(
-            2f,
-            advanceSmoothReveal(
-                current = 2f,
-                target = 10f,
-                elapsedSeconds = -1f,
-                totalBacklog = 10f,
-            ),
-            FLOAT_TOLERANCE,
-        )
-        assertEquals(
-            5f,
-            advanceSmoothReveal(
-                current = 4.75f,
-                target = 5f,
-                elapsedSeconds = 1f,
-                totalBacklog = 100f,
-            ),
-            FLOAT_TOLERANCE,
-        )
-        assertEquals(
-            5f,
-            advanceSmoothReveal(
-                current = 7f,
-                target = 5f,
-                elapsedSeconds = 1f,
-                totalBacklog = 100f,
-            ),
-            FLOAT_TOLERANCE,
-        )
-    }
-
-    @Test
     fun markdownBatchEndsOnlyAfterCompleteGraphemes() {
         val content = "A👨‍👩‍👧‍👦中B"
 
@@ -303,10 +232,6 @@ class SmoothTextRevealPolicyTest {
                 containsImage = false,
             ),
         )
-    }
-
-    private companion object {
-        const val FLOAT_TOLERANCE = 0.0001f
     }
 
     @Test

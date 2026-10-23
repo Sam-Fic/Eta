@@ -179,51 +179,31 @@ internal class SmoothTextRevealCoordinator {
             }
 
             drainedState.value = false
-            var previousFrameNanos = withFrameNanos { it }
             while (currentCoroutineContext().isActive) {
                 if (animationsHeld || (firstPendingRecord() ?: firstAnimatingRecord()) == null) break
                 val frameNanos = withFrameNanos { it }
                 if (animationsHeld) break
-                val elapsedSeconds = ((frameNanos - previousFrameNanos) / NANOS_PER_SECOND)
-                    .coerceIn(0f, MAX_FRAME_DELTA_SECONDS)
-                previousFrameNanos = frameNanos
 
                 // 淡入窗按真实帧时刻变老：已经追平、只剩渐变的字素靠这里收尾。
                 records.values.forEach { candidate ->
                     if (candidate.advanceFade(frameNanos)) candidate.node?.onRevealDataChanged()
                 }
 
-                val totalBacklog = records.values.sumOf { candidate ->
-                    max(0.0, (candidate.targetCount - candidate.progress).toDouble())
-                }.toFloat()
-                // Keep the existing adaptive speed (including its 240-grapheme/s
-                // ceiling), but carry one frame's budget across leaves as upstream
-                // does. A short block must not discard the rest of this frame.
-                var remainingAdvance = io.github.mangi.eta.ui.components.advanceSmoothReveal(
-                    current = 0f, target = totalBacklog,
-                    elapsedSeconds = elapsedSeconds, totalBacklog = totalBacklog,
-                )
                 val fadeDurationNanos = io.github.mangi.eta.ui.components.REVEAL_FADE_NANOS
                 var frameAdvance = 0f
                 val newlyStarted = mutableSetOf<RevealBlockKey>()
                 for (record in records.values) {
-                    if (remainingAdvance <= 0f) break
                     if (record.node == null || record.layoutResult == null) continue
-                    val pending = record.targetCount - record.progress
-                    if (pending <= 0f) continue
+                    if (record.progress >= record.targetCount) continue
+                    // 到达即显现：本帧到达的字素当帧跨过显现线，不再按打字机速度排队；
+                    // 单个字素的渐变与上浮仍由固定时长驱动。
                     val previous = record.progress
-                    record.progress = (previous + remainingAdvance.coerceAtMost(pending))
-                        .coerceAtMost(record.targetCount)
-                    val advance = record.progress - previous
-                    remainingAdvance = (remainingAdvance - advance).coerceAtLeast(0f)
-                    frameAdvance += advance
-                    if (advance > 0f) {
-                        // 本帧新跨过完整显现线的字素带上同一出现时刻；淡入时长固定，
-                        // 由帧时钟按真实经过时间驱动渐变与上浮。
-                        record.fadeDurationNanos = fadeDurationNanos
-                        record.noteRevealedGlyphs(frameNanos)
-                        if (record.key !in startedState.value) newlyStarted += record.key
-                    }
+                    record.progress = record.targetCount
+                    frameAdvance += record.progress - previous
+                    // 同一帧到达的字素共用同一出现时刻，各自按真实帧时刻老化。
+                    record.fadeDurationNanos = fadeDurationNanos
+                    record.noteRevealedGlyphs(frameNanos)
+                    if (record.key !in startedState.value) newlyStarted += record.key
                     record.node?.onRevealDataChanged()
                 }
                 if (newlyStarted.isNotEmpty()) startedState.value = startedState.value + newlyStarted
@@ -731,26 +711,6 @@ internal fun updateGraphemeBoundaries(
     }
 }
 
-internal fun smoothRevealSpeed(totalBacklog: Float): Float =
-    max(BASE_REVEAL_GRAPHEMES_PER_SECOND, totalBacklog / TARGET_CATCH_UP_SECONDS)
-
-internal fun advanceSmoothReveal(
-    current: Float,
-    target: Float,
-    elapsedSeconds: Float,
-    totalBacklog: Float,
-): Float {
-    if (current >= target) return target
-    // 帧间隔已在调用侧限制在 MAX_FRAME_DELTA_SECONDS 内，单帧推进量由自适应速度决定。
-    // 不能再加每帧 1 字素的硬上限，否则积压时追赶速度失效，输出会稳定滞后于模型。
-    val advance = (smoothRevealSpeed(totalBacklog) * elapsedSeconds).coerceAtLeast(0f)
-    return (current + advance).coerceAtMost(target)
-}
-
-private const val NANOS_PER_SECOND = 1_000_000_000f
-private const val MAX_FRAME_DELTA_SECONDS = 0.05f
-private const val BASE_REVEAL_GRAPHEMES_PER_SECOND = 36f
-private const val TARGET_CATCH_UP_SECONDS = 0.20f
 /** 字素刚出现时相对最终位置的下沉比例（按行高衡量）。 */
 private const val FADE_RISE_LINE_FRACTION = 0.12f
 /** 低于这个不透明度的字素不再单独建层，直接跳过。 */

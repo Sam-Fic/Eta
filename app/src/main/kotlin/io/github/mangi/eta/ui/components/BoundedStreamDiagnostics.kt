@@ -19,7 +19,7 @@ internal object StreamDiagnosticLabels {
         "chat.compose", "chat.compose.elapsed", "chat.input.compose", "timeline.project", "timeline.prefaces", "gallery.scan", "gallery.parse", "gallery.hit", "gallery.skip",
         "markdown.target", "markdown.coalesced", "markdown.queueWait", "markdown.parse", "markdown.superseded",
         "markdown.publishBlock", "markdown.targetToPublish", "markdown.publish", "markdown.layout", "markdown.blockDraw",
-        "reveal.frameGap", "reveal.step", "reveal.backlog", "reveal.remeasure",
+        "reveal.frameGap", "reveal.step", "reveal.remeasure",
         "scroll.state", "tail.clippedPx", "tail.breachPx", "follow.initialSnap", "follow.decision", "follow.frameGap",
         "follow.scroll", "follow.step", "follow.cancelled", "follow.viewportRecovery",
         "heap.usedBytes", "main.frameMessages", "main.otherMessages", "main.message", "main.doFrame",

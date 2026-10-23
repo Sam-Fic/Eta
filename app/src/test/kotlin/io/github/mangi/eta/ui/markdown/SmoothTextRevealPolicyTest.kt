@@ -110,92 +110,6 @@ class SmoothTextRevealPolicyTest {
     }
 
     @Test
-    fun revealSpeedUsesBaseRateThenCatchesUpWithoutCeiling() {
-        assertEquals(36f, smoothRevealSpeed(totalBacklog = 0f), FLOAT_TOLERANCE)
-        assertEquals(45f, smoothRevealSpeed(totalBacklog = 9f), FLOAT_TOLERANCE)
-        assertEquals(100f, smoothRevealSpeed(totalBacklog = 20f), FLOAT_TOLERANCE)
-        assertEquals(5_000f, smoothRevealSpeed(totalBacklog = 1_000f), FLOAT_TOLERANCE)
-        assertEquals(50_000f, smoothRevealSpeed(totalBacklog = 10_000f), FLOAT_TOLERANCE)
-    }
-
-    @Test
-    fun normalFrameAdvancesFractionallyAtBaseRate() {
-        assertEquals(
-            0.6f,
-            advanceSmoothReveal(
-                current = 0f,
-                target = 10f,
-                elapsedSeconds = 1f / 60f,
-                totalBacklog = 1f,
-            ),
-            FLOAT_TOLERANCE,
-        )
-    }
-
-    @Test
-    fun catchUpAdvancesBeyondFormerSpeedCap() {
-        assertEquals(
-            253f,
-            advanceSmoothReveal(
-                current = 3f,
-                target = 1_000f,
-                elapsedSeconds = 0.05f,
-                totalBacklog = 1_000f,
-            ),
-            FLOAT_TOLERANCE,
-        )
-    }
-
-    @Test
-    fun sustainedFastOutputDoesNotAccumulateUnboundedBacklog() {
-        var target = 0f
-        var progress = 0f
-        repeat(600) {
-            target += 20f
-            progress = advanceSmoothReveal(progress, target, 1f / 60f, target - progress)
-        }
-        assertTrue(target - progress < 300f)
-        repeat(90) {
-            progress = advanceSmoothReveal(progress, target, 1f / 60f, target - progress)
-        }
-        assertEquals(target, progress, FLOAT_TOLERANCE)
-    }
-
-    @Test
-    fun frameAdvanceClampsInvalidTimeAndTargetBounds() {
-        assertEquals(
-            2f,
-            advanceSmoothReveal(
-                current = 2f,
-                target = 10f,
-                elapsedSeconds = -1f,
-                totalBacklog = 10f,
-            ),
-            FLOAT_TOLERANCE,
-        )
-        assertEquals(
-            5f,
-            advanceSmoothReveal(
-                current = 4.75f,
-                target = 5f,
-                elapsedSeconds = 1f,
-                totalBacklog = 100f,
-            ),
-            FLOAT_TOLERANCE,
-        )
-        assertEquals(
-            5f,
-            advanceSmoothReveal(
-                current = 7f,
-                target = 5f,
-                elapsedSeconds = 1f,
-                totalBacklog = 100f,
-            ),
-            FLOAT_TOLERANCE,
-        )
-    }
-
-    @Test
     fun markdownDocumentCollapsesSourceBlankLinesIntoSemanticBlocks() {
         val snapshot = DocumentGfmParserSession().parse(
             source = "第一段\n\n\n第二段",
@@ -253,9 +167,5 @@ class SmoothTextRevealPolicyTest {
             graphemeBoundaries(replacement),
             updateGraphemeBoundaries(previous, graphemeBoundaries(previous), replacement),
         )
-    }
-
-    private companion object {
-        const val FLOAT_TOLERANCE = 0.0001f
     }
 }

@@ -51,5 +51,7 @@ class SafeJankFixContract(unittest.TestCase):
         self.assertIn('records.tailMap(cursor)', finder)
         self.assertNotIn('records.values.firstOrNull', finder)
         clock = reveal.split('suspend fun runFrameClock', 1)[1].split('private fun updateRecord', 1)[0]
-        self.assertIn('advanceSmoothReveal(', clock)
+        # 到达即显现：帧时钟直接把进度追平到目标，不再经过打字机速度排队。
+        self.assertIn('record.progress = record.targetCount', clock)
+        self.assertNotIn('advanceSmoothReveal(', clock)
         self.assertEqual(clock.count('firstPendingRecord()'), 2)
