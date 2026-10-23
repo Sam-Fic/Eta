@@ -20,6 +20,16 @@ internal object ProviderCredentialRepository {
         sessions = ProviderCredentialSessions(EncryptedProviderCredentialStorage(context), LiveProviderOAuthClient())
     }
 
+    /**
+     * 测试入口：注入内存存储。真实存储加密在 AndroidKeyStore 里，Robolectric 没有该 Keystore，
+     * 不注入就只能验证到表结构那层，而“删 provider 时凭据也被清”才是这条链路的关键。
+     * 传 null 让下一次 init 重新绑定到真实存储。
+     */
+    @Synchronized
+    internal fun replaceSessionsForTests(value: ProviderCredentialSessions?) {
+        sessions = value
+    }
+
     fun account(providerId: String, authMode: String): ProviderAccountSummary? =
         sessions().account(providerId, authMode)
 

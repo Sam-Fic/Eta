@@ -186,6 +186,39 @@ class AuthorizedProviderHttpTest {
         }
     }
 
+    @Test
+    fun eventListenerRegisteredBeforeExecuteStillReachesTheUnderlyingCall() {
+        // OkHttp 的正常用法是先 addEventListener 再 enqueue/execute。那时本对象还没有底层 call，
+        // 监听必须先排队、prepare 时补上；直接转给 current 会静默丢弃。
+        val callStarts = AtomicInteger()
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            response(chain.request(), 200)
+        }.build()
+        val factory = AuthorizedProviderHttp.callFactory(
+            client, "account", ProviderAuthModes.OPENAI_CHATGPT, AgentRunController(),
+            accessToken = { _, _, _, _ -> CodexOAuthFixture.accessToken() },
+        )
+        val call = factory.newCall(request())
+        call.addEventListener(object : okhttp3.EventListener() {
+            override fun callStart(call: okhttp3.Call) {
+                callStarts.incrementAndGet()
+            }
+        })
+        call.execute().use { assertEquals(200, it.code) }
+        assertEquals(1, callStarts.get())
+    }
+
+    @Test
+    fun timeoutBeforeExecuteIsAnOkioTimeoutInsteadOfCrashing() {
+        // OkHttp 5 把 Timeout 移到了 okio；尚未 prepare 时也要能回应一个合法实例。
+        val factory = AuthorizedProviderHttp.callFactory(
+            OkHttpClient(), "account", ProviderAuthModes.OPENAI_CHATGPT, AgentRunController(),
+            accessToken = { _, _, _, _ -> CodexOAuthFixture.accessToken() },
+        )
+        val timeout: okio.Timeout = factory.newCall(request()).timeout()
+        assertTrue(timeout === okio.Timeout.NONE)
+    }
+
     private fun request() = Request.Builder()
         .url(ProviderConnectionProfile.OPENAI_CODEX.inferenceUrl).build()
 

@@ -140,9 +140,13 @@ internal object ProviderRepository {
         forgetCredentials(id)
         val restored = seedOfficialModelsIfEmpty(
             current
-            ?.let {
-                builtIn.withApiKey(it.apiKey.takeIf { it.authMode == ProviderAuthModes.API_KEY }.orEmpty())
-                    .withSortOrder(it.sortOrder)
+            ?.let { existing ->
+                // 只有 API Key 认证的配置才把旧 apiKey 带回来；OAuth 账号的 apiKey 是占位，
+                // 不能当凭据复制。takeIf 的 it 是 apiKey（String），所以继续要显式命名外层。
+                val apiKey = existing.apiKey
+                    .takeIf { existing.authMode == ProviderAuthModes.API_KEY }
+                    .orEmpty()
+                builtIn.withApiKey(apiKey).withSortOrder(existing.sortOrder)
             }
             ?: builtIn
         )

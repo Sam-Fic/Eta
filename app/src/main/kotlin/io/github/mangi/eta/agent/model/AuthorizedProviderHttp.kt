@@ -5,8 +5,10 @@ import io.github.mangi.eta.agent.auth.CodexOAuth
 import io.github.mangi.eta.data.provider.ProviderConnectionProfile
 import io.github.mangi.eta.data.repository.ProviderCredentialRepository
 import java.io.IOException
+import kotlin.reflect.KClass
 import okhttp3.Call
 import okhttp3.Callback
+import okhttp3.EventListener
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -105,6 +107,7 @@ internal object AuthorizedProviderHttp {
         private val accessToken: (String, String, AgentRunController, String?) -> String,
     ) : Call {
         private val lock = Any()
+        private val pendingEventListeners = mutableListOf<EventListener>()
         private var current: Call? = null
         private var currentToken: String? = null
         private var executed = false
@@ -177,6 +180,9 @@ internal object AuthorizedProviderHttp {
             synchronized(lock) {
                 current = call
                 currentToken = token
+                // 排队的监听按注册顺序补；补完就清掉，避免重试时重复注册到新 call 上。
+                pendingEventListeners.forEach(call::addEventListener)
+                pendingEventListeners.clear()
             }
             return call
         }
@@ -192,7 +198,36 @@ internal object AuthorizedProviderHttp {
 
         override fun isCanceled(): Boolean = synchronized(lock) { canceled }
 
-        override fun timeout(): okhttp3.Timeout = synchronized(lock) { current?.timeout() } ?: okhttp3.Timeout()
+        // OkHttp 5 把 Timeout 从 okhttp3 移到了 okio 包，返回类型跟着变。
+        // 还没有底层 call 时给 NONE：它是官方的“永不超时”实例，不是自己 new 出来的空壳。
+        override fun timeout(): okio.Timeout =
+            synchronized(lock) { current?.timeout() } ?: okio.Timeout.NONE
+
+        // OkHttp 5 的 Call 新增了这组委托（4 个 tag 重载 + 事件监听器），都要透传给真正的 call。
+        // 请求发出前还没有 current，查询退回原请求：Call 的 tag 本来就由 Request 的 tag 播种。
+        override fun <T : Any> tag(type: KClass<T>): T? =
+            synchronized(lock) { current?.tag(type) } ?: original.tag(type)
+
+        override fun <T> tag(type: Class<out T>): T? =
+            synchronized(lock) { current?.tag(type) } ?: original.tag(type)
+
+        // compute 重载在 Request 上没有对应 API，无 current 时按官方语义自己算一份：
+        // 算出来的不写回 Request（Call 的 tag 集只增不减、且不反向污染 Request），
+        // 只保证本次调用拿到同一个值。
+        override fun <T : Any> tag(type: KClass<T>, computeIfAbsent: () -> T): T =
+            synchronized(lock) { current?.tag(type, computeIfAbsent) } ?: original.tag(type) ?: computeIfAbsent()
+
+        override fun <T : Any> tag(type: Class<T>, computeIfAbsent: () -> T): T =
+            synchronized(lock) { current?.tag(type, computeIfAbsent) } ?: original.tag(type) ?: computeIfAbsent()
+
+        // 监听器必须在 execute() 之前注册（OkHttp 的正常用法），那时还没有底层 call，
+        // 所以先排队，prepare 造出真 call 时再补上——直接转给 current 会静默丢掉监听。
+        override fun addEventListener(eventListener: EventListener) {
+            synchronized(lock) {
+                val call = current
+                if (call == null) pendingEventListeners += eventListener else call.addEventListener(eventListener)
+            }
+        }
 
         public override fun clone(): Call = AuthorizedCall(
             client, profile, providerId, authMode, controller, original, accessToken,

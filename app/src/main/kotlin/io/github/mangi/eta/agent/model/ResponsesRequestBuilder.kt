@@ -1,6 +1,7 @@
 package io.github.mangi.eta.agent.model
 
 import io.github.mangi.eta.data.model.ProviderAuthModes
+import io.github.mangi.eta.data.model.ReasoningEffort
 import io.github.mangi.eta.data.model.SessionGatewayRule
 import org.json.JSONArray
 import org.json.JSONObject

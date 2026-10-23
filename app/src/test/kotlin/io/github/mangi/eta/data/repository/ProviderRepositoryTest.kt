@@ -4,13 +4,18 @@ import android.content.Context
 import io.github.mangi.eta.data.datastore.SettingsDataStore
 import io.github.mangi.eta.data.db.toEntity
 import io.github.mangi.eta.data.db.toModelEntities
-import io.github.mangi.eta.agent.model.oauth.ProviderOAuthStore
+import io.github.mangi.eta.agent.auth.MemoryProviderCredentialStorage
+import io.github.mangi.eta.agent.auth.FakeProviderOAuthClient
+import io.github.mangi.eta.agent.auth.ProviderCredential
+import io.github.mangi.eta.agent.auth.ProviderCredentialSessions
+import io.github.mangi.eta.data.model.ProviderAuthModes
 import io.github.mangi.eta.data.db.EtaDatabase
 import io.github.mangi.eta.data.model.CustomHeader
 import io.github.mangi.eta.data.model.OpenAiCompatibleProviderSetting
 import io.github.mangi.eta.data.model.ProviderSetting
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -38,7 +43,7 @@ class ProviderRepositoryTest {
     }
 
     @Test
-    fun startupRemovesLegacyProviderAndCredentialsWithoutAffectingCodex() = runBlocking {
+    fun startupRemovesLegacyProviderAndItsCredentialsWithoutAffectingOthers() = runBlocking {
         val legacy = sampleProvider(id = "retired").copy(
             baseUrl = "https://daily-cloudcode-pa.googleapis.com",
             endpointMode = "antigravity",
@@ -47,26 +52,40 @@ class ProviderRepositoryTest {
         val dao = EtaDatabase.get(context).providerDao()
         dao.replaceProvider(legacy.toEntity(), legacy.toModelEntities())
         val normal = ProviderRepository.addProvider(sampleProvider(id = "normal"))
-        val store = ProviderOAuthStore(context)
-        store.saveString("retired", "project_id", "test-project")
-        store.saveTokens("retired", org.json.JSONObject().put("access_token", "test-retired"))
-        store.saveString("orphaned", "api_host", "https://daily-cloudcode-pa.googleapis.com")
-        store.saveTokens("orphaned", org.json.JSONObject().put("access_token", "test-orphaned"))
-        store.saveTokens("normal", org.json.JSONObject().put("access_token", "test-codex"))
-        SettingsDataStore.setSelection(legacy.id, legacy.models.first().id)
-        assertTrue(ProviderRepository.providerById(legacy.id) == null)
+        // 凭据已换成加密存储（旧 ProviderOAuthStore 的明文 preferences 已删除）；
+        // 真实加密存储在 AndroidKeyStore 里，Robolectric 没有，故注入内存实现。
+        val storage = MemoryProviderCredentialStorage().apply {
+            write("retired", credential(ProviderAuthModes.OPENAI_CHATGPT, "test-retired"))
+            write(normal.id, credential(ProviderAuthModes.OPENAI_CHATGPT, "test-codex"))
+        }
+        ProviderCredentialRepository.replaceSessionsForTests(
+            ProviderCredentialSessions(storage, FakeProviderOAuthClient()),
+        )
+        try {
+            SettingsDataStore.setSelection(legacy.id, legacy.models.first().id)
+            assertTrue(ProviderRepository.providerById(legacy.id) == null)
 
-        ProviderRepository.ensureBuiltInsMerged()
-        ProviderRepository.ensureBuiltInsMerged() // idempotent; also used after backup import
+            ProviderRepository.ensureBuiltInsMerged()
+            ProviderRepository.ensureBuiltInsMerged() // idempotent; also used after backup import
 
-        assertTrue(dao.providerById(legacy.id) == null)
-        assertTrue(dao.models(legacy.id).isEmpty())
-        assertTrue(store.loadTokens("retired") == null)
-        assertTrue(store.loadTokens("orphaned") == null)
-        assertEquals("test-codex", store.loadTokens("normal")?.optString("access_token"))
-        assertEquals(normal.id, SettingsDataStore.settings().selectedProviderId)
-        assertTrue(ProviderRepository.providerById(normal.id) != null)
+            assertTrue(dao.providerById(legacy.id) == null)
+            assertTrue(dao.models(legacy.id).isEmpty())
+            // 被移除的接入的凭据跟着清掉；正常提供商的凭据必须留着。
+            assertNull(storage.read("retired"))
+            assertEquals("test-codex", storage.read(normal.id)?.accessToken)
+            assertEquals(normal.id, SettingsDataStore.settings().selectedProviderId)
+            assertTrue(ProviderRepository.providerById(normal.id) != null)
+        } finally {
+            ProviderCredentialRepository.replaceSessionsForTests(null)
+        }
     }
+
+    private fun credential(authMode: String, accessToken: String) = ProviderCredential(
+        authMode = authMode,
+        clientId = "test-client",
+        subject = "test-subject",
+        accessToken = accessToken,
+    )
 
     @Test
     fun builtInProvidersAreNotSeeded() = runBlocking {
