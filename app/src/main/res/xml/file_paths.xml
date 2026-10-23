@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
-    <cache-path name="updates" path="updates/" />
-    <cache-path name="browser_shares" path="browser-shares/" />
-    <cache-path name="chat_files" path="chat-files/" />
-    <cache-path name="camera_captures" path="camera-captures/" />
-    <cache-path name="apk_share" path="apk-share/" />
+    <!-- 预览的“用其他应用打开 / 分享 / 保存到相册”直接操作【原始文件 / 原始路径 / 原始文件名】，
+         不再复制改名，因此需要把原始文件可能所在的全部根目录都声明出来。
+         FileProvider 仅按 URI 粒度授予我们显式创建的那个文件的读权限，扩大根目录不会扩大暴露面。 -->
+    <cache-path name="app_cache" path="." />
+    <files-path name="app_files" path="." />
+    <external-path name="external" path="." />
+    <root-path name="eta_tmp" path="data/local/tmp/eta/" />
 </paths>

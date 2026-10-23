@@ -7,6 +7,7 @@ import android.net.Uri
 import android.provider.MediaStore
 import android.widget.VideoView
 import androidx.compose.ui.viewinterop.AndroidView
+import java.util.Locale
 import androidx.core.content.FileProvider
 import io.github.mangi.eta.agent.media.AgentVideoCodec
 import androidx.activity.compose.BackHandler
@@ -428,7 +429,13 @@ private fun ChatImagePreviewDialog(
                             ChatImageGallery.saveVideo(context, source)
                         } else {
                             val payload = loaded ?: return@withContext null
-                            ChatImageGallery.save(context, payload.bytes, payload.mimeType)
+                            // 保存到相册保留原始文件名（原始文件 / 原始名字，不重命名）。
+                            ChatImageGallery.save(
+                                context,
+                                payload.bytes,
+                                payload.mimeType,
+                                previewOriginalName(context, source),
+                            )
                         }
                     }
                     saving = false
@@ -758,11 +765,11 @@ private fun contentUriAbsolutePath(context: Context, source: String): String? {
 /**
  * 预览源 → 可授予临时读权限的 content uri + MIME，供“用其他应用打开”与“分享”共用。
  *
- * FileProvider 在 file_paths.xml 只声明了 cacheDir/chat-files/ 这一个根，因此无论源是
- * 本地绝对路径（含 /workspace、minis:// 折算到的宿主路径）、http(s)、data: 还是
- * content://，都统一把文件/字节落进 chat-files/ 缓存，再对该缓存文件生成 content uri；
- * 绝不直接对非缓存根路径调用 getUriForFile（否则抛 IllegalArgumentException 闪退）。
- * 整段 IO 与 Uri 生成都包在 runCatching 中，失败向上返回 null 由调用方降级提示。
+ * 设计原则：直接操作【原始文件 / 原始路径 / 原始文件名】——不复制、不重命名。
+ * file_paths.xml 已声明原始文件可能所在的全部根目录（cache、files、外部存储、终端 workspace），
+ * 因此这里拿到的就是原始文件本身；FileProvider 生成的 content uri 会自动沿用原始文件名，
+ * 接收方不会再把它误判成图片。整段包在 runCatching：仅当源既非本地文件、又无已加载字节
+ * （如纯 data:/无法落地的 http）时才降级返回 null，由调用方提示失败。
  */
 private fun previewSharePayload(
     context: Context,
@@ -770,12 +777,10 @@ private fun previewSharePayload(
     loaded: LoadedChatImage?,
 ): Pair<Uri, String>? = runCatching {
     val authority = "${context.packageName}.fileprovider"
-    val directory = java.io.File(context.cacheDir, "chat-files")
-    if (!directory.isDirectory && !directory.mkdirs()) return@runCatching null
-
+    val isVideo = AgentVideoCodec.isVideoSource(source)
     val localPath = previewAbsolutePath(context, source)
-    // 本地真实文件（折算后的宿主路径、cache 缓存、外部存储等任意可读路径）：复制到
-    // chat-files/ 缓存目录，避免直接分享宿主路径触发 FileProvider 根校验异常。
+    // 本地真实文件（file://、绝对路径、/workspace、minis:// 折算的宿主路径、外部存储等）：
+    // 直接分享原始文件本体，文件名即原始文件名，不复制改名。
     if (localPath != null &&
         !localPath.startsWith("content://", ignoreCase = true) &&
         !localPath.startsWith("http://", ignoreCase = true) &&
@@ -783,21 +788,62 @@ private fun previewSharePayload(
     ) {
         val file = java.io.File(localPath)
         if (file.isFile) {
-            val mime = loaded?.mimeType
-                ?: AgentVideoCodec.sniffFile(file)
-                ?: "application/octet-stream"
-            val target = java.io.File(directory, chatImageFileName(mime))
-            file.copyTo(target, overwrite = true)
-            return@runCatching FileProvider.getUriForFile(context, authority, target) to mime
+            // 视频按真实视频 MIME（嗅探 + 扩展名兜底），其余用已加载 MIME 或嗅探。
+            val mime = if (isVideo) {
+                videoMimeForFile(file)
+            } else {
+                loaded?.mimeType ?: AgentVideoCodec.sniffFile(file) ?: "application/octet-stream"
+            }
+            return@runCatching FileProvider.getUriForFile(context, authority, file) to mime
         }
     }
-    // 其余无法定位本地文件的源（http(s)、data:、Photo Picker content uri 等）：依赖
-    // 预览已加载进内存的字节落缓存；没有字节则无法分享，返回 null 由调用方提示失败。
+    // 非本地源（http(s)/data: 等没有本机文件）：用已加载字节落盘到 cache 再分享。
+    // 此处无法还原“原始文件名”，按 MIME 给合理扩展名，但仍走原始字节、不重新编码。
     val payload = loaded ?: return@runCatching null
-    val cacheFile = java.io.File(directory, chatImageFileName(payload.mimeType))
+    val directory = java.io.File(context.cacheDir, "chat-files")
+    if (!directory.isDirectory && !directory.mkdirs()) return@runCatching null
+    val cacheFile = java.io.File(
+        directory,
+        if (isVideo) chatVideoFileName(payload.mimeType) else chatImageFileName(payload.mimeType),
+    )
     cacheFile.writeBytes(payload.bytes)
     FileProvider.getUriForFile(context, authority, cacheFile) to payload.mimeType
 }.getOrNull()
+
+/**
+ * 视频文件 → 视频 MIME：先嗅探头（mp4/webm），嗅不到再按扩展名推断
+ * （mov/mkv/avi/3gp 等嗅探库认不出，否则会回退成 application/octet-stream）。
+ */
+private fun videoMimeForFile(file: java.io.File): String {
+    return AgentVideoCodec.sniffFile(file) ?: when (file.extension.lowercase(Locale.US)) {
+        "webm" -> "video/webm"
+        "mov" -> "video/quicktime"
+        "mkv" -> "video/x-matroska"
+        "3gp" -> "video/3gpp"
+        "avi" -> "video/x-msvideo"
+        else -> "video/mp4"
+    }
+}
+
+/**
+ * 预览源 → 原始文件名（用于“保存到相册”时保留原名，不重命名）。
+ * 本地文件取文件本名；http(s) 取 URL 末段（带扩展名时）；data:/content:// 无本名返回空串，
+ * 由上层回退到生成名。
+ */
+private fun previewOriginalName(context: Context, source: String): String {
+    val trimmed = source.trim()
+    return when {
+        trimmed.startsWith("data:", ignoreCase = true) -> ""
+        trimmed.startsWith("content://", ignoreCase = true) -> ""
+        trimmed.startsWith("http://", ignoreCase = true) ||
+            trimmed.startsWith("https://", ignoreCase = true) ->
+            trimmed.substringAfterLast('/').substringBefore('?').takeIf { it.contains('.') } ?: ""
+        else -> {
+            val p = previewAbsolutePath(context, trimmed) ?: trimmed
+            java.io.File(p).name
+        }
+    }
+}
 
 @Composable
 private fun ChatImagePreviewPage(

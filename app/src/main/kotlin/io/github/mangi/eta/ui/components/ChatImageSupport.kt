@@ -152,13 +152,15 @@ internal object ChatImageGallery {
     private const val IMAGE_DIR = "Pictures/Eta"
     private const val VIDEO_DIR = "Movies/Eta"
 
-    fun save(context: Context, bytes: ByteArray, mimeType: String): Uri? {
+    fun save(context: Context, bytes: ByteArray, mimeType: String, displayName: String = ""): Uri? {
         if (bytes.isEmpty()) return null
         val mime = mimeType.ifBlank { sniffMimeType(bytes) }
+        // 优先用调用方传入的原始文件名；为空（如纯 data: 生成图）才退回生成名，不擅自重命名。
+        val name = displayName.ifBlank { chatImageFileName(mime) }
         return writePending(
             context = context,
             collection = MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-            displayName = chatImageFileName(mime),
+            displayName = name,
             mimeType = mime,
             relativePath = IMAGE_DIR,
             bytes = bytes,
@@ -171,10 +173,11 @@ internal object ChatImageGallery {
         val mime = AgentVideoCodec.sniffFile(file)
             ?: AgentVideoCodec.previewFromFile(file, source)?.mimeType
             ?: "video/mp4"
+        // 保存到相册保留原始文件名（file.name），不重命名为 Eta-时间戳。
         return writePending(
             context = context,
             collection = MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-            displayName = chatVideoFileName(mime, file.name),
+            displayName = file.name,
             mimeType = mime,
             relativePath = VIDEO_DIR,
             bytes = file.readBytes(),
