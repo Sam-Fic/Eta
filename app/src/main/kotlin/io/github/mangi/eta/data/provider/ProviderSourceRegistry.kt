@@ -10,6 +10,7 @@ internal object ProviderSourceRegistry {
     private val knownSourceTypes = setOf(
         ProviderSourceTypes.CUSTOM,
         ProviderSourceTypes.OPENAI,
+        ProviderSourceTypes.XAI,
         ProviderSourceTypes.ANTHROPIC,
         ProviderSourceTypes.BAILIAN,
         ProviderSourceTypes.DEEPSEEK,
@@ -29,7 +30,7 @@ internal object ProviderSourceRegistry {
     }
 
     fun resolve(provider: ProviderSetting): String =
-        resolve(
+        ProviderConnectionProfile.forAuthMode(provider.authMode)?.sourceType ?: resolve(
             providerId = provider.id,
             sourceType = provider.sourceType,
             baseUrl = provider.baseUrl,
@@ -57,6 +58,7 @@ internal object ProviderSourceRegistry {
     private fun sourceTypeFromProviderId(providerId: String?): String? =
         when (providerId) {
             BuiltinProviders.OPENAI_ID -> ProviderSourceTypes.OPENAI
+            BuiltinProviders.XAI_ID -> ProviderSourceTypes.XAI
             BuiltinProviders.ANTHROPIC_ID -> ProviderSourceTypes.ANTHROPIC
             BuiltinProviders.BAILIAN_ID -> ProviderSourceTypes.BAILIAN
             BuiltinProviders.DEEPSEEK_ID -> ProviderSourceTypes.DEEPSEEK
@@ -73,6 +75,7 @@ internal object ProviderSourceRegistry {
         val httpUrl = baseUrl?.trim()?.toHttpUrlOrNull() ?: return null
         return when {
             httpUrl.host == "api.openai.com" -> ProviderSourceTypes.OPENAI
+            httpUrl.host == "api.x.ai" || httpUrl.host == "cli-chat-proxy.grok.com" -> ProviderSourceTypes.XAI
             httpUrl.host == "chatgpt.com" -> ProviderSourceTypes.OPENAI
             httpUrl.host == "api.anthropic.com" -> ProviderSourceTypes.ANTHROPIC
             httpUrl.host == "api.deepseek.com" -> ProviderSourceTypes.DEEPSEEK

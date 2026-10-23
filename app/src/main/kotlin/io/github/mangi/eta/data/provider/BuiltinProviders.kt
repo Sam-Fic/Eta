@@ -17,6 +17,7 @@ internal object BuiltinProviders {
     const val STEPFUN_ID = "builtin-stepfun"
     const val SILICONFLOW_ID = "builtin-siliconflow"
     const val OPENROUTER_ID = "builtin-openrouter"
+    const val XAI_ID = "builtin-xai"
 
     val PROVIDERS: List<ProviderSetting> = emptyList()
 

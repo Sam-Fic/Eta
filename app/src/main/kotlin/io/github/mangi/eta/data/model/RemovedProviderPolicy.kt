@@ -10,7 +10,7 @@ internal object RemovedProviderPolicy {
         val host = baseUrl.trim().toHttpUrlOrNull()?.host.orEmpty()
         return endpointMode.trim().equals("antigravity", ignoreCase = true) ||
             authMode.trim().equals("oauth_antigravity", ignoreCase = true) ||
-            authMode.trim().equals(ProviderAuthMode.REMOVED, ignoreCase = true) ||
+            authMode.trim().equals(ProviderAuthModes.REMOVED, ignoreCase = true) ||
             host == "cloudcode-pa.googleapis.com" ||
             host == "daily-cloudcode-pa.googleapis.com" ||
             host == "daily-cloudcode-pa.sandbox.googleapis.com"

@@ -8,7 +8,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
  */
 internal object SpeechSynthesisModels {
     fun allowsSpeechEndpoint(provider: ProviderSetting): Boolean =
-        provider !is AnthropicProviderSetting && !ProviderAuthMode.isOAuth(provider.authMode) &&
+        provider !is AnthropicProviderSetting && !ProviderAuthModes.isOAuth(provider.authMode) &&
             !provider.baseUrl.contains("chatgpt.com", ignoreCase = true) && provider.isEnabled
 
     fun isReadAloudProvider(provider: ProviderSetting): Boolean =

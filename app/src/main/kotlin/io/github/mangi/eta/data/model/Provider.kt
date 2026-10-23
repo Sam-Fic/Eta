@@ -18,6 +18,7 @@ internal object OpenAiEndpointMode {
 internal object ProviderSourceTypes {
     const val CUSTOM = "custom"
     const val OPENAI = "openai"
+    const val XAI = "xai"
     const val ANTHROPIC = "anthropic"
     const val BAILIAN = "bailian"
     const val DEEPSEEK = "deepseek"
@@ -80,7 +81,7 @@ data class OpenAiCompatibleProviderSetting(
     override val customHeaders: List<CustomHeader> = emptyList(),
     override val customBody: List<CustomBody> = emptyList(),
     override val createdAt: Long = System.currentTimeMillis(),
-    override val authMode: String = ProviderAuthMode.DEFAULT,
+    override val authMode: String = ProviderAuthModes.API_KEY,
     val endpointMode: String = OpenAiEndpointMode.CHAT_COMPLETIONS,
     override val responsesStripReasoningStatus: Boolean = false,
     override val hostedWebSearchEnabled: Boolean = false,
@@ -104,7 +105,7 @@ data class AnthropicProviderSetting(
     override val customHeaders: List<CustomHeader> = emptyList(),
     override val customBody: List<CustomBody> = emptyList(),
     override val createdAt: Long = System.currentTimeMillis(),
-    override val authMode: String = ProviderAuthMode.DEFAULT,
+    override val authMode: String = ProviderAuthModes.API_KEY,
     val anthropicVersion: String = DEFAULT_ANTHROPIC_VERSION,
     override val balanceOption: BalanceOption = BalanceOption(),
     override val sessionGatewayJson: String = "",
@@ -130,7 +131,7 @@ data class CustomProviderSetting(
     override val customHeaders: List<CustomHeader> = emptyList(),
     override val customBody: List<CustomBody> = emptyList(),
     override val createdAt: Long = System.currentTimeMillis(),
-    override val authMode: String = ProviderAuthMode.DEFAULT,
+    override val authMode: String = ProviderAuthModes.API_KEY,
     val endpointMode: String = OpenAiEndpointMode.CHAT_COMPLETIONS,
     override val responsesStripReasoningStatus: Boolean = false,
     override val hostedWebSearchEnabled: Boolean = false,
