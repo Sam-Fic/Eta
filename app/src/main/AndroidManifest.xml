@@ -19,6 +19,9 @@
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
+    <!-- 日历免 Root 读写：授权后日历工具直接走 CalendarContract，无需 Root 直达 Provider。 -->
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
@@ -168,14 +171,6 @@
             android:launchMode="singleInstance"
             android:taskAffinity="${applicationId}.task_surface"
             android:theme="@style/Theme.EtaTaskSurfaceDialog" />
-
-        <activity
-            android:name=".ui.OAuthLoginActivity"
-            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode"
-            android:exported="false"
-            android:label="@string/provider_oauth_login_title"
-            android:theme="@style/Theme.Eta"
-            android:windowSoftInputMode="adjustResize" />
 
         <activity
             android:name=".agent.voice.EtaVoiceAssistActivity"
