@@ -2070,6 +2070,8 @@
   <string name="speech_paste_api_key">貼上 API Key</string>
   <string name="cmi_transcript_truncated"> · 已截取</string>
   <string name="cmi_transcript_full"> · 全文</string>
+  <string name="cmi_fold_expand">展開全文</string>
+  <string name="cmi_fold_collapse">收合</string>
   <string name="mpd_speech_api_unavailable">語音介面無法使用</string>
   <string name="ast_title">如何處理子代理？</string>
   <string name="ast_body">主回覆已結束，未完成的子代理已請求暫停。保留暫停可稍後查詢並繼續；停止也會保留現有結果。返回或關閉預設保持暫停。</string>

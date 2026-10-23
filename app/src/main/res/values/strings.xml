@@ -2307,6 +2307,8 @@
   <string name="speech_paste_api_key">Paste API Key</string>
   <string name="cmi_transcript_truncated"> · Truncated</string>
   <string name="cmi_transcript_full"> · Full text</string>
+  <string name="cmi_fold_expand">Show full text</string>
+  <string name="cmi_fold_collapse">Collapse</string>
   <string name="mpd_speech_api_unavailable">Speech API unavailable</string>
   <string name="ast_title">How to handle sub-agents?</string>
   <string name="ast_body">The main reply has ended; unfinished sub-agents were asked to pause. Keeping them paused lets you check and continue later; stopping also keeps existing results. Backing out or closing keeps them paused by default.</string>

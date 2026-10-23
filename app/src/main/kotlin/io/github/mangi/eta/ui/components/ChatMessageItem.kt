@@ -103,6 +103,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.ImageBitmap
@@ -136,11 +138,13 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextMotion
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -257,6 +261,15 @@ private fun chatSurfaceColor(): Color = MaterialTheme.colorScheme.surface
 /** 嵌套容器底色：用官方 surfaceContainer 角色。 */
 @Composable
 private fun chatSurfaceContainerColor(): Color = MaterialTheme.colorScheme.surfaceContainer
+
+/**
+ * 会话页的背景色（壳层 Scaffold 的 containerColor）。
+ *
+ * 气泡底是半透明的 primary，靠它把「半透明底」合成成实际显示色；
+ * 与 `AgentAppShell` 的回页背景保持同一个官方角色，渐隐才不欠色。
+ */
+@Composable
+private fun chatPageBackgroundColor(): Color = MaterialTheme.colorScheme.surfaceContainer
 
 /** 发丝分隔线：用官方 outlineVariant 角色。 */
 @Composable
@@ -708,7 +721,12 @@ private val UserBubbleInnerCorner = 2.dp
  */
 private val UserBubbleTailWidth = 5.dp
 
-/** User 气泡普通角半径（附件行复用同档圆角）。 */
+/**
+ * 气泡正文的左右内边距。正文列宽预算与真实 padding 共用它，两处不能各写一份。
+ */
+private val UserBubbleTextPadding = 18.dp
+
+/** 气泡普通角半径（附件行复用同档圆角）。 */
 private val UserBubbleCornerRadius = 24.dp
 
 /**
@@ -722,6 +740,34 @@ private val UserBubbleAttachmentGap = 2.dp
 
 /** 用户消息（气泡本体与附件行）的宽度上限：占聊天区宽度的比例。 */
 private const val UserBubbleWidthFraction = 0.82f
+
+/**
+ * 用户气泡正文折叠阈值（行）：超过这么多行才收起，一两句话的普通消息保持原样。
+ *
+ * 判定用的是[正文自身的排版行数][androidx.compose.ui.text.TextMeasurer.measure]，
+ * 不是字符数：同样一段字在手机和宽屏上的行数差一倍，按字符数折会在宽屏上白折。
+ */
+private const val UserBubbleFoldLineLimit = 6
+
+/**
+ * 折叠态正文底部的渐隐带高度：约一行半正文。
+ *
+ * 被 [UserBubbleFoldLineLimit] 切掉的最后一行在这儿化进气泡底色，不靠省略号——
+ * 长消息的末尾本来就没有「该被省略」的内容，硬插一个「…」反而像数据被截断了。
+ */
+private val UserBubbleFoldFadeHeight = 40.dp
+
+/**
+ * 正文该不该收起：实测行数超过 [UserBubbleFoldLineLimit] 才折。
+ *
+ * 抽成纯函数是为了把边界钉在单测里（恰好 6 行不折、 7 行折），顺手避开
+ * `lineCount > limit` 这种差值条件在调用处被反复手写的风险。
+ */
+internal fun userBubbleNeedsFold(lineCount: Int): Boolean = lineCount > UserBubbleFoldLineLimit
+
+/** 折叠态实际下发的 maxLines；展开态不限行。 */
+internal fun userBubbleBodyMaxLines(collapsed: Boolean): Int =
+    if (collapsed) UserBubbleFoldLineLimit else Int.MAX_VALUE
 
 /** 图片附件单张边长（正方形）；一组图里每张一样大。 */
 private val UserBubbleImageSide = 100.dp
@@ -965,6 +1011,8 @@ private fun UserMessageBubble(
     // 组尾（含单条）承载右下角尾巴，并独占可展开的操作行；避免多个空操作行常驻。
     val isGroupTail = position == UserBubblePosition.Single || position == UserBubblePosition.GroupLast
     var actionsRevealed by rememberSaveable(message.id) { mutableStateOf(false) }
+    // 长正文的展开态：每条消息各自记住用户的选择，滚动回收/旋屏后仍是同一档。
+    var userTextExpanded by rememberSaveable(message.id) { mutableStateOf(false) }
     val bubbleBg = etaPrimary().copy(alpha = 0.18f)
     val hasBubbleBody = visiblePrompt.request.isNotBlank() ||
         visiblePrompt.conversations.isNotEmpty() ||
@@ -1141,6 +1189,50 @@ private fun UserMessageBubble(
                 // 描边色必须在组合期取好：`drawWithContent` 的 lambda 跑在 DrawScope 里，
                 // 那不是 @Composable 作用域，直接读 `MaterialTheme.colorScheme` 会编译不过。
                 val bubbleStrokeColor = MaterialTheme.colorScheme.primary
+                // 正文折叠：先用正文自身的排版（同一字阶、同一可用宽度）预算「最多 7 行」，
+                // 超过 6 行才收起。行数在组合期就定好、首帧直接是收起态；若改成等
+                // onTextLayout 回填，长消息会先以全文高度出现一帧，把整列顶上去再缩回来。
+                val bodyTextWidth =
+                    ((maxWidth - bubbleTailWidth) * UserBubbleWidthFraction - UserBubbleTextPadding * 2)
+                        .coerceAtLeast(0.dp)
+                val textMeasurer = rememberTextMeasurer()
+                val bodyStyle = MaterialTheme.typography.bodyLarge
+                val pageBackground = chatPageBackgroundColor()
+                val bodyTextWidthPx = with(LocalDensity.current) { bodyTextWidth.roundToPx() }
+                // 量尺也要进 key：字体解析器 / 密度变化时 rememberTextMeasurer 会换实例，
+                // 只按文案与宽度缓存会拿到旧排版。
+                val bodyFoldable = remember(visiblePrompt.request, bodyStyle, bodyTextWidthPx, textMeasurer) {
+                    visiblePrompt.request.isNotBlank() && textMeasurer.measure(
+                        text = AnnotatedString(visiblePrompt.request),
+                        style = bodyStyle,
+                        // 多量一行就够判断「会不会超过上限」，长正文不会在这里被整段排版一遍。
+                        maxLines = UserBubbleFoldLineLimit + 1,
+                        constraints = Constraints(maxWidth = bodyTextWidthPx),
+                    ).lineCount.let(::userBubbleNeedsFold)
+                }
+                val bodyCollapsed = bodyFoldable && !userTextExpanded
+                // 渐隐带要落在气泡的实际底色上：气泡底是 primary 18% 的半透明色，
+                // 直接叠同色会把底部压深一道；先合成到页面底色上再渐隐才不留边。
+                val bubbleFill = remember(bubbleBg, pageBackground) {
+                    bubbleBg.compositeOver(pageBackground)
+                }
+                val foldFade = if (bodyCollapsed) {
+                    Modifier.drawWithContent {
+                        drawContent()
+                        // 大字号下正文可能不足一行高，渐隐带不能伸到节点上边界之外。
+                        val fadeHeight = UserBubbleFoldFadeHeight.toPx().coerceAtMost(size.height)
+                        drawRect(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(bubbleFill.copy(alpha = 0f), bubbleFill),
+                                startY = size.height - fadeHeight,
+                                endY = size.height,
+                            ),
+                        )
+                    }
+                } else {
+                    Modifier
+                }
+                val releaseAnchor = LocalChatAnchorRelease.current
                 val bubbleModifier = Modifier
                     // 节点宽度上限 = 本体上限 + 尾巴；本体宽度仍受 0.82 约束。
                     .widthIn(
@@ -1172,7 +1264,12 @@ private fun UserMessageBubble(
                             Modifier
                         },
                     )
-                    .padding(start = 18.dp, end = 18.dp + bubbleTailWidth, top = 12.dp, bottom = 12.dp)
+                    .padding(
+                        start = UserBubbleTextPadding,
+                        end = UserBubbleTextPadding + bubbleTailWidth,
+                        top = 12.dp,
+                        bottom = 12.dp,
+                    )
                 Column(modifier = bubbleModifier) {
                     visiblePrompt.conversations.forEach { mention ->
                         Text(
@@ -1188,10 +1285,36 @@ private fun UserMessageBubble(
                                 text = visiblePrompt.request,
                                 modifier = Modifier
                                     .streamDiagnosticMeasure("render.userText.measure", diagnosticRow)
-                                    .streamDiagnosticDraw("render.userText.draw", diagnosticRow),
-                                style = MaterialTheme.typography.bodyLarge,
+                                    .streamDiagnosticDraw("render.userText.draw", diagnosticRow)
+                                    .then(foldFade),
+                                style = bodyStyle,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 textAlign = TextAlign.Start,
+                                // 折叠只裁显示，不动内容：复制、编辑、发给模型仍用完整正文。
+                                maxLines = userBubbleBodyMaxLines(collapsed = bodyCollapsed),
+                            )
+                        }
+                    }
+                    if (bodyFoldable) {
+                        // 展开 / 收起：官方 TextButton 自带最小触控高度、涟漪与主色标签。
+                        // 展开会往下长出正文，先解除跟底锚定，尾部才不会被静止线裁掉。
+                        TextButton(
+                            onClick = {
+                                TouchHaptics.click(view)
+                                if (!userTextExpanded) releaseAnchor()
+                                userTextExpanded = !userTextExpanded
+                            },
+                            modifier = Modifier.align(Alignment.End),
+                        ) {
+                            Text(
+                                text = stringResource(
+                                    if (userTextExpanded) {
+                                        R.string.cmi_fold_collapse
+                                    } else {
+                                        R.string.cmi_fold_expand
+                                    },
+                                ),
+                                style = chatSecondaryStyle(),
                             )
                         }
                     }

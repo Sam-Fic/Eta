@@ -38,8 +38,11 @@ class RetestBoundariesContract(unittest.TestCase):
             self.assertIn(f'.streamDiagnosticMeasure("{label}", diagnosticRow)', user)
         for label in ['render.userBubble.draw', 'render.userText.draw']:
             self.assertIn(f'.streamDiagnosticDraw("{label}", diagnosticRow)', user)
+        # 正文的显示行数只由组合期的 TextMeasurer 预算决定，不靠 onTextLayout 回填：
+        # 回填会让长消息先以全文高度出现一帧，把整列顶上去再缩回来。
         self.assertNotIn('TextLayoutResult', user)
-        self.assertNotIn('maxLines =', user)
+        self.assertNotIn('onTextLayout =', user)
+        self.assertIn('rememberTextMeasurer()', user)
 
     def test_all_new_boundary_names_are_registered_fixed_labels(self):
         labels = (ROOT / 'components/BoundedStreamDiagnostics.kt').read_text()
