@@ -1,10 +1,6 @@
 package io.github.mangi.eta.ui.components
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandHorizontally
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.DecayAnimationSpec
@@ -22,6 +18,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -139,6 +138,7 @@ import io.github.mangi.eta.ui.adaptive.etaTextStyle
 import io.github.mangi.eta.ui.layout.LocalPageContentWidth
 import io.github.mangi.eta.ui.layout.rememberIsWideScreen
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
@@ -184,8 +184,10 @@ import kotlinx.coroutines.launch
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.material3.Icon
+import kotlin.math.roundToInt
 
 private object DrawerMetrics {
     val PaneMaxWidth = 320.dp
@@ -471,27 +473,17 @@ fun ConversationSidePaneScaffold(
                 )
             }
         if (widePane) {
-            // 宽屏（平板横屏）只有并排一种形态：侧栏站在左侧、对话列被挤窄到右边，
-            // 不压暗、不覆盖，也不开抽屉（所以这里既没有遮罩也没有取动手势）。
-            Row(modifier = Modifier.fillMaxSize()) {
-                AnimatedVisibility(
-                    visible = visible,
-                    // 左缘固定、向右长出来（收起时反向收回），与侧栏的贴边位置一致。
-                    enter = expandHorizontally(DockedPaneWidthMotion, expandFrom = Alignment.Start) +
-                        fadeIn(DockedPaneMotion),
-                    exit = shrinkHorizontally(DockedPaneWidthMotion, shrinkTowards = Alignment.Start) +
-                        fadeOut(DockedPaneMotion),
-                ) {
-                    // 并排布局里侧栏是 M3 standard side sheet：站在页面旁边，因此是直角、无浮起感。
-                    paneContent(DockedPaneShape, visible, paneWidth)
-                }
-                BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                    // 被侧栏挤窄后内容列按剩余宽度重新算居中留白，而不是继续按整窗宽度算。
-                    CompositionLocalProvider(LocalPageContentWidth provides maxWidth) {
-                        content()
-                    }
-                }
-            }
+            // 宽屏（平板横屏）只有并排一种形态：侧栏从左向右平移进来、对话列同步收窄，
+            // 不压暗、不淡入，两块表面在同一条水平线上，没有叠放的层级感。
+            WideSidePaneLayout(
+                visible = visible,
+                gestureEnabled = backHandlerEnabled,
+                paneWidth = paneWidth,
+                onOpen = { onOpen() },
+                onDismiss = { onDismiss() },
+                paneContent = { width -> paneContent(DockedPaneShape, visible, width) },
+                content = content,
+            )
         } else {
             // 平推（非覆盖）：侧栏占据左侧 paneWidth，聊天页整体右移同样的距离，不加遮罩、不压暗。
             // 手势收敛与锚点仍交给 Material3 的 Dismissible 实现，只是内容被推走而不是被盖住。
@@ -512,6 +504,144 @@ fun ConversationSidePaneScaffold(
                 content()
             }
         }
+        }
+    }
+}
+
+/**
+ * 宽屏（平板横屏）的并排侧栏：侧栏从左侧平移进入，对话列同步收窄。
+ *
+ * 只有一个进度值 [progress]（0 = 收起 / 1 = 展开）同时驱动两侧宽度：
+ * 侧栏占据 `paneWidth * progress`，内部固定按 [paneWidth] 排版并左移 `-(1 - progress) * paneWidth`，
+ * 因此看到的是整块侧栏向右滑入，而不是宽度被拉伸后再淡入——没有叠层、压暗或投影。
+ * 对话列用 `weight(1f)` 吃掉剩余宽度，随进度连续变窄。
+ *
+ * 手势与手机端一致：向右滑拉开、向左滑推回，松手后按位置 + 速度决定去向，
+ * 收敛用同一套 [DrawerSettleSpringSpec] 弹簧；按钮等程序化开合用同一套非线性缓动。
+ */
+@Composable
+private fun WideSidePaneLayout(
+    visible: Boolean,
+    gestureEnabled: Boolean,
+    paneWidth: Dp,
+    onOpen: () -> Unit,
+    onDismiss: () -> Unit,
+    paneContent: @Composable (Dp) -> Unit,
+    content: @Composable () -> Unit,
+) {
+    val density = LocalDensity.current
+    val view = LocalView.current
+    val scope = rememberCoroutineScope()
+    val currentVisible by rememberUpdatedState(visible)
+    val currentOnOpen by rememberUpdatedState(onOpen)
+    val currentOnDismiss by rememberUpdatedState(onDismiss)
+    val paneWidthPx = with(density) { paneWidth.toPx() }.coerceAtLeast(1f)
+    val fullPanePx = paneWidthPx.roundToInt()
+    val currentPaneWidthPx by rememberUpdatedState(paneWidthPx)
+    // 首帧就按展开态落位：从别的页面回来时不该再播一遍滑入。
+    val progress = remember { Animatable(if (visible) 1f else 0f) }
+    val dragging = remember { mutableStateOf(false) }
+    val pastHalf = remember { mutableStateOf(false) }
+    // 侧栏只在「露出宽度由零变为非零」时进入组合：进度本身每帧都在变，
+    // 不能让整块列表跟着逐帧重组。
+    var paneComposed by remember { mutableStateOf(visible) }
+    LaunchedEffect(progress) {
+        snapshotFlow { progress.value > 0f }.collect { paneComposed = it }
+    }
+    val velocityThresholdPx = with(density) { DrawerMetrics.SettleVelocityThresholdDp.dp.toPx() }
+
+    // 程序化开合（汉堡按钮、返回键、新建 / 切换会话）：与手机端抽屉同一套缓动。
+    LaunchedEffect(visible) {
+        if (dragging.value) return@LaunchedEffect
+        val target = if (visible) 1f else 0f
+        if (progress.value == target) return@LaunchedEffect
+        progress.animateTo(target, if (visible) DrawerOpenMotion else DrawerCloseMotion)
+    }
+
+    val dragState = rememberDraggableState { delta ->
+        val next = (progress.value + delta / currentPaneWidthPx).coerceIn(0f, 1f)
+        if (next != progress.value) {
+            scope.launch { progress.snapTo(next) }
+        }
+        // 越过一半时补一次轻触反馈，和手机端抽屉的「过半」手感一致。
+        val past = next >= 0.5f
+        if (past != pastHalf.value) {
+            pastHalf.value = past
+            TouchHaptics.gestureThreshold(view)
+        }
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .then(
+                if (gestureEnabled) {
+                    Modifier.draggable(
+                        state = dragState,
+                        orientation = Orientation.Horizontal,
+                        onDragStarted = {
+                            dragging.value = true
+                            // 以当前进度为基线，否则从收起态起手会立刻误报一次「过半」。
+                            pastHalf.value = progress.value >= 0.5f
+                            scope.launch { progress.stop() }
+                        },
+                        onDragStopped = { velocity ->
+                            dragging.value = false
+                            // 甩得够快就按方向定锚，否则看拖过半没有——与手机端同一套判据。
+                            val velocityFraction = velocity / currentPaneWidthPx
+                            val target = when {
+                                velocityFraction >= velocityThresholdPx / currentPaneWidthPx -> 1f
+                                velocityFraction <= -velocityThresholdPx / currentPaneWidthPx -> 0f
+                                progress.value >= DrawerMetrics.SettlePositionalThreshold -> 1f
+                                else -> 0f
+                            }
+                            scope.launch {
+                                progress.animateTo(
+                                    targetValue = target,
+                                    animationSpec = DrawerSettleSpringSpec(density.density),
+                                    initialVelocity = velocityFraction,
+                                )
+                                // 停稳后再回写展开状态：动画中间改会让整页重组，看着像顿一下。
+                                if (target == 1f) {
+                                    if (!currentVisible) currentOnOpen()
+                                } else if (currentVisible) {
+                                    currentOnDismiss()
+                                }
+                            }
+                        },
+                    )
+                } else {
+                    Modifier
+                },
+            ),
+    ) {
+        if (paneComposed) {
+            // 侧栏固定按完整宽度排版（文字不重排），外层只报出「露出多宽」、内层向左让位，
+            // 画出来就是整块侧栏从左向右滑入，而不是宽度被拉伸或淡入。
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .layout { measurable, constraints ->
+                        val revealed = (fullPanePx * progress.value).roundToInt()
+                            .coerceIn(0, constraints.maxWidth)
+                        val placeable = measurable.measure(
+                            Constraints.fixed(fullPanePx, constraints.maxHeight),
+                        )
+                        layout(revealed, placeable.height) {
+                            // 让侧栏的右缘贴住露出的右缘：进度 0 完全在屏幕外，1 完全归位。
+                            placeable.place(x = revealed - fullPanePx, y = 0)
+                        }
+                    }
+                    .clipToBounds(),
+            ) {
+                paneContent(paneWidth)
+            }
+        }
+        BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxHeight()) {
+            // 被侧栏挤窄后内容列按剩余宽度重新算居中留白，而不是继续按整窗宽度算。
+            CompositionLocalProvider(LocalPageContentWidth provides maxWidth) {
+                content()
+            }
         }
     }
 }
@@ -1633,17 +1763,6 @@ private val DrawerOpenMotion: FiniteAnimationSpec<Float> = tween(
 
 private val DrawerCloseMotion: FiniteAnimationSpec<Float> = tween(
     durationMillis = DrawerMetrics.CloseDurationMs,
-    easing = DrawerMotionEasing,
-)
-
-/** 宽屏停靠侧栏的展开 / 收起：与抽屉同一套缓动，避免两种打开方式手感不一致。 */
-private val DockedPaneMotion: FiniteAnimationSpec<Float> = tween(
-    durationMillis = DrawerMetrics.OpenDurationMs,
-    easing = DrawerMotionEasing,
-)
-
-private val DockedPaneWidthMotion: FiniteAnimationSpec<IntSize> = tween(
-    durationMillis = DrawerMetrics.OpenDurationMs,
     easing = DrawerMotionEasing,
 )
 
