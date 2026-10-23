@@ -40,6 +40,7 @@ import io.github.mangi.eta.data.db.ProviderModelEntity
 import io.github.mangi.eta.data.db.ProviderWithModelsSeed
 import io.github.mangi.eta.data.db.SkillRegistryEntity
 import io.github.mangi.eta.data.model.AssistantPrompt
+import io.github.mangi.eta.data.model.ProviderAuthModes
 import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
@@ -732,7 +733,7 @@ internal object EtaBackupRepository {
     ): EtaBackupDocument {
         val database = EtaDatabase.get(context)
         val providers = database.providerDao().providers().map { provider ->
-            EtaBackupProvider(provider = provider.provider, models = provider.models)
+            EtaBackupProvider(provider = provider.provider.withoutOAuthSecrets(), models = provider.models)
         }
         val conversations = database.conversationDao()
         val settings = SettingsDataStore.backupSnapshot()
@@ -813,10 +814,17 @@ internal object EtaBackupRepository {
             else -> null
         }
         val database = EtaDatabase.get(context)
+        val oauthProviders = document.providers.map { it.provider }
+            .filter { ProviderAuthModes.isOAuth(it.authMode) }
+        val credentialIds = document.providers.mapTo(linkedSetOf()) { it.provider.id }
         database.withTransaction {
+            credentialIds += database.providerDao().providers().map { it.provider.id }
             database.providerDao().replaceAll(
                 document.providers.map { provider ->
-                    ProviderWithModelsSeed(provider = provider.provider, models = provider.models)
+                    ProviderWithModelsSeed(
+                        provider = provider.provider.awaitingCredentialCleanup(exactPreferences),
+                        models = provider.models,
+                    )
                 },
             )
             database.conversationDao().replaceAll(
@@ -836,6 +844,21 @@ internal object EtaBackupRepository {
                 // 正向导入只写入备份行（已重关联），本地既有行保留待下次索引补齐。
                 if (exactPreferences) mediaDao.clearAll()
                 if (mediaIndexRows.isNotEmpty()) mediaDao.upsertAll(mediaIndexRows)
+            }
+        }
+        if (!exactPreferences) {
+            // 恢复的订阅连接不继承设备上旧授权：先清除同 ID 凭据，再按备份中的登录方式重新启用。
+            withContext(NonCancellable) {
+                credentialIds.forEach { ProviderCredentialRepository.forget(it) }
+                database.withTransaction {
+                    oauthProviders.forEach { provider ->
+                        check(
+                            database.providerDao().activateRestoredOAuthProvider(
+                                provider.id, provider.authMode, provider.isEnabled,
+                            ) == 1,
+                        ) { "恢复的订阅连接状态不一致，请重新选择登录方式并登录。" }
+                    }
+                }
             }
         }
         AgentMemoryRepository.importAll(document.assistantMemories, document.memoryMd)
@@ -1234,6 +1257,16 @@ internal object EtaBackupRepository {
         memoryBytes = 0,
         attachmentCount = attachmentCount,
     )
+
+    private fun ProviderEntity.withoutOAuthSecrets(): ProviderEntity =
+        if (authMode == ProviderAuthModes.API_KEY) this else copy(apiKey = "")
+
+    private fun ProviderEntity.awaitingCredentialCleanup(exactRestore: Boolean): ProviderEntity = when {
+        exactRestore -> withoutOAuthSecrets()
+        // 即使提交后进程中断，导入的相同 ID 也不能接上设备中尚未清除的旧授权。
+        ProviderAuthModes.isOAuth(authMode) -> copy(authMode = ProviderAuthModes.API_KEY, apiKey = "", isEnabled = false)
+        else -> withoutOAuthSecrets()
+    }
 }
 
 private val LINUX_TAR_SKIP = setOf("proc", "sys", "dev", "run", "tmp")

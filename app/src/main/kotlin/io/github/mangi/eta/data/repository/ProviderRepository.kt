@@ -12,7 +12,7 @@ import io.github.mangi.eta.data.model.CustomProviderSetting
 import io.github.mangi.eta.data.model.Model
 import io.github.mangi.eta.data.model.OpenAiCompatibleProviderSetting
 import io.github.mangi.eta.data.model.RemovedProviderPolicy
-import io.github.mangi.eta.agent.model.oauth.ProviderOAuthStore
+import io.github.mangi.eta.data.model.ProviderAuthModes
 import io.github.mangi.eta.data.model.ProviderSetting
 import io.github.mangi.eta.data.model.Settings
 import io.github.mangi.eta.data.model.SpeechSynthesisModels
@@ -22,12 +22,18 @@ import io.github.mangi.eta.data.model.withModels
 import io.github.mangi.eta.data.model.withSortOrder
 import io.github.mangi.eta.data.provider.BuiltinProviders
 import io.github.mangi.eta.data.provider.OfficialModelCatalog
-import io.github.mangi.eta.agent.model.oauth.OpenAiCodexOAuth
 import java.util.UUID
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 internal object ProviderRepository {
+    /** 配置与模型共用修改锁，避免旧连接的目录在认证方式切换后落库。 */
+    internal val mutationMutex = Mutex()
+
     @Volatile
     private lateinit var applicationContext: Context
 
@@ -36,6 +42,11 @@ internal object ProviderRepository {
         // Keeping the first Application would send OAuth cleanup to stale preferences
         // while the database singleton already belongs to the current application.
         applicationContext = context.applicationContext
+        ProviderCredentialRepository.init(context)
+        // 旧版 Codex 登录把令牌明文保存在此，迁移后一次性清除。
+        runCatching {
+            context.getSharedPreferences("eta_oauth_prefs", Context.MODE_PRIVATE).edit().clear().commit()
+        }
     }
 
     fun providersFlow(): Flow<List<ProviderSetting>> =
@@ -74,7 +85,13 @@ internal object ProviderRepository {
 
     suspend fun updateProvider(provider: ProviderSetting) {
         RemovedProviderPolicy.requireSupported(provider)
-        require(dao().updateProvider(provider.toEntity()) == 1) { "Provider 不存在" }
+        mutationMutex.withLock {
+            val previous = requireNotNull(providerById(provider.id)) { "Provider 不存在" }
+            if (previous.authMode != provider.authMode) {
+                forgetCredentials(provider.id)
+            }
+            require(dao().updateProvider(provider.toEntity()) == 1) { "Provider 不存在" }
+        }
         repairSelection()
     }
 
@@ -87,10 +104,14 @@ internal object ProviderRepository {
     }
 
     suspend fun deleteProvider(id: String) {
-        val provider = providerById(id) ?: return
-        if (provider.isBuiltIn) return
-        OpenAiCodexOAuth.clear(appContext(), id)
-        dao().deleteProvider(id)
+        val deleted = mutationMutex.withLock {
+            val provider = providerById(id) ?: return@withLock false
+            if (provider.isBuiltIn) return@withLock false
+            forgetCredentials(id)
+            dao().deleteProvider(id)
+            true
+        }
+        if (!deleted) return
         SettingsDataStore.clearSelectedModelIdForProvider(id)
         repairSelection()
     }
@@ -116,9 +137,13 @@ internal object ProviderRepository {
     suspend fun resetBuiltIn(id: String) {
         val builtIn = BuiltinProviders.providerById(id) ?: return
         val current = providerById(id)
+        forgetCredentials(id)
         val restored = seedOfficialModelsIfEmpty(
             current
-            ?.let { builtIn.withApiKey(it.apiKey).withSortOrder(it.sortOrder) }
+            ?.let {
+                builtIn.withApiKey(it.apiKey.takeIf { it.authMode == ProviderAuthModes.API_KEY }.orEmpty())
+                    .withSortOrder(it.sortOrder)
+            }
             ?: builtIn
         )
         replaceProvider(restored)
@@ -127,16 +152,14 @@ internal object ProviderRepository {
 
     /** Runs on startup and backup restore. Does not contact any OAuth endpoint. */
     private suspend fun removeRetiredProviders() {
-        val store = ProviderOAuthStore(appContext())
         dao().providers().forEach { record ->
             val provider = record.provider
             if (RemovedProviderPolicy.isRemoved(provider.baseUrl, provider.endpointMode, provider.authMode)) {
-                store.clear(provider.id)
+                forgetCredentials(provider.id)
                 dao().deleteProvider(provider.id)
                 SettingsDataStore.clearSelectedModelIdForProvider(provider.id)
             }
         }
-        store.clearRetiredBackendEntries()
     }
 
     suspend fun ensureBuiltInsMerged() {
@@ -188,6 +211,10 @@ internal object ProviderRepository {
 
     fun newId(): String = UUID.randomUUID().toString()
 
+    private suspend fun forgetCredentials(providerId: String) = withContext(Dispatchers.IO) {
+        ProviderCredentialRepository.forget(providerId)
+    }
+
     private fun dao() =
         EtaDatabase.get(appContext()).providerDao()
 
@@ -220,7 +247,7 @@ internal object ProviderRepository {
     }
 
     private fun seedOfficialModelsIfEmpty(provider: ProviderSetting): ProviderSetting {
-        if (provider.models.isNotEmpty()) return provider
+        if (provider.models.isNotEmpty() || ProviderAuthModes.isOAuth(provider.authMode)) return provider
         val seededModels = OfficialModelCatalog.modelsForProvider(provider)
         return if (seededModels.isEmpty()) provider else provider.withModels(seededModels)
     }

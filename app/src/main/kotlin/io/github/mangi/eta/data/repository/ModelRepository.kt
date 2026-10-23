@@ -1,16 +1,18 @@
 package io.github.mangi.eta.data.repository
 
+import io.github.mangi.eta.agent.auth.ProviderAuthException
 import io.github.mangi.eta.data.model.Model
 import io.github.mangi.eta.data.model.ModelSource
+import io.github.mangi.eta.data.model.ProviderAuthModes
+import io.github.mangi.eta.data.model.ProviderSetting
 import java.util.UUID
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 internal object ModelRepository {
-    private val mutationMutex = Mutex()
-
     fun modelsByProviderFlow(providerId: String): Flow<List<Model>> =
         allModelsByProviderFlow(providerId).map { models ->
             models.filter { it.isEnabled }.sortedBy { it.sortOrder }
@@ -30,7 +32,7 @@ internal object ModelRepository {
             ?.sortedBy { it.sortOrder }
             .orEmpty()
 
-    suspend fun saveModel(providerId: String, draft: Model): Model = mutationMutex.withLock {
+    suspend fun saveModel(providerId: String, draft: Model): Model = ProviderRepository.mutationMutex.withLock {
         val models = currentModels(providerId)
         val modelId = draft.modelId.trim()
         val displayName = draft.displayName.trim()
@@ -73,23 +75,63 @@ internal object ModelRepository {
         saved
     }
 
-    suspend fun deleteModel(providerId: String, modelId: String) = mutationMutex.withLock {
-        ProviderRepository.replaceModels(
-            providerId,
-            currentModels(providerId).filterNot { it.id == modelId },
-        )
+    suspend fun deleteModel(providerId: String, modelId: String) {
+        ProviderRepository.mutationMutex.withLock {
+            ProviderRepository.replaceModels(
+                providerId,
+                currentModels(providerId).filterNot { it.id == modelId },
+            )
+        }
         ProviderRepository.repairSelection()
     }
 
     suspend fun deleteModels(providerId: String, modelIds: Set<String>) {
         if (modelIds.isEmpty()) return
-        mutationMutex.withLock {
+        ProviderRepository.mutationMutex.withLock {
             ProviderRepository.replaceModels(
                 providerId,
                 currentModels(providerId).filterNot { it.id in modelIds },
             )
-            ProviderRepository.repairSelection()
         }
+        ProviderRepository.repairSelection()
+    }
+
+    suspend fun syncRemoteCatalog(
+        catalog: RemoteModelCatalog,
+        adoptedModelIds: Set<String> = catalog.models.mapTo(mutableSetOf()) { it.modelId },
+    ): RemoteModelSyncResult = withContext(Dispatchers.IO) {
+        val result = ProviderRepository.mutationMutex.withLock {
+            val provider = requireNotNull(ProviderRepository.providerById(catalog.connection.id)) { "Provider 不存在" }
+            require(catalog.matches(provider)) { "服务商连接已变更，请重新拉取模型" }
+            val binding = catalog.accountBinding
+            if (ProviderAuthModes.isOAuth(provider.authMode)) {
+                if (binding == null || binding.providerId != provider.id || binding.authMode != provider.authMode ||
+                    !ProviderCredentialRepository.isCurrent(binding)
+                ) {
+                    throw ProviderAuthException("oauth_session_changed", "登录状态已变更，请重新拉取模型")
+                }
+            } else {
+                require(binding == null) { "API Key 模型目录不能携带账号绑定" }
+            }
+            applyRemoteModels(provider, catalog.models, adoptedModelIds)
+        }
+        if (result.applied) ProviderRepository.repairSelection()
+        result
+    }
+
+    private suspend fun applyRemoteModels(
+        provider: ProviderSetting,
+        fetched: List<Model>,
+        adoptedModelIds: Set<String>,
+    ): RemoteModelSyncResult {
+        val merged = reconcileRemoteModels(
+            existing = provider.models.sortedBy { it.sortOrder },
+            fetched = fetched.map { it.copy(id = it.id.ifBlank(::newId)) },
+            adoptedModelIds = adoptedModelIds,
+            authMode = provider.authMode,
+        )
+        if (merged.result.applied) ProviderRepository.replaceModels(provider.id, merged.models)
+        return merged.result
     }
 
     suspend fun syncRemoteModels(
@@ -97,7 +139,7 @@ internal object ModelRepository {
         fetched: List<Model>,
         includeNewModels: Boolean = true,
     ): RemoteModelSyncResult =
-        mutationMutex.withLock {
+        ProviderRepository.mutationMutex.withLock {
             val remoteByKey = fetched
                 .asSequence()
                 .filter { it.modelId.isNotBlank() }
@@ -167,7 +209,7 @@ internal object ModelRepository {
         }
 
     suspend fun addSelectedRemoteModels(providerId: String, selected: List<Model>): Int =
-        mutationMutex.withLock {
+        ProviderRepository.mutationMutex.withLock {
             val existing = currentModels(providerId)
             val existingKeys = existing.map { it.modelId.normalizedModelId() }.toSet()
             val fresh = selected
@@ -195,7 +237,7 @@ internal object ModelRepository {
         }
 
     suspend fun reorderModels(providerId: String, ids: List<String>) {
-        mutationMutex.withLock {
+        ProviderRepository.mutationMutex.withLock {
             val models = currentModels(providerId)
             val byId = models.associateBy { it.id }
             val orderedIds = ids.toSet()

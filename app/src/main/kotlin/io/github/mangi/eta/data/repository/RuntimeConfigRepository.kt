@@ -9,10 +9,9 @@ import io.github.mangi.eta.data.model.CustomProviderSetting
 import io.github.mangi.eta.data.model.Model
 import io.github.mangi.eta.data.model.OpenAiCompatibleProviderSetting
 import io.github.mangi.eta.data.model.OpenAiEndpointMode
+import io.github.mangi.eta.data.model.ProviderAuthModes
 import io.github.mangi.eta.data.model.SessionGatewayRule
-import io.github.mangi.eta.agent.model.oauth.OpenAiCodexOAuth
 import io.github.mangi.eta.data.model.ProviderSetting
-import io.github.mangi.eta.data.model.withApiKey
 import io.github.mangi.eta.data.model.ReasoningEffort
 import io.github.mangi.eta.data.model.runtimeProviderType
 import io.github.mangi.eta.data.model.selectedOrFirstModel
@@ -81,9 +80,21 @@ internal object RuntimeConfigRepository {
         val settings = ProviderRepository.repairSelection()
         val provider = settings.selectedProviderId?.let { ProviderRepository.providerById(it) } ?: return null
         val model = provider.selectedOrFirstModel(settings.selectedModelId) ?: return null
-        return buildRuntimeConfig(resolveOAuth(provider), model, AssistantRepository.active()).copy(
+        return buildRuntimeConfig(provider, model, AssistantRepository.active()).copy(
             errorReconnectPolicy = settings.errorReconnectPolicy.persistedValue,
         )
+    }
+
+    suspend fun oauthRuntimeConfigFor(
+        providerId: String,
+        authMode: String,
+        modelName: String,
+    ): AgentModelClient.ModelConfig? {
+        if (!ProviderAuthModes.isOAuth(authMode)) return null
+        val provider = ProviderRepository.providerById(providerId)
+            ?.takeIf { it.isEnabled && it.authMode == authMode } ?: return null
+        val model = provider.models.firstOrNull { it.isEnabled && it.modelId == modelName } ?: return null
+        return buildRuntimeConfig(provider, model)
     }
 
     suspend fun syncToRemotePreferences(service: XposedService?): Boolean {
@@ -99,7 +110,9 @@ internal object RuntimeConfigRepository {
     }
 
     fun runtimeConfigJson(config: AgentModelClient.ModelConfig): String =
-        json.encodeToString(config)
+        json.encodeToString(
+            if (config.authMode == ProviderAuthModes.API_KEY) config else config.copy(apiKey = ""),
+        )
 
     fun buildRuntimeConfig(
         provider: ProviderSetting,
@@ -112,7 +125,8 @@ internal object RuntimeConfigRepository {
         }?.ifBlank { BuiltinProviders.DEFAULT_SYSTEM_PROMPT }
             ?: BuiltinProviders.DEFAULT_SYSTEM_PROMPT
         val sourceType = ProviderSourceRegistry.resolve(provider)
-        val endpointMode = when (provider) {
+        val profile = io.github.mangi.eta.data.provider.ProviderConnectionProfile.forAuthMode(provider.authMode)
+        val endpointMode = profile?.endpointMode ?: when (provider) {
             is OpenAiCompatibleProviderSetting -> provider.endpointMode
             is CustomProviderSetting -> provider.endpointMode
             is AnthropicProviderSetting -> ""
@@ -136,10 +150,13 @@ internal object RuntimeConfigRepository {
             assistantId = assistant?.id.orEmpty(),
             providerId = provider.id,
             providerName = provider.name,
-            providerType = provider.runtimeProviderType,
+            providerType = profile?.providerType ?: provider.runtimeProviderType,
             providerSourceType = sourceType,
-            baseUrl = provider.baseUrl.trim(),
-            apiKey = provider.apiKey.trim(),
+            baseUrl = profile?.baseUrl ?: provider.baseUrl.trim(),
+            apiKey = provider.apiKey.trim()
+                .takeIf { provider.authMode == io.github.mangi.eta.data.model.ProviderAuthModes.API_KEY }
+                .orEmpty(),
+            authMode = provider.authMode,
             model = model.modelId.trim(),
             modelDisplayName = model.displayName.trim(),
             contextWindow = model.effectiveContextWindow,
@@ -186,14 +203,8 @@ internal object RuntimeConfigRepository {
     ): AgentModelClient.ModelConfig? {
         val provider = ProviderRepository.providerById(providerId)?.takeIf { it.isEnabled } ?: return null
         val model = provider.models.firstOrNull { it.id == modelId && it.isEnabled } ?: return null
-        return buildRuntimeConfig(resolveOAuth(provider), model, assistant).copy(
+        return buildRuntimeConfig(provider, model, assistant).copy(
             errorReconnectPolicy = SettingsDataStore.settings().errorReconnectPolicy.persistedValue,
         )
-    }
-
-    private suspend fun resolveOAuth(provider: ProviderSetting): ProviderSetting {
-        val context = ProviderRepository.context()
-        io.github.mangi.eta.data.model.RemovedProviderPolicy.requireSupported(provider)
-        return OpenAiCodexOAuth.withResolvedAuth(context, provider)
     }
 }

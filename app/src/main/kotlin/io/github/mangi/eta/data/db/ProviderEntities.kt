@@ -17,9 +17,11 @@ import io.github.mangi.eta.data.model.ModelReasoningCapabilities
 import io.github.mangi.eta.data.model.ModelSource
 import io.github.mangi.eta.data.model.OpenAiCompatibleProviderSetting
 import io.github.mangi.eta.data.model.OpenAiEndpointMode
+import io.github.mangi.eta.data.model.ProviderAuthModes
 import io.github.mangi.eta.data.model.ProviderSetting
 import io.github.mangi.eta.data.model.ProviderTypes
 import io.github.mangi.eta.data.model.ReasoningEffort
+import io.github.mangi.eta.data.provider.ProviderConnectionProfile
 import io.github.mangi.eta.data.provider.ProviderSourceRegistry
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
@@ -50,7 +52,7 @@ internal data class ProviderEntity(
     @ColumnInfo(name = "balance_option_json", defaultValue = "'{}'")
     val balanceOptionJson: String = "{}",
     @ColumnInfo(name = "auth_mode", defaultValue = "'api_key'")
-    val authMode: String = "api_key",
+    val authMode: String = ProviderAuthModes.API_KEY,
     @ColumnInfo(name = "session_gateway_json", defaultValue = "''")
     val sessionGatewayJson: String = "",
 )
@@ -118,7 +120,7 @@ internal fun ProviderSetting.toEntity(): ProviderEntity =
         type = storageType,
         name = name,
         baseUrl = baseUrl,
-        apiKey = apiKey,
+        apiKey = apiKey.takeIf { authMode == ProviderAuthModes.API_KEY }.orEmpty(),
         isEnabled = isEnabled,
         isBuiltIn = isBuiltIn,
         sortOrder = sortOrder,
@@ -134,7 +136,7 @@ internal fun ProviderSetting.toEntity(): ProviderEntity =
         responsesStripReasoningStatus = responsesStripReasoningStatus,
         hostedWebSearchEnabled = hostedWebSearchEnabled,
         balanceOptionJson = ProviderJson.encodeBalance(balanceOption),
-        authMode = io.github.mangi.eta.data.model.ProviderAuthMode.parse(authMode),
+        authMode = io.github.mangi.eta.data.model.ProviderAuthModes.parse(authMode),
         sessionGatewayJson = sessionGatewayJson,
         anthropicVersion = when (this) {
             is AnthropicProviderSetting -> anthropicVersion
@@ -149,18 +151,19 @@ internal fun ProviderWithModels.toDomain(): ProviderSetting {
     val domainModels = models
         .sortedBy { it.sortOrder }
         .map(ProviderModelEntity::toDomain)
-    val sourceType = ProviderSourceRegistry.resolve(
-        providerId = provider.id,
-        baseUrl = provider.baseUrl,
-        providerType = provider.type,
-    )
+    val sourceType = ProviderConnectionProfile.forAuthMode(provider.authMode)?.sourceType
+        ?: ProviderSourceRegistry.resolve(
+            providerId = provider.id,
+            baseUrl = provider.baseUrl,
+            providerType = provider.type,
+        )
     return when (provider.type) {
         ProviderTypes.ANTHROPIC -> AnthropicProviderSetting(
             id = provider.id,
             name = provider.name,
             baseUrl = provider.baseUrl,
             sourceType = sourceType,
-            apiKey = provider.apiKey,
+            apiKey = provider.apiKey.takeIf { provider.authMode == ProviderAuthModes.API_KEY }.orEmpty(),
             isEnabled = provider.isEnabled,
             isBuiltIn = provider.isBuiltIn,
             sortOrder = provider.sortOrder,
@@ -169,7 +172,7 @@ internal fun ProviderWithModels.toDomain(): ProviderSetting {
             customHeaders = ProviderJson.decodeHeaders(provider.customHeadersJson),
             customBody = ProviderJson.decodeBody(provider.customBodyJson),
             createdAt = provider.createdAt,
-            authMode = io.github.mangi.eta.data.model.ProviderAuthMode.parse(provider.authMode),
+            authMode = ProviderAuthModes.parse(provider.authMode),
             balanceOption = ProviderJson.decodeBalance(provider.balanceOptionJson),
             sessionGatewayJson = provider.sessionGatewayJson,
             anthropicVersion = provider.anthropicVersion.ifBlank {
@@ -182,7 +185,7 @@ internal fun ProviderWithModels.toDomain(): ProviderSetting {
             name = provider.name,
             baseUrl = provider.baseUrl,
             sourceType = sourceType,
-            apiKey = provider.apiKey,
+            apiKey = provider.apiKey.takeIf { provider.authMode == ProviderAuthModes.API_KEY }.orEmpty(),
             isEnabled = provider.isEnabled,
             isBuiltIn = provider.isBuiltIn,
             sortOrder = provider.sortOrder,
@@ -191,7 +194,7 @@ internal fun ProviderWithModels.toDomain(): ProviderSetting {
             customHeaders = ProviderJson.decodeHeaders(provider.customHeadersJson),
             customBody = ProviderJson.decodeBody(provider.customBodyJson),
             createdAt = provider.createdAt,
-            authMode = io.github.mangi.eta.data.model.ProviderAuthMode.parse(provider.authMode),
+            authMode = ProviderAuthModes.parse(provider.authMode),
             endpointMode = provider.endpointMode.ifBlank { OpenAiEndpointMode.CHAT_COMPLETIONS },
             responsesStripReasoningStatus = provider.responsesStripReasoningStatus,
             hostedWebSearchEnabled = provider.hostedWebSearchEnabled,
@@ -204,7 +207,7 @@ internal fun ProviderWithModels.toDomain(): ProviderSetting {
             name = provider.name,
             baseUrl = provider.baseUrl,
             sourceType = sourceType,
-            apiKey = provider.apiKey,
+            apiKey = provider.apiKey.takeIf { provider.authMode == ProviderAuthModes.API_KEY }.orEmpty(),
             isEnabled = provider.isEnabled,
             isBuiltIn = provider.isBuiltIn,
             sortOrder = provider.sortOrder,
@@ -213,7 +216,7 @@ internal fun ProviderWithModels.toDomain(): ProviderSetting {
             customHeaders = ProviderJson.decodeHeaders(provider.customHeadersJson),
             customBody = ProviderJson.decodeBody(provider.customBodyJson),
             createdAt = provider.createdAt,
-            authMode = io.github.mangi.eta.data.model.ProviderAuthMode.parse(provider.authMode),
+            authMode = ProviderAuthModes.parse(provider.authMode),
             endpointMode = provider.endpointMode.ifBlank { OpenAiEndpointMode.CHAT_COMPLETIONS },
             responsesStripReasoningStatus = provider.responsesStripReasoningStatus,
             hostedWebSearchEnabled = provider.hostedWebSearchEnabled,
