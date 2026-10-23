@@ -19,9 +19,10 @@ class SubAgentProfileDialogContractTest(unittest.TestCase):
                          'EtaFormTextField(',
                          'if (draft.supportsTaskTier)', 'if (draft.role == "image_generation")'):
             self.assertIn(required, text)
-        # 表单字段统一用 EtaFormTextField；唯一的 OutlinedTextField 是模型子页的搜索框。
-        self.assertEqual(text.count('OutlinedTextField('), 1)
-        self.assertIn('value = query', text)
+        # 表单字段统一用 EtaFormTextField；模型选择改走共用的底部面板，弹窗内不再有搜索框与二级页。
+        self.assertEqual(text.count('OutlinedTextField('), 0)
+        self.assertIn('TtsModelPickerDialog(', text)
+        self.assertEqual(text.count('TtsModelPickerDialog('), 1)
 
     def test_gpt_speed_edit_is_local_and_keyed_by_current_provider_selection(self):
         text = self.source('ui/components/SubAgentProfileConfigDialog.kt')
