@@ -79,6 +79,7 @@ import androidx.compose.material3.Text as M3Text
 import androidx.compose.material3.TextButton as M3TextButton
 import androidx.compose.ui.graphics.vector.ImageVector
 import io.github.mangi.eta.ui.adaptive.EtaButtonStyle
+import io.github.mangi.eta.ui.adaptive.EtaFloatingToolbarConcentricPadding
 import io.github.mangi.eta.ui.adaptive.EtaIconButton
 import io.github.mangi.eta.ui.adaptive.EtaIconSize
 
@@ -639,8 +640,9 @@ private fun ConsoleKeyBar(
 ) {
     HorizontalFloatingToolbar(
         expanded = true,
-        // 官方 ContentPadding 是按 48dp 图标按钮设计的，文字按键传更紧的官方 PaddingValues。
-        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+        // 端盖同心：键帽高 40dp（官方 Button 最小高），水平内边距按 (64 − 40)/2 = 12dp 让首末键帽
+        // 的端部圆弧与药丸端盖同心；纵向仍走官方 8dp（内容居中后实际留白就是 12dp，不影响外观）。
+        contentPadding = EtaFloatingToolbarConcentricPadding(40.dp),
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp)

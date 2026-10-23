@@ -84,6 +84,7 @@ import io.github.mangi.eta.agent.terminal.LinuxGuestPathResolver
 import io.github.mangi.eta.ui.adaptive.EtaType
 import io.github.mangi.eta.ui.adaptive.etaTextStyle
 import io.github.mangi.eta.ui.adaptive.EtaDimens
+import io.github.mangi.eta.ui.adaptive.EtaFloatingToolbarConcentricPadding
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
 import io.github.mangi.eta.ui.model.AgentMessageUi
@@ -573,6 +574,10 @@ private fun ChatImagePreviewDialog(
                 colors = FloatingToolbarDefaults.vibrantFloatingToolbarColors(
                     toolbarContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
                     toolbarContentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                ),
+                // 端盖同心：首末两枚 40dp 圆钮与药丸端头弧心对齐（环隙与上下等宽）。
+                contentPadding = EtaFloatingToolbarConcentricPadding(
+                    IconButtonDefaults.smallContainerSize().width,
                 ),
                 leadingContent = {},
                 modifier = Modifier
