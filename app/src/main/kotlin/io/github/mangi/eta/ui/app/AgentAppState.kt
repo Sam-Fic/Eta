@@ -6630,6 +6630,10 @@ internal class AgentAppState(
         if (previous?.isStreaming != state.isStreaming) {
             refreshConversationSummaries()
         }
+        // 暂停/继续不改变 isStreaming，但会改变抽屉行尾的运行态，必须同步重建摘要。
+        if (previous?.isPaused != state.isPaused) {
+            refreshConversationSummaries()
+        }
     }
 
     private fun setConversationWaitingForCompression(conversationId: String?, waiting: Boolean) {
@@ -6819,7 +6823,8 @@ internal class AgentAppState(
                 createdAtMillis = conversationCreatedAt[id],
                 updatedAtMillis = conversationUpdatedAt[id],
                 isPinned = id in conversationPinned,
-                isActiveRun = state.isStreaming,
+                // 暂停不算回复中：暂停后运行已挂起，抽屉行尾不应继续转 loading。
+                isActiveRun = state.isStreaming && !state.isPaused,
                 hasCompletionMarker = id in conversationCompletionMarkers,
                 folderId = conversationFolderIds[id],
                 environment = environment,
@@ -6828,7 +6833,11 @@ internal class AgentAppState(
             // summary while it is streaming so the manage list is not rebuilt per delta,
             // but never keep its old day/locale/zone after the label environment changes.
             val cached = if (state.isStreaming && id == selectedConversationId) {
-                conversationSummaryCache.current(id, environment)
+                conversationSummaryCache.current(id, environment)?.let { summary ->
+                    // 流式增量只改预览，预览/时间标签沿用缓存；运行态必须实时反映，
+                    // 否则新开的会话一开始回复时缓存里的 isActiveRun 仍是 false，抽屉永远不显示 loading。
+                    summary.copy(isActiveRun = key.isActiveRun)
+                }
             } else {
                 null
             }
@@ -6882,7 +6891,7 @@ internal class AgentAppState(
                     createdAtMillis = conversationCreatedAt[id] ?: conversationUpdatedAt[id] ?: 0L,
                     mode = ConversationModeUi.Chat,
                     isPinned = id in conversationPinned,
-                    isActiveRun = state.isStreaming,
+                    isActiveRun = state.isStreaming && !state.isPaused,
                     hasCompletionMarker = id in conversationCompletionMarkers,
                     folderId = conversationFolderIds[id],
                     isToday = ConversationTimeLabels.isToday(
