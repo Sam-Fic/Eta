@@ -1,15 +1,18 @@
 package io.github.mangi.eta.agent.voice
 
+import android.Manifest
 import android.app.Service
 import android.app.ActivityOptions
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
 import android.provider.Settings
 import android.view.Gravity
 import android.view.View
@@ -31,6 +34,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
@@ -51,11 +57,15 @@ import io.github.mangi.eta.agent.question.AgentQuestionCodec
 import io.github.mangi.eta.agent.question.AgentQuestionStatus
 import io.github.mangi.eta.ui.model.AgentQuestionMessageUi
 import io.github.mangi.eta.ui.app.AgentQuestionProjection
+import io.github.mangi.eta.agent.overlay.AgentHapticFeedback
 import io.github.mangi.eta.agent.overlay.AgentOverlayVisibilityPolicy
 import io.github.mangi.eta.agent.runtime.AgentEvent
 import io.github.mangi.eta.agent.runtime.AgentExternalArchivePayload
 import io.github.mangi.eta.agent.runtime.AgentRuntimeClient
 import io.github.mangi.eta.agent.runtime.AgentRuntimeWire
+import io.github.mangi.eta.agent.voice.doubao.DoubaoVoiceConfig
+import io.github.mangi.eta.config.AssistantEntryMode
+import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.ui.MainActivity
 import io.github.mangi.eta.ui.app.AgentAppTheme
@@ -126,6 +136,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
     private var handoffInProgress = false
     private var exitAnimationRequested by mutableStateOf(false)
     private var inputFocusRequestKey by mutableIntStateOf(-1)
+    private var lastWakeHapticAt = 0L
     private var uiState by mutableStateOf(EtaVoiceUiState())
 
     /**
@@ -211,6 +222,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
             stopSelf()
             return
         }
+        performWakeHaptic()
         cancelCurrentRun()
         entryCaptureJob?.cancel()
         removeWindow()
@@ -300,7 +312,48 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
             stopSelf()
             return
         }
+        // 语音入口不弹键盘：两者同时出现会把系统 IME 的入场动画和语音条打架。
+        if (Prefs.assistantEntryMode() == AssistantEntryMode.VOICE && startVoiceEntry()) return
         showKeyboard()
+    }
+
+    /**
+     * 唤起时直接开始语音识别。
+     *
+     * 只在 App 进程的入口浮窗消费（配置存本地 Agent 偏好）。麦克风权限或语音配置缺失时
+     * 弹一条提示并返回 false，由调用方退回键盘输入；识别引擎的细节错误（云端凭据 /
+     * 离线包尚未就绪）交给 [VoiceModeController] 在语音条里呈现，不在入口上二次判断。
+     */
+    private fun startVoiceEntry(): Boolean {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            Toast.makeText(this, R.string.assistant_entry_voice_permission_missing, Toast.LENGTH_SHORT).show()
+            return false
+        }
+        val config = DoubaoVoiceConfig.state.value
+        // 同时可用两种模式且没有历史选择时 directMode 为 null，此时按入口顺序取第一个（语音对话）。
+        val mode = VoiceEntryPolicy.directMode(
+            config,
+            Prefs.getString(Prefs.Keys.AGENT_VOICE_LAST_ENTRY),
+        ) ?: VoiceEntryPolicy.modes(config).firstOrNull()
+        if (mode == null) {
+            Toast.makeText(this, R.string.assistant_entry_voice_unavailable, Toast.LENGTH_SHORT).show()
+            return false
+        }
+        voiceController.start(mode)
+        return true
+    }
+
+    /**
+     * 电源键唤起时的触感。系统可能在一轮唤起里回调多次（session 重建 / 重复 SHOW），
+     * 500ms 内只震一次，避免连震。
+     */
+    private fun performWakeHaptic() {
+        val now = SystemClock.uptimeMillis()
+        if (now - lastWakeHapticAt < WAKE_HAPTIC_DEDUPE_MS) return
+        lastWakeHapticAt = now
+        AgentHapticFeedback.perform(this, AgentHapticFeedback.Type.ASSISTANT_WAKE)
     }
 
     private fun showWindow() {
@@ -342,6 +395,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
                         inputFocusRequestKey = inputFocusRequestKey,
                         onScreenContextSelect = ::selectScreenContext,
                         onScreenContextRemove = ::removeScreenContext,
+                        onScreenContextPreset = ::submitScreenContextPreset,
                         onSubmit = { text -> submitInput(text) },
                         onStop = ::stopCurrentRun,
                         onClose = ::dismissAndStop,
@@ -377,8 +431,10 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
             setFitInsetsTypes(0)
             layoutInDisplayCutoutMode =
                 WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
-            softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING or
-                WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN
+            // 只声明「键盘弹起时不重排窗口」。不要带 STATE_ALWAYS_VISIBLE / STATE_ALWAYS_HIDDEN：
+            // 入口窗口在 Compose 输入框拿到焦点前没有 InputConnection，窗口级状态会让系统
+            // 先弹一次空键盘再收回，等真正聚焦后又弹一次——就是唤起动画里的键盘闪现。
+            softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
             title = "EtaAssistantOverlay"
         }
         runCatching { wm.addView(view, params) }.onFailure { throwable ->
@@ -435,7 +491,8 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
             phase = EtaVoicePhase.READY,
             status = status,
         )
-        updateSoftInput(visible = true)
+        // 只发焦点请求，键盘由面板在输入框真正拿到焦点后统一唤出（见 EtaVoicePanel）。
+        // 在这里直接改窗口 softInputMode 会先于 InputConnection 弹出一次空键盘。
         inputFocusRequestKey++
     }
 
@@ -1011,17 +1068,25 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         }
     }
 
+    /**
+     * 显式显示 / 隐藏输入法，不再改写窗口的 `softInputMode`。
+     *
+     * 窗口级 `STATE_ALWAYS_VISIBLE` 会在 Compose 输入框还没有 InputConnection 时先弹一次
+     * 键盘，系统随后发现没有输入目标又收回，造成唤起动画里的「键盘闪现」。入口的键盘
+     * 统一由 [EtaVoicePanel] 在聚焦后唤出；这里只服务生成中 / 结束后 / 提问卡片这些
+     * 窗口已经存在、焦点已建立的场景。
+     */
     private fun updateSoftInput(visible: Boolean) {
-        val wm = windowManager ?: return
         val view = windowView ?: return
-        val params = windowParams ?: return
-        params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING or
-            if (visible) {
-                WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE
-            } else {
-                WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN
-            }
-        runCatching { wm.updateViewLayout(view, params) }
+        val imm = getSystemService(INPUT_METHOD_SERVICE) as? InputMethodManager
+        val controller = ViewCompat.getWindowInsetsController(view)
+        if (visible) {
+            imm?.showSoftInput(view.findFocus() ?: view, 0)
+            controller?.show(WindowInsetsCompat.Type.ime())
+        } else {
+            imm?.hideSoftInputFromWindow(view.windowToken, 0)
+            controller?.hide(WindowInsetsCompat.Type.ime())
+        }
     }
 
     private fun selectScreenContext() {
@@ -1032,6 +1097,28 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
                 hasAttachment = screenContextAttachment != null,
             ),
         )
+    }
+
+    /**
+     * 屏幕快捷预设：一次点击就等于「带上当前屏幕截图 + 发送这句预设」，
+     * 省掉先点「添加当前屏幕」再打字的两步。
+     *
+     * 预设 chip 在屏幕未采好时是禁用的；这里再兜一次底，避免竞态下不带图就把
+     * 「翻译当前屏幕」这类指令发出去。
+     */
+    private fun submitScreenContextPreset(preset: ScreenContextPreset) {
+        if (activeRunId != null) return
+        if (uiState.screenContext.phase != EtaScreenContextPhase.AVAILABLE ||
+            screenContextAttachment == null
+        ) {
+            toast(getString(R.string.voice_screen_unavailable))
+            return
+        }
+        // submitPrompt 按 selected 决定是否带图；预设本身就是带屏幕提问，直接选中再发。
+        uiState = uiState.copy(
+            screenContext = uiState.screenContext.copy(selected = true),
+        )
+        submitPrompt(getString(preset.promptRes))
     }
 
     private fun removeScreenContext() {
@@ -1207,6 +1294,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
          * （[AssistantExitDurationMillis] = 220ms），保证动画不被截断。
          */
         private const val EXIT_ANIMATION_DURATION_MS = 240L
+        private const val WAKE_HAPTIC_DEDUPE_MS = 500L
         private const val HANDOFF_REQUEST_CODE = 0x455441
         private const val LEGACY_STOPPED_ERROR = "已停止"
         private const val SYNTHETIC_STOPPED = "eta_status:stopped"

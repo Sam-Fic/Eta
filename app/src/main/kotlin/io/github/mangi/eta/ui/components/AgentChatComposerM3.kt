@@ -295,14 +295,15 @@ internal fun Material3ComposerBody(
         if (!pickerEnabled || isEditingMessage) showPickerSheet = false
     }
     // 输入栏进出场动效统一取官方 Expressive 弹簧规格（与输入区其它动效同一来源）。
-    val enterSpec: FiniteAnimationSpec<Float> = MaterialTheme.motionScheme.defaultSpatialSpec()
-    val exitSpec: FiniteAnimationSpec<Float> = MaterialTheme.motionScheme.defaultSpatialSpec()
+    // 淡化属 Effects（临界阻尼、无过冲），宽度展开收缩属 Spatial（轻微过冲）。
+    val enterSpec: FiniteAnimationSpec<Float> = MaterialTheme.motionScheme.defaultEffectsSpec()
+    val exitSpec: FiniteAnimationSpec<Float> = MaterialTheme.motionScheme.fastEffectsSpec()
     val growSpec: FiniteAnimationSpec<IntSize> = MaterialTheme.motionScheme.defaultSpatialSpec()
     val shrinkSpec: FiniteAnimationSpec<IntSize> = MaterialTheme.motionScheme.defaultSpatialSpec()
 
     // 尾部按钮（Call ⇄ Send ⇄ Stop）形变规格：与“输入文字后 Call→Send”同款，
-    // 即淡入淡出 + 0.8 缩放的官方 Expressive 弹簧。
-    val trailingFadeSpec: FiniteAnimationSpec<Float> = MaterialTheme.motionScheme.defaultSpatialSpec()
+    // 即淡入淡出 + 0.8 缩放；透明度走 Effects，缩放走 Spatial。
+    val trailingFadeSpec: FiniteAnimationSpec<Float> = MaterialTheme.motionScheme.defaultEffectsSpec()
     val trailingScaleSpec: FiniteAnimationSpec<Float> = MaterialTheme.motionScheme.defaultSpatialSpec()
     // 尾部槽位是否显示发送 / 停止 / 继续（而非语音入口）。
     // 有内容时让位给发送按钮；没有内容但生成 / 压缩中时保留停止按钮。
@@ -430,7 +431,8 @@ internal fun Material3ComposerBody(
                 } else {
                     MaterialTheme.colorScheme.surfaceContainer
                 },
-                animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+                // 槽位底衬只做颜色插值，属 Effects，不能拿 Spatial 的过冲。
+                animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
                 label = "composer_pill_backdrop",
             )
             // 胶囊与尾部按钮的共享容器：胶囊内容（输入框 ⇄ 聆听条）只做交叉淡化，

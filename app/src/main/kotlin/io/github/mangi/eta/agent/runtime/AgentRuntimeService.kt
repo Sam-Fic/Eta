@@ -19,8 +19,10 @@ import android.view.View
 import android.view.WindowManager
 import android.view.WindowInsets
 import androidx.compose.runtime.Composable
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.CompositionLocalProvider
@@ -1270,6 +1272,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         resultCardParams = lp
     }
 
+    @OptIn(ExperimentalMaterial3ExpressiveApi::class)
     private fun createOverlayComposeView(content: @Composable () -> Unit): ComposeView =
         ComposeView(overlayContext()).apply {
             setViewTreeLifecycleOwner(this@AgentRuntimeService)
@@ -1277,7 +1280,12 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
             setContent {
                 val isDark = isNightMode()
                 val m3Colors = if (isDark) darkColorScheme() else lightColorScheme()
-                MaterialTheme(colorScheme = m3Colors) {
+                // 与主程序（AgentAppTheme）保持同一套动效方案：官方组件与浮层自绘动画
+                // 都从 expressive 的 spatial / effects 弹簧取规格。颜色仍用这套明暗色板。
+                MaterialTheme(
+                    colorScheme = m3Colors,
+                    motionScheme = MotionScheme.expressive(),
+                ) {
                     CompositionLocalProvider(
                         // Material3 的 Icon/Text 默认取 LocalContentColor，需在此补上。
                         LocalContentColor provides m3Colors.onSurface,

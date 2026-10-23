@@ -1,14 +1,17 @@
 package io.github.mangi.eta.agent.voice
 
+import android.view.View
+import android.view.ViewTreeObserver
+import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
@@ -19,7 +22,9 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -37,13 +42,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.CancelPresentation
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DesktopWindows
+import androidx.compose.material.icons.rounded.Summarize
+import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
@@ -53,6 +62,8 @@ import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SuggestionChip
+import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Text as M3Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -64,6 +75,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -76,6 +88,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -86,12 +99,17 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.components.AgentConversationMessages
 import io.github.mangi.eta.ui.components.ChatImagePreviewHost
@@ -105,9 +123,11 @@ import io.github.mangi.eta.ui.components.rememberImeVisible
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
 import io.github.mangi.eta.ui.model.AgentMessageUi
 import io.github.mangi.eta.ui.model.ConversationMentionInputUi
+import kotlin.coroutines.resume
 import kotlin.math.max
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 internal enum class EtaVoicePhase {
     READY,
@@ -166,6 +186,34 @@ internal object EtaScreenContextStateReducer {
     fun consume(): EtaScreenContextUiState = EtaScreenContextUiState(
         phase = EtaScreenContextPhase.CONSUMED,
     )
+}
+
+/**
+ * 当前屏幕的快捷预设。
+ *
+ * 一次点击就等价于「带上屏幕截图 + 发送这句话」，省掉先点「添加当前屏幕」再打字的两步；
+ * 自定义问题仍然可以走原来的屏幕 chip。点击时若屏幕已采好但未选中，入口服务会自动选中。
+ */
+internal enum class ScreenContextPreset(
+    @StringRes val labelRes: Int,
+    @StringRes val promptRes: Int,
+    val icon: ImageVector,
+) {
+    TRANSLATE(
+        labelRes = R.string.voice_screen_preset_translate,
+        promptRes = R.string.voice_screen_preset_translate_prompt,
+        icon = Icons.Rounded.Translate,
+    ),
+    ADD_CALENDAR(
+        labelRes = R.string.voice_screen_preset_calendar,
+        promptRes = R.string.voice_screen_preset_calendar_prompt,
+        icon = Icons.Rounded.CalendarMonth,
+    ),
+    ORGANIZE(
+        labelRes = R.string.voice_screen_preset_organize,
+        promptRes = R.string.voice_screen_preset_organize_prompt,
+        icon = Icons.Rounded.Summarize,
+    ),
 }
 
 /**
@@ -241,6 +289,7 @@ internal fun EtaVoicePanel(
     onStopVoiceMode: () -> Unit,
     onScreenContextSelect: () -> Unit,
     onScreenContextRemove: () -> Unit,
+    onScreenContextPreset: (ScreenContextPreset) -> Unit,
     onSubmit: (String) -> Unit,
     onStop: () -> Unit,
     onClose: () -> Unit,
@@ -249,6 +298,7 @@ internal fun EtaVoicePanel(
     onSubmitQuestionAnswer: (String, String) -> Unit,
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
+    val view = LocalView.current
     val density = LocalDensity.current
     val focusRequester = remember { FocusRequester() }
     val panelEntry = remember { Animatable(0f) }
@@ -257,6 +307,8 @@ internal fun EtaVoicePanel(
     var windowHeightPx by remember { mutableIntStateOf(0) }
 
     // 弹出：内容面板走 M3E 弹簧（纯平移入场），全程不掺透明度变化。
+    // 底部面板在 M3E 里属于「中等元素」，取 defaultSpatialSpec（轻微过冲回弹）；
+    // 透明度 / 颜色一律走 Effects 弹簧（临界阻尼、无过冲），见下方压暗层。
     // 弹簧规格须在组合期读取。
     val panelEntrySpec = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
     LaunchedEffect(Unit) {
@@ -282,10 +334,17 @@ internal fun EtaVoicePanel(
     }
 
     LaunchedEffect(inputFocusRequestKey) {
-        if (inputFocusRequestKey >= 0 && state.phase != EtaVoicePhase.PROCESSING) {
-            delay(120)
-            focusRequester.requestFocus()
+        if (inputFocusRequestKey < 0 || state.phase == EtaVoicePhase.PROCESSING) return@LaunchedEffect
+        // 入口浮窗刚 addView 时还没有窗口焦点，此时 requestFocus / keyboard.show 会被系统
+        // 忽略；等焦点真正到窗口后再让输入框聚焦并唤键盘，否则只会在键盘入射动画播放到
+        // 一半时被系统收回，看起来就是「键盘闪现一下又浮起」。
+        awaitWindowFocus(view)
+        repeat(2) {
+            withFrameNanos { }
+            runCatching { focusRequester.requestFocus() }
             keyboard?.show()
+            ViewCompat.getWindowInsetsController(view)?.show(WindowInsetsCompat.Type.ime())
+            delay(48)
         }
     }
 
@@ -295,7 +354,9 @@ internal fun EtaVoicePanel(
     val scrimColor = MaterialTheme.colorScheme.scrim.copy(alpha = 0.32f)
     val scrimAlpha by animateFloatAsState(
         targetValue = if (exitRequested || state.messages.isEmpty()) 0f else 1f,
-        animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
+        // 压暗层只变透明度，走 M3E Effects 弹簧（临界阻尼、无过冲），
+        // 不掺 Spatial 的过冲，避免压暗层在淡入末尾「闪一下」。
+        animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
         label = "assistant_scrim",
     )
 
@@ -361,6 +422,7 @@ internal fun EtaVoicePanel(
                     onStopVoiceMode = onStopVoiceMode,
                     onScreenContextSelect = onScreenContextSelect,
                     onScreenContextRemove = onScreenContextRemove,
+                    onScreenContextPreset = onScreenContextPreset,
                     onSubmit = {
                         keyboard?.hide()
                         onSubmit(it)
@@ -372,6 +434,38 @@ internal fun EtaVoicePanel(
                     onSubmitQuestionAnswer = onSubmitQuestionAnswer,
                 )
             }
+        }
+    }
+}
+
+/**
+ * 等宿主 View 拿到窗口焦点。入口浮窗从 `addView` 到可接收输入之间有一小段空白期，
+ * 这期间对输入框的任何聚焦 / 弹键盘请求都会被系统丢弃；超时兜底，避免窗口始终不
+ * 聚焦时把整次键盘请求挂住。
+ */
+private suspend fun awaitWindowFocus(
+    view: View,
+    timeoutMillis: Long = 600L,
+) {
+    if (view.hasWindowFocus()) return
+    suspendCancellableCoroutine { continuation ->
+        val observer = view.viewTreeObserver
+        val listener = object : ViewTreeObserver.OnWindowFocusChangeListener {
+            override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
+                if (!hasWindowFocus || !continuation.isActive) return
+                if (observer.isAlive) observer.removeOnWindowFocusChangeListener(this)
+                continuation.resume(Unit)
+            }
+        }
+        observer.addOnWindowFocusChangeListener(listener)
+        view.postDelayed({
+            if (continuation.isActive) {
+                if (observer.isAlive) observer.removeOnWindowFocusChangeListener(listener)
+                continuation.resume(Unit)
+            }
+        }, timeoutMillis)
+        continuation.invokeOnCancellation {
+            if (observer.isAlive) observer.removeOnWindowFocusChangeListener(listener)
         }
     }
 }
@@ -392,6 +486,7 @@ private fun BoxScope.AssistantPanel(
     onStopVoiceMode: () -> Unit,
     onScreenContextSelect: () -> Unit,
     onScreenContextRemove: () -> Unit,
+    onScreenContextPreset: (ScreenContextPreset) -> Unit,
     onSubmit: (String) -> Unit,
     onStop: () -> Unit,
     onClose: () -> Unit,
@@ -435,17 +530,20 @@ private fun BoxScope.AssistantPanel(
     // 弹簧规格须在组合期读取（MaterialTheme.motionScheme 是 @Composable getter）。
     val sheetHeight = remember { Animatable(0f) }
     val sheetHeightSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
+    // 面板底与消息显现都只联动透明度：按 M3E 分类取 Effects 弹簧（临界阻尼、无过冲），
+    // 入场用 default、收起用 fast，避免在大块面板上出现 alpha 过冲。
+    val sheetEffectsSpec = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
     val sheetBackgroundAlpha = animateFloatAsState(
         targetValue = if (hasMessages) 1f else 0f,
-        animationSpec = tween(durationMillis = 160, easing = LinearOutSlowInEasing),
+        animationSpec = sheetEffectsSpec,
         label = "assistant_sheet_background",
     )
     val messageRevealProgress = animateFloatAsState(
         targetValue = if (hasMessages) 1f else 0f,
         animationSpec = if (hasMessages) {
-            tween(durationMillis = 180, delayMillis = 50, easing = LinearOutSlowInEasing)
+            sheetEffectsSpec
         } else {
-            tween(durationMillis = 100, easing = FastOutSlowInEasing)
+            MaterialTheme.motionScheme.fastEffectsSpec()
         },
         label = "assistant_message_reveal",
     )
@@ -723,6 +821,7 @@ private fun BoxScope.AssistantPanel(
                 onStopVoiceMode = onStopVoiceMode,
                 onScreenContextSelect = onScreenContextSelect,
                 onScreenContextRemove = onScreenContextRemove,
+                onScreenContextPreset = onScreenContextPreset,
                 onSubmit = onSubmit,
                 onStop = onStop,
                 modifier = Modifier
@@ -751,6 +850,7 @@ private fun AssistantComposer(
     onStopVoiceMode: () -> Unit,
     onScreenContextSelect: () -> Unit,
     onScreenContextRemove: () -> Unit,
+    onScreenContextPreset: (ScreenContextPreset) -> Unit,
     onSubmit: (String) -> Unit,
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
@@ -782,9 +882,16 @@ private fun AssistantComposer(
     }
 
     // 输入区进出场动效统一取与应用内输入区同一套官方 Expressive 弹簧规格。
-    val fadeEnterSpec: FiniteAnimationSpec<Float> = MaterialTheme.motionScheme.defaultSpatialSpec()
-    val fadeExitSpec: FiniteAnimationSpec<Float> = MaterialTheme.motionScheme.defaultSpatialSpec()
+    // 按 M3E 分类：淡入淡出是透明度，走 Effects（临界阻尼、无过冲）；
+    // 附件条 / 预设行的高度展开收缩是尺寸变化，走 Spatial（轻微过冲）。
+    val fadeEnterSpec: FiniteAnimationSpec<Float> = MaterialTheme.motionScheme.defaultEffectsSpec()
+    val fadeExitSpec: FiniteAnimationSpec<Float> = MaterialTheme.motionScheme.fastEffectsSpec()
     val shrinkTallSpec: FiniteAnimationSpec<IntSize> = MaterialTheme.motionScheme.defaultSpatialSpec()
+    // 快捷预设只在屏幕已采好、且输入区还是空的时候出现：一点即发，不抢用户正在打的草稿；
+    // 语音进行中输入区整块被聆听条替代，预设也一起收起。
+    val showScreenPresets = state.screenContext.phase == EtaScreenContextPhase.AVAILABLE &&
+        !voiceState.active &&
+        !hasDraftContent
     Column(modifier = modifier) {
         ScreenContextAttachment(
             state = state.screenContext,
@@ -792,6 +899,17 @@ private fun AssistantComposer(
             onSelect = onScreenContextSelect,
             onRemove = onScreenContextRemove,
         )
+        AnimatedVisibility(
+            visible = showScreenPresets,
+            enter = fadeIn(fadeEnterSpec) + expandVertically(shrinkTallSpec),
+            exit = fadeOut(fadeExitSpec) + shrinkVertically(shrinkTallSpec),
+        ) {
+            ScreenContextPresets(
+                enabled = !processing,
+                onPreset = onScreenContextPreset,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+        }
         if (state.screenContext.phase != EtaScreenContextPhase.CONSUMED) {
             Spacer(Modifier.height(8.dp))
         }
@@ -876,6 +994,47 @@ private fun AssistantComposer(
     }
 }
 
+/**
+ * 当前屏幕的快捷预设：横向可滚动，避免窄屏或大字号把最后一枚 chip 挤出屏幕。
+ * 外观全部交给官方 [SuggestionChip]，与聊天里的建议语保持一致。
+ */
+@Composable
+private fun ScreenContextPresets(
+    enabled: Boolean,
+    onPreset: (ScreenContextPreset) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        ScreenContextPreset.entries.forEach { preset ->
+            SuggestionChip(
+                onClick = { onPreset(preset) },
+                enabled = enabled,
+                // Chip 家族默认不合并子节点语义，显式合并后读屏才能把提示语当按钮名播报。
+                modifier = Modifier.semantics(mergeDescendants = true) { },
+                icon = {
+                    Icon(
+                        imageVector = preset.icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(SuggestionChipDefaults.IconSize),
+                    )
+                },
+                label = {
+                    M3Text(
+                        text = stringResource(preset.labelRes),
+                        maxLines = 1,
+                        softWrap = false,
+                    )
+                },
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ScreenContextAttachment(
@@ -884,14 +1043,17 @@ private fun ScreenContextAttachment(
     onSelect: () -> Unit,
     onRemove: () -> Unit,
 ) {
+    // 屏幕上下文 chip ⇄ 预览是一处 chip 级的小范围替换：透明度走 Effects、位移走 Spatial，
+    // 都取 fast 档。规格要在组合期先读好，transitionSpec 里不能读 CompositionLocal。
+    val contextFadeSpec = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
+    val contextSlideSpec = MaterialTheme.motionScheme.fastSpatialSpec<IntOffset>()
     AnimatedContent(
         targetState = state,
         transitionSpec = {
-            (fadeIn(tween(180, easing = LinearOutSlowInEasing)) +
-                slideInVertically(tween(180, easing = LinearOutSlowInEasing)) { it / 5 })
+            (fadeIn(contextFadeSpec) + slideInVertically(contextSlideSpec) { it / 5 })
                 .togetherWith(
-                    fadeOut(tween(120, easing = FastOutSlowInEasing)) +
-                        slideOutVertically(tween(120, easing = FastOutSlowInEasing)) { -it / 6 },
+                    fadeOut(contextFadeSpec) +
+                        slideOutVertically(contextSlideSpec) { -it / 6 },
                 )
         },
         contentKey = { it.phase to it.selected },

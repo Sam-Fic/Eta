@@ -17,6 +17,7 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.PowerSettingsNew
+import androidx.compose.material.icons.rounded.RecordVoiceOver
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.SwipeUp
 import androidx.compose.material.icons.rounded.TouchApp
@@ -35,6 +36,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.voice.EtaVoiceInteractionService
+import io.github.mangi.eta.config.AssistantEntryMode
 import io.github.mangi.eta.config.PowerAssistantTarget
 import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.systemizer.GoogleAppSystemizerInstaller
@@ -149,6 +151,23 @@ internal fun SystemTakeoverSettingsScreen(
     }
     val powerAssistantItems = powerAssistantTargets.map { it.displayName(context) }
 
+    // 唤起方式属于 App 进程的入口浮窗行为，写本地 Agent 配置；LSPosed 未连接时也能调整。
+    val entryModePreferences = remember(context.applicationContext) { Prefs.localAgentPreferences() }
+    var assistantEntryMode by remember(entryModePreferences) {
+        mutableStateOf(Prefs.assistantEntryMode(entryModePreferences))
+    }
+    DisposableEffect(entryModePreferences) {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { changedPrefs, key ->
+            if (key == Prefs.Keys.ASSISTANT_ENTRY_MODE) {
+                assistantEntryMode = Prefs.assistantEntryMode(changedPrefs)
+            }
+        }
+        entryModePreferences?.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { entryModePreferences?.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
+    val assistantEntryModes = AssistantEntryMode.entries
+    val assistantEntryItems = assistantEntryModes.map { it.displayName(context) }
+
     EtaScaffoldPage(
         title = stringResource(R.string.ui_system_assistant_takes_over_f46043),
         onBack = onBack,
@@ -236,6 +255,40 @@ internal fun SystemTakeoverSettingsScreen(
                         )
                     },
                     enabled = prefs != null,
+                )
+            }
+
+            row {
+                WindowSpinnerPreference(
+                    title = stringResource(R.string.settings_assistant_entry_mode),
+                    summary = stringResource(R.string.settings_assistant_entry_mode_summary),
+                    items = assistantEntryItems,
+                    selectedIndex = assistantEntryModes.indexOf(assistantEntryMode),
+                    onSelectedIndexChange = { index ->
+                        val mode = assistantEntryModes.getOrNull(index)
+                            ?: return@WindowSpinnerPreference
+                        val targetPrefs = entryModePreferences
+                            ?: return@WindowSpinnerPreference
+                        if (putStringSync(
+                                prefs = targetPrefs,
+                                key = Prefs.Keys.ASSISTANT_ENTRY_MODE,
+                                value = mode.persistedValue,
+                            )
+                        ) {
+                            assistantEntryMode = mode
+                        } else {
+                            Toast.makeText(
+                                context.applicationContext,
+                                context.getString(R.string.settings_write_failed),
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        }
+                    },
+                    startAction = {
+                        PreferenceIcon(
+                            icon = Icons.Rounded.RecordVoiceOver,
+                        )
+                    },
                 )
             }
         }
@@ -422,6 +475,13 @@ private fun isEtaAssistantActive(context: Context): Boolean =
         context,
         ComponentName(context, EtaVoiceInteractionService::class.java),
     )
+
+private fun AssistantEntryMode.displayName(context: Context): String = context.getString(
+    when (this) {
+        AssistantEntryMode.KEYBOARD -> R.string.settings_assistant_entry_keyboard
+        AssistantEntryMode.VOICE -> R.string.settings_assistant_entry_voice
+    },
+)
 
 private fun SystemizerInstallResult.toToastMessage(context: Context): String =
     when (this) {

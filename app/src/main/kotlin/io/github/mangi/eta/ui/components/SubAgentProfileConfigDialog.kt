@@ -2,7 +2,6 @@ package io.github.mangi.eta.ui.components
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -30,6 +29,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
@@ -160,9 +160,6 @@ private class SubAgentResolvedDraftBinding(val providerId: String, val modelId: 
 
 /** 预设分组之间的垂直间距，与兄弟设置页的分段分组节奏一致。 */
 private val ProfileDialogGroupSpacing = 13.dp
-
-/** 二级页切换时长，与 NavHost 转场保持一致。 */
-private const val ProfilePageTransitionMs = 300
 
 /**
  * 草稿表单的分段设置行：标题为正文（content），取值为次要行（supportingContent），
@@ -309,6 +306,10 @@ internal fun SubAgentProfileConfigDialog(
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     // 二级选择页会替换主表单的组合；滚动位置提在页面之上，返回时仍停在原来的设置行。
     val formScroll = rememberScrollState()
+    // 二级页侧滑与 NavHost 同一套 M3E 规格：位移走 Spatial（轻微过冲），淡化走 Effects。
+    // 规格须在组合期读好，transitionSpec 里不能读 CompositionLocal。
+    val pageSlideSpec = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
+    val pageFadeSpec = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
     CompositionLocalProvider(LocalRippleConfiguration provides etaRippleConfiguration()) {
         WithoutPressRipple {
             EtaPageSurface(onDismissRequest = userDismiss) {
@@ -320,15 +321,15 @@ internal fun SubAgentProfileConfigDialog(
                         val sign = if (forward) 1f else -1f
                         val enterSign = if (rtl) -sign else sign
                         val enter = slideInHorizontally(
-                            animationSpec = tween(ProfilePageTransitionMs),
+                            animationSpec = pageSlideSpec,
                         ) { width -> (width * enterSign).toInt() } + fadeIn(
-                            animationSpec = tween(ProfilePageTransitionMs),
+                            animationSpec = pageFadeSpec,
                             initialAlpha = 0.9f,
                         )
                         val exit = slideOutHorizontally(
-                            animationSpec = tween(ProfilePageTransitionMs),
+                            animationSpec = pageSlideSpec,
                         ) { width -> (-width * enterSign / 4f).toInt() } + fadeOut(
-                            animationSpec = tween(ProfilePageTransitionMs),
+                            animationSpec = pageFadeSpec,
                             targetAlpha = 0.9f,
                         )
                         enter togetherWith exit

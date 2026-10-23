@@ -1170,8 +1170,10 @@ private fun UserMessageBubble(
         if (isGroupTail) {
             AnimatedVisibility(
                 visible = actionsRevealed,
-                enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut(),
+                enter = expandVertically(animationSpec = MaterialTheme.motionScheme.fastSpatialSpec()) +
+                    fadeIn(animationSpec = MaterialTheme.motionScheme.fastEffectsSpec()),
+                exit = shrinkVertically(animationSpec = MaterialTheme.motionScheme.fastSpatialSpec()) +
+                    fadeOut(animationSpec = MaterialTheme.motionScheme.fastEffectsSpec()),
             ) {
                 Row(
                     modifier = Modifier.padding(top = 2.dp),
@@ -3257,7 +3259,8 @@ private fun ThinkingRow(
 internal fun tailDetailsEnter(fromBottom: Boolean): androidx.compose.animation.EnterTransition {
     // 面板始终在标题下方、自上而下展开（expandFrom=Top）。标题行位置纹丝不动，
     // 也不再因锚定方向让面板内容自下而上滑入产生位移感；动画规格取官方 motionScheme。
-    return fadeIn(MaterialTheme.motionScheme.defaultSpatialSpec<Float>()) + expandVertically(
+    // 透明度属 Effects（无过冲），高度展开属 Spatial（轻微过冲）。
+    return fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec<Float>()) + expandVertically(
         animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec<androidx.compose.ui.unit.IntSize>(),
         expandFrom = Alignment.Top,
     )
@@ -3299,9 +3302,9 @@ internal fun AnimatedVisibilityScope.retainDrawLayerWhenIdle(enabled: Boolean = 
 internal fun tailDetailsExit(toBottom: Boolean): androidx.compose.animation.ExitTransition {
     // 与进入动画对称，向顶部收起（面板往标题方向收），标题行保持不动。
     return shrinkVertically(
-        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec<androidx.compose.ui.unit.IntSize>(),
+        animationSpec = MaterialTheme.motionScheme.fastSpatialSpec<androidx.compose.ui.unit.IntSize>(),
         shrinkTowards = Alignment.Top,
-    ) + fadeOut(MaterialTheme.motionScheme.defaultSpatialSpec<Float>())
+    ) + fadeOut(MaterialTheme.motionScheme.fastEffectsSpec<Float>())
 }
 
 /**
@@ -3319,14 +3322,14 @@ internal fun tailDetailsExit(toBottom: Boolean): androidx.compose.animation.Exit
 @Composable
 private fun ToolStatusIndicator(status: ToolActivityStatusUi) {
     val runningLabel = stringResource(R.string.tool_status_running)
-    // 状态切换动效取官方 motionScheme 规格。
+    // 状态切换动效取官方 motionScheme 规格：透明度走 Effects（无过冲），缩放走 Spatial。
     val statusTransition: ContentTransform =
-        (fadeIn(MaterialTheme.motionScheme.defaultSpatialSpec<Float>()) +
+        (fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec<Float>()) +
             scaleIn(MaterialTheme.motionScheme.defaultSpatialSpec<Float>(), initialScale = 0.86f))
             .togetherWith(
-                fadeOut(MaterialTheme.motionScheme.defaultSpatialSpec<Float>()) +
+                fadeOut(MaterialTheme.motionScheme.fastEffectsSpec<Float>()) +
                     scaleOut(
-                        MaterialTheme.motionScheme.defaultSpatialSpec<Float>(),
+                        MaterialTheme.motionScheme.fastSpatialSpec<Float>(),
                         targetScale = 0.86f,
                     )
             )

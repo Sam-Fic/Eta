@@ -423,6 +423,12 @@
   <string name="voice_screen_title">Current screen</string>
   <string name="voice_screen_context_summary">This will be added as context for the next message</string>
   <string name="voice_screen_remove">Remove current screen</string>
+  <string name="voice_screen_preset_translate">Translate screen</string>
+  <string name="voice_screen_preset_translate_prompt">Translate the content on the current screen. Keep the original structure, give the full translation first, and add brief notes only if needed.</string>
+  <string name="voice_screen_preset_calendar">Add event from screen</string>
+  <string name="voice_screen_preset_calendar_prompt">Find the event, appointment or schedule information on the current screen and add it to the system calendar. Fill in missing details with the most reasonable reading of what is visible, tell me exactly which event you added, and say so plainly if there is no event on the screen.</string>
+  <string name="voice_screen_preset_organize">Organize screen</string>
+  <string name="voice_screen_preset_organize_prompt">Organize the content on the current screen: extract the key points and restructure them clearly. Use only information that appears on the screen and do not make anything up.</string>
   <string name="voice_input_hint">Message Eta…</string>
   <string name="voice_send">Send</string>
   <string name="ui_core_memory_user_name_long_term_preferences_aa6ff9"># core memory
@@ -556,6 +562,12 @@
   <string name="ui_url_or_domain_name_3ee97a">URL or domain name</string>
   <string name="ui_the_webpage_cannot_be_opened_3db06d">The webpage cannot be opened</string>
   <string name="ui_automatically_set_default_assistant_f86963">Automatically set default assistant</string>
+  <string name="settings_assistant_entry_mode">Wake-up action</string>
+  <string name="settings_assistant_entry_mode_summary">When launched from the power button or the system assistant entry</string>
+  <string name="settings_assistant_entry_keyboard">Keyboard</string>
+  <string name="settings_assistant_entry_voice">Voice input</string>
+  <string name="assistant_entry_voice_permission_missing">Microphone permission is required; switched to keyboard input</string>
+  <string name="assistant_entry_voice_unavailable">Voice input isn\'t configured; switched to keyboard input</string>
   <string name="ui_memory_b55ff5">Memory</string>
   <string name="ui_set_up_7debf9">Set up</string>
   <string name="ui_access_7f5641">Access</string>

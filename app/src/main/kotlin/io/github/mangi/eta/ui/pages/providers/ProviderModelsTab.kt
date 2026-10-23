@@ -456,8 +456,13 @@ internal fun ProviderModelsTab(
         AnimatedVisibility(
             visible = selectionMode,
             modifier = Modifier.align(Alignment.BottomCenter),
-            enter = slideInVertically { it } + fadeIn(),
-            exit = slideOutVertically { it } + fadeOut(),
+            // 批量选择栏的进退场：位移走 M3E Spatial（轻微过冲），透明度走 Effects（无过冲）。
+            enter = slideInVertically(
+                animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+            ) { it } + fadeIn(animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec()),
+            exit = slideOutVertically(
+                animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+            ) { it } + fadeOut(animationSpec = MaterialTheme.motionScheme.fastEffectsSpec()),
         ) {
             ModelSelectionBar(
                 selectedCount = selectedModelIds.size,

@@ -343,10 +343,11 @@ internal fun AgentChatInputBar(
             .fillMaxWidth(),
     ) {
         // Material 3 Expressive：输入器所有进出出场动效统一取官方 motionScheme 规格。
+        // 淡入淡出只变透明度，属 Effects（临界阻尼、无过冲）；高度展开收缩属 Spatial。
         val fadeEnterSpec: androidx.compose.animation.core.FiniteAnimationSpec<Float> =
-            MaterialTheme.motionScheme.defaultSpatialSpec()
+            MaterialTheme.motionScheme.defaultEffectsSpec()
         val fadeExitSpec: androidx.compose.animation.core.FiniteAnimationSpec<Float> =
-            MaterialTheme.motionScheme.defaultSpatialSpec()
+            MaterialTheme.motionScheme.fastEffectsSpec()
         val growSpec: androidx.compose.animation.core.FiniteAnimationSpec<androidx.compose.ui.unit.IntSize> =
             MaterialTheme.motionScheme.defaultSpatialSpec()
         val shrinkSpec: androidx.compose.animation.core.FiniteAnimationSpec<androidx.compose.ui.unit.IntSize> =
@@ -541,9 +542,10 @@ internal fun ThinkingEffortChip(
     }
     // 颜色来自 owner 的 gptSpeedMode：非 GPT（gptSpeedSupported=false）直接回落普通原色，
     // 且最终 tint 当帧恢复原色，不保存旧档位。
-    // Material 3 Expressive 的变色与旋转动效取官方 motionScheme。
+    // Material 3 Expressive 的变色与旋转动效取官方 motionScheme：颜色属 Effects（无过冲），
+    // 旋转属 Spatial（轻微过冲）。
     val speedFadeSpec: androidx.compose.animation.core.FiniteAnimationSpec<Color> =
-        MaterialTheme.motionScheme.defaultSpatialSpec()
+        MaterialTheme.motionScheme.defaultEffectsSpec()
     val speedSpinSpec: androidx.compose.animation.core.FiniteAnimationSpec<Float> =
         MaterialTheme.motionScheme.defaultSpatialSpec()
     val contentColor by animateColorAsState(

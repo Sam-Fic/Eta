@@ -1,9 +1,6 @@
 package io.github.mangi.eta.agent.overlay
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -133,17 +130,16 @@ internal fun AgentOverlayOrb(
 
     AnimatedVisibility(
         visible = visible,
+        // 光球是浮层里的「英雄时刻」：缩放走 M3E Spatial（轻微过冲回弹），
+        // 透明度走 Effects（临界阻尼、无过冲）。
         enter = scaleIn(
             initialScale = 0.5f,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioLowBouncy,
-                stiffness = Spring.StiffnessMediumLow
-            )
-        ) + fadeIn(animationSpec = tween(durationMillis = 200)),
+            animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+        ) + fadeIn(animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec()),
         exit = scaleOut(
             targetScale = 0.5f,
-            animationSpec = tween(durationMillis = 150)
-        ) + fadeOut(animationSpec = tween(durationMillis = 150)),
+            animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+        ) + fadeOut(animationSpec = MaterialTheme.motionScheme.fastEffectsSpec()),
     ) {
         // 点击直接交给 Service 侧 toggle，不在 Compose 协程作用域里做延迟动作，
         // 避免 scope 取消导致浮层残留。
@@ -320,19 +316,17 @@ internal fun AgentOverlayBubble(
 
     AnimatedVisibility(
         visible = visible,
+        // 气泡从光球一侧长出：缩放（Spatial，轻微过冲）+ 淡入（Effects，无过冲）。
         enter = scaleIn(
             initialScale = 0.5f,
             transformOrigin = TransformOrigin(1f, 0.5f),
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioLowBouncy,
-                stiffness = Spring.StiffnessMediumLow
-            )
-        ) + fadeIn(animationSpec = tween(durationMillis = 180)),
+            animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+        ) + fadeIn(animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec()),
         exit = scaleOut(
             targetScale = 0.5f,
             transformOrigin = TransformOrigin(1f, 0.5f),
-            animationSpec = tween(durationMillis = 150)
-        ) + fadeOut(animationSpec = tween(durationMillis = 150)),
+            animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+        ) + fadeOut(animationSpec = MaterialTheme.motionScheme.fastEffectsSpec()),
     ) {
         Card(
             modifier = Modifier
@@ -361,17 +355,11 @@ internal fun AgentOverlayBubble(
                 AnimatedVisibility(
                     visible = supplementMode,
                     enter = expandVertically(
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioNoBouncy,
-                            stiffness = Spring.StiffnessMedium,
-                        )
-                    ) + fadeIn(animationSpec = tween(durationMillis = 140)),
+                        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+                    ) + fadeIn(animationSpec = MaterialTheme.motionScheme.fastEffectsSpec()),
                     exit = shrinkVertically(
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioNoBouncy,
-                            stiffness = Spring.StiffnessMedium,
-                        )
-                    ) + fadeOut(animationSpec = tween(durationMillis = 100)),
+                        animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+                    ) + fadeOut(animationSpec = MaterialTheme.motionScheme.fastEffectsSpec()),
                 ) {
                     SupplementInput(
                         value = supplementText,
@@ -384,17 +372,11 @@ internal fun AgentOverlayBubble(
                 AnimatedVisibility(
                     visible = !supplementMode,
                     enter = expandVertically(
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioNoBouncy,
-                            stiffness = Spring.StiffnessMedium,
-                        )
-                    ) + fadeIn(animationSpec = tween(durationMillis = 140)),
+                        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+                    ) + fadeIn(animationSpec = MaterialTheme.motionScheme.fastEffectsSpec()),
                     exit = shrinkVertically(
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioNoBouncy,
-                            stiffness = Spring.StiffnessMedium,
-                        )
-                    ) + fadeOut(animationSpec = tween(durationMillis = 100)),
+                        animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+                    ) + fadeOut(animationSpec = MaterialTheme.motionScheme.fastEffectsSpec()),
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -566,17 +548,15 @@ internal fun AgentResultCard(
     ) {
         AnimatedVisibility(
             visible = visible,
+            // 结果卡从底部滑入：位移走 M3E Spatial（轻微过冲），透明度走 Effects。
             enter = slideInVertically(
                 initialOffsetY = { it },
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioLowBouncy,
-                    stiffness = Spring.StiffnessMediumLow,
-                )
-            ) + fadeIn(animationSpec = tween(durationMillis = 200)),
+                animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+            ) + fadeIn(animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec()),
             exit = slideOutVertically(
                 targetOffsetY = { it },
-                animationSpec = tween(durationMillis = 180),
-            ) + fadeOut(animationSpec = tween(durationMillis = 180)),
+                animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+            ) + fadeOut(animationSpec = MaterialTheme.motionScheme.fastEffectsSpec()),
             modifier = Modifier.align(Alignment.BottomCenter),
         ) {
             Card(

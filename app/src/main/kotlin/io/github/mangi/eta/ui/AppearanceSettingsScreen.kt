@@ -860,7 +860,15 @@ private fun ColorButtonM3(
                 )
             }
 
-            val scale by animateFloatAsState(targetValue = if (isSelected) 1.1f else 1.0f)
+            // 色板选中反馈是 chip 级小元素：缩放 / 显隐取 M3E fast 档，
+            // 透明度走 Effects（无过冲），缩放走 Spatial（轻微过冲）。
+            val swatchScaleSpec = MaterialTheme.motionScheme.fastSpatialSpec<Float>()
+            val swatchFadeSpec = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
+            val scale by animateFloatAsState(
+                targetValue = if (isSelected) 1.1f else 1.0f,
+                animationSpec = swatchScaleSpec,
+                label = "appearance_palette_scale",
+            )
             Box(
                 modifier = Modifier.graphicsLayer {
                     scaleX = scale
@@ -870,8 +878,10 @@ private fun ColorButtonM3(
             ) {
                 AnimatedVisibility(
                     visible = isSelected,
-                    enter = fadeIn() + scaleIn(initialScale = 0.8f),
-                    exit = fadeOut() + scaleOut(targetScale = 0.8f),
+                    enter = fadeIn(animationSpec = swatchFadeSpec) +
+                        scaleIn(animationSpec = swatchScaleSpec, initialScale = 0.8f),
+                    exit = fadeOut(animationSpec = swatchFadeSpec) +
+                        scaleOut(animationSpec = swatchScaleSpec, targetScale = 0.8f),
                 ) {
                     Box(
                         modifier = Modifier
@@ -898,8 +908,10 @@ private fun ColorButtonM3(
                 }
                 AnimatedVisibility(
                     visible = !isSelected,
-                    enter = fadeIn() + scaleIn(initialScale = 0.8f),
-                    exit = fadeOut() + scaleOut(targetScale = 0.8f),
+                    enter = fadeIn(animationSpec = swatchFadeSpec) +
+                        scaleIn(animationSpec = swatchScaleSpec, initialScale = 0.8f),
+                    exit = fadeOut(animationSpec = swatchFadeSpec) +
+                        scaleOut(animationSpec = swatchScaleSpec, targetScale = 0.8f),
                 ) {
                     Box(
                         modifier = Modifier

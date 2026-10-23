@@ -94,10 +94,11 @@ private fun BoundSubAgentGptSpeedButton(
     val view = LocalView.current
 
     val normalColor = etaOnSurface()
-    // 颜色由 owner 传入的 mode 决定，非 GPT 不会走到这里；渐变走官方 motionScheme。
+    // 颜色由 owner 传入的 mode 决定，非 GPT 不会走到这里；颜色插值属 Effects，走官方
+    // motionScheme 的 effects 档（临界阻尼、无过冲）。
     val contentColor by animateColorAsState(
         targetValue = etaGptSpeedColor(mode, normalColor),
-        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Color>(),
+        animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec<Color>(),
         label = "sub_agent_gpt_speed_color",
     )
     val displayedColor = if (usable) contentColor else contentColor.copy(alpha = 0.38f)

@@ -72,13 +72,13 @@ internal fun ConversationTurnNavigationButton(
     onEdge: (ConversationNavigationDirection) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // M3 Expressive：进出场动效统一取官方 motionScheme 规格。
+    // M3 Expressive：透明度走 Effects（临界阻尼、无过冲），缩放走 Spatial（轻微过冲）。
     val fadeInSpec: FiniteAnimationSpec<Float> =
-        MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
+        MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
     val scaleInSpec: FiniteAnimationSpec<Float> =
         MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
     val fadeOutSpec: FiniteAnimationSpec<Float> =
-        MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
+        MaterialTheme.motionScheme.fastEffectsSpec<Float>()
     val scaleOutSpec: FiniteAnimationSpec<Float> =
         MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
     // 半颗的进退场与「留下的那颗平移进右槽」共用这批官方规格：退场与位移同时起步，

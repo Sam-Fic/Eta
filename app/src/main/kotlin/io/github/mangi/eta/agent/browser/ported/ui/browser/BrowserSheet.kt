@@ -99,6 +99,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
@@ -116,9 +117,6 @@ import kotlinx.coroutines.launch
 
 /** 与 [BrowserTabPool] 的最大标签数一致（页面里「+」的禁用条件）。 */
 private const val MAX_TABS = 3
-
-/** 设置子页转场时长；与 NavHost 的页面动画保持一致。 */
-private const val BrowserSettingsTransitionMs = 300
 
 /** 标签按钮的内容内边距：左 12dp 给标题留呼吸，右 4dp 让关闭钮贴近胶囊边缘。 */
 private val TabChipContentPadding = PaddingValues(start = 12.dp, end = 4.dp)
@@ -261,9 +259,14 @@ fun BrowserPage(
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     // 设置子页与浏览器共用同一个 BrowserTabPool，不能拆成独立路由（重新 acquire 会重置标签）；
     // 在页内按 NavHost 的几何补上入栈/出栈：设置页侧滑，底层浏览器做四分之一屏视差。
+    // 页级位移统一取 M3E Spatial（轻微过冲），淡化取 Effects（临界阻尼、无过冲）；
+    // 视差进度与滑入同用一条 Spatial，两层才同步。
+    val settingsSlideSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
+    val settingsSlideOffsetSpec = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
+    val settingsFadeSpec = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
     val settingsProgress by animateFloatAsState(
         targetValue = if (showSettings) 1f else 0f,
-        animationSpec = tween(BrowserSettingsTransitionMs),
+        animationSpec = settingsSlideSpec,
         label = "browser-settings-progress",
     )
     // [T-android-browser-download-ux] Downloads panel + badge state.
@@ -553,12 +556,12 @@ fun BrowserPage(
 
         AnimatedVisibility(
             visible = showSettings,
-            enter = slideInHorizontally(animationSpec = tween(BrowserSettingsTransitionMs)) { width ->
+            enter = slideInHorizontally(animationSpec = settingsSlideOffsetSpec) { width ->
                 (width * if (rtl) -1f else 1f).toInt()
-            } + fadeIn(animationSpec = tween(BrowserSettingsTransitionMs), initialAlpha = 0.9f),
-            exit = slideOutHorizontally(animationSpec = tween(BrowserSettingsTransitionMs)) { width ->
+            } + fadeIn(animationSpec = settingsFadeSpec, initialAlpha = 0.9f),
+            exit = slideOutHorizontally(animationSpec = settingsSlideOffsetSpec) { width ->
                 (width * if (rtl) -1f else 1f).toInt()
-            } + fadeOut(animationSpec = tween(BrowserSettingsTransitionMs), targetAlpha = 0.9f),
+            } + fadeOut(animationSpec = settingsFadeSpec, targetAlpha = 0.9f),
         ) {
             BrowserSettingsPage(
                 tabPool = tabPool,

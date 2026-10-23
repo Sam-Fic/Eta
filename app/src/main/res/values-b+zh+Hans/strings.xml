@@ -567,6 +567,12 @@
   <string name="ui_url_or_domain_name_3ee97a">网址或域名</string>
   <string name="ui_the_webpage_cannot_be_opened_3db06d">网页未能打开</string>
   <string name="ui_automatically_set_default_assistant_f86963">自动设置默认助理</string>
+  <string name="settings_assistant_entry_mode">唤起方式</string>
+  <string name="settings_assistant_entry_mode_summary">长按电源键或从系统助手入口唤起时</string>
+  <string name="settings_assistant_entry_keyboard">键盘输入</string>
+  <string name="settings_assistant_entry_voice">语音识别</string>
+  <string name="assistant_entry_voice_permission_missing">需要麦克风权限，已切换为键盘输入</string>
+  <string name="assistant_entry_voice_unavailable">语音识别尚未配置，已切换为键盘输入</string>
   <string name="ui_memory_b55ff5">记忆</string>
   <string name="ui_set_up_7debf9">设置</string>
   <string name="ui_access_7f5641">访问</string>
@@ -855,6 +861,12 @@
   <string name="voice_screen_title">当前屏幕</string>
   <string name="voice_screen_context_summary">将作为下一条消息的上下文</string>
   <string name="voice_screen_remove">移除当前屏幕截图</string>
+  <string name="voice_screen_preset_translate">翻译屏幕内容</string>
+  <string name="voice_screen_preset_translate_prompt">翻译当前屏幕上的内容：保留原有结构，先给完整译文，必要时再补充简短说明。</string>
+  <string name="voice_screen_preset_calendar">添加屏幕上的日程</string>
+  <string name="voice_screen_preset_calendar_prompt">识别当前屏幕上的日程或活动信息，并添加到系统日历。信息不完整时按屏幕上能看到的内容合理补全，完成后告诉我具体添加了哪一条；屏幕上没有日程就直接说明。</string>
+  <string name="voice_screen_preset_organize">整理屏幕内容</string>
+  <string name="voice_screen_preset_organize_prompt">整理当前屏幕上的内容：提炼要点并重新组织成清晰的结构，只使用屏幕上出现的信息，不要编造。</string>
   <string name="voice_input_hint">发消息问 Eta……</string>
   <string name="voice_send">发送</string>
   <string name="injected_reasoning">Eta 正在推理……</string>

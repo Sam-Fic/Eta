@@ -1001,14 +1001,16 @@ private fun BoxScope.ChipRowEdgeFades(
     scrollState: ScrollState,
     color: Color,
 ) {
+    // 边缘淡出带只变透明度：M3E Effects fast 档，临界阻尼无过冲。
+    val chipEdgeFadeSpec = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
     val startAlpha by animateFloatAsState(
         targetValue = if (scrollState.canScrollBackward) 1f else 0f,
-        animationSpec = tween(durationMillis = 120),
+        animationSpec = chipEdgeFadeSpec,
         label = "drawerChipFadeStart",
     )
     val endAlpha by animateFloatAsState(
         targetValue = if (scrollState.canScrollForward) 1f else 0f,
-        animationSpec = tween(durationMillis = 120),
+        animationSpec = chipEdgeFadeSpec,
         label = "drawerChipFadeEnd",
     )
     Box(modifier = Modifier.matchParentSize()) {

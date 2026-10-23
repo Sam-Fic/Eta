@@ -34,6 +34,8 @@ internal object Prefs {
         // 兼容旧版布尔协议；新 UI 不再写入，缺少三态配置时 true 仍表示 Gemini。
         const val POWER_KEY_TAKEOVER = "power_key_takeover"
         const val ASSISTANT_AUTO_CONFIG = "assistant_auto_config"
+        /** 系统助手唤起后的落点：键盘输入 / 语音识别，见 [AssistantEntryMode]。 */
+        const val ASSISTANT_ENTRY_MODE = "assistant_entry_mode"
         const val HOTWORD_SELF_HEAL = "hotword_self_heal"
         const val GESTURE_BAR_CIRCLE_TO_SEARCH = "gesture_bar_circle_to_search"
         const val DOUBLE_FINGER_CIRCLE_TO_SEARCH = "double_finger_circle_to_search"
@@ -227,6 +229,17 @@ internal object Prefs {
         return preferences?.getBoolean(key, default) ?: default
     }
 
+
+    /**
+     * 系统助手唤起方式。只由 App 进程的入口浮窗消费，读取本地 Agent 配置；
+     * 缺少配置时保持历史行为（键盘输入）。
+     */
+    fun assistantEntryMode(): AssistantEntryMode = assistantEntryMode(localAgent)
+
+    fun assistantEntryMode(preferences: SharedPreferences?): AssistantEntryMode =
+        AssistantEntryMode.resolve(
+            runCatching { preferences?.getString(Keys.ASSISTANT_ENTRY_MODE, null) }.getOrNull(),
+        )
 
     fun powerAssistantTarget(): PowerAssistantTarget = powerAssistantTarget(remote)
 

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
@@ -97,8 +98,13 @@ internal fun OfflineSpeechPackColumn(modifier: Modifier = Modifier) {
                 )
                 AnimatedVisibility(
                     visible = state.downloading,
-                    enter = expandVertically(),
-                    exit = shrinkVertically(),
+                    // 下载进度块的高度展开 / 收缩取 M3E Spatial：入场 default、出场 fast。
+                    enter = expandVertically(
+                        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+                    ),
+                    exit = shrinkVertically(
+                        animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+                    ),
                 ) {
                     val progress = (state.downloadedBytes.toFloat() / state.totalBytes).coerceIn(0f, 1f)
                     Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {

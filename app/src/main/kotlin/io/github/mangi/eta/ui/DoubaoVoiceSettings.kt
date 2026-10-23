@@ -6,7 +6,6 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -36,6 +35,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
@@ -102,6 +102,10 @@ internal fun DoubaoVoiceSettings(onBack: () -> Unit) {
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     // 内部页快照驱动 AnimatedContent：退场页只读快照，不会跟着外部状态提前变成下一页。
     val page = DoubaoVoicePage(mode = mode, step = step, account = showAccount, sync = showSync)
+    // 页间侧滑与 NavHost 同一套 M3E 规格：位移走 Spatial（轻微过冲），淡化走 Effects。
+    // 规格须在组合期读好，transitionSpec 里不能读 CompositionLocal。
+    val pageSlideSpec = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
+    val pageFadeSpec = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
     // 向导内层/忙时自己消费返回；回到本页首页后交给 NavHost，保留路由级预测性返回。
     androidx.activity.compose.BackHandler(enabled = busy || importBusy || !home) {
         if (!busy && !importBusy && !home) back()
@@ -183,15 +187,15 @@ internal fun DoubaoVoiceSettings(onBack: () -> Unit) {
                 val sign = if (forward) 1f else -1f
                 val enterSign = if (rtl) -sign else sign
                 val enter = slideInHorizontally(
-                    animationSpec = tween(DoubaoVoicePageTransitionMs),
+                    animationSpec = pageSlideSpec,
                 ) { width -> (width * enterSign).toInt() } + fadeIn(
-                    animationSpec = tween(DoubaoVoicePageTransitionMs),
+                    animationSpec = pageFadeSpec,
                     initialAlpha = 0.9f,
                 )
                 val exit = slideOutHorizontally(
-                    animationSpec = tween(DoubaoVoicePageTransitionMs),
+                    animationSpec = pageSlideSpec,
                 ) { width -> (-width * enterSign / 4f).toInt() } + fadeOut(
-                    animationSpec = tween(DoubaoVoicePageTransitionMs),
+                    animationSpec = pageFadeSpec,
                     targetAlpha = 0.9f,
                 )
                 enter togetherWith exit
@@ -489,9 +493,6 @@ private data class DoubaoVoicePage(
         else -> 0
     }
 }
-
-/** 与 NavHost 转场一致的内部页面切换时长。 */
-private const val DoubaoVoicePageTransitionMs = 300
 
 /** 打开火山引擎语音控制台。 */
 private fun openVoiceConsole(context: Context) {

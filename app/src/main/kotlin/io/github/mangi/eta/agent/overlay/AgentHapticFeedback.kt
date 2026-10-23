@@ -20,6 +20,9 @@ internal object AgentHapticFeedback {
         LONG_PRESS(VibrationEffect.EFFECT_HEAVY_CLICK),
         SWIPE(VibrationEffect.EFFECT_TICK),
         RUN_STARTED(VibrationEffect.EFFECT_CLICK),
+
+        /** 系统助手入口（长按电源键 / 系统助理 API）唤起浮窗。 */
+        ASSISTANT_WAKE(VibrationEffect.EFFECT_HEAVY_CLICK),
     }
 
     fun perform(context: Context, type: Type) {
