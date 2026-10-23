@@ -96,6 +96,9 @@ internal class MediaIndexService : Service() {
             } finally {
                 watcher.cancel()
             }
+            // 先摘 Job 引用再收尾：finish() 的守卫靠 indexJob 判活跃，
+            // 在协程体内部直接调会被判成「新一轮已接手」而跳过撤通知，导致通知常驻。
+            indexJob = null
             finish()
         }
         refreshNotification()
@@ -119,6 +122,11 @@ internal class MediaIndexService : Service() {
         if (foregroundActive) {
             foregroundActive = false
             stopForeground(STOP_FOREGROUND_REMOVE)
+            // 兜底：个别 ROM 上 notify() 刷过同 ID 后 stopForeground 撤不干净，
+            // 再显式 cancel 一次，确保索引结束/停止后通知不残留。
+            runCatching {
+                getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID)
+            }
         }
         stopSelf()
     }
