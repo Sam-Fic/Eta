@@ -96,6 +96,7 @@ internal object AgentOverlayVisibilityPolicy {
         "scroll",
         "scroll_element",
         "input_text",
+        "type_text",
         "replace_text",
         "clear_text",
         "paste_text",

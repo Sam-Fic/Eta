@@ -283,6 +283,7 @@ private fun toolRequirementText(id: String, rootGranted: Boolean, capabilities: 
         unavailableCode == "NOTIFICATION_ACCESS_REQUIRED" -> stringResource(R.string.capability_notification_access_required)
         unavailableCode == "APP_USAGE_ACCESS_REQUIRED" -> stringResource(R.string.capability_usage_access_required)
         unavailableCode == "LOCATION_PERMISSION_REQUIRED" -> stringResource(R.string.capability_location_access_required)
+        unavailableCode == "CALENDAR_PERMISSION_REQUIRED" -> stringResource(R.string.capability_calendar_access_required)
         requirement.colorOs -> stringResource(R.string.capability_coloros_required)
         !rootGranted && requirement.rootRequirement == RootRequirement.PARTIAL -> stringResource(R.string.capability_root_partial)
         else -> null

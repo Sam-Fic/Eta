@@ -212,7 +212,7 @@ fun AgentAppRoot(
     }
     val streamingMarkdownCache = remember { StreamingMarkdownCache() }
     val requestExecutionNotifications = rememberExecutionNotificationRequest()
-    val locationPermissionLauncher = rememberLauncherForActivityResult(
+    val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) {
         agentState.refreshPermissionHealth()
@@ -905,7 +905,7 @@ fun AgentAppRoot(
                                     "location" -> {
                                         when (DeviceLocationProvider.accessState(context)) {
                                             DeviceLocationProvider.AccessState.DENIED -> {
-                                                locationPermissionLauncher.launch(
+                                                permissionLauncher.launch(
                                                     arrayOf(
                                                         Manifest.permission.ACCESS_COARSE_LOCATION,
                                                         Manifest.permission.ACCESS_FINE_LOCATION,
@@ -933,6 +933,14 @@ fun AgentAppRoot(
                                                 agentState.refreshPermissionHealth()
                                             }
                                         }
+                                    }
+                                    "calendar" -> {
+                                        permissionLauncher.launch(
+                                            arrayOf(
+                                                Manifest.permission.READ_CALENDAR,
+                                                Manifest.permission.WRITE_CALENDAR,
+                                            )
+                                        )
                                     }
                                     "notification_history" -> {
                                         runCatching {

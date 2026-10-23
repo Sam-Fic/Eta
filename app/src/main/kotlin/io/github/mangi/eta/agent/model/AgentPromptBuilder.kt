@@ -184,7 +184,8 @@ internal object AgentPromptBuilder {
                     "调用节点工具时必须把该节点与同一次观察的 observation_id 一起传回，过期就重新观察；" +
                     "scroll 的方向表示要显示的内容方向，例如 down 显示下方内容；" +
                     "任何工具返回 ACTION_OUTCOME_UNKNOWN 或 DIRECTION_MISMATCH 时，必须先重新观察，禁止直接重放动作；" +
-                    "输入精确文本优先用 replace_text 或 paste_text，长文本/中文/特殊字符优先用 paste_text；" +
+                    "输入文本优先用 type_text：默认整体替换，append 在光标处插入，submit=true 写入后回车，指定 index 时无需先点击；" +
+                    "需要精确替换现有内容用 replace_text，长文本/中文/特殊字符优先用 paste_text；" +
                     "用户明确要求发送消息时，直接使用通用 GUI 工具完成输入和点击发送，不让用户手动完成，也不追加二次确认；" +
                     "成功的点击、滑动、输入与按键会在结果的 after 字段附带动作后的新界面（observation_id 与精简节点），" +
                     "先读 after 判断是否生效：screen_changed=false 说明动作可能没起作用，应换目标或方式，不要原样重复；" +

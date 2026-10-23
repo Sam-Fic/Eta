@@ -498,6 +498,7 @@ internal class AgentLocalTools(
                 "swipe" -> afterAction(swipe(args))
                 "scroll" -> afterAction(deviceController.scroll(args.optString("direction"), args.optString("amount")))
                 "scroll_element" -> afterAction(scrollElement(args))
+                "type_text" -> afterAction(typeText(args))
                 "input_text" -> afterAction(inputText(args))
                 "replace_text" -> afterAction(replaceText(args))
                 "clear_text" -> afterAction(clearText(args))
@@ -518,6 +519,8 @@ internal class AgentLocalTools(
                 "read_file" -> textResult(terminalTool { readFile(args) })
                 "write_file" -> textResult(terminalTool { writeFile(args) })
                 "list_directory" -> textResult(terminalTool { listDirectory(args) })
+                "edit_file", "stat_file", "glob_files", "grep_files" ->
+                    textResult(terminalTool { terminalController.fileTool(toolCall.name, args) })
                 "memory_get" -> textResult(memoryGet(args))
                 "memory_write" -> textResult(memoryWrite(args))
                 "skills_list" -> textResult(skillsList(args))
@@ -915,6 +918,38 @@ internal class AgentLocalTools(
             "paste" -> pasteText(args)
             else -> deviceController.inputText(text)
         }
+    }
+
+    /**
+     * 统一的文本输入：replace（默认）整体替换为 text，text 为空即清空；append 在光标处插入。
+     * 指定 index 时先确认节点来自最近一次观察；不指定时作用于当前输入焦点。
+     * submit=true 在写入成功后按输入法回车，用于搜索、发送等提交动作。
+     */
+    private fun typeText(args: JSONObject): String {
+        val text = args.optString("text")
+        val mode = args.optString("mode", "replace").trim().lowercase(Locale.ROOT).ifBlank { "replace" }
+        val written = when (mode) {
+            "replace" -> replaceText(args)
+            "append" -> {
+                if (text.isEmpty()) return errorResult("INVALID_ARGUMENT", "append 模式的 text 不能为空")
+                if (args.optNullableInt("index") != null) {
+                    return errorResult("INVALID_ARGUMENT", "append 只作用于当前输入焦点；要写入指定输入框请用 mode=replace")
+                }
+                // 长文本走选区插入加粘贴回退，比逐字键入更稳定。
+                if (text.length > TYPE_TEXT_INCREMENTAL_CHARS) pasteText(args) else deviceController.inputText(text)
+            }
+            else -> return errorResult("INVALID_ARGUMENT", "mode 只能是 replace 或 append")
+        }
+        val json = runCatching { JSONObject(written) }.getOrNull() ?: return written
+        json.put("tool", "type_text").put("mode", mode)
+        if (!json.optBoolean("ok") || !args.optBoolean("submit")) return json.toString()
+        val submitted = runCatching { JSONObject(deviceController.pressKey("ENTER")) }.getOrNull()
+        json.put("submitted", submitted?.optBoolean("ok") == true)
+        if (submitted?.optBoolean("ok") != true) {
+            // 文本已写入但提交失败：整体仍算成功，避免模型重复输入；由 submitted=false 提示单独补按回车或点按钮。
+            json.put("submit_error", submitted?.optString("code").orEmpty().ifBlank { "SUBMIT_FAILED" })
+        }
+        return json.toString()
     }
 
     private fun replaceText(args: JSONObject): String {
@@ -2014,12 +2049,14 @@ internal class AgentLocalTools(
             "set_alarm",
             "set_timer",
             "device_status",
+            "inspect_app",
             "network_info",
             "top_memory_apps",
             "top_storage_apps",
             "media_control",
             "set_volume",
             "set_ringer_mode",
+            "set_sound_mode",
         )
         val DEVICE_SENSITIVE_READ_TOOL_NAMES = setOf(
             "get_setting",
@@ -2041,16 +2078,36 @@ internal class AgentLocalTools(
             "search_recordings",
             "search_files",
             "search_calendar_events",
+            "list_calendars",
+            "read_calendar_event",
+            "read_note",
+            "get_flashlight",
+            "get_hotspot",
+            "get_display_state",
+            "get_sound_state",
+            "get_device_state",
             "search_contacts",
             "search_call_history",
             "search_messages",
             "search_downloads",
             "search_coloros_notes",
+            "search_notes",
             "search_coloros_recordings",
             "search_recording_summaries",
             "search_coloros_memories",
             "search_saved_places",
             "search_personal_orders",
+            // ColorOS 个人数据历史索引（DMP）：只读索引查询与引用读取。
+            "search_bills",
+            "search_todos",
+            "search_calendar_todos",
+            "search_memory_collections",
+            "search_daily_events",
+            "search_flights",
+            "search_hotels",
+            "search_trains",
+            "read_personal_item",
+            "summarize_bills",
             "search_qq_chat_images",
             "search_wechat_chat_images",
             "list_installed_apps",
@@ -2063,8 +2120,16 @@ internal class AgentLocalTools(
             "set_device_state",
             "app_state_control",
             "create_calendar_event",
+            "create_calendar_events",
             "update_calendar_event",
             "delete_calendar_event",
+            "create_note",
+            "delete_note",
+            "set_alarm_enabled",
+            "update_alarm_time",
+            "set_flashlight",
+            "set_hotspot",
+            "set_screen_timeout",
             "delete_alarm",
             "update_alarm",
             "set_do_not_disturb",
@@ -2098,3 +2163,6 @@ private val AFTER_ACTION_OPTIONS = AgentScreenObservationContract.Options(
 
 /** 归一化坐标上界：0–999，与主流 GUI 模型的输出习惯一致。 */
 private const val NORMALIZED_MAX = 999
+
+/** type_text append 超过该长度时改走选区插入 + 粘贴回退，比逐字键入更稳定。 */
+private const val TYPE_TEXT_INCREMENTAL_CHARS = 200

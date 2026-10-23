@@ -21,6 +21,8 @@ internal data class AgentToolCapabilities(
     val notificationsAllowed: Boolean = true,
     val usageAllowed: Boolean = true,
     val locationAllowed: Boolean = true,
+    val calendarReadable: Boolean = true,
+    val calendarWritable: Boolean = true,
     val colorOs: Boolean = true,
     val virtualDisplay: Boolean = false,
     /** Per-round read-only command detection; null when unknown (tests, detection failure). */
@@ -35,6 +37,8 @@ internal data class AgentToolCapabilities(
             return "ACCESSIBILITY_UNAVAILABLE"
         }
         return when (requirement.systemAccess) {
+            ToolSystemAccess.CALENDAR_READ -> if (rootAvailable || calendarReadable) null else "CALENDAR_PERMISSION_REQUIRED"
+            ToolSystemAccess.CALENDAR_WRITE -> if (rootAvailable || calendarWritable) null else "CALENDAR_PERMISSION_REQUIRED"
             ToolSystemAccess.NONE -> null
             ToolSystemAccess.NOTIFICATIONS -> if (notificationsAllowed ||
                 (rootAvailable && (name == "recent_notifications" ||
@@ -80,6 +84,8 @@ internal data class AgentToolCapabilities(
                 (context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
                     context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED),
             colorOs = isColorOsDevice(),
+            calendarReadable = io.github.mangi.eta.agent.device.CalendarPermissions.granted(context, write = false),
+            calendarWritable = io.github.mangi.eta.agent.device.CalendarPermissions.granted(context, write = true),
         )
 
         /**

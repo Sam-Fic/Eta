@@ -65,6 +65,9 @@
     <string name="capability_notification_access_required">授權通知使用權後可用</string>
     <string name="capability_usage_access_required">授權使用情況訪問後可用</string>
     <string name="capability_location_access_required">授權位置訪問後可用</string>
+    <string name="capability_calendar_access_required">授權日曆讀寫權限後可用</string>
+    <string name="permission_calendar_title">日曆讀寫</string>
+    <string name="permission_calendar_summary">授權後日曆工具可免 Root 讀取和修改系統日曆</string>
     <string name="capability_coloros_required">適用於 ColorOS</string>
     <string name="capability_workspace_partial_import">已匯入 %1$d 個檔案，其餘檔案無法讀取或超過 32 MiB</string>
     <string name="capability_workspace_public_granted">已授權，終端可訪問公共目錄</string>

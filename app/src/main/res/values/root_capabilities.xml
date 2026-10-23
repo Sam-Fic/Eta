@@ -65,6 +65,9 @@
     <string name="capability_notification_access_required">Available after granting notification access</string>
     <string name="capability_usage_access_required">Available after granting usage access</string>
     <string name="capability_location_access_required">Available after granting location access</string>
+    <string name="capability_calendar_access_required">Available after granting calendar access</string>
+    <string name="permission_calendar_title">Calendar read and write</string>
+    <string name="permission_calendar_summary">Let calendar tools read and modify system events without Root</string>
     <string name="capability_coloros_required">Applies to ColorOS</string>
     <string name="capability_workspace_partial_import">Imported %1$d file(s); the rest could not be read or exceed 32 MiB</string>
     <string name="capability_workspace_public_granted">Authorized; the terminal can access public directories</string>

@@ -247,6 +247,10 @@ class AgentToolCatalogTest {
             "read_file",
             "write_file",
             "list_directory",
+            "stat_file",
+            "edit_file",
+            "glob_files",
+            "grep_files",
         )
     }
 }

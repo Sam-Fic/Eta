@@ -65,6 +65,9 @@
     <string name="capability_notification_access_required">授权通知使用权后可用</string>
     <string name="capability_usage_access_required">授权使用情况访问后可用</string>
     <string name="capability_location_access_required">授权位置访问后可用</string>
+    <string name="capability_calendar_access_required">授权日历读写权限后可用</string>
+    <string name="permission_calendar_title">日历读写</string>
+    <string name="permission_calendar_summary">授权后日程工具可免 Root 读取和修改系统日历</string>
     <string name="capability_coloros_required">适用于 ColorOS</string>
     <string name="capability_workspace_partial_import">已导入 %1$d 个文件，其余文件无法读取或超过 32 MiB</string>
     <string name="capability_workspace_public_granted">已授权，终端可访问公共目录</string>

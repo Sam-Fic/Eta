@@ -29,10 +29,13 @@ import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.FindReplace
+import androidx.compose.material.icons.rounded.FlashlightOn
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Insights
+import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Keyboard
 import androidx.compose.material.icons.rounded.KeyboardCommandKey
@@ -68,7 +71,6 @@ import androidx.compose.material.icons.rounded.AspectRatio
 import androidx.compose.material.icons.rounded.AutoFixHigh
 import androidx.compose.material.icons.rounded.BatteryChargingFull
 import androidx.compose.material.icons.rounded.Folder
-import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.RocketLaunch
@@ -110,6 +112,7 @@ internal object ToolPresentation {
         "get_clipboard" -> R.string.tool_get_clipboard
         "set_clipboard" -> R.string.tool_set_clipboard
         "input_text" -> R.string.tool_input_text
+        "type_text" -> R.string.tool_type_text
         "replace_text" -> R.string.tool_replace_text
         "clear_text" -> R.string.tool_clear_text
         "wait" -> R.string.tool_wait
@@ -133,9 +136,36 @@ internal object ToolPresentation {
         "set_timer" -> R.string.tool_set_timer
         "delete_alarm" -> R.string.tool_delete_alarm
         "update_alarm" -> R.string.tool_update_alarm
+        "set_alarm_enabled" -> R.string.tool_set_alarm_enabled
+        "update_alarm_time" -> R.string.tool_update_alarm_time
         "create_calendar_event" -> R.string.tool_create_calendar_event
+        "create_calendar_events" -> R.string.tool_create_calendar_events
         "update_calendar_event" -> R.string.tool_update_calendar_event
         "delete_calendar_event" -> R.string.tool_delete_calendar_event
+        "list_calendars" -> R.string.tool_list_calendars
+        "read_calendar_event" -> R.string.tool_read_calendar_event
+        "create_note" -> R.string.tool_create_note
+        "read_note" -> R.string.tool_read_note
+        "delete_note" -> R.string.tool_delete_note
+        "get_flashlight" -> R.string.tool_get_flashlight
+        "set_flashlight" -> R.string.tool_set_flashlight
+        "get_sound_state" -> R.string.tool_get_sound_state
+        "set_sound_mode" -> R.string.tool_set_sound_mode
+        "get_hotspot" -> R.string.tool_get_hotspot
+        "set_hotspot" -> R.string.tool_set_hotspot
+        "get_display_state" -> R.string.tool_get_display_state
+        "set_screen_timeout" -> R.string.tool_set_screen_timeout
+        "get_device_state" -> R.string.tool_get_device_state
+        "search_bills" -> R.string.tool_search_bills
+        "search_todos" -> R.string.tool_search_todos
+        "search_calendar_todos" -> R.string.tool_search_calendar_todos
+        "search_memory_collections" -> R.string.tool_search_memory_collections
+        "search_daily_events" -> R.string.tool_search_daily_events
+        "search_flights" -> R.string.tool_search_flights
+        "search_hotels" -> R.string.tool_search_hotels
+        "search_trains" -> R.string.tool_search_trains
+        "read_personal_item" -> R.string.tool_read_personal_item
+        "summarize_bills" -> R.string.tool_summarize_bills
         "device_status" -> R.string.tool_device_status
         "set_device_state" -> R.string.tool_set_device_state
         "set_ringer_mode" -> R.string.tool_set_ringer_mode
@@ -143,6 +173,7 @@ internal object ToolPresentation {
         "set_brightness" -> R.string.tool_set_brightness
         "screen_action" -> R.string.tool_screen_action
         "list_installed_apps" -> R.string.tool_list_installed_apps
+        "inspect_app" -> R.string.tool_inspect_app
         "manage_app" -> R.string.tool_manage_app
         "manage_file" -> R.string.tool_manage_file
         "system_property" -> R.string.tool_system_property
@@ -174,6 +205,10 @@ internal object ToolPresentation {
         "read_file" -> R.string.tool_read_file
         "write_file" -> R.string.tool_write_file
         "list_directory" -> R.string.tool_list_directory
+        "stat_file" -> R.string.tool_stat_file
+        "edit_file" -> R.string.tool_edit_file
+        "glob_files" -> R.string.tool_glob_files
+        "grep_files" -> R.string.tool_grep_files
         "eta_get_settings" -> R.string.tool_eta_get_settings
         "eta_set_settings" -> R.string.tool_eta_set_settings
         "eta_manage_models" -> R.string.tool_eta_manage_models
@@ -213,6 +248,7 @@ internal object ToolPresentation {
         "get_clipboard" -> Icons.Rounded.ContentPaste
         "set_clipboard" -> Icons.Rounded.ContentPaste
         "input_text" -> Icons.Rounded.Keyboard
+        "type_text" -> Icons.Rounded.Keyboard
         "replace_text" -> Icons.Rounded.FindReplace
         "clear_text" -> Icons.AutoMirrored.Rounded.Backspace
         "wait" -> Icons.Rounded.Schedule
@@ -248,7 +284,15 @@ internal object ToolPresentation {
         "set_timer" -> Icons.Rounded.Alarm
         "list_alarms", "list_active_timers" -> Icons.Rounded.Alarm
         "delete_alarm", "update_alarm" -> Icons.Rounded.Alarm
+        "set_alarm_enabled", "update_alarm_time" -> Icons.Rounded.Alarm
         "create_calendar_event", "update_calendar_event", "delete_calendar_event" -> Icons.Rounded.CalendarMonth
+        "create_calendar_events", "list_calendars", "read_calendar_event" -> Icons.Rounded.CalendarMonth
+        "create_note", "read_note", "delete_note" -> Icons.AutoMirrored.Rounded.StickyNote2
+        "get_flashlight", "set_flashlight" -> Icons.Rounded.FlashlightOn
+        "get_sound_state", "set_sound_mode" -> Icons.AutoMirrored.Rounded.VolumeUp
+        "get_hotspot", "set_hotspot" -> Icons.Rounded.Wifi
+        "get_display_state", "set_screen_timeout" -> Icons.Rounded.Tune
+        "get_device_state" -> Icons.Rounded.Smartphone
         "device_status" -> Icons.Rounded.Smartphone
         "set_device_state" -> Icons.Rounded.Smartphone
         "get_device_environment" -> Icons.Rounded.Smartphone
@@ -257,6 +301,7 @@ internal object ToolPresentation {
         "set_brightness" -> Icons.Rounded.Tune
         "screen_action" -> Icons.Rounded.Bolt
         "list_installed_apps" -> Icons.Rounded.Apps
+        "inspect_app" -> Icons.Rounded.Info
         "manage_app" -> Icons.Rounded.Apps
         "manage_file" -> Icons.Rounded.Folder
         "system_property" -> Icons.Rounded.Tune
@@ -301,14 +346,27 @@ internal object ToolPresentation {
         "search_downloads" -> Icons.Rounded.Download
         "search_clipboard_history" -> Icons.Rounded.ContentPaste
         "search_coloros_notes" -> Icons.AutoMirrored.Rounded.StickyNote2
+        "search_notes" -> Icons.AutoMirrored.Rounded.StickyNote2
         "search_coloros_memories" -> Icons.Rounded.Psychology
         "search_personal_orders" -> Icons.Rounded.ShoppingBag
+        "search_bills", "summarize_bills" -> Icons.Rounded.ShoppingBag
+        "search_todos" -> Icons.Rounded.EditNote
+        "search_calendar_todos" -> Icons.Rounded.CalendarMonth
+        "search_memory_collections" -> Icons.Rounded.Layers
+        "search_daily_events" -> Icons.Rounded.History
+        "search_flights", "search_trains" -> Icons.Rounded.TravelExplore
+        "search_hotels" -> Icons.Rounded.Inventory2
+        "read_personal_item" -> Icons.Rounded.Description
         "terminal" -> Icons.Rounded.Terminal
         "terminal_job" -> Icons.Rounded.Terminal
         "run_command" -> Icons.Rounded.Terminal
         "read_file" -> Icons.Rounded.Description
         "write_file" -> Icons.Rounded.EditNote
         "list_directory" -> Icons.Rounded.FolderOpen
+        "stat_file" -> Icons.Rounded.Info
+        "edit_file" -> Icons.Rounded.FindReplace
+        "glob_files" -> Icons.Rounded.FolderOpen
+        "grep_files" -> Icons.Rounded.Search
         "eta_get_settings" -> Icons.Rounded.Tune
         "eta_set_settings" -> Icons.Rounded.ManageAccounts
         "eta_manage_models" -> Icons.Rounded.SmartToy

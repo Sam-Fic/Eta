@@ -1,6 +1,9 @@
 package io.github.mangi.eta.agent.tool
 
+import android.content.Context
+import android.provider.CalendarContract
 import io.github.mangi.eta.agent.device.BoundedRootCommandExecutor
+import io.github.mangi.eta.agent.device.CalendarPermissions
 import io.github.mangi.eta.agent.media.MAX_AGENT_IMAGE_BYTES
 import io.github.mangi.eta.agent.model.AgentModelClient
 import org.json.JSONArray
@@ -12,7 +15,9 @@ import java.util.Locale
  * Root 用于调用受签名权限保护的 Provider；查询条件始终由固定列和受控关键词组成。
  */
 internal class AgentPersonalDataTools(
+    private val context: Context,
     private val root: BoundedRootCommandExecutor,
+    private val rootAvailable: () -> Boolean = { true },
 ) {
     fun execute(name: String, args: JSONObject): AgentModelClient.ToolResult? =
         when (name) {
@@ -26,6 +31,7 @@ internal class AgentPersonalDataTools(
             "search_messages" -> searchMessages(args)
             "search_downloads" -> searchDownloads(args)
             "search_coloros_notes" -> searchColorOsNotes(args)
+            "search_notes" -> searchColorOsNotes(args)
             "search_coloros_recordings" -> searchColorOsRecordings(args)
             "search_recording_summaries" -> searchRecordingSummaries(args)
             "search_qq_chat_images" -> searchQqChatImages(args)
@@ -69,19 +75,73 @@ internal class AgentPersonalDataTools(
         row.put("uri", "content://media/external/file/${row.optString("_id")}")
     }
 
-    private fun searchCalendarEvents(args: JSONObject): AgentModelClient.ToolResult = query(
-        tool = "search_calendar_events",
-        uri = "content://com.android.calendar/events",
-        projection = listOf(
-            "_id", "title", "description", "eventLocation", "dtstart", "dtend", "allDay",
-            "calendar_displayName", "rrule", "hasAlarm",
-        ),
-        sort = "dtstart DESC",
-        searchableColumns = listOf("title", "description", "eventLocation"),
-        fixedWhere = "deleted=0",
-        args = args,
-    ) { row ->
-        // 附带本地可读时间与 id，供 update_calendar_event / delete_calendar_event 直接定位。
+    private fun searchCalendarEvents(args: JSONObject): AgentModelClient.ToolResult {
+        if (!rootAvailable()) return searchCalendarEventsWithoutRoot(args)
+        return query(
+            tool = "search_calendar_events",
+            uri = "content://com.android.calendar/events",
+            projection = listOf(
+                "_id", "title", "description", "eventLocation", "dtstart", "dtend", "allDay",
+                "calendar_displayName", "rrule", "hasAlarm",
+            ),
+            sort = "dtstart DESC",
+            searchableColumns = listOf("title", "description", "eventLocation"),
+            fixedWhere = "deleted=0",
+            args = args,
+        ) { row -> decorateCalendarRow(row) }
+    }
+
+    /** 无 Root 时使用应用自身日历权限读取 CalendarContract；未授权时由能力投影隐藏，这里是兜底。 */
+    private fun searchCalendarEventsWithoutRoot(args: JSONObject): AgentModelClient.ToolResult {
+        if (!CalendarPermissions.granted(context, write = false)) {
+            return sensitive(error("CALENDAR_PERMISSION_REQUIRED", "未获得日历读取权限；请在权限页授予日历权限"))
+        }
+        val limit = args.optInt("limit", DEFAULT_LIMIT).coerceIn(1, MAX_LIMIT)
+        val keyword = args.optString("query").trim()
+        val projection = listOf(
+            "_id", "title", "description", "eventLocation", "dtstart", "dtend", "allDay", "rrule", "hasAlarm",
+        )
+        val where = combineWhere(
+            "deleted=0",
+            keyword.takeIf(String::isNotBlank)?.let {
+                listOf("title", "description", "eventLocation").likeClause(it)
+            },
+        )
+        val rows = runCatching {
+            context.contentResolver.query(
+                CalendarContract.Events.CONTENT_URI,
+                projection.toTypedArray(),
+                where,
+                null,
+                "dtstart DESC",
+            )?.use { cursor ->
+                buildList {
+                    while (cursor.moveToNext()) {
+                        add(
+                            JSONObject().also { row ->
+                                projection.forEachIndexed { index, column ->
+                                    if (!cursor.isNull(index)) row.put(column, cursor.getString(index))
+                                }
+                            },
+                        )
+                    }
+                }
+            }
+        }.getOrNull() ?: return sensitive(error("CALENDAR_PROVIDER_UNAVAILABLE", "系统日历暂时不可访问"))
+        val items = rows.take(limit).onEach { row -> decorateCalendarRow(row) }
+        return sensitive(
+            JSONObject()
+                .put("ok", true)
+                .put("tool", "search_calendar_events")
+                .put("items", JSONArray(items))
+                .put("count", items.size)
+                .put("truncated", items.size == limit)
+                .toString(),
+        )
+    }
+
+    /** 附带本地可读时间与 id，供 update_calendar_event / delete_calendar_event 直接定位。 */
+    private fun decorateCalendarRow(row: JSONObject) {
         val start = row.optString("dtstart").trim().toLongOrNull()
         val end = row.optString("dtend").trim().toLongOrNull()
         val allDay = row.optString("allDay") == "1"

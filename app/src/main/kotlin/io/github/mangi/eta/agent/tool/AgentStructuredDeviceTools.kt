@@ -18,7 +18,13 @@ import android.os.SystemClock
 import android.provider.AlarmClock
 import android.provider.Settings
 import android.view.KeyEvent
+import io.github.mangi.eta.agent.context.IndexedPersonalSearch
+import io.github.mangi.eta.agent.context.PersonalContextQueryService
+import io.github.mangi.eta.agent.context.PersonalSearchTools
+import io.github.mangi.eta.agent.context.RootDmpQueryTransport
 import io.github.mangi.eta.agent.device.BoundedRootCommandExecutor
+import io.github.mangi.eta.agent.device.DeviceToolContract
+import io.github.mangi.eta.agent.device.FlashlightController
 import io.github.mangi.eta.agent.device.RootAccess
 import io.github.mangi.eta.agent.model.AgentModelClient
 import io.github.mangi.eta.core.AgentLogger
@@ -37,7 +43,7 @@ internal class AgentStructuredDeviceTools(
     private val rootAvailable: () -> Boolean = { RootAccess.isGranted },
     private val colorOs: () -> Boolean = { AgentToolCapabilities.isColorOsDevice() },
 ) {
-    private val personalDataTools = AgentPersonalDataTools(root)
+    private val personalDataTools = AgentPersonalDataTools(context, root, rootAvailable)
     private val colorOsMemoryTools = AgentColorOsMemoryTools(context, root)
     private val personalContextTools = AgentPersonalContextTools(context)
     private val privateDatabaseTools = AgentPrivateDatabaseTools(context, root, rootAvailable)
@@ -45,37 +51,105 @@ internal class AgentStructuredDeviceTools(
     private val calendarTools = AgentCalendarTools(context, root, rootAvailable)
     private val systemControlTools = AgentSystemControlTools(context, root, rootAvailable)
     private val rootControlTools = AgentRootControlTools(context, root, rootAvailable)
+    private val noteTools = AgentNoteTools(context, root, rootAvailable)
+    private val appInspectionTool = AppInspectionTool(context)
+    private val displaySound = DisplaySoundControls(context) {
+        root.execute(it, maxOutputBytes = 32 * 1024)
+    }
+    private val systemStates = SystemStateControls(context) {
+        root.execute(it, maxOutputBytes = 32 * 1024)
+    }
+    private val hotspotControls = HotspotControls(context)
+    private val personalSearch by lazy {
+        IndexedPersonalSearch(
+            PersonalContextQueryService(
+                RootDmpQueryTransport(root, DeviceToolContract.appUserId(context)),
+            ),
+        )
+    }
     private val notificationHistory by lazy { NotificationHistoryRepository(context) }
 
-    fun execute(name: String, args: JSONObject): AgentModelClient.ToolResult? =
-        personalDataTools.execute(name, args)
-            ?: personalContextTools.execute(name, args)
+    fun execute(name: String, args: JSONObject): AgentModelClient.ToolResult? {
+        val canonical = PersonalSearchTools.canonical(name)
+        // 只接管个人数据索引自有工具名；search_media/search_files 等本地已有实现，保持原有分发。
+        if (canonical in PersonalSearchTools.names) {
+            personalSearch.execute(canonical, args)?.let { return sensitive(it.toString()) }
+        }
+        personalDataTools.execute(name, args)?.let { native ->
+            if (canonical == "search_notes" && shouldFallbackToIndexedNotes(native, args)) {
+                personalSearch.execute(canonical, args, fallback = true)?.let { indexed ->
+                    return sensitive(
+                        indexed
+                            .put("fallback_reason", nativeFailureCode(native))
+                            .put("notice", "原始便签来源暂不可读，返回历史索引，不能据此确认最新状态")
+                            .toString(),
+                    )
+                }
+            }
+            return native
+        }
+        return personalContextTools.execute(name, args)
             ?: privateDatabaseTools.execute(name, args)
             ?: calendarTools.execute(name, args)
+            ?: noteTools.execute(name, args)
             ?: systemControlTools.execute(name, args)
             ?: rootControlTools.execute(name, args)
             ?: when (name) {
-            "search_coloros_memories" -> colorOsMemoryTools.search(args)
-            "search_saved_places" -> colorOsMemoryTools.searchSavedPlaces(args)
-            "search_personal_orders" -> searchPersonalOrders(args)
-            "set_alarm" -> text(setAlarm(args))
-            "set_timer" -> text(setTimer(args))
-            "device_status" -> text(deviceStatus())
-            "network_info" -> text(networkInfo())
-            "top_memory_apps" -> text(topMemoryApps(args))
-            "top_storage_apps" -> text(topStorageApps(args))
-            "media_control" -> text(mediaControl(args))
-            "set_volume" -> text(setVolume(args))
-            "get_setting" -> sensitive(getSetting(args))
-            "wifi_credentials" -> sensitive(wifiCredentials(args))
-            "recent_notifications" -> sensitive(recentNotifications(args))
-            "read_sms_code" -> sensitive(readSmsCode(args))
-            "get_logcat" -> sensitive(getLogcat(args))
-            "set_setting" -> text(setSetting(args))
-            "set_device_state" -> text(setDeviceState(args))
-            "app_state_control" -> text(appStateControl(args))
-            else -> null
-        }
+                "get_flashlight" -> sensitive(FlashlightController.get(context).state().toString())
+                "set_flashlight" ->
+                    sensitive(
+                        FlashlightController.get(context)
+                            .set(
+                                args.optBoolean("enabled"),
+                                DeviceToolContract.appUserId(context),
+                            )
+                            .toString(),
+                    )
+                "get_display_state" -> sensitive(displaySound.display().toString())
+                "set_screen_timeout" -> sensitive(displaySound.timeout(args).toString())
+                "get_sound_state" -> sensitive(displaySound.sound().toString())
+                "get_hotspot" -> sensitive(hotspotControls.read().toString())
+                "set_hotspot" -> sensitive(hotspotControls.set(args.optBoolean("enabled")).toString())
+                "get_device_state" -> sensitive(getDeviceState(args))
+                "set_alarm_enabled" ->
+                    privateDatabaseTools.execute("update_alarm", args)?.renameTool("set_alarm_enabled")
+                "update_alarm_time" ->
+                    privateDatabaseTools.execute("update_alarm", args)?.renameTool("update_alarm_time")
+                "search_coloros_memories" -> colorOsMemoryTools.search(args)
+                "search_saved_places" -> colorOsMemoryTools.searchSavedPlaces(args)
+                "search_personal_orders" -> searchPersonalOrders(args)
+                "set_alarm" -> text(setAlarm(args))
+                "set_timer" -> text(setTimer(args))
+                "inspect_app" -> text(appInspectionTool.inspect(args).toString())
+                "device_status" -> text(deviceStatus())
+                "network_info" -> text(networkInfo())
+                "top_memory_apps" -> text(topMemoryApps(args))
+                "top_storage_apps" -> text(topStorageApps(args))
+                "media_control" -> text(mediaControl(args))
+                "set_volume" -> text(setVolume(args))
+                "get_setting" -> sensitive(getSetting(args))
+                "wifi_credentials" -> sensitive(wifiCredentials(args))
+                "recent_notifications" -> sensitive(recentNotifications(args))
+                "read_sms_code" -> sensitive(readSmsCode(args))
+                "get_logcat" -> sensitive(getLogcat(args))
+                "set_setting" -> text(setSetting(args))
+                "set_device_state" -> text(setDeviceState(args))
+                "app_state_control" -> text(appStateControl(args))
+                else -> null
+            }
+    }
+
+    /** 原始便签不可读且用户未要求只看当前来源时，回退到 DMP 历史索引。 */
+    private fun shouldFallbackToIndexedNotes(native: AgentModelClient.ToolResult, args: JSONObject): Boolean {
+        if (args.optBoolean("current_only", false)) return false
+        return nativeFailureCode(native) in setOf("PERSONAL_DATA_UNAVAILABLE", "PHONE_PROVIDER_UNAVAILABLE")
+    }
+
+    private fun nativeFailureCode(result: AgentModelClient.ToolResult): String =
+        runCatching { JSONObject(result.content) }.getOrNull()
+            ?.takeIf { !it.optBoolean("ok") }
+            ?.optString("code")
+            .orEmpty()
 
     private fun searchPersonalOrders(args: JSONObject): AgentModelClient.ToolResult {
         val limit = args.optInt("limit", 10).coerceIn(1, 30)
@@ -532,6 +606,33 @@ internal class AgentStructuredDeviceTools(
         }
     }
 
+    /** 查询系统开关；不接受模型提供的设置键。 */
+    private fun getDeviceState(args: JSONObject): String {
+        val target = args.optString("target").trim().lowercase(Locale.ROOT)
+        if (target !in SystemStateControls.targets) {
+            return error(
+                "INVALID_ARGUMENT",
+                "target 仅支持 ${SystemStateControls.targets.joinToString("/")}",
+            )
+        }
+        val state = if (target == "wifi" || target == "bluetooth") {
+            verifyRadioState(target, true)
+        } else {
+            systemStates.read(target)
+        }
+        return JSONObject()
+            .put("ok", state != null)
+            .put("tool", "get_device_state")
+            .put("target", target)
+            .put("enabled", state ?: JSONObject.NULL)
+            .also {
+                if (state == null) {
+                    it.put("code", "STATE_UNAVAILABLE").put("message", "无法确认当前开关状态")
+                }
+            }
+            .toString()
+    }
+
     /** 回读开关状态；返回 null 表示当前设备无法验证该状态。 */
     private fun verifyRadioState(target: String, enabled: Boolean): Boolean? = try {
         when (target) {
@@ -877,6 +978,10 @@ internal class AgentStructuredDeviceTools(
 
     private fun sensitive(content: String) =
         AgentModelClient.ToolResult(content = content, sensitive = true)
+
+    /** 复用底层实现时把结果里的 tool 字段改成模型实际调用的名字，避免轨迹里出现未调用的工具。 */
+    private fun AgentModelClient.ToolResult.renameTool(tool: String): AgentModelClient.ToolResult =
+        copy(content = runCatching { JSONObject(content).put("tool", tool).toString() }.getOrDefault(content))
 
     private data class ProcessUsage(val pid: Int, val rssKb: Long, val name: String)
 

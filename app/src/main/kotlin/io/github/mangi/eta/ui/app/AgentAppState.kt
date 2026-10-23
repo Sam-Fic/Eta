@@ -7765,6 +7765,7 @@ internal fun buildToolsState(context: Context): AgentToolsUiState =
                 id = "text",
                 title = context.getString(R.string.state_text_and_clipboard_3a7340),
                 tools = listOf(
+                    ToolItemUi("type_text", context.getString(R.string.tool_ui_type_text), context.getString(R.string.tool_ui_type_text_summary)),
                     ToolItemUi("input_text", context.getString(R.string.tool_ui_enter_text_ae47ab), context.getString(R.string.tool_ui_append_or_paste_text_to_the_current_focus_1efdcc)),
                     ToolItemUi("replace_text", context.getString(R.string.tool_ui_replacement_text_1a5c8d), context.getString(R.string.tool_ui_replace_text_in_focus_or_node_30d332)),
                     ToolItemUi("clear_text", context.getString(R.string.tool_ui_clear_text_d4cb57), context.getString(R.string.tool_ui_clear_focus_or_node_text_3e754a)),
@@ -7809,6 +7810,9 @@ internal fun buildToolsState(context: Context): AgentToolsUiState =
                     ToolItemUi("media_control", context.getString(R.string.tool_ui_media_control_585edc), context.getString(R.string.tool_ui_play_pause_and_switch_songs_without_operating_th_311cb8)),
                     ToolItemUi("set_volume", context.getString(R.string.tool_ui_set_volume_85a691), context.getString(R.string.tool_ui_set_by_media_alarm_clock_ringtone_and_other_chan_3fcc3e)),
                     ToolItemUi("set_ringer_mode", context.getString(R.string.tool_ui_set_ringer_mode), context.getString(R.string.tool_ui_set_ringer_mode_summary)),
+                    ToolItemUi("set_sound_mode", context.getString(R.string.tool_ui_set_sound_mode), context.getString(R.string.tool_ui_set_sound_mode_summary)),
+                    ToolItemUi("set_flashlight", context.getString(R.string.tool_ui_set_flashlight), context.getString(R.string.tool_ui_set_flashlight_summary)),
+                    ToolItemUi("set_hotspot", context.getString(R.string.tool_ui_set_hotspot), context.getString(R.string.tool_ui_set_hotspot_summary)),
                     ToolItemUi("text_to_speech", context.getString(R.string.tool_ui_text_to_speech), context.getString(R.string.tool_ui_text_to_speech_summary)),
                     ToolItemUi("top_memory_apps", context.getString(R.string.tool_ui_memory_ranking_408ca1), context.getString(R.string.tool_ui_view_the_currently_most_occupied_processes_8646c4)),
                     ToolItemUi("top_storage_apps", context.getString(R.string.tool_ui_storage_ranking_86a16c), context.getString(R.string.tool_ui_check_application_data_and_cache_usage_837e9f)),
@@ -7825,6 +7829,14 @@ internal fun buildToolsState(context: Context): AgentToolsUiState =
                     ToolItemUi("app_usage_summary", context.getString(R.string.tool_ui_app_usage_statistics_ee20d3), context.getString(R.string.tool_ui_summarize_recent_app_usage_by_foreground_duratio_b346c8)),
                     ToolItemUi("get_current_location", context.getString(R.string.tool_ui_current_location_b458ea), context.getString(R.string.tool_ui_read_the_closest_location_the_system_already_has_255a6c)),
                     ToolItemUi("get_device_environment", context.getString(R.string.tool_ui_equipment_environment_1026ec), context.getString(R.string.tool_ui_read_lock_screen_do_not_disturb_audio_output_and_9260b8)),
+                    ToolItemUi("get_flashlight", context.getString(R.string.tool_ui_get_flashlight), context.getString(R.string.tool_ui_get_flashlight_summary)),
+                    ToolItemUi("get_sound_state", context.getString(R.string.tool_ui_get_sound_state), context.getString(R.string.tool_ui_get_sound_state_summary)),
+                    ToolItemUi("get_hotspot", context.getString(R.string.tool_ui_get_hotspot), context.getString(R.string.tool_ui_get_hotspot_summary)),
+                    ToolItemUi("get_display_state", context.getString(R.string.tool_ui_get_display_state), context.getString(R.string.tool_ui_get_display_state_summary)),
+                    ToolItemUi("get_device_state", context.getString(R.string.tool_ui_get_device_state), context.getString(R.string.tool_ui_get_device_state_summary)),
+                    ToolItemUi("set_screen_timeout", context.getString(R.string.tool_ui_set_screen_timeout), context.getString(R.string.tool_ui_set_screen_timeout_summary)),
+                    ToolItemUi("set_alarm_enabled", context.getString(R.string.tool_ui_set_alarm_enabled), context.getString(R.string.tool_ui_set_alarm_enabled_summary)),
+                    ToolItemUi("update_alarm_time", context.getString(R.string.tool_ui_update_alarm_time), context.getString(R.string.tool_ui_update_alarm_time_summary)),
                     ToolItemUi("list_alarms", context.getString(R.string.tool_ui_alarm_clock_schedule_acae32), context.getString(R.string.tool_ui_read_the_alarm_clock_that_has_been_created_in_th_2320d6)),
                     ToolItemUi("list_active_timers", context.getString(R.string.tool_ui_activity_timer_36f107), context.getString(R.string.tool_ui_read_running_or_paused_timers_3437c8)),
                     ToolItemUi("search_clipboard_history", context.getString(R.string.tool_ui_clipboard_history_b377bb), context.getString(R.string.tool_ui_retrieve_clipboard_contents_saved_by_system_inpu_1dc9db)),
@@ -7838,6 +7850,7 @@ internal fun buildToolsState(context: Context): AgentToolsUiState =
                     ToolItemUi("screen_action", context.getString(R.string.tool_ui_screen_action), context.getString(R.string.tool_ui_screen_action_summary)),
                     ToolItemUi("manage_app", context.getString(R.string.tool_ui_manage_app), context.getString(R.string.tool_ui_manage_app_summary)),
                     ToolItemUi("list_installed_apps", context.getString(R.string.tool_ui_list_installed_apps), context.getString(R.string.tool_ui_list_installed_apps_summary)),
+                    ToolItemUi("inspect_app", context.getString(R.string.tool_ui_inspect_app), context.getString(R.string.tool_ui_inspect_app_summary)),
                     ToolItemUi("app_state_control", context.getString(R.string.tool_ui_application_status_930ff0), context.getString(R.string.tool_ui_stop_freeze_or_unfreeze_apps_a27438)),
                     ToolItemUi("get_logcat", context.getString(R.string.tool_ui_system_log_096733), context.getString(R.string.tool_ui_bounded_reading_and_filtering_of_recent_logs_0a268a)),
                     ToolItemUi("manage_file", context.getString(R.string.tool_ui_manage_file), context.getString(R.string.tool_ui_manage_file_summary)),
@@ -7865,6 +7878,9 @@ internal fun buildToolsState(context: Context): AgentToolsUiState =
                     ToolItemUi("search_files", context.getString(R.string.tool_ui_share_files_a3b376), context.getString(R.string.tool_ui_retrieve_documents_and_files_from_shared_storage_7d6193)),
                     ToolItemUi("search_calendar_events", context.getString(R.string.tool_ui_calendar_events_970349), context.getString(R.string.tool_ui_search_events_by_title_location_or_description_1afd77)),
                     ToolItemUi("create_calendar_event", context.getString(R.string.tool_ui_create_calendar_event), context.getString(R.string.tool_ui_create_calendar_event_summary)),
+                    ToolItemUi("create_calendar_events", context.getString(R.string.tool_ui_create_calendar_events), context.getString(R.string.tool_ui_create_calendar_events_summary)),
+                    ToolItemUi("list_calendars", context.getString(R.string.tool_ui_list_calendars), context.getString(R.string.tool_ui_list_calendars_summary)),
+                    ToolItemUi("read_calendar_event", context.getString(R.string.tool_ui_read_calendar_event), context.getString(R.string.tool_ui_read_calendar_event_summary)),
                     ToolItemUi("update_calendar_event", context.getString(R.string.tool_ui_update_calendar_event), context.getString(R.string.tool_ui_update_calendar_event_summary)),
                     ToolItemUi("delete_calendar_event", context.getString(R.string.tool_ui_delete_calendar_event), context.getString(R.string.tool_ui_delete_calendar_event_summary)),
                     ToolItemUi("search_contacts", context.getString(R.string.tool_ui_address_book_9070cb), context.getString(R.string.tool_ui_retrieve_contact_name_and_open_address_6dacc5)),
@@ -7872,11 +7888,24 @@ internal fun buildToolsState(context: Context): AgentToolsUiState =
                     ToolItemUi("search_messages", context.getString(R.string.tool_ui_short_message_17e1a4), context.getString(R.string.tool_ui_search_text_messages_by_sender_or_text_keywords_e14363)),
                     ToolItemUi("search_downloads", context.getString(R.string.tool_ui_download_history_8494d7), context.getString(R.string.tool_ui_retrieve_system_download_tasks_and_files_3301b9)),
                     ToolItemUi("search_coloros_notes", context.getString(R.string.tool_ui_coloros_notes_6c324c), context.getString(R.string.tool_ui_retrieve_notes_to_dos_and_text_content_e806d7)),
+                    ToolItemUi("create_note", context.getString(R.string.tool_ui_create_note), context.getString(R.string.tool_ui_create_note_summary)),
+                    ToolItemUi("read_note", context.getString(R.string.tool_ui_read_note), context.getString(R.string.tool_ui_read_note_summary)),
+                    ToolItemUi("delete_note", context.getString(R.string.tool_ui_delete_note), context.getString(R.string.tool_ui_delete_note_summary)),
                     ToolItemUi("search_coloros_recordings", context.getString(R.string.tool_ui_coloros_recording_a4e425), context.getString(R.string.tool_ui_retrieve_normal_recordings_and_call_recordings_55c192)),
                     ToolItemUi("search_recording_summaries", context.getString(R.string.tool_ui_recording_summary_2fe550), context.getString(R.string.tool_ui_retrieve_transcribed_summaries_and_notes_associa_9cb00f)),
                     ToolItemUi("search_coloros_memories", context.getString(R.string.tool_ui_coloros_system_memory_eff961), context.getString(R.string.tool_ui_retrieve_collected_information_and_its_structure_9c1c71)),
                     ToolItemUi("search_saved_places", context.getString(R.string.tool_ui_save_location_c29782), context.getString(R.string.tool_ui_retrieve_location_information_from_system_memory_52ea48)),
                     ToolItemUi("search_personal_orders", context.getString(R.string.tool_ui_personal_order_25e4c9), context.getString(R.string.tool_ui_retrieve_takeout_shopping_express_delivery_ticke_f8d002)),
+                    ToolItemUi("search_bills", context.getString(R.string.tool_ui_search_bills), context.getString(R.string.tool_ui_search_bills_summary)),
+                    ToolItemUi("summarize_bills", context.getString(R.string.tool_ui_summarize_bills), context.getString(R.string.tool_ui_summarize_bills_summary)),
+                    ToolItemUi("search_todos", context.getString(R.string.tool_ui_search_todos), context.getString(R.string.tool_ui_search_todos_summary)),
+                    ToolItemUi("search_calendar_todos", context.getString(R.string.tool_ui_search_calendar_todos), context.getString(R.string.tool_ui_search_calendar_todos_summary)),
+                    ToolItemUi("search_memory_collections", context.getString(R.string.tool_ui_search_memory_collections), context.getString(R.string.tool_ui_search_memory_collections_summary)),
+                    ToolItemUi("search_daily_events", context.getString(R.string.tool_ui_search_daily_events), context.getString(R.string.tool_ui_search_daily_events_summary)),
+                    ToolItemUi("search_flights", context.getString(R.string.tool_ui_search_flights), context.getString(R.string.tool_ui_search_flights_summary)),
+                    ToolItemUi("search_hotels", context.getString(R.string.tool_ui_search_hotels), context.getString(R.string.tool_ui_search_hotels_summary)),
+                    ToolItemUi("search_trains", context.getString(R.string.tool_ui_search_trains), context.getString(R.string.tool_ui_search_trains_summary)),
+                    ToolItemUi("read_personal_item", context.getString(R.string.tool_ui_read_personal_item), context.getString(R.string.tool_ui_read_personal_item_summary)),
                     ToolItemUi("search_qq_chat_images", context.getString(R.string.tool_ui_qq_chat_pictures_e21bf9), context.getString(R.string.tool_ui_retrieve_recent_pictures_in_qq_chat_picture_cach_b8f009)),
                     ToolItemUi("search_wechat_chat_images", context.getString(R.string.tool_ui_wechat_chat_pictures_72b268), context.getString(R.string.tool_ui_retrieve_recent_pictures_in_wechat_chat_picture__ab66f7)),
                 ),
@@ -7930,6 +7959,10 @@ internal fun buildToolsState(context: Context): AgentToolsUiState =
                     ToolItemUi("read_file", context.getString(R.string.tool_ui_read_file_dc995c), context.getString(R.string.tool_ui_read_the_contents_of_mobile_phone_files_bf3066)),
                     ToolItemUi("write_file", context.getString(R.string.tool_ui_write_file_e620fd), context.getString(R.string.tool_ui_write_or_overwrite_mobile_files_29fae4)),
                     ToolItemUi("list_directory", context.getString(R.string.tool_ui_list_directory_96e765), context.getString(R.string.tool_ui_list_directory_contents_feff30)),
+                    ToolItemUi("stat_file", context.getString(R.string.tool_ui_stat_file), context.getString(R.string.tool_ui_stat_file_summary)),
+                    ToolItemUi("edit_file", context.getString(R.string.tool_ui_edit_file), context.getString(R.string.tool_ui_edit_file_summary)),
+                    ToolItemUi("glob_files", context.getString(R.string.tool_ui_glob_files), context.getString(R.string.tool_ui_glob_files_summary)),
+                    ToolItemUi("grep_files", context.getString(R.string.tool_ui_grep_files), context.getString(R.string.tool_ui_grep_files_summary)),
                 ),
             ),
         )
@@ -7989,6 +8022,21 @@ private fun buildPermissionHealthState(context: Context): PermissionHealthUiStat
                     DeviceLocationProvider.AccessState.FOREGROUND_ONLY -> context.getString(R.string.state_ui_go_to_settings_1f2998)
                     DeviceLocationProvider.AccessState.DISABLED -> context.getString(R.string.state_ui_to_open_13ec17)
                     DeviceLocationProvider.AccessState.AVAILABLE -> null
+                },
+            ),
+            PermissionHealthItemUi(
+                id = "calendar",
+                title = context.getString(R.string.permission_calendar_title),
+                summary = context.getString(R.string.permission_calendar_summary),
+                status = if (io.github.mangi.eta.agent.device.CalendarPermissions.granted(context, write = false)) {
+                    PermissionStatusUi.Available
+                } else {
+                    PermissionStatusUi.Missing
+                },
+                primaryActionLabel = if (io.github.mangi.eta.agent.device.CalendarPermissions.granted(context, write = false)) {
+                    null
+                } else {
+                    context.getString(R.string.state_ui_to_authorize_762ec4)
                 },
             ),
             PermissionHealthItemUi(

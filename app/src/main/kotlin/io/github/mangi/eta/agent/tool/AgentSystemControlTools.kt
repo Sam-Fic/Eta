@@ -35,6 +35,7 @@ internal class AgentSystemControlTools(
 ) {
     fun execute(name: String, args: JSONObject): AgentModelClient.ToolResult? = when (name) {
         "set_ringer_mode" -> direct(setRingerMode(args))
+        "set_sound_mode" -> direct(setRingerMode(args, tool = "set_sound_mode"))
         "set_do_not_disturb" -> sensitive(setDoNotDisturb(args))
         "set_brightness" -> sensitive(setBrightness(args))
         "screen_action" -> sensitive(screenAction(args))
@@ -46,7 +47,7 @@ internal class AgentSystemControlTools(
 
     // ---------------------------------------------------------------- 铃声模式
 
-    private fun setRingerMode(args: JSONObject): String {
+    private fun setRingerMode(args: JSONObject, tool: String = "set_ringer_mode"): String {
         val mode = args.optString("mode").trim().lowercase(Locale.ROOT)
         val target = when (mode) {
             "normal" -> AudioManager.RINGER_MODE_NORMAL
@@ -64,7 +65,7 @@ internal class AgentSystemControlTools(
             } else {
                 ok(
                     JSONObject()
-                        .put("tool", "set_ringer_mode")
+                        .put("tool", tool)
                         .put("previous_mode", ringerModeName(previous))
                         .put("current_mode", ringerModeName(target))
                         .put(
