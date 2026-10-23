@@ -972,7 +972,7 @@ internal class AgentAppState(
                 .filter { it.installed && it.id in enabledSkillIds }
                 .filter { SkillCompatibilityChecker.evaluate(it).available },
         )
-        val memoryContext = if (assistant.memoryEnabled) {
+        val memoryContext = if (AgentMemoryRepository.isEnabled(assistant.id)) {
             AgentMemoryContextBuilder.build(
                 snapshot = AgentMemoryRepository.snapshot(assistant.id),
                 contextWindow = config.contextWindow,
@@ -1170,17 +1170,18 @@ internal class AgentAppState(
     }
 
 
-    fun refreshMemory() {
-        val owner = AssistantRepository.active().id
+    fun refreshMemory(assistantId: String = AssistantRepository.active().id) {
+        val owner = assistantId
+        val name = AssistantRepository.currentProfile(owner)?.name.orEmpty()
         val generation = ++memoryEditGeneration
-        memoryState = AgentMemoryUiState(assistantId = owner, isLoading = true)
+        memoryState = AgentMemoryUiState(assistantId = owner, assistantName = name, isLoading = true)
         scope.launch(Dispatchers.IO) {
             val result = runCatching { AgentMemoryRepository.snapshot(owner) }
             withContext(Dispatchers.Main) {
                 if (generation != memoryEditGeneration || memoryState.assistantId != owner) return@withContext
                 result.fold(onSuccess = { snapshot ->
-                    memoryState = AgentMemoryUiState(assistantId = owner, baseRevision = snapshot.revision,
-                        enabled = AgentMemoryRepository.isEnabled(owner), isLoading = false,
+                    memoryState = AgentMemoryUiState(assistantId = owner, assistantName = name, baseRevision = snapshot.revision,
+                        enabled = AssistantRepository.currentProfile(owner)?.memoryEnabled == true, isLoading = false,
                         draft = snapshot.content, savedContent = snapshot.content, draftBytes = snapshot.byteSize)
                     refreshRequestOverhead()
                 }, onFailure = { error ->
@@ -1219,7 +1220,7 @@ internal class AgentAppState(
     private fun writeMemoryDraft(target: String) {
         val state = memoryState
         if (state.assistantId.isBlank() || state.baseRevision.isBlank() || state.isSaving) return
-        if (AssistantRepository.active().id != state.assistantId) {
+        if (AssistantRepository.currentProfile(state.assistantId) == null) {
             memoryState = memoryState.copy(notice = appContext.getString(R.string.appst_memory_foreign_draft))
             return
         }
@@ -4664,14 +4665,8 @@ internal class AgentAppState(
         if (AssistantRepository.profile(id) == null) return
         if (homeState.assistantId == id) return
         val replacedRun = activeRunIdForSelectedConversation().takeIf { homeState.isPaused }
-        val discarded = memoryState.hasUnsavedChanges &&
-            memoryState.assistantId.isNotBlank() &&
-            memoryState.assistantId != id
         applyConversationAssistant(id, persist = true)
         replacedRun?.let { stopRun(it, reason = AgentChildControlPolicy.Reason.SETTINGS_CHANGED) }
-        if (discarded) {
-            Toast.makeText(appContext, appContext.getString(R.string.appst_memory_draft_discarded), Toast.LENGTH_LONG).show()
-        }
     }
 
     private fun abortActiveRunForRevision() {
@@ -7130,7 +7125,6 @@ internal class AgentAppState(
         // preference sync may suspend/fail; it must not keep the previous assistant's count.
         refreshRequestOverhead()
         if (AssistantRepository.activeId.value == assistantId) {
-            refreshMemory()
             return
         }
         scope.launch(Dispatchers.IO) {
@@ -7138,7 +7132,6 @@ internal class AgentAppState(
             RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
             withContext(Dispatchers.Main) {
                 if (resolvedAssistantId(homeState) != assistantId) return@withContext
-                refreshMemory()
                 refreshRequestOverhead()
             }
         }

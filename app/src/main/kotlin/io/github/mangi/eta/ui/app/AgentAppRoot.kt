@@ -118,6 +118,7 @@ import io.github.mangi.eta.ui.screens.home.AgentHomeScreen
 import io.github.mangi.eta.ui.screens.mcp.McpServerDetailScreen
 import io.github.mangi.eta.ui.screens.mcp.McpServersScreen
 import io.github.mangi.eta.ui.screens.memory.AgentMemoryScreen
+import io.github.mangi.eta.ui.screens.memory.AgentMemoryOverviewScreen
 import io.github.mangi.eta.ui.screens.permissions.PermissionHealthScreen
 import io.github.mangi.eta.ui.screens.settings.MobileActionsScreen
 import io.github.mangi.eta.ui.screens.settings.MobileActionsSettingsScreen
@@ -1163,8 +1164,17 @@ fun AgentAppRoot(
                 )
             }
             composable<AppRoute.Memory> {
-                LaunchedEffect(Unit) {
-                    agentState.refreshMemory()
+                AgentMemoryOverviewScreen(
+                    onBack = ::popRoute,
+                    onOpenAssistant = { assistantId ->
+                        pushRoute(AppRoute.AssistantMemory(assistantId))
+                    },
+                )
+            }
+            composable<AppRoute.AssistantMemory> { entry ->
+                val route = entry.toRoute<AppRoute.AssistantMemory>()
+                LaunchedEffect(route.assistantId) {
+                    agentState.refreshMemory(route.assistantId)
                 }
                 AgentMemoryScreen(
                     state = agentState.memoryState,

@@ -1548,7 +1548,7 @@
   <string name="assistant_change_avatar">Change avatar</string>
   <string name="assistant_crop_title">Crop avatar</string>
   <string name="assistant_selector">Assistant</string>
-  <string name="assistant_memory_summary">Only affects this assistant. MEMORY.md is shared. Turning this off skips injection and memory tools, but keeps existing notes.</string>
+  <string name="assistant_memory_summary">Only affects this assistant. Turning this off skips injection and memory tools, but keeps its MEMORY.md content.</string>
   <string name="assistant_skills_summary">Only affects this assistant. The three built-in skills start on; newly installed skills stay off until you enable them here.</string>
   <string name="settings_assistants">Assistants</string>
 
@@ -1717,6 +1717,18 @@
   <string name="dv_name_prefix">Voice name: %1$s</string>
   <string name="dv_using_voice">Using voice: %1$s</string>
   <string name="dv_postpaid_fee_note">Postpaid voice service must be enabled separately; previews are billed per the account rules, and the first official synthesis may incur a voice fee.</string>
+  <string name="settings_memory_summary">Global switch and per-assistant MEMORY.md</string>
+  <string name="memory_editor_title">Memory · %1$s</string>
+  <string name="memory_overview_note">The global switch controls all assistants. Each assistant still keeps its own MEMORY.md.</string>
+  <string name="memory_global_group">Global memory</string>
+  <string name="memory_global_switch_title">Enable memory globally</string>
+  <string name="memory_global_switch_summary">Turns memory on or off for every assistant. When off, no memory is injected and memory tools are disabled; saved content and per-assistant switches are kept.</string>
+  <string name="memory_assistants_group">Per-assistant memory</string>
+  <string name="memory_assistant_row_enabled">Enabled · Edit MEMORY.md</string>
+  <string name="memory_assistant_row_disabled">Disabled · Edit MEMORY.md</string>
+  <string name="memory_global_off_notice_title">Global memory is off</string>
+  <string name="memory_global_off_notice_summary">This assistant\'s MEMORY.md is not injected and memory tools are unavailable. Its switch and content are kept for when global memory is turned back on.</string>
+  <string name="memory_global_off_short">Global memory is off; this switch takes effect after it is re-enabled.</string>
   <string name="dv_training_note">The recording is uploaded to Doubao, consumes this voice\'s training quota, and may overwrite the original voice. Previews are settled per the account quota or billing rules.</string>
   <string name="dv_consent">I have the right to use this recording and confirm the actions above</string>
   <string name="dv_submitting">Submitting…</string>

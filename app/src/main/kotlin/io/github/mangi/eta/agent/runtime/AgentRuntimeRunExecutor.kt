@@ -116,7 +116,7 @@ internal class AgentRuntimeRunExecutor(
                     .filter { SkillCompatibilityChecker.evaluate(it).available })
             unownedSkillRoot = runSkillsRoot
             val skillContext = SkillContext(installedSkills = runSkillEntries)
-            val memoryEnabled = assistant.memoryEnabled
+            val memoryEnabled = AgentMemoryRepository.isEnabled(assistant.id)
             val memoryContext = if (memoryEnabled) runCatching {
                 AgentMemoryContextBuilder.build(AgentMemoryRepository.snapshot(assistant.id), request.config.contextWindow)
             }.getOrElse { throwable ->
@@ -166,7 +166,7 @@ internal class AgentRuntimeRunExecutor(
                 deviceDirectToolsEnabled = { allowDirect && currentPermissions().deviceDirectTools },
                 deviceSensitiveReadToolsEnabled = { allowSensitiveRead && currentPermissions().deviceSensitiveReadTools },
                 deviceSensitiveActionToolsEnabled = { allowSensitiveAction && currentPermissions().deviceSensitiveActionTools },
-                memoryToolsEnabled = { AssistantRepository.currentProfile(assistant.id)?.memoryEnabled == true },
+                memoryToolsEnabled = { AgentMemoryRepository.isEnabled(assistant.id) },
                 screenshotExcludedPackages = { entrySurfaceGuard?.consumeScreenshotExcludedPackages().orEmpty() },
                 beforeToolExecution = { toolName ->
                     val requiresAccessibility = AgentToolRequirements.requiresAccessibility(toolName)
@@ -383,7 +383,7 @@ internal class AgentRuntimeRunExecutor(
                 },
                 memoryContextProvider = {
                     val current = requireNotNull(AssistantRepository.currentProfile(assistant.id)) { "任务所属助手已删除" }
-                    if (!current.memoryEnabled) AgentMemoryContext.DISABLED
+                    if (!AgentMemoryRepository.isEnabled(current.id)) AgentMemoryContext.DISABLED
                     else runCatching { AgentMemoryContextBuilder.build(AgentMemoryRepository.snapshot(current.id), request.config.contextWindow) }
                         .getOrElse { AgentMemoryContextBuilder.empty(request.config.contextWindow) }
                 },

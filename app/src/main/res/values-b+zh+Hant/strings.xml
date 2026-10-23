@@ -1527,7 +1527,7 @@
   <string name="assistant_change_avatar">更換頭像</string>
   <string name="assistant_crop_title">裁切頭像</string>
   <string name="assistant_selector">助手</string>
-  <string name="assistant_memory_summary">只對目前助手生效。MEMORY.md 為所有助手共用。關閉後不注入、不允許讀寫，既有內容會保留。</string>
+  <string name="assistant_memory_summary">只對目前助手生效。關閉後不注入、不允許讀寫，該助手既有的 MEMORY.md 內容會保留。</string>
   <string name="assistant_skills_summary">只對目前助手生效。三個內建 Skills 預設開啟，新安裝的需要在這裡手動打開。</string>
   <string name="settings_assistants">助手</string>
 
@@ -1695,6 +1695,18 @@
   <string name="spc_auto_on">自動委派已開啟</string>
   <string name="spc_auto_off">自動委派已關閉</string>
   <string name="spc_current_in_use">目前使用</string>
+  <string name="settings_memory_summary">全域總開關與各助手 MEMORY.md 管理</string>
+  <string name="memory_editor_title">記憶 · %1$s</string>
+  <string name="memory_overview_note">全域總開關控制所有助手；具體記憶內容仍依助手分別儲存在各自的 MEMORY.md。</string>
+  <string name="memory_global_group">全域記憶</string>
+  <string name="memory_global_switch_title">全域啟用記憶</string>
+  <string name="memory_global_switch_summary">統一控制所有助手。關閉後所有助手都不注入記憶、也不能使用記憶工具；已儲存的內容和各助手的開關會保留。</string>
+  <string name="memory_assistants_group">依助手設定</string>
+  <string name="memory_assistant_row_enabled">已啟用 · 編輯 MEMORY.md</string>
+  <string name="memory_assistant_row_disabled">未啟用 · 編輯 MEMORY.md</string>
+  <string name="memory_global_off_notice_title">全域記憶已關閉</string>
+  <string name="memory_global_off_notice_summary">該助手的 MEMORY.md 不會注入，記憶工具也不可用。開關狀態與內容均已保留，重新開啟全域記憶後生效。</string>
+  <string name="memory_global_off_short">全域記憶已關閉；重新開啟後此開關才會生效。</string>
   <string name="stt_desc_set_for">設定 %1$s 的任務分工</string>
   <string name="stt_set_short">設定分工</string>
   <string name="stt_unset">未設定分工</string>

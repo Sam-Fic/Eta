@@ -34,6 +34,7 @@ internal fun AppRoute.frameDiagnosticPage(): FrameDiagnosticPage = when (this) {
     AppRoute.AppearanceSettings -> FrameDiagnosticPage.AppearanceSettings
     AppRoute.DataBackup -> FrameDiagnosticPage.DataBackup
     AppRoute.Memory -> FrameDiagnosticPage.Memory
+    is AppRoute.AssistantMemory -> FrameDiagnosticPage.Memory
     AppRoute.LinuxEnvironment -> FrameDiagnosticPage.LinuxEnvironment
     AppRoute.SharedFolders -> FrameDiagnosticPage.SharedFolders
     AppRoute.SharedFolderPicker -> FrameDiagnosticPage.SharedFolders

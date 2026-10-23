@@ -46,6 +46,7 @@ private val appRouteTypes: List<KClass<out AppRoute>> = listOf(
     AppRoute.AppearanceSettings::class,
     AppRoute.DataBackup::class,
     AppRoute.Memory::class,
+    AppRoute.AssistantMemory::class,
     AppRoute.LinuxEnvironment::class,
     AppRoute.SharedFolders::class,
     AppRoute.SharedFolderPicker::class,

@@ -334,6 +334,13 @@ internal object AgentMemoryRepository {
     private val lock = Any()
     private val stores = mutableMapOf<String, AgentMemoryStore>()
 
+    /**
+     * 全局总开关的内存快照。DataStore 的读取是挂起操作，而运行时工具权限需要同步判定，
+     * 因此由 EtaApp 在启动时初始化，并持续收集 [SettingsDataStore.memoryEnabledFlow] 更新。
+     */
+    @Volatile
+    private var globalEnabled = true
+
     fun init(context: Context) {
         if (!::rootDir.isInitialized) {
             rootDir = context.applicationContext.filesDir
@@ -429,10 +436,24 @@ internal object AgentMemoryRepository {
         storeFor(assistantId).delete()
     }
 
+    /** 全局总开关的数据源；运行时同步判定用 [isGloballyEnabled]。 */
     fun enabledFlow(): Flow<Boolean> = SettingsDataStore.memoryEnabledFlow()
 
+    fun isGloballyEnabled(): Boolean = globalEnabled
+
+    fun setGloballyEnabled(enabled: Boolean) {
+        globalEnabled = enabled
+    }
+
+    /** 写入全局总开关后立刻刷新运行时快照，避免等待下一次 flow 分发。 */
+    suspend fun persistGloballyEnabled(enabled: Boolean) {
+        SettingsDataStore.setMemoryEnabled(enabled)
+        globalEnabled = enabled
+    }
+
+    /** 有效开关 = 全局开 且 该助手开。 */
     fun isEnabled(assistantId: String = currentAssistantId()): Boolean =
-        AssistantRepository.currentProfile(assistantId)?.memoryEnabled ?: false
+        globalEnabled && AssistantRepository.currentProfile(assistantId)?.memoryEnabled == true
 
     fun setEnabled(enabled: Boolean, assistantId: String = currentAssistantId()) {
         val current = requireNotNull(AssistantRepository.currentProfile(assistantId)) { "助手不存在" }

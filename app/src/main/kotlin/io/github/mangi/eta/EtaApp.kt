@@ -82,6 +82,11 @@ class EtaApp : Application(), XposedServiceHelper.OnServiceListener {
         AppFileLogger.install(this)
         io.github.mangi.eta.ui.components.ComposeSystemTrace.install()
         AgentMemoryRepository.init(this)
+        // 运行时工具权限需要同步读取全局记忆开关；先同步一次快照，再由下面的 collector 持续更新。
+        runBlocking(Dispatchers.IO) {
+            runCatching { SettingsDataStore.settings().memoryEnabled }
+                .onSuccess(AgentMemoryRepository::setGloballyEnabled)
+        }
         ProviderRepository.init(this)
         AssistantRepository.init(this)
         McpServerRepository.init(this)
@@ -108,6 +113,13 @@ class EtaApp : Application(), XposedServiceHelper.OnServiceListener {
             runCatching {
                 SettingsDataStore.fileLoggingEnabledFlow().collect { enabled ->
                     AppFileLogger.setEnabled(enabled)
+                }
+            }
+        }
+        applicationScope.launch {
+            runCatching {
+                SettingsDataStore.memoryEnabledFlow().collect { enabled ->
+                    AgentMemoryRepository.setGloballyEnabled(enabled)
                 }
             }
         }

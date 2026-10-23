@@ -23,6 +23,7 @@ class AppRouteSerializationTest {
             AppRoute.AppearanceSettings,
             AppRoute.DataBackup,
             AppRoute.Memory,
+            AppRoute.AssistantMemory("assistant"),
             AppRoute.LinuxEnvironment,
             AppRoute.SharedFolders,
             AppRoute.SharedFolderPicker,

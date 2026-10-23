@@ -341,6 +341,15 @@ internal fun SettingsScreen(
 
                 row {
                     EtaClickableRow(
+                        title = stringResource(R.string.ui_memory_b55ff5),
+                        summary = stringResource(R.string.settings_memory_summary),
+                        leading = { PreferenceIcon(icon = Icons.Rounded.Psychology) },
+                        onClick = { onNavigate(AppRoute.Memory) },
+                    )
+                }
+
+                row {
+                    EtaClickableRow(
                         title = stringResource(R.string.route_skills),
                         leading = {
                             PreferenceIcon(

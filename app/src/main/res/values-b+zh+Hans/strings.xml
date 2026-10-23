@@ -1519,7 +1519,7 @@
   <string name="assistant_change_avatar">更换头像</string>
   <string name="assistant_crop_title">裁切头像</string>
   <string name="assistant_selector">助手</string>
-  <string name="assistant_memory_summary">只对当前助手生效。MEMORY.md 为所有助手共用。关闭后不注入、不允许读写，已有内容会保留。</string>
+  <string name="assistant_memory_summary">只对当前助手生效。关闭后不注入、不允许读写，该助手已有的 MEMORY.md 内容会保留。</string>
   <string name="assistant_skills_summary">只对当前助手生效。三个内置 Skills 默认开启，新安装的需要在这里手动打开。</string>
   <string name="settings_assistants">助手</string>
 
@@ -1687,6 +1687,18 @@
   <string name="stt_desc_set_for">设置%1$s任务分工</string>
   <string name="stt_set_short">设置分工</string>
   <string name="stt_unset">未设置分工</string>
+  <string name="settings_memory_summary">全局总开关与各助手 MEMORY.md 管理</string>
+  <string name="memory_editor_title">记忆 · %1$s</string>
+  <string name="memory_overview_note">全局总开关控制所有助手；具体记忆内容仍按助手分别保存在各自的 MEMORY.md。</string>
+  <string name="memory_global_group">全局记忆</string>
+  <string name="memory_global_switch_title">全局启用记忆</string>
+  <string name="memory_global_switch_summary">统一控制所有助手。关闭后所有助手都不注入记忆、也不能使用记忆工具；已保存的内容和各助手的开关会保留。</string>
+  <string name="memory_assistants_group">按助手配置</string>
+  <string name="memory_assistant_row_enabled">已启用 · 编辑 MEMORY.md</string>
+  <string name="memory_assistant_row_disabled">未启用 · 编辑 MEMORY.md</string>
+  <string name="memory_global_off_notice_title">全局记忆已关闭</string>
+  <string name="memory_global_off_notice_summary">该助手的 MEMORY.md 不会注入，记忆工具也不可用。开关状态与内容均已保留，重新开启全局记忆后生效。</string>
+  <string name="memory_global_off_short">全局记忆已关闭；重新开启后此开关才会生效。</string>
   <string name="stt_set_task_tier">设置任务分工</string>
   <string name="cfl_outside_roots">此链接不在共享存储或工作区内</string>
   <string name="cfl_not_found_or_permission">文件不存在或没有读取权限</string>

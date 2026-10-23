@@ -6,6 +6,7 @@ import io.github.mangi.eta.data.repository.AgentMemoryStore
 @Immutable
 data class AgentMemoryUiState(
     val assistantId: String = "",
+    val assistantName: String = "",
     val baseRevision: String = "",
     val enabled: Boolean = true,
     val isLoading: Boolean = true,

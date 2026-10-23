@@ -95,6 +95,10 @@ sealed interface AppRoute {
     @Serializable
     data object Memory : AppRoute
 
+    /** 单个助手的 MEMORY.md 编辑页；从记忆总览进入，独立于当前会话助手。 */
+    @Serializable
+    data class AssistantMemory(val assistantId: String) : AppRoute
+
     @Serializable
     data object LinuxEnvironment : AppRoute
 

@@ -12,8 +12,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,12 +27,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import io.github.mangi.eta.data.repository.AgentMemoryRepository
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
 import io.github.mangi.eta.ui.layout.horizontalCutoutPadding
 import io.github.mangi.eta.ui.model.AgentMemoryAction
 import io.github.mangi.eta.ui.model.AgentMemoryUiState
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text as M3Text
@@ -46,9 +52,18 @@ internal fun AgentMemoryScreen(
     onAction: (AgentMemoryAction) -> Unit,
 ) {
     var showClearDialog by remember { mutableStateOf(false) }
+    // 编辑页只改助手自己的开关；全局总开关关闭时单独提示，避免把两者混为一谈。
+    val enabledFlow = remember { AgentMemoryRepository.enabledFlow() }
+    val globalEnabled by enabledFlow.collectAsState(
+        initial = AgentMemoryRepository.isGloballyEnabled(),
+    )
 
     EtaScaffold(
-        title = stringResource(R.string.ui_memory_b55ff5),
+        title = if (state.assistantName.isBlank()) {
+            stringResource(R.string.ui_memory_b55ff5)
+        } else {
+            stringResource(R.string.memory_editor_title, state.assistantName)
+        },
         onBack = { onAction(AgentMemoryAction.NavigateBack) },
     ) { paddingValues, scrollConnection, sidePadding ->
         Column(
@@ -74,10 +89,38 @@ internal fun AgentMemoryScreen(
                         modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
                         title = stringResource(R.string.ui_memory_b55ff5),
                     ) {
+                        if (!globalEnabled) {
+                            item {
+                                EtaSegmentedRow(
+                                    leadingContent = {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Info,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.padding(end = 8.dp).size(24.dp),
+                                        )
+                                    },
+                                    supportingContent = {
+                                        M3Text(
+                                            text = stringResource(R.string.memory_global_off_notice_summary),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    },
+                                    content = {
+                                        M3Text(
+                                            text = stringResource(R.string.memory_global_off_notice_title),
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = MaterialTheme.colorScheme.error,
+                                        )
+                                    },
+                                )
+                            }
+                        }
                         item {
                             EtaSwitchRow(
                                 title = stringResource(R.string.ui_enable_memory_4b69b7),
-                                summary = stringResource(R.string.ui_after_closing_no_memory_will_be_injected_and_the_mod_db3d23),
+                                summary = stringResource(R.string.assistant_memory_summary),
                                 checked = state.enabled,
                                 enabled = !state.isLoading,
                                 onCheckedChange = { onAction(AgentMemoryAction.ToggleEnabled(it)) },

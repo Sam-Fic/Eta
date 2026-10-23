@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -232,6 +233,10 @@ internal fun AssistantEditScreen(
             Column(
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
             ) {
+                val memoryEnabledFlow = remember { AgentMemoryRepository.enabledFlow() }
+                val globalMemoryEnabled by memoryEnabledFlow.collectAsState(
+                    initial = AgentMemoryRepository.isGloballyEnabled(),
+                )
                 EtaSegmentedColumn(
                     // 开关卡与下方的 MEMORY.md 编辑框是两种不同表面：按 M3E 的元素间距留 8dp，
                     // 不把编辑框挤进分段列表的 2dp 接缝里。
@@ -241,7 +246,13 @@ internal fun AssistantEditScreen(
                     item {
                         EtaSwitchRow(
                             title = stringResource(R.string.ui_enable_memory_4b69b7),
-                            summary = stringResource(R.string.assistant_memory_summary),
+                            summary = buildString {
+                                append(stringResource(R.string.assistant_memory_summary))
+                                if (!globalMemoryEnabled) {
+                                    append('\n')
+                                    append(stringResource(R.string.memory_global_off_short))
+                                }
+                            },
                             checked = memoryEnabled,
                             onCheckedChange = {
                                 memoryEnabled = it

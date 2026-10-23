@@ -36,6 +36,7 @@ import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PowerSettingsNew
+import androidx.compose.material.icons.rounded.Psychology
 import androidx.compose.material.icons.rounded.RecordVoiceOver
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.RemoveRedEye
@@ -210,6 +211,15 @@ private fun settingsSearchEntries(taskBackendInstalled: Boolean?): List<Settings
                 icon = Icons.Rounded.SmartToy,
                 group = groupContextExtensions,
                 action = SettingsSearchAction.Route(AppRoute.Assistants()),
+            ),
+        )
+        add(
+            SettingsSearchEntry(
+                title = stringResource(R.string.ui_memory_b55ff5),
+                summary = stringResource(R.string.settings_memory_summary),
+                icon = Icons.Rounded.Psychology,
+                group = groupContextExtensions,
+                action = SettingsSearchAction.Route(AppRoute.Memory),
             ),
         )
         add(
