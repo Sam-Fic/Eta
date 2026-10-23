@@ -20,6 +20,7 @@ import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -208,6 +209,9 @@ fun EtaSegmentedDropdownRow(
     val view = LocalView.current
     var expanded by remember { mutableStateOf(false) }
     var anchorOffset by remember { mutableStateOf(IntOffset.Zero) }
+    // 禁用即收起：与旧 SubAgentSettingsRow 的 tierPicker/rolePicker 一致，也防止
+    // 保留的菜单项回调在禁用后仍能被触发。
+    LaunchedEffect(enabled) { if (!enabled) expanded = false }
 
     val hasItems = items.isNotEmpty()
     val safeIndex = if (hasItems) selectedIndex.coerceIn(0, items.lastIndex) else -1

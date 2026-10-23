@@ -197,7 +197,7 @@ class SubAgentMaterialControlsTest {
         }
     }
 
-    @Test fun settingsRowsStackValuesBelowTheirHeadline() {
+    @Test fun settingsRowsStackInOrderWithDropdownValuesAtTheTrailingEdge() {
         val profile = SubAgentProfile("test", "测试代理", tier = SubAgentTaskTier.COMPLEX)
         val fixture = SubAgentUiFixture(profiles = listOf(profile))
         compose.setSubAgentContent(fixture) {
@@ -206,11 +206,11 @@ class SubAgentMaterialControlsTest {
             }
         }
         val label = compose.onNodeWithText("职责", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
-        val value = compose.onNodeWithText("执行", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
-        // 标题与取值上下排布：取值是 supportingContent，起点与标题对齐，而不是右侧另起一列。
-        assertTrue("value must sit below its headline", value.top >= label.bottom)
-        assertTrue("headline and supporting value must share the left edge",
-            kotlin.math.abs(value.left - label.left) < 1f)
+        val value = compose.onNodeWithText("实现", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        // 行内下拉行：取值与标题同行排布（trailing 槽位居右），不再是标题下方的 supportingContent。
+        assertTrue("value must share the row with its headline",
+            value.top < label.bottom && value.bottom > label.top)
+        assertTrue("value must sit right of the headline", value.left > label.left)
         val model = compose.onNodeWithContentDescription("测试代理 模型").fetchSemanticsNode().boundsInRoot
         val role = compose.onNodeWithContentDescription("为 测试代理 选择职责").fetchSemanticsNode().boundsInRoot
         val tier = compose.onNodeWithContentDescription("设置 测试代理 的任务分工").assertIsEnabled().fetchSemanticsNode().boundsInRoot
