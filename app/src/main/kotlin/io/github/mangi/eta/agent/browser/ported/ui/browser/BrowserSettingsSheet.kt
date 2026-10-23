@@ -64,6 +64,7 @@ import io.github.mangi.eta.ui.adaptive.EtaSegmentedRadioRow
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedTextField
 import io.github.mangi.eta.ui.adaptive.EtaTextButton
+import io.github.mangi.eta.ui.adaptive.EtaDimens
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import kotlinx.coroutines.launch
 
@@ -649,7 +650,7 @@ private fun UaMismatchBanner(message: String, modifier: Modifier = Modifier) {
             Icon(
                 imageVector = Icons.Rounded.Warning,
                 contentDescription = null,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(EtaDimens.DenseIconSize),
             )
             Text(
                 text = message,

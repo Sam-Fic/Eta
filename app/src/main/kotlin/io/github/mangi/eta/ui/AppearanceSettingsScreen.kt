@@ -50,7 +50,6 @@ import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -59,6 +58,7 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -125,6 +125,7 @@ import io.github.mangi.eta.ui.adaptive.EtaTextButton
 import io.github.mangi.eta.ui.adaptive.EtaTextField
 import io.github.mangi.eta.ui.adaptive.EtaTonalCard
 import io.github.mangi.eta.ui.adaptive.etaOnSurfaceVariant
+import io.github.mangi.eta.ui.adaptive.EtaDimens
 import io.github.mangi.eta.ui.app.LocalAppearanceSettings
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import kotlinx.coroutines.launch
@@ -901,7 +902,7 @@ private fun ColorButtonM3(
                                 tint = colorScheme.onPrimary,
                                 modifier = Modifier
                                     .align(Alignment.Center)
-                                    .size(16.dp),
+                                    .size(EtaDimens.StatusIconSize),
                             )
                         }
                     }

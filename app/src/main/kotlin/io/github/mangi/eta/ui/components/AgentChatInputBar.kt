@@ -137,7 +137,6 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider as M3Slider
@@ -146,6 +145,7 @@ import androidx.compose.material3.TextButton as M3TextButton
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberSliderState
 import androidx.compose.material3.Text as M3Text
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.ui.text.style.TextOverflow
 import io.github.mangi.eta.data.repository.ComposerQueueStore
 import io.github.mangi.eta.ui.adaptive.EtaButtonStyle
@@ -153,7 +153,6 @@ import io.github.mangi.eta.ui.adaptive.EtaCircularProgress
 import io.github.mangi.eta.ui.adaptive.EtaConnectedGroupRow
 import io.github.mangi.eta.ui.adaptive.etaGptSpeedColor
 import io.github.mangi.eta.ui.adaptive.EtaIconButton
-import io.github.mangi.eta.ui.adaptive.EtaIconSize
 import io.github.mangi.eta.ui.adaptive.EtaMenuGroup
 import io.github.mangi.eta.ui.adaptive.EtaMenuItemShape
 import io.github.mangi.eta.ui.adaptive.EtaMenuPopup
@@ -165,6 +164,7 @@ import io.github.mangi.eta.ui.adaptive.etaTertiaryContainer
 import io.github.mangi.eta.ui.adaptive.etaSurfaceContainer
 import io.github.mangi.eta.ui.adaptive.etaSurfaceContainerHigh
 import io.github.mangi.eta.ui.adaptive.etaTextStyle
+import io.github.mangi.eta.ui.adaptive.EtaDimens
 
 /** 图标按钮的图标弱化透明度（与官方 StandardIconButtonTokens.DisabledOpacity 同值）。 */
 private const val DisabledIconAlpha = 0.38f
@@ -799,7 +799,7 @@ private fun M3ThinkingEffortPickerBody(
             contentDescription = null,
             modifier = Modifier
                 .padding(top = 8.dp)
-                .size(32.dp),
+                .size(IconButtonDefaults.largeIconSize),
             tint = if (on) {
                 MaterialTheme.colorScheme.primary
             } else {
@@ -926,7 +926,7 @@ internal fun PendingImageStrip(
                         tint = Color.White,
                         modifier = Modifier
                             .align(Alignment.Center)
-                            .size(20.dp),
+                            .size(EtaDimens.DenseIconSize),
                     )
                 }
                 Box(
@@ -943,7 +943,7 @@ internal fun PendingImageStrip(
                     Icon(
                         imageVector = Icons.Rounded.Close,
                         contentDescription = stringResource(R.string.ui_remove_image_089db3),
-                        modifier = Modifier.size(12.dp),
+                        modifier = Modifier.size(EtaDimens.MicroIconSize),
                         tint = etaOnTertiaryContainer(),
                     )
                 }
@@ -1309,7 +1309,7 @@ internal fun VoiceModeStatusPanel(
                     Icons.Rounded.RecordVoiceOver
                 },
                 contentDescription = null,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(EtaDimens.DenseIconSize),
                 tint = if (state.error == null) etaPrimary() else StatusError,
             )
             M3Text(
@@ -1322,7 +1322,7 @@ internal fun VoiceModeStatusPanel(
                 Icon(
                     imageVector = Icons.Rounded.Stop,
                     contentDescription = stringResource(R.string.voice_mode_stop),
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(EtaDimens.StatusIconSize),
                 )
             }
         }

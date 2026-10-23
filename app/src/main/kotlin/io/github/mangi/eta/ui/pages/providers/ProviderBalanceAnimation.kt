@@ -41,6 +41,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.material3.Text as M3Text
+import io.github.mangi.eta.ui.adaptive.EtaDimens
 
 /*
  * 顶部栏余额的变化动画，与静态的 ProviderBalanceIndicator 分开存放：
@@ -262,7 +263,7 @@ internal fun AnimatedProviderBalanceIndicator(
                 contentDescription = null,
                 modifier = Modifier
                     .padding(end = 4.dp)
-                    .size(12.dp)
+                    .size(EtaDimens.MicroIconSize)
                     .graphicsLayer { rotationZ = iconRotation.value },
                 tint = amountColor,
             )

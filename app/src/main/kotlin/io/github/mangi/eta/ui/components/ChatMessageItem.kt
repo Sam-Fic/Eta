@@ -179,6 +179,7 @@ import io.github.mangi.eta.ui.adaptive.etaOnSurfaceVariant
 import io.github.mangi.eta.ui.adaptive.etaPrimary
 import io.github.mangi.eta.ui.adaptive.etaSurfaceContainerHigh
 import io.github.mangi.eta.ui.adaptive.foregroundColor
+import io.github.mangi.eta.ui.adaptive.EtaDimens
 import io.github.mangi.eta.agent.browser.AgentBrowserSession
 import io.github.mangi.eta.agent.browser.BrowserSessionSnapshot
 import io.github.mangi.eta.agent.model.AgentFileReferencePromptCodec
@@ -228,7 +229,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProgressIndicatorDefaults
@@ -239,6 +239,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.carousel.HorizontalUncontainedCarousel
 import androidx.compose.material3.carousel.rememberCarouselState
+import androidx.compose.material3.FloatingActionButtonDefaults
+import androidx.compose.material3.IconButtonDefaults
 
 // ── M3 Expressive 外观适配 ────────────────────────────────────────────────
 //
@@ -1052,7 +1054,7 @@ private fun UserMessageBubble(
                                         tint = Color.White,
                                         modifier = Modifier
                                             .align(Alignment.Center)
-                                            .size(28.dp),
+                                            .size(FloatingActionButtonDefaults.MediumIconSize),
                                     )
                                     Text(
                                         text = AgentVideoCodec.formatDuration(message.durationMsAt(index) ?: 0L),
@@ -2782,7 +2784,7 @@ private fun ChatCodeBlock(
                         contentDescription = stringResource(
                             if (copied) R.string.copy_copied else R.string.copy_code,
                         ),
-                        modifier = Modifier.size(12.dp),
+                        modifier = Modifier.size(EtaDimens.MicroIconSize),
                         tint = if (copied) {
                             etaPrimary()
                         } else {
@@ -3354,7 +3356,7 @@ private fun ToolStatusIndicator(status: ToolActivityStatusUi) {
             ToolActivityStatusUi.Success -> Icon(
                 imageVector = Icons.Rounded.Check,
                 contentDescription = stringResource(R.string.tool_status_success),
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(EtaDimens.StatusIconSize),
                 tint = etaOnSurfaceVariant().copy(alpha = 0.7f),
             )
             ToolActivityStatusUi.Failed -> Row(
@@ -3365,7 +3367,7 @@ private fun ToolStatusIndicator(status: ToolActivityStatusUi) {
                 Icon(
                     imageVector = Icons.Rounded.ErrorOutline,
                     contentDescription = null,
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(EtaDimens.StatusIconSize),
                     tint = current.etaStatus().foregroundColor(),
                 )
                 Text(
@@ -3377,7 +3379,7 @@ private fun ToolStatusIndicator(status: ToolActivityStatusUi) {
             ToolActivityStatusUi.Unknown -> Icon(
                 imageVector = Icons.Rounded.Remove,
                 contentDescription = stringResource(R.string.tool_status_unknown),
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(EtaDimens.StatusIconSize),
                 tint = current.etaStatus().foregroundColor(),
             )
         }
@@ -3644,7 +3646,7 @@ private fun BrowserPagePreview(
                 Icon(
                     imageVector = Icons.Rounded.Language,
                     contentDescription = null,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(EtaDimens.DenseIconSize),
                     tint = chatDividerColor(),
                 )
             }
@@ -3726,7 +3728,7 @@ private fun ToolCommandBlock(
                     contentDescription = stringResource(
                         if (copied) R.string.copy_copied else R.string.copy_command,
                     ),
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(EtaDimens.StatusIconSize),
                     tint = if (copied) {
                         etaPrimary()
                     } else {
@@ -3772,7 +3774,7 @@ private fun RunTraceRow(
         Icon(
             imageVector = Icons.Rounded.Check,
             contentDescription = null,
-            modifier = Modifier.size(16.dp),
+            modifier = Modifier.size(EtaDimens.StatusIconSize),
             tint = etaPrimary(),
         )
         Spacer(modifier = Modifier.width(8.dp))
@@ -3785,7 +3787,7 @@ private fun RunTraceRow(
         Icon(
             imageVector = Icons.Rounded.ChevronRight,
             contentDescription = null,
-            modifier = Modifier.size(16.dp),
+            modifier = Modifier.size(EtaDimens.StatusIconSize),
             tint = etaOnSurfaceVariant().copy(alpha = 0.7f),
         )
     }
@@ -3827,7 +3829,7 @@ private fun ToolSummaryInline(
                     imageVector = ToolPresentation.icon(tool),
                     contentDescription = null,
                     // 与卡片内其他前导图标统一为 20dp。
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(EtaDimens.DenseIconSize),
                     tint = etaPrimary()
                 )
                 Spacer(modifier = Modifier.width(5.dp))
@@ -3880,7 +3882,7 @@ private fun ContextCompactedDivider(
         Icon(
             imageVector = Icons.Rounded.AutoAwesome,
             contentDescription = null,
-            modifier = Modifier.size(12.dp),
+            modifier = Modifier.size(EtaDimens.MicroIconSize),
             tint = labelColor,
         )
         Spacer(modifier = Modifier.width(4.dp))

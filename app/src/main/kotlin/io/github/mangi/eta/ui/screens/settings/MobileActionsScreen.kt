@@ -47,6 +47,7 @@ import io.github.mangi.eta.ui.adaptive.EtaText
 import io.github.mangi.eta.ui.adaptive.EtaTextField
 import io.github.mangi.eta.ui.adaptive.EtaTextStyle
 import io.github.mangi.eta.ui.adaptive.EtaTextButton
+import io.github.mangi.eta.ui.adaptive.EtaDimens
 import kotlinx.coroutines.launch
 
 /**
@@ -243,7 +244,7 @@ private fun ActionRow(action: MobileActionsAction, outcome: MobileActionsOutcome
         Icon(
             imageVector = actionIcon(action),
             contentDescription = null,
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.size(EtaDimens.DenseIconSize),
             tint = if (outcome.ok) {
                 MaterialTheme.colorScheme.primary
             } else {

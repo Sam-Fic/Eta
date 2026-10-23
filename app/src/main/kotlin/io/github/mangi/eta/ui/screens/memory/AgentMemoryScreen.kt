@@ -35,6 +35,7 @@ import io.github.mangi.eta.ui.model.AgentMemoryAction
 import io.github.mangi.eta.ui.model.AgentMemoryUiState
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text as M3Text
@@ -97,7 +98,7 @@ internal fun AgentMemoryScreen(
                                             imageVector = Icons.Rounded.Info,
                                             contentDescription = null,
                                             tint = MaterialTheme.colorScheme.error,
-                                            modifier = Modifier.padding(end = 8.dp).size(24.dp),
+                                            modifier = Modifier.padding(end = 8.dp).size(IconButtonDefaults.smallIconSize),
                                         )
                                     },
                                     supportingContent = {

@@ -73,7 +73,6 @@ import io.github.mangi.eta.ui.adaptive.EtaClickableRow
 import io.github.mangi.eta.ui.adaptive.EtaDecorativeShape
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
-import io.github.mangi.eta.ui.adaptive.EtaDimens
 import io.github.mangi.eta.ui.adaptive.EtaGroupHorizontalPadding
 import io.github.mangi.eta.ui.adaptive.EtaSearchScaffold
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
@@ -86,6 +85,7 @@ import io.github.mangi.eta.ui.adaptive.EtaSlider
 import io.github.mangi.eta.ui.adaptive.EtaText
 import io.github.mangi.eta.ui.adaptive.EtaTextStyle
 import io.github.mangi.eta.ui.adaptive.etaRandomDecorativeShape
+import io.github.mangi.eta.ui.adaptive.EtaDimens
 import io.github.mangi.eta.ui.components.ContainedMorphLoadingIndicator
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.navigation.AppRoute
@@ -757,7 +757,7 @@ private fun MediaSearchEmptyState(
                 Icon(
                     imageVector = Icons.Rounded.Search,
                     contentDescription = null,
-                    modifier = Modifier.size(72.dp),
+                    modifier = Modifier.size(EtaDimens.EmptyStateGraphicIconSize),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }

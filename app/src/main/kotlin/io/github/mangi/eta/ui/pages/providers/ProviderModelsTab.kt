@@ -92,6 +92,7 @@ import io.github.mangi.eta.ui.adaptive.EtaSegmentedCheckboxRow
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedGap
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedItem
 import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
+import io.github.mangi.eta.ui.adaptive.EtaDimens
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.components.ListEmptyState
 import io.github.mangi.eta.ui.model.formatCompactTokenCount
@@ -757,7 +758,7 @@ private fun ModelListItem(
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier
                             .padding(end = 2.dp)
-                            .size(20.dp),
+                            .size(EtaDimens.DenseIconSize),
                     )
                 }
                 ProviderIconAction(

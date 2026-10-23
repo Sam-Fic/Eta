@@ -18,6 +18,7 @@ import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.SelectableDropdownMenuItem
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Text
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -237,7 +238,7 @@ fun EtaSegmentedDropdownRow(
                     Icon(
                         imageVector = it,
                         contentDescription = null,
-                        modifier = Modifier.padding(end = 8.dp).size(24.dp),
+                        modifier = Modifier.padding(end = 8.dp).size(IconButtonDefaults.smallIconSize),
                     )
                 }
             },

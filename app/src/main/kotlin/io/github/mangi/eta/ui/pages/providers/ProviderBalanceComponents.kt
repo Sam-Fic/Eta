@@ -35,6 +35,7 @@ import io.github.mangi.eta.data.repository.ProviderBalanceState
 import io.github.mangi.eta.data.repository.formatBalanceDisplay
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedScope
 import io.github.mangi.eta.ui.adaptive.EtaSwitch
+import io.github.mangi.eta.ui.adaptive.EtaDimens
 import kotlinx.coroutines.launch
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -268,7 +269,7 @@ internal fun ProviderBalanceAmount(
             contentDescription = null,
             modifier = Modifier
                 .padding(end = 4.dp)
-                .size(12.dp),
+                .size(EtaDimens.MicroIconSize),
             tint = contentColor,
         )
         M3Text(
@@ -320,7 +321,7 @@ internal fun ProviderBalanceIndicator(
             contentDescription = null,
             modifier = Modifier
                 .padding(end = 4.dp)
-                .size(12.dp),
+                .size(EtaDimens.MicroIconSize),
             tint = amountColor,
         )
         M3Text(

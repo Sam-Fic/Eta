@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Psychology
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text as M3Text
 import androidx.compose.runtime.Composable
@@ -112,7 +113,7 @@ internal fun AgentMemoryOverviewScreen(
                             Icon(
                                 imageVector = Icons.Rounded.Psychology,
                                 contentDescription = null,
-                                modifier = Modifier.padding(end = 8.dp).size(24.dp),
+                                modifier = Modifier.padding(end = 8.dp).size(IconButtonDefaults.smallIconSize),
                             )
                         },
                         onCheckedChange = ::persistGlobal,

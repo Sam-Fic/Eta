@@ -31,6 +31,7 @@ import io.github.mangi.eta.ui.adaptive.EtaPageSurface
 import io.github.mangi.eta.ui.adaptive.EtaScaffold
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedItemContainer
+import io.github.mangi.eta.ui.adaptive.EtaDimens
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 
 /** A popup entry belongs to one real configuration owner (including the unique draft key).
@@ -316,7 +317,7 @@ private fun ExpressivePresetEmptyHint(textRes: Int) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Icon(imageVector = Icons.Rounded.AccountTree, contentDescription = null,
-            modifier = Modifier.size(36.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            modifier = Modifier.size(EtaDimens.EmptyStateHintIconSize), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(12.dp))
         Text(
             text = stringResource(textRes),

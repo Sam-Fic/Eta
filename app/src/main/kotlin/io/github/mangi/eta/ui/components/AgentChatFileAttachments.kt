@@ -35,7 +35,6 @@ import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -56,6 +55,7 @@ import io.github.mangi.eta.ui.adaptive.EtaType
 import io.github.mangi.eta.ui.adaptive.etaPrimary
 import io.github.mangi.eta.ui.adaptive.etaSurfaceContainerHigh
 import io.github.mangi.eta.ui.adaptive.etaTextStyle
+import io.github.mangi.eta.ui.adaptive.EtaDimens
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalContext
@@ -75,6 +75,8 @@ import io.github.mangi.eta.agent.model.AgentFileReference
 import io.github.mangi.eta.agent.model.AgentFileReferenceKind
 import io.github.mangi.eta.ui.model.PendingFileReferenceUi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.ui.window.PopupPositionProvider
 import java.io.File
 
@@ -357,7 +359,7 @@ internal fun PendingFileReferenceStrip(
                         Icons.Rounded.Description
                     },
                     contentDescription = null,
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(ButtonDefaults.IconSize),
                     tint = etaPrimary(),
                 )
                 M3Text(
@@ -379,7 +381,7 @@ internal fun PendingFileReferenceStrip(
                     Icon(
                         imageVector = Icons.Rounded.Close,
                         contentDescription = stringResource(R.string.ui_remove_file_reference_04bbfc),
-                        modifier = Modifier.size(16.dp),
+                        modifier = Modifier.size(EtaDimens.StatusIconSize),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -459,7 +461,7 @@ internal fun SentFileReferenceFlow(
                         Icons.Rounded.Description
                     },
                     contentDescription = null,
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(EtaDimens.StatusIconSize),
                     tint = etaPrimary(),
                 )
                 M3Text(

@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.ui.adaptive.etaOnSurfaceVariant
+import io.github.mangi.eta.ui.adaptive.EtaDimens
 
 /** One visual card, but still one independently composed lazy item per step. */
 internal enum class WorkProcessCardPart(val startsCard: Boolean, val endsCard: Boolean) {
@@ -133,7 +134,7 @@ internal fun WorkCardChevron(expanded: Boolean, modifier: Modifier = Modifier) {
         imageVector = Icons.Rounded.ChevronRight,
         contentDescription = null,
         modifier = modifier
-            .size(20.dp)
+            .size(EtaDimens.DenseIconSize)
             .graphicsLayer { rotationZ = rotation },
         tint = etaOnSurfaceVariant().copy(alpha = 0.7f),
     )
@@ -162,7 +163,7 @@ internal fun WorkCardDisclosureHeader(
         Icon(
             imageVector = leadingIcon,
             contentDescription = null,
-            modifier = leadingModifier.size(20.dp),
+            modifier = leadingModifier.size(EtaDimens.DenseIconSize),
             tint = leadingTint,
         )
     }

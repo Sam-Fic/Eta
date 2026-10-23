@@ -54,7 +54,6 @@ import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -72,6 +71,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.ripple
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -112,6 +112,7 @@ import io.github.mangi.eta.ui.adaptive.EtaIconSize
 import io.github.mangi.eta.ui.adaptive.EtaMorphChipShape
 import io.github.mangi.eta.ui.adaptive.etaConnectedButtonShapes
 import io.github.mangi.eta.ui.adaptive.etaConnectedPosition
+import io.github.mangi.eta.ui.adaptive.EtaDimens
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import kotlinx.coroutines.launch
 
@@ -202,7 +203,7 @@ internal fun BrowserSheetEmptyState(
             Icon(
                 imageVector = Icons.Rounded.Public,
                 contentDescription = null,
-                modifier = Modifier.size(72.dp),
+                modifier = Modifier.size(EtaDimens.EmptyStateGraphicIconSize),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
@@ -478,7 +479,7 @@ fun BrowserPage(
                     Icon(
                         imageVector = Icons.Rounded.Language,
                         contentDescription = null,
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(EtaDimens.DenseIconSize),
                     )
                 },
                 trailingIcon = if (isLoading) {
@@ -487,7 +488,7 @@ fun BrowserPage(
                             Icon(
                                 imageVector = Icons.Rounded.Close,
                                 contentDescription = stringResource(R.string.om_browser_stop),
-                                modifier = Modifier.size(20.dp),
+                                modifier = Modifier.size(EtaDimens.DenseIconSize),
                             )
                         }
                     }
@@ -851,7 +852,7 @@ private fun BrowserDownloadBanner(
             Icon(
                 imageVector = Icons.Rounded.Download,
                 contentDescription = null,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(EtaDimens.DenseIconSize),
                 tint = MaterialTheme.colorScheme.primary,
             )
             Text(

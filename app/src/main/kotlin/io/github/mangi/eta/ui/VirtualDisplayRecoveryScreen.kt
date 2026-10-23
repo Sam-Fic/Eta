@@ -26,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -309,7 +310,7 @@ internal fun VirtualDisplayRecoveryControls(
                         Icon(
                             imageVector = Icons.Rounded.Refresh,
                             contentDescription = null,
-                            modifier = Modifier.size(18.dp),
+                            modifier = Modifier.size(ButtonDefaults.IconSize),
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(

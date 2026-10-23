@@ -35,6 +35,7 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -306,7 +307,7 @@ fun EtaSearchPage(
                                         contentDescription = null,
                                         modifier = Modifier
                                             .padding(end = 8.dp)
-                                            .size(24.dp),
+                                            .size(IconButtonDefaults.smallIconSize),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 },
@@ -350,7 +351,7 @@ fun EtaSearchPage(
                                 Icon(
                                     imageVector = Icons.Rounded.Search,
                                     contentDescription = null,
-                                    modifier = Modifier.size(72.dp),
+                                    modifier = Modifier.size(EtaDimens.EmptyStateGraphicIconSize),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }

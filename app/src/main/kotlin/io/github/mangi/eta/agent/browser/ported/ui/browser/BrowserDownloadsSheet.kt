@@ -27,6 +27,7 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberBottomSheetState
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -122,7 +123,7 @@ fun BrowserDownloadsSheet(
                                     imageVector = icon,
                                     contentDescription = null,
                                     tint = tint,
-                                    modifier = Modifier.size(24.dp),
+                                    modifier = Modifier.size(IconButtonDefaults.smallIconSize),
                                 )
                             },
                             content = {

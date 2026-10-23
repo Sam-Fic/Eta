@@ -94,6 +94,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import io.github.mangi.eta.ui.adaptive.EtaDimens
 
 // 无语义 success 色，沿用项目既有值；失败色走主题 error
 private val SuccessColor = Color(0xFF34C759)
@@ -390,7 +391,7 @@ internal fun AgentOverlayBubble(
                             Icon(
                                 imageVector = Icons.Rounded.Edit,
                                 contentDescription = stringResource(R.string.overlay_supplement),
-                                modifier = Modifier.size(16.dp),
+                                modifier = Modifier.size(EtaDimens.StatusIconSize),
                                 tint = MaterialTheme.colorScheme.onSurface,
                             )
                         }
@@ -402,7 +403,7 @@ internal fun AgentOverlayBubble(
                                 Icon(
                                     imageVector = Icons.Rounded.Pause,
                                     contentDescription = stringResource(R.string.overlay_pause),
-                                    modifier = Modifier.size(16.dp),
+                                    modifier = Modifier.size(EtaDimens.StatusIconSize),
                                     tint = MaterialTheme.colorScheme.onSurface,
                                 )
                             }
@@ -414,7 +415,7 @@ internal fun AgentOverlayBubble(
                                 Icon(
                                     imageVector = Icons.Rounded.PlayArrow,
                                     contentDescription = stringResource(R.string.overlay_resume),
-                                    modifier = Modifier.size(16.dp),
+                                    modifier = Modifier.size(EtaDimens.StatusIconSize),
                                     tint = MaterialTheme.colorScheme.primary,
                                 )
                             }
@@ -426,7 +427,7 @@ internal fun AgentOverlayBubble(
                             Icon(
                                 imageVector = Icons.Rounded.Stop,
                                 contentDescription = stringResource(R.string.action_stop),
-                                modifier = Modifier.size(16.dp),
+                                modifier = Modifier.size(EtaDimens.StatusIconSize),
                                 tint = MaterialTheme.colorScheme.error,
                             )
                         }
@@ -594,7 +595,7 @@ internal fun AgentResultCard(
                             Icon(
                                 imageVector = Icons.Rounded.Close,
                                 contentDescription = stringResource(R.string.action_close),
-                                modifier = Modifier.size(16.dp),
+                                modifier = Modifier.size(EtaDimens.StatusIconSize),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }

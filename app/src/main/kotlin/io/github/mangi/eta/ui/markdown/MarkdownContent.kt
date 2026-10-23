@@ -67,7 +67,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.IconButton as M3IconButton
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.IconButtonDefaults
+import io.github.mangi.eta.ui.adaptive.EtaDimens
 
 /** 代码块 / 提示块 / 表格容器的圆角：取官方 shapes 令牌。 */
 @Composable
@@ -286,7 +288,7 @@ private fun CopyButton(text: String, tint: Color) {
         Icon(
             imageVector = if (copied) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
             contentDescription = stringResource(if (copied) R.string.copy_copied else R.string.copy_code),
-            modifier = Modifier.size(16.dp),
+            modifier = Modifier.size(EtaDimens.StatusIconSize),
             tint = iconTint,
         )
     }
@@ -333,7 +335,7 @@ private fun MarkdownAlertBlock(block: MarkdownAlert, scope: MarkdownRenderScope)
             Icon(
                 imageVector = block.kind.icon,
                 contentDescription = null,
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(EtaDimens.StatusIconSize),
                 tint = accent,
             )
             Spacer(Modifier.width(8.dp))
@@ -467,7 +469,7 @@ private fun RowScope.ListMarker(
                 Icon(
                     imageVector = if (item.checked) Icons.Rounded.CheckBox else Icons.Rounded.CheckBoxOutlineBlank,
                     contentDescription = null,
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(ButtonDefaults.IconSize),
                     tint = if (item.checked) markdownAccentColor() else style.markerColor,
                 )
             }

@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.IconButtonDefaults
 
 @Composable
 internal fun PreferenceIcon(
@@ -24,7 +25,7 @@ internal fun PreferenceIcon(
     Icon(
         imageVector = icon,
         contentDescription = null,
-        modifier = modifier.padding(end = 8.dp).size(24.dp),
+        modifier = modifier.padding(end = 8.dp).size(IconButtonDefaults.smallIconSize),
         tint = tint,
     )
 }

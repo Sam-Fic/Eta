@@ -37,6 +37,7 @@ import io.github.mangi.eta.agent.tool.AgentToolCapabilities
 import io.github.mangi.eta.agent.tool.RootRequirement
 import io.github.mangi.eta.agent.tool.ToolPresentation
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
+import io.github.mangi.eta.ui.adaptive.EtaDimens
 import io.github.mangi.eta.ui.components.ItemDescriptionDialog
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.model.AgentToolsAction
@@ -44,6 +45,8 @@ import io.github.mangi.eta.ui.model.ToolItemUi
 import io.github.mangi.eta.ui.model.actualToolName
 import io.github.mangi.eta.ui.model.toolCardAction
 import io.github.mangi.eta.ui.model.toolCardRequirement
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.IconButtonDefaults
 
 /**
  * 工具列表的分段行（Material 3）：KernelSU `SegmentedListItem` 式条目——
@@ -116,7 +119,7 @@ internal fun ToolListRow(
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
                         contentDescription = null,
-                        modifier = Modifier.size(16.dp),
+                        modifier = Modifier.size(EtaDimens.StatusIconSize),
                         tint = accentColor,
                     )
                 }
@@ -170,7 +173,7 @@ internal fun ToolCard(
             Icon(
                 imageVector = ToolPresentation.icon(tool.id),
                 contentDescription = null,
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(IconButtonDefaults.smallIconSize),
                 tint = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(modifier = Modifier.weight(1f))
@@ -179,7 +182,7 @@ internal fun ToolCard(
                     Icon(
                         imageVector = Icons.Rounded.Info,
                         contentDescription = infoDescription,
-                        modifier = Modifier.size(18.dp),
+                        modifier = Modifier.size(ButtonDefaults.IconSize),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -221,7 +224,7 @@ internal fun ToolCard(
                 Icon(
                     imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
                     contentDescription = null,
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(EtaDimens.StatusIconSize),
                     tint = accentColor,
                 )
             }
