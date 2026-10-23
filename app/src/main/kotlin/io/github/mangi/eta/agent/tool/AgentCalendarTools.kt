@@ -663,7 +663,7 @@ internal object CalendarEventFormats {
         return when (freq) {
             "DAILY" -> "每天"
             "WEEKLY" -> if (byday != null) {
-                "每周" + byday.split(",").joinToString("") { dayName(it) }
+                "每" + byday.split(",").joinToString("") { "周" + dayName(it) }
             } else {
                 "每周"
             }

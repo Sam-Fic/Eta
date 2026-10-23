@@ -236,6 +236,10 @@ internal object AgentPromptBuilder {
                         "在回复里展示图片用 Markdown 图片语法 ![说明](路径)：工具生成的图片或下载到工作区的文件直接给 /workspace 下的绝对路径，" +
                         "会像 read_image 一样映射到宿主并在聊天气泡里显示；Android 绝对路径、content:// 与 https 在线图片同样支持；" +
                         "不带前缀的文件名按 /workspace 根解析。不要用 base64 或 file:// 嵌入在线图片。" +
+                        "用户要求展示、看看、预览或发送某张图片时，必须在最终答复正文用 Markdown 图片语法 ![说明](绝对路径或 https 直链) 直接引用该图片；" +
+                        "只给出文件名、路径文字或用表格列出文件都不算展示。" +
+                        "用户需要打开、下载或查看某个本地文件时，同样用 Markdown 链接语法 [文件名](绝对路径) 给出，聊天里可直接点击打开；" +
+                        "只贴裸路径、文件名或遍历结果都不算给到文件。" +
                         (shellTools?.let(AgentShellToolAvailability::promptNote) ?: "") +
                         (if (delegationAvailable) TERMINAL_DELEGATION_NOTE else "")
                 )

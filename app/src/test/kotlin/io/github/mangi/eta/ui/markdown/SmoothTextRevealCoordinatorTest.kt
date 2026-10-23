@@ -158,15 +158,15 @@ class SmoothTextRevealCoordinatorTest {
             coordinator.runFrameClock()
         }
         try {
-            // 一帧吃掉一大段积压：这批字素全部在同一帧出现。
+            // 一帧吃掉一大段积压：这批字素全部在同一帧（首帧）出现。
             clock.send(0L)
             clock.send(50_000_000L)
             yield()
             assertTrue(coordinator.drawSnapshot(key)!!.liveFade)
 
-            // 再推 80ms：这批字素才走到固定时长的一半，仍在半透明渐变中，
+            // 再推 30ms：字素出现后共走过 80ms，正好是固定时长的一半，仍在半透明渐变中，
             // 不会因为生成很快就把它们的动画压缩掉。
-            clock.send(130_000_000L)
+            clock.send(80_000_000L)
             yield()
             val halfway = coordinator.drawSnapshot(key)!!
             assertEquals(0, halfway.fadeGlyphIndex)

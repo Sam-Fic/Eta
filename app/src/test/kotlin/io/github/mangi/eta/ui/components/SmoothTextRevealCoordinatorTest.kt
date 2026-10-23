@@ -416,6 +416,9 @@ class SmoothTextRevealCoordinatorTest {
             val burst = coordinator.drawSnapshot(key)!!
             assertEquals(burst.boundaries.lastIndex.toFloat(), burst.progress, 0f)
             assertTrue(burst.liveFade)
+            // drawSnapshot 是对活动记录的实时视图，扩展文本后 burst.progress 会跟着变；
+            // 第一批的字素数必须在下一批并入之前定格下来。
+            val firstBatchCount = floor(burst.progress).toInt()
 
             // 紧接着又到一批：两批允许同时播放动画，上一批并不需要先播完。
             val longer = "abcdefghijklmnopqrstuvwxyz0123456789"
@@ -425,8 +428,8 @@ class SmoothTextRevealCoordinatorTest {
             val overlapping = coordinator.drawSnapshot(key)!!
             assertEquals(0, overlapping.fadeGlyphIndex)
             assertTrue(
-                "overlap window=${overlapping.fadeSize} first batch=${floor(burst.progress).toInt()}",
-                overlapping.fadeSize > floor(burst.progress).toInt(),
+                "overlap window=${overlapping.fadeSize} first batch=$firstBatchCount",
+                overlapping.fadeSize > firstBatchCount,
             )
             // 同时在场，但各自按自己的出现时刻算年龄：早出现的更亮，刚出现的还几乎透明。
             assertTrue(overlapping.fadeAlpha(0) > overlapping.fadeAlpha(overlapping.fadeSize - 1))

@@ -135,8 +135,9 @@ internal class AgentToolRecipeStore(
      */
     fun rootDependentRecipes(recipes: List<ToolRecipe>): Set<String> {
         val byName = recipes.associateBy { it.name }
-        val directRoot = recipes.filter { it.requiresRoot }.map { it.name }.toMutableSet()
-        val result = mutableSetOf<String>()
+        val directRoot = recipes.filter { it.requiresRoot }.map { it.name }.toSet()
+        // 自身含 root_shell 的配方也在集合内；再沿组合链把上游一并纳入。
+        val result = directRoot.toMutableSet()
         recipes.forEach { recipe ->
             val visited = mutableSetOf<String>()
             val stack = ArrayDeque<String>()

@@ -505,8 +505,16 @@ internal class AgentStructuredDeviceTools(
                 Settings.Global.AIRPLANE_MODE_ON,
                 -1,
             ) == if (enabled) 1 else 0
-            "mobile_data" -> context.getSystemService(android.telephony.TelephonyManager::class.java)
-                ?.isDataEnabled == enabled
+            "mobile_data" -> if (context.checkSelfPermission(
+                    android.Manifest.permission.READ_BASIC_PHONE_STATE,
+                ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) {
+                // 未声明该权限时恒为拒绝：移动数据状态无法验证，交由面板兜底流程。
+                null
+            } else {
+                context.getSystemService(android.telephony.TelephonyManager::class.java)
+                    ?.isDataEnabled == enabled
+            }
             "nfc" -> NfcAdapter.getDefaultAdapter(context)?.isEnabled == enabled
             else -> null
         }
