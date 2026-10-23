@@ -5,11 +5,14 @@ package io.github.mangi.eta.agent.browser.ported.ui.browser
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -63,6 +66,9 @@ fun BrowserHistorySheet(
     var searchQuery by remember { mutableStateOf("") }
     var showClearConfirm by remember { mutableStateOf(false) }
     val resultsLabel = stringResource(R.string.om_browser_history_results)
+    // 列表铺到面板底缘；导航栏高度补在内容末尾，滚动时条目从手势条下方透出。
+    val navigationBarBottom =
+        WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
     val entries = remember(searchQuery, historyStore.getEntries().size) {
         if (searchQuery.isBlank()) historyStore.groupedByDay()
@@ -153,9 +159,8 @@ fun BrowserHistorySheet(
                     )
                 } else {
                     LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .navigationBarsPadding(),
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(bottom = navigationBarBottom),
                     ) {
                         for ((dayLabel, dayEntries) in entries) {
                             if (dayEntries.isEmpty()) continue

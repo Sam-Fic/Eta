@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -138,7 +139,10 @@ fun BrowserSettingsPage(
                 // verticalScroll lets the focused TextField scroll into view.
                 .nestedScroll(scrollConnection)
                 .imePadding()
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(rememberScrollState())
+                // 页面铺到屏幕底缘：导航栏高度补在滚动内容末尾，滚到末尾时最后一项仍能避开手势条。
+                .navigationBarsPadding()
+                .padding(bottom = 24.dp),
         ) {
             val groupPadding = Modifier.padding(
                 start = EtaGroupHorizontalPadding,

@@ -28,6 +28,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -361,10 +363,16 @@ fun BrowserPage(
             }
         },
     ) { padding ->
+        // 底部不垫：网页铺到屏幕底缘，浮动工具栏与系统手势条直接叠在网页上。
+        val contentPadding = PaddingValues(
+            start = padding.calculateStartPadding(LocalLayoutDirection.current),
+            top = padding.calculateTopPadding(),
+            end = padding.calculateEndPadding(LocalLayoutDirection.current),
+        )
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
+                .padding(contentPadding),
         ) {
             // 标签栏：相连按钮组（与侧边抽屉「新建对话 / 管理聊天」同款按钮组）——
             // 每个标签自绘形状，选中时用 M3E Morph 在「连体形状」与「全圆角胶囊」之间渐变、
