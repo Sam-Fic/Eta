@@ -61,6 +61,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.AbsoluteRoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -96,8 +97,6 @@ import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface as M3Surface
 import androidx.compose.material3.Text as M3Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.ripple
 import androidx.compose.material3.ToggleButtonDefaults
@@ -845,7 +844,7 @@ private fun Material3ConversationPane(
         ) {
             Spacer(modifier = Modifier.height(DrawerMetrics.TopInset))
             // 搜索栏与「管理聊天」同排：搜索框吃掉剩余宽度，右侧是一枚与搜索框同高
-            // （官方 Medium 档 56dp）、同容器色的图标按钮。
+            // （官方 Small 档 40dp，与下方胶囊行一致）、同容器色的图标按钮。
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -860,7 +859,7 @@ private fun Material3ConversationPane(
                 }
                 IconButton(
                     onClick = onOpenManageChats,
-                    modifier = Modifier.size(IconButtonDefaults.mediumContainerSize()),
+                    modifier = Modifier.size(IconButtonDefaults.smallContainerSize()),
                     colors = IconButtonDefaults.iconButtonColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                         contentColor = MaterialTheme.colorScheme.onSurface,
@@ -869,7 +868,7 @@ private fun Material3ConversationPane(
                     Icon(
                         imageVector = Icons.Rounded.ManageHistory,
                         contentDescription = stringResource(R.string.drawer_manage_chats),
-                        modifier = Modifier.size(IconButtonDefaults.mediumIconSize),
+                        modifier = Modifier.size(IconButtonDefaults.smallIconSize),
                     )
                 }
             }
@@ -1135,9 +1134,10 @@ private fun BoxScope.ChipRowEdgeFades(
 
 /**
  * M3 抽屉：会话搜索框。
- * 官方 `TextField`，胶囊形（`CircleShape`），隐藏下划线指示条；
- * 容器色、文字色、行高、内容内边距全部使用官方默认值，不自绘容器。
- * 清除按钮用官方 `IconButton`（原实现只画了一个不可点的关闭图标）。
+ * 胶囊形（`CircleShape`）的自绘容器 + `BasicTextField`：官方填充式 `TextField` 的内容内边距
+ * 固定按 56dp 档排版，无法收到与第二排胶囊一致的 40dp，因此这里自绘容器（容器色取与
+ * 输入框同档的 `surfaceContainerHighest`），文字 / 占位符 / 光标沿用官方正文与主色令牌。
+ * 清除按钮用官方 `IconButton`。
  *
  * 焦点门控：官方 `DismissibleNavigationDrawer` 一打开就会把键盘焦点交给抽屉内第一个
  * 可聚焦元素（见 material3 `NavigationDrawer.kt` 的 `focusRequester.requestFocus()`），
@@ -1166,40 +1166,72 @@ private fun Material3PaneSearchField(
             showChatInputIme(focusRequester, keyboard, view)
         }
     }
+    // 与第二排胶囊同一官方 Small 档高度（40dp），首排不再沿用输入框默认的 56dp。
+    val fieldHeight = ToggleButtonDefaults.MinHeight
     Box {
-        TextField(
-            value = query,
-            onValueChange = onSearchChange,
+        M3Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .focusRequester(focusRequester)
-                .focusProperties { canFocus = enableSearchFocus && searchActive },
-            placeholder = { M3Text(text = stringResource(R.string.conversation_search_hint)) },
-            leadingIcon = {
+                .height(fieldHeight),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surfaceContainerHighest,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+        ) {
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // 起始放大镜：沿用官方输入框 leadingIcon 槽的 12dp 起始内边距与 48dp 文本起点。
                 Icon(
                     imageVector = Icons.Rounded.Search,
                     contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .padding(start = 12.dp)
+                        .size(IconButtonDefaults.smallIconSize),
                 )
-            },
-            trailingIcon = {
+                Spacer(modifier = Modifier.width(12.dp))
+                BasicTextField(
+                    value = query,
+                    onValueChange = onSearchChange,
+                    modifier = Modifier
+                        .weight(1f)
+                        .focusRequester(focusRequester)
+                        .focusProperties { canFocus = enableSearchFocus && searchActive },
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(
+                        color = MaterialTheme.colorScheme.onSurface,
+                    ),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    singleLine = true,
+                    decorationBox = { innerTextField ->
+                        Box(contentAlignment = Alignment.CenterStart) {
+                            if (query.isEmpty()) {
+                                M3Text(
+                                    text = stringResource(R.string.conversation_search_hint),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            innerTextField()
+                        }
+                    },
+                )
                 if (query.isNotEmpty()) {
-                    IconButton(onClick = { onSearchChange("") }) {
+                    IconButton(
+                        onClick = { onSearchChange("") },
+                        modifier = Modifier.size(IconButtonDefaults.smallContainerSize()),
+                    ) {
                         Icon(
                             imageVector = Icons.Rounded.Close,
                             contentDescription = stringResource(R.string.action_cancel),
+                            modifier = Modifier.size(IconButtonDefaults.smallIconSize),
                         )
                     }
                 }
-            },
-            singleLine = true,
-            // 胶囊形，并去掉填充式输入框默认的下划线指示条。
-            shape = CircleShape,
-            colors = TextFieldDefaults.colors(
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
-                disabledIndicatorColor = Color.Transparent,
-            ),
-        )
+            }
+        }
         if (!searchActive) {
             // 未激活时输入框不可聚焦，用透明层接管点击；点一下才真正聚焦并唤起键盘。
             Box(
