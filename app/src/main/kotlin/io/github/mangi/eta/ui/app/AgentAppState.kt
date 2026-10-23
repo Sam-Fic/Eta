@@ -7685,7 +7685,6 @@ internal fun buildToolsState(context: Context): AgentToolsUiState =
                     ToolItemUi("network_info", context.getString(R.string.tool_ui_network_status_6bd556), context.getString(R.string.tool_ui_read_networking_method_and_current_wi_fi_status_68016a)),
                     ToolItemUi("media_control", context.getString(R.string.tool_ui_media_control_585edc), context.getString(R.string.tool_ui_play_pause_and_switch_songs_without_operating_th_311cb8)),
                     ToolItemUi("set_volume", context.getString(R.string.tool_ui_set_volume_85a691), context.getString(R.string.tool_ui_set_by_media_alarm_clock_ringtone_and_other_chan_3fcc3e)),
-                    ToolItemUi("device_actions", context.getString(R.string.tool_ui_device_actions_7c1f42), context.getString(R.string.tool_ui_run_a_device_action_instruction_with_the_on_d_5b93a7)),
                     ToolItemUi("text_to_speech", context.getString(R.string.tool_ui_text_to_speech), context.getString(R.string.tool_ui_text_to_speech_summary)),
                     ToolItemUi("top_memory_apps", context.getString(R.string.tool_ui_memory_ranking_408ca1), context.getString(R.string.tool_ui_view_the_currently_most_occupied_processes_8646c4)),
                     ToolItemUi("top_storage_apps", context.getString(R.string.tool_ui_storage_ranking_86a16c), context.getString(R.string.tool_ui_check_application_data_and_cache_usage_837e9f)),

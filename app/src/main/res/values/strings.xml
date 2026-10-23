@@ -2555,8 +2555,6 @@
   <!-- 端侧动作模型接入 Agent 工具 -->
   <string name="tool_device_actions">On-device actions</string>
   <string name="trace_dev_device_actions">On-device action</string>
-  <string name="tool_ui_device_actions_7c1f42">On-device action execution</string>
-  <string name="tool_ui_run_a_device_action_instruction_with_the_on_d_5b93a7">Runs a device action instruction with the on-device model (flashlight, contacts, email, map, Wi-Fi settings, calendar)</string>
   <string name="capability_root">Root</string>
   <string name="provider_model_id">Model ID</string>
   <string name="context_pruning_label">Tool output pruning (original text retained)</string>

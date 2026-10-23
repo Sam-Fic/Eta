@@ -15,6 +15,8 @@ class AgentDeviceToolCatalogTest {
 
         assertFalse("set_alarm" in none)
         assertTrue("set_alarm" in direct)
+        assertFalse("device_actions" in direct)
+        assertFalse("device_actions" in none)
         assertFalse("read_sms_code" in direct)
         assertTrue("read_sms_code" in reads)
         assertTrue("search_coloros_notes" in reads)
@@ -39,6 +41,21 @@ class AgentDeviceToolCatalogTest {
         assertFalse("send_message" in reads)
         assertFalse("send_message" in actions)
         assertTrue("app_state_control" in actions)
+    }
+
+    @Test
+    fun onDeviceActionModelIsNotPartOfAnyConversationModelCatalog() {
+        val payload = AgentToolCatalog.build(
+            terminalTools = true,
+            browserTools = true,
+            deviceDirectTools = true,
+            deviceSensitiveReadTools = true,
+            deviceSensitiveActionTools = true,
+        ).toString()
+
+        assertFalse(payload.contains("device_actions"))
+        assertFalse(payload.contains("FunctionGemma"))
+        assertFalse(payload.contains("端侧"))
     }
 
     private fun names(

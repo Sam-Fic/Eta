@@ -1947,7 +1947,6 @@ internal class AgentLocalTools(
             "top_storage_apps",
             "media_control",
             "set_volume",
-            "device_actions",
         )
         val DEVICE_SENSITIVE_READ_TOOL_NAMES = setOf(
             "get_setting",

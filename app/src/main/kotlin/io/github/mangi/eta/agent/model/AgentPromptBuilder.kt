@@ -27,12 +27,72 @@ internal object AgentPromptBuilder {
             interactiveModeEnabled = interactiveModeEnabled,
         )
         onSystemCount(messages.length())
-        history.forEach { item ->
-            runCatching { AgentConversationCodec.toJsonObject(item) }.getOrNull()?.let(messages::put)
-        }
+        appendHistoryForModel(history, messages)
         messages.put(AgentConversationCodec.userMessage(prompt, images))
         return messages
     }
+
+    /**
+     * 端侧动作模型只从独立入口使用，不属于当前对话模型的能力。
+     * 旧会话可能残留 `device_actions` 的工具往返；这里在组装上下文时剔除调用与结果，
+     * 避免其他模型从历史中推断出该工具存在并再次尝试调用。
+     */
+    private fun appendHistoryForModel(
+        history: List<AgentModelClient.ConversationMessage>,
+        target: JSONArray,
+    ) {
+        val retiredCallIds = mutableSetOf<String>()
+        var hasRetiredCall = false
+        for (item in history) {
+            val calls = item.toolCallsJson.toolCallsOrNull() ?: continue
+            for (index in 0 until calls.length()) {
+                val call = calls.optJSONObject(index) ?: continue
+                if (call.optJSONObject("function")?.optString("name") != RETIRED_ON_DEVICE_ACTION_TOOL) continue
+                hasRetiredCall = true
+                call.optString("id").takeIf(String::isNotBlank)?.let(retiredCallIds::add)
+            }
+        }
+        if (!hasRetiredCall) {
+            history.forEach { item -> target.appendHistoryMessage(item) }
+            return
+        }
+        for (item in history) {
+            if (item.role == "tool" && item.toolCallId in retiredCallIds) continue
+            val calls = item.toolCallsJson.toolCallsOrNull()
+            if (calls == null) {
+                target.appendHistoryMessage(item)
+                continue
+            }
+            val keptCalls = JSONArray()
+            var removedCall = false
+            for (index in 0 until calls.length()) {
+                val call = calls.optJSONObject(index) ?: continue
+                if (call.optJSONObject("function")?.optString("name") == RETIRED_ON_DEVICE_ACTION_TOOL) {
+                    removedCall = true
+                } else {
+                    keptCalls.put(call)
+                }
+            }
+            if (!removedCall) {
+                target.appendHistoryMessage(item)
+                continue
+            }
+            // 只有端侧动作且没有正文的 assistant 轮次整体丢弃；其余消息保留正文与其它工具调用。
+            if (keptCalls.length() == 0 && item.content.isBlank() && item.contentJson.isBlank()) continue
+            target.appendHistoryMessage(
+                item.copy(toolCallsJson = keptCalls.takeIf { it.length() > 0 }?.toString().orEmpty()),
+            )
+        }
+    }
+
+    private fun JSONArray.appendHistoryMessage(item: AgentModelClient.ConversationMessage) {
+        runCatching { AgentConversationCodec.toJsonObject(item) }.getOrNull()?.let { put(it) }
+    }
+
+    private fun String.toolCallsOrNull(): JSONArray? =
+        takeIf(String::isNotBlank)?.let { runCatching { JSONArray(it) }.getOrNull() }
+
+    private const val RETIRED_ON_DEVICE_ACTION_TOOL = "device_actions"
 
     fun buildSystemMessages(
         config: AgentModelClient.ModelConfig,

@@ -74,21 +74,6 @@ internal object AgentDeviceToolCatalog {
                     "stream", "percent",
                 ),
             )
-            .put(
-                function(
-                    "device_actions",
-                    "用本机端侧小模型（FunctionGemma 270M Mobile Actions）执行一条设备动作指令。" +
-                        "指令必须写成英文，例如 turn on the flashlight、create a contact named John、" +
-                        "send an email to bob@example.com、show the map of the Eiffel Tower、" +
-                        "set a meeting tomorrow at 3 pm。" +
-                        "端侧模型只支持手电筒、联系人、邮件、地图、Wi-Fi 设置与日历六类动作；" +
-                        "本机未下载该模型时本工具不可用，请改用其他工具。",
-                    properties(
-                        "instruction" to string("英文设备动作指令", 200),
-                    ),
-                    "instruction",
-                ),
-            )
     }
 
     private fun appendSensitiveReadTools(tools: JSONArray) {

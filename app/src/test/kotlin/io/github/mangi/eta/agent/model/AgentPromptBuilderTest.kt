@@ -129,6 +129,92 @@ class AgentPromptBuilderTest {
     }
 
     @Test
+    fun legacyOnDeviceActionCallIsStrippedWithoutBreakingOtherToolPairs() {
+        val mixedCalls = """
+            [
+              {"id":"call_retired","type":"function","function":{"name":"device_actions","arguments":"{\"instruction\":\"turn on the flashlight\"}"}},
+              {"id":"call_alarm","type":"function","function":{"name":"set_alarm","arguments":"{\"hour\":7,\"minute\":0}"}}
+            ]
+        """.trimIndent()
+        val messages = AgentPromptBuilder.buildInitialMessages(
+            config = modelConfig("", terminalTools = false, browserTools = false),
+            prompt = "继续",
+            images = emptyList(),
+            history = listOf(
+                AgentModelClient.ConversationMessage(role = "user", content = "开灯并设闹钟"),
+                AgentModelClient.ConversationMessage(
+                    role = "assistant",
+                    content = "",
+                    toolCallsJson = mixedCalls,
+                ),
+                AgentModelClient.ConversationMessage(
+                    role = "tool",
+                    toolCallId = "call_retired",
+                    content = """{"ok":true}""",
+                ),
+                AgentModelClient.ConversationMessage(
+                    role = "tool",
+                    toolCallId = "call_alarm",
+                    content = """{"ok":true}""",
+                ),
+                AgentModelClient.ConversationMessage(role = "assistant", content = "完成"),
+            ),
+            skillContext = SkillContext.EMPTY,
+            rootAvailable = false,
+        )
+
+        val serialized = messages.toString()
+        assertFalse(serialized.contains("device_actions"))
+        assertFalse(serialized.contains("turn on the flashlight"))
+        assertEquals(
+            listOf("system", "system", "system", "user", "assistant", "tool", "assistant", "user"),
+            messages.roles(),
+        )
+        val remainingCalls = messages.getJSONObject(4).getJSONArray("tool_calls")
+        assertEquals(1, remainingCalls.length())
+        assertEquals(
+            "set_alarm",
+            remainingCalls.getJSONObject(0).getJSONObject("function").getString("name"),
+        )
+        assertEquals("call_alarm", messages.getJSONObject(5).getString("tool_call_id"))
+    }
+
+    @Test
+    fun legacyOnDeviceActionOnlyTurnDisappearsFromModelContext() {
+        val retiredCall = """
+            [{"id":"call_retired","type":"function","function":{"name":"device_actions","arguments":"{\"instruction\":\"turn on the flashlight\"}"}}]
+        """.trimIndent()
+        val messages = AgentPromptBuilder.buildInitialMessages(
+            config = modelConfig("", terminalTools = false, browserTools = false),
+            prompt = "继续",
+            images = emptyList(),
+            history = listOf(
+                AgentModelClient.ConversationMessage(role = "user", content = "打开手电筒"),
+                AgentModelClient.ConversationMessage(
+                    role = "assistant",
+                    content = "",
+                    toolCallsJson = retiredCall,
+                ),
+                AgentModelClient.ConversationMessage(
+                    role = "tool",
+                    toolCallId = "call_retired",
+                    content = """{"ok":true}""",
+                ),
+                AgentModelClient.ConversationMessage(role = "assistant", content = "已打开"),
+            ),
+            skillContext = SkillContext.EMPTY,
+            rootAvailable = false,
+        )
+
+        assertFalse(messages.toString().contains("device_actions"))
+        assertEquals(
+            listOf("system", "system", "system", "user", "assistant", "user"),
+            messages.roles(),
+        )
+        assertEquals("已打开", messages.getJSONObject(4).getString("content"))
+    }
+
+    @Test
     fun delegationRuleIsASeparateMessageAheadOfOperationalGuidance() {
         val without = AgentPromptBuilder.buildSystemMessages(
             config = modelConfig("", terminalTools = true, browserTools = false),
