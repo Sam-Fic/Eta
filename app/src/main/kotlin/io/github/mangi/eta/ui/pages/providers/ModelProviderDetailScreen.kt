@@ -20,6 +20,7 @@ import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -48,18 +49,19 @@ import io.github.mangi.eta.ui.adaptive.EtaDialogActions
 import io.github.mangi.eta.ui.adaptive.EtaScaffold
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
+import io.github.mangi.eta.ui.adaptive.EtaSegmentedDropdownRow
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.data.model.AnthropicProviderSetting
 import io.github.mangi.eta.data.model.CustomProviderSetting
-import io.github.mangi.eta.agent.model.oauth.OpenAiCodexOAuth
 import io.github.mangi.eta.data.model.OpenAiEndpointMode
-import io.github.mangi.eta.data.model.ProviderAuthMode
-import io.github.mangi.eta.data.model.usesOAuth
+import io.github.mangi.eta.data.model.ProviderAuthModes
 import io.github.mangi.eta.data.model.withModels
 import io.github.mangi.eta.data.model.ProviderSetting
 import io.github.mangi.eta.data.model.ProviderSourceTypes
+import io.github.mangi.eta.data.provider.ProviderConnectionProfile
+import io.github.mangi.eta.data.repository.ProviderCredentialRepository
 import io.github.mangi.eta.data.model.SpeechSynthesisModels
 import io.github.mangi.eta.agent.voice.tts.CloudSpeechSynthesizer
 import io.github.mangi.eta.agent.voice.tts.SpeechPlaybackFailure
@@ -71,7 +73,9 @@ import io.github.mangi.eta.ui.layout.horizontalCutoutPadding
 import io.github.mangi.eta.ui.navigation.NewProviderType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -84,7 +88,7 @@ import androidx.compose.material3.Text as M3Text
 internal fun ModelProviderDetailScreen(
     providerId: String? = null,
     newType: NewProviderType? = null,
-    authMode: String = ProviderAuthMode.DEFAULT,
+    authMode: String = ProviderAuthModes.DEFAULT,
     onBack: () -> Unit,
     currentModelId: String? = null,
     onSelectCurrentModel: ((String) -> Unit)? = null,
@@ -101,16 +105,23 @@ internal fun ModelProviderDetailScreen(
     // context 进 remember key：语言变化时草稿名随资源语言重建。
     val draft = remember(newType, authMode, context) {
         when (newType) {
-            NewProviderType.OpenAiCompatible -> if (ProviderAuthMode.isOAuth(authMode)) {
-                CustomProviderSetting(
+            NewProviderType.OpenAiCompatible -> when (authMode) {
+                ProviderAuthModes.OPENAI_CHATGPT -> CustomProviderSetting(
                     id = ProviderRepository.newId(),
-                    name = OpenAiCodexOAuth.DEFAULT_NAME,
-                    baseUrl = OpenAiCodexOAuth.CODEX_BASE_URL,
-                    endpointMode = OpenAiCodexOAuth.defaultEndpointMode(),
-                    authMode = ProviderAuthMode.OAUTH,
+                    name = context.getString(R.string.provider_codex_name),
+                    baseUrl = ProviderConnectionProfile.OPENAI_CODEX.baseUrl,
+                    endpointMode = ProviderConnectionProfile.OPENAI_CODEX.endpointMode,
+                    authMode = ProviderAuthModes.OPENAI_CHATGPT,
                 )
-            } else {
-                CustomProviderSetting(
+                ProviderAuthModes.XAI_GROK -> CustomProviderSetting(
+                    id = ProviderRepository.newId(),
+                    name = context.getString(R.string.provider_grok_name),
+                    baseUrl = ProviderConnectionProfile.XAI_GROK.baseUrl,
+                    endpointMode = ProviderConnectionProfile.XAI_GROK.endpointMode,
+                    authMode = ProviderAuthModes.XAI_GROK,
+                    sourceType = ProviderSourceTypes.XAI,
+                )
+                else -> CustomProviderSetting(
                     id = "",
                     name = "",
                     baseUrl = "",
@@ -191,47 +202,52 @@ internal fun ModelProviderDetailScreen(
     val onSaveProvider: () -> Unit = {
         TouchHaptics.click(view)
         val validationError = validateProviderDraft(context, configDraft)
-            ?: if (ProviderAuthMode.isOAuth(configDraft.authMode) && configDraft.apiKey.isBlank()) {
-                context.getString(R.string.provider_oauth_need_sign_in)
-            } else {
-                null
-            }
         if (validationError != null) {
             saveStatus = context.getString(R.string.provider_error, validationError)
         } else {
             scope.launch {
                 isSaving = true
-                val built = buildUpdatedProvider(
-                    source = initial,
-                    name = configDraft.name,
-                    baseUrl = configDraft.baseUrl,
-                    apiKey = configDraft.apiKey,
-                    authMode = configDraft.authMode,
-                    isEnabled = configDraft.isEnabled,
-                    endpointMode = configDraft.endpointMode,
-                    responsesStripReasoningStatus = configDraft.responsesStripReasoningStatus,
-                    hostedWebSearchEnabled = configDraft.hostedWebSearchEnabled,
-                    anthropicVersion = configDraft.anthropicVersion,
-                    customHeaders = configDraft.headers.map { it.header },
-                    customBody = bodiesResult.getOrThrow(),
-                    balanceOption = configDraft.balanceOption,
-                    sessionGatewayJson = configDraft.encodedSessionGateway(),
-                )
                 try {
+                    if (ProviderAuthModes.isOAuth(configDraft.authMode) &&
+                        withContext(Dispatchers.IO) {
+                            ProviderCredentialRepository.account(initial.id, configDraft.authMode)
+                        } == null
+                    ) {
+                        saveStatus = context.getString(R.string.provider_error, context.getString(R.string.provider_oauth_need_sign_in))
+                        return@launch
+                    }
+                    val built = buildUpdatedProvider(
+                        source = initial,
+                        name = configDraft.name,
+                        baseUrl = configDraft.baseUrl,
+                        apiKey = configDraft.apiKey,
+                        authMode = configDraft.authMode,
+                        isEnabled = configDraft.isEnabled,
+                        endpointMode = configDraft.endpointMode,
+                        responsesStripReasoningStatus = configDraft.responsesStripReasoningStatus,
+                        hostedWebSearchEnabled = configDraft.hostedWebSearchEnabled,
+                        anthropicVersion = configDraft.anthropicVersion,
+                        customHeaders = configDraft.headers.map { it.header },
+                        customBody = bodiesResult.getOrThrow(),
+                        balanceOption = configDraft.balanceOption,
+                        sessionGatewayJson = configDraft.encodedSessionGateway(),
+                    )
                     if (isNew) {
                         val newId = initial.id.ifBlank { ProviderRepository.newId() }
                         val toSave = built.withId(newId).let { saved ->
                             when {
-                                saved.usesOAuth && saved.models.isEmpty() ->
-                                    saved.withModels(OpenAiCodexOAuth.defaultModels())
                                 SpeechSynthesisModels.isSpeechOnlyProvider(saved) && saved.models.none { SpeechSynthesisModels.matches(it) } ->
                                     saved.withModels(SpeechSynthesisModels.mergeCatalog(saved))
                                 else -> saved
                             }
                         }
-                        val added = ProviderRepository.addProvider(toSave)
+                        // 登录可能在保存前已落库，避免同一连接被重复插入。
+                        val existing = ProviderRepository.providerById(toSave.id)
+                        val added = if (existing == null) ProviderRepository.addProvider(toSave) else toSave
                         RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
-                        saveStatus = context.getString(R.string.capability_provider_created)
+                        saveStatus = context.getString(
+                            if (existing == null) R.string.capability_provider_created else R.string.capability_provider_saved,
+                        )
                         creationCommitted = true
                         createdId = added.id
                     } else {
@@ -384,7 +400,31 @@ private fun ProviderConfigTab(
     // 测试连接与删除/重置仍由本页的忙碌标记驱动。
     var status by remember { mutableStateOf<String?>(null) }
     var localBusy by remember { mutableStateOf(false) }
-    val isWorking = isSaving || localBusy
+    // 只恢复中断提示；回调监听、验证码和授权 URL 随登录会话销毁。
+    var loginInProgress by rememberSaveable(provider.id) { mutableStateOf(false) }
+    var pendingInterruption by remember(provider.id) { mutableStateOf(loginInProgress) }
+    val loginStore = remember(provider.id, scope) { ProviderLoginStore(provider.id, scope) }
+    val loginState by loginStore.state.collectAsState()
+    var browserError by remember(loginState.prompt) { mutableStateOf<String?>(null) }
+    val openBrowser: () -> Unit = {
+        loginState.prompt?.let { browserError = openProviderAccountLink(context, it.authorizationUrl) }
+    }
+    DisposableEffect(loginStore) {
+        onDispose { loginStore.close() }
+    }
+    LaunchedEffect(loginStore, draft.authMode, provider.authMode) {
+        loginStore.load(draft.authMode, interrupted = pendingInterruption)
+        pendingInterruption = false
+    }
+    LaunchedEffect(loginState.phase) {
+        loginInProgress = loginState.phase == ProviderLoginPhase.Saving ||
+            loginState.phase == ProviderLoginPhase.Authorizing
+    }
+    LaunchedEffect(loginState.prompt) {
+        val prompt = loginState.prompt
+        if (prompt != null && prompt.userCode == null) openBrowser()
+    }
+    val isWorking = isSaving || localBusy || loginState.isBusy
 
     LazyColumn(
         modifier = Modifier
@@ -407,29 +447,51 @@ private fun ProviderConfigTab(
             ) {
                 item {
                     // 文本输入自带描边圆角，不再在其下垫一层分段容器底板。
+                    val oauth = ProviderAuthModes.isOAuth(draft.authMode)
+                    val accountMode = providerAccountAuthMode(provider)
                     Column(modifier = Modifier.fillMaxWidth()) {
                         ProviderField(
                             value = draft.name,
                             onValueChange = { onDraftChange(draft.copy(name = it)) },
                             label = stringResource(R.string.ui_name_1be7ae),
                         )
-                        ProviderField(
-                            value = draft.baseUrl,
-                            onValueChange = { onDraftChange(draft.copy(baseUrl = it)) },
-                            label = stringResource(R.string.provider_base_url),
-                            modifier = Modifier.padding(top = 12.dp),
-                        )
-                        if (ProviderAuthMode.isOAuth(draft.authMode)) {
-                            ProviderOAuthLoginRow(
-                                providerId = provider.id,
-                                signedIn = draft.apiKey.isNotBlank(),
-                                enabled = !isWorking,
-                                onToken = { token -> onDraftChange(draft.copy(apiKey = token)) },
-                                onBusy = { localBusy = it },
-                                onStatus = { status = it },
-                            )
-                        } else {
+                        if (!oauth) {
                             ProviderField(
+                                value = draft.baseUrl,
+                                onValueChange = { onDraftChange(draft.copy(baseUrl = it)) },
+                                label = stringResource(R.string.provider_base_url),
+                                modifier = Modifier.padding(top = 12.dp),
+                            )
+                        }
+                        when {
+                            oauth -> ProviderAccountControls(
+                                state = loginState,
+                                authMode = draft.authMode,
+                                enabled = !isWorking,
+                                browserError = browserError,
+                                onOpenBrowser = openBrowser,
+                                onManageUsage = {
+                                    browserError = openProviderAccountLink(
+                                        context,
+                                        if (draft.authMode == ProviderAuthModes.OPENAI_CHATGPT) {
+                                            "https://chatgpt.com/codex/settings/usage"
+                                        } else {
+                                            "https://grok.com/settings"
+                                        },
+                                    )
+                                },
+                                onLogin = {
+                                    val validationError = validateProviderDraft(context, draft)
+                                    if (validationError != null) {
+                                        status = context.getString(R.string.provider_error, validationError)
+                                    } else {
+                                        loginStore.login(draft.toProvider(provider))
+                                    }
+                                },
+                                onDisconnect = loginStore::disconnect,
+                                onCancel = loginStore::cancel,
+                            )
+                            else -> ProviderField(
                                 value = draft.apiKey,
                                 onValueChange = { onDraftChange(draft.copy(apiKey = it)) },
                                 label = stringResource(R.string.provider_auth_api_key),
@@ -455,6 +517,25 @@ private fun ProviderConfigTab(
                                 modifier = Modifier.padding(top = 12.dp),
                             )
                         }
+                        if (accountMode != null) {
+                            EtaSegmentedDropdownRow(
+                                title = stringResource(R.string.provider_auth_mode_title),
+                                items = listOf(
+                                    stringResource(R.string.provider_auth_api_key),
+                                    stringResource(R.string.provider_auth_mode_account),
+                                ),
+                                selectedIndex = if (oauth) 1 else 0,
+                                onItemSelected = { index ->
+                                    onDraftChange(
+                                        draft.withAuthMode(
+                                            if (index == 0) ProviderAuthModes.API_KEY else accountMode,
+                                            provider,
+                                        ),
+                                    )
+                                },
+                                enabled = !isWorking,
+                            )
+                        }
                     }
                 }
             }
@@ -463,9 +544,10 @@ private fun ProviderConfigTab(
         val speechOnly = SpeechSynthesisModels.isSpeechOnlyProvider(provider)
         item(key = "connection_rows") {
             EtaSegmentedColumn(modifier = ProviderSectionGroupPadding) {
-                val showProtocolRows = provider !is AnthropicProviderSetting && !speechOnly
+                val showProtocolRows = provider !is AnthropicProviderSetting && !speechOnly &&
+                    !ProviderAuthModes.isOAuth(draft.authMode)
                 item(visible = showProtocolRows) {
-                    ProviderDropdownRow(
+                    EtaSegmentedDropdownRow(
                         title = stringResource(R.string.ui_endpoint_mode_3c8546),
                         summary = if (draft.endpointMode == OpenAiEndpointMode.RESPONSES) {
                             context.getString(R.string.page_using_typed_items_with_semantic_streaming_events_f9c906)
@@ -474,7 +556,7 @@ private fun ProviderConfigTab(
                         },
                         items = listOf("Chat Completions API", "Responses API"),
                         selectedIndex = if (draft.endpointMode == OpenAiEndpointMode.RESPONSES) 1 else 0,
-                        onSelectedIndexChange = { selectedIndex ->
+                        onItemSelected = { selectedIndex ->
                             onDraftChange(
                                 draft.copy(
                                     endpointMode = if (selectedIndex == 1) {
@@ -807,82 +889,13 @@ private suspend fun testConnection(
             )
         }
     }
-    if (provider.usesOAuth && OpenAiCodexOAuth.isCodexEndpoint(provider.baseUrl)) {
-        val token = OpenAiCodexOAuth.validAccessToken(context, provider.id) ?: provider.apiKey
-        return context.getString(
-            if (token.isBlank()) R.string.provider_oauth_need_sign_in
-            else R.string.provider_oauth_signed_in,
-        )
-    }
     return RemoteModelFetcher.fetch(provider)
         .map { context.resources.getQuantityString(R.plurals.provider_models_fetched, it.size, it.size) }
         .getOrElse { throwable ->
             context.getString(
                 R.string.provider_error,
-                throwable.message ?: throwable.javaClass.simpleName,
+                (throwable as? io.github.mangi.eta.agent.auth.ProviderAuthException)?.message
+                    ?: throwable.message ?: throwable.javaClass.simpleName,
             )
         }
-}
-
-@Composable
-private fun ProviderOAuthLoginRow(
-    providerId: String,
-    signedIn: Boolean,
-    enabled: Boolean,
-    onToken: (String) -> Unit,
-    onBusy: (Boolean) -> Unit,
-    onStatus: (String?) -> Unit,
-) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val id = providerId
-    val onSignIn: () -> Unit = {
-        onBusy(true)
-        onStatus(null)
-        scope.launch {
-            try {
-                val token = OpenAiCodexOAuth.login(context, id)
-                onToken(token)
-                onStatus(context.getString(R.string.provider_oauth_sign_in_ok))
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (throwable: Throwable) {
-                onStatus(
-                    context.getString(
-                        R.string.provider_error,
-                        throwable.message ?: context.getString(R.string.provider_oauth_sign_in_failed),
-                    ),
-                )
-            } finally {
-                onBusy(false)
-            }
-        }
-    }
-    ProviderPrimaryAction(
-        text = if (signedIn) {
-            context.getString(
-                R.string.provider_oauth_signed_in,
-            )
-        } else {
-            context.getString(
-                R.string.provider_oauth_sign_in,
-            )
-        },
-        onClick = onSignIn,
-        enabled = enabled,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 12.dp),
-    )
-    val note = if (signedIn) {
-        context.getString(R.string.provider_oauth_signed_in_note)
-    } else {
-        context.getString(R.string.provider_oauth_sign_in_note)
-    }
-    M3Text(
-        text = note,
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 8.dp),
-    )
 }

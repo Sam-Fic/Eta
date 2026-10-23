@@ -9,7 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
-import io.github.mangi.eta.data.model.ProviderAuthMode
+import io.github.mangi.eta.data.model.ProviderAuthModes
 import io.github.mangi.eta.ui.adaptive.EtaClickableRow
 import io.github.mangi.eta.ui.adaptive.EtaScaffoldPage
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
@@ -45,7 +45,22 @@ internal fun ProviderAuthMethodScreen(
                             onNavigate(
                                 AppRoute.ModelProviderNew(
                                     providerType = providerType,
-                                    authMode = ProviderAuthMode.API_KEY,
+                                    authMode = ProviderAuthModes.API_KEY,
+                                ),
+                            )
+                        },
+                    )
+                }
+                item {
+                    EtaClickableRow(
+                        title = stringResource(R.string.provider_auth_grok),
+                        summary = stringResource(R.string.provider_auth_grok_summary),
+                        leading = { PreferenceIcon(icon = Icons.Rounded.Person) },
+                        onClick = {
+                            onNavigate(
+                                AppRoute.ModelProviderNew(
+                                    providerType = providerType,
+                                    authMode = ProviderAuthModes.XAI_GROK,
                                 ),
                             )
                         },
@@ -60,7 +75,7 @@ internal fun ProviderAuthMethodScreen(
                             onNavigate(
                                 AppRoute.ModelProviderNew(
                                     providerType = providerType,
-                                    authMode = ProviderAuthMode.OAUTH,
+                                    authMode = ProviderAuthModes.OPENAI_CHATGPT,
                                 ),
                             )
                         },

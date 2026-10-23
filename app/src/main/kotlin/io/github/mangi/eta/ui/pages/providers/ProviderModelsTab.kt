@@ -72,11 +72,11 @@ import io.github.mangi.eta.data.model.Model
 import io.github.mangi.eta.data.model.VisionChatModels
 import io.github.mangi.eta.data.model.ModelReasoningCapabilities
 import io.github.mangi.eta.data.model.ProviderSetting
+import io.github.mangi.eta.data.model.ProviderAuthModes
 import io.github.mangi.eta.data.model.ReasoningEffort
 import io.github.mangi.eta.data.model.ProviderSourceTypes
 import io.github.mangi.eta.data.provider.ReasoningCapabilityResolver
 import io.github.mangi.eta.data.repository.ModelRepository
-import io.github.mangi.eta.agent.model.oauth.OpenAiCodexOAuth
 import io.github.mangi.eta.data.repository.RemoteModelFetcher
 import io.github.mangi.eta.data.model.SpeechSynthesisModels
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
@@ -223,20 +223,28 @@ internal fun ProviderModelsTab(
                                 isFetching = true
                                 message = null
                                 try {
-                                    val requestProvider = OpenAiCodexOAuth.withResolvedAuth(context, provider)
-                                    val models = RemoteModelFetcher.fetch(requestProvider).getOrElse { throwable ->
+                                    val fetchedCatalog = RemoteModelFetcher.fetchCatalog(provider).getOrElse { throwable ->
                                         message = context.getString(
                                             R.string.provider_error,
                                             throwable.message ?: throwable.javaClass.simpleName,
                                         )
                                         return@launch
                                     }
-                                    val chatModels = models.filter(RemoteModelFetcher::isCatalogModel)
-                                    val syncResult = ModelRepository.syncRemoteModels(
-                                        provider.id,
-                                        chatModels,
-                                        includeNewModels = false,
-                                    )
+                                    if (ProviderAuthModes.isOAuth(provider.authMode)) {
+                                        val syncResult = ModelRepository.syncRemoteCatalog(fetchedCatalog)
+                                        if (syncResult.applied) {
+                                            RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+                                        }
+                                        message = context.getString(
+                                            R.string.provider_models_sync_summary,
+                                            syncResult.fetchedCount,
+                                            syncResult.removedCount,
+                                        )
+                                        return@launch
+                                    }
+                                    val models = fetchedCatalog.models
+                                    val chatModels = models.filter(RemoteModelFetcher::isChatCapableModel)
+                                    val syncResult = ModelRepository.syncRemoteCatalog(fetchedCatalog, emptySet())
                                     if (syncResult.applied) {
                                         RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
                                     }
