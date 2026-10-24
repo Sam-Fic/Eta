@@ -3,7 +3,6 @@ package io.github.mangi.eta.agent.voice
 import android.view.View
 import android.view.ViewTreeObserver
 import androidx.annotation.StringRes
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
@@ -11,13 +10,12 @@ import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -54,7 +52,6 @@ import androidx.compose.material.icons.rounded.DesktopWindows
 import androidx.compose.material.icons.rounded.Summarize
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LoadingIndicator
@@ -64,7 +61,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Text as M3Text
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -102,9 +98,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
@@ -886,12 +880,13 @@ private fun AssistantComposer(
 
     // 输入区进出场动效统一取与应用内输入区同一套官方 Expressive 弹簧规格。
     // 按 M3E 分类：淡入淡出是透明度，走 Effects（临界阻尼、无过冲）；
-    // 附件条 / 预设行的高度展开收缩是尺寸变化，走 Spatial（轻微过冲）。
+    // 附件条的高度展开收缩是尺寸变化，走 Spatial（轻微过冲）。
     val fadeEnterSpec: FiniteAnimationSpec<Float> = MaterialTheme.motionScheme.defaultEffectsSpec()
     val fadeExitSpec: FiniteAnimationSpec<Float> = MaterialTheme.motionScheme.fastEffectsSpec()
     val shrinkTallSpec: FiniteAnimationSpec<IntSize> = MaterialTheme.motionScheme.defaultSpatialSpec()
     // 快捷预设只在屏幕已采好、且输入区还是空的时候出现：一点即发，不抢用户正在打的草稿；
     // 语音进行中输入区整块被聆听条替代，预设也一起收起。
+    // 预设与「添加当前屏幕」共用同一行，见 [ScreenContextAttachment]。
     val showScreenPresets = state.screenContext.phase == EtaScreenContextPhase.AVAILABLE &&
         !voiceState.active &&
         !hasDraftContent
@@ -899,20 +894,11 @@ private fun AssistantComposer(
         ScreenContextAttachment(
             state = state.screenContext,
             enabled = !processing,
+            showPresets = showScreenPresets,
             onSelect = onScreenContextSelect,
             onRemove = onScreenContextRemove,
+            onPreset = onScreenContextPreset,
         )
-        AnimatedVisibility(
-            visible = showScreenPresets,
-            enter = fadeIn(fadeEnterSpec) + expandVertically(shrinkTallSpec),
-            exit = fadeOut(fadeExitSpec) + shrinkVertically(shrinkTallSpec),
-        ) {
-            ScreenContextPresets(
-                enabled = !processing,
-                onPreset = onScreenContextPreset,
-                modifier = Modifier.padding(top = 8.dp),
-            )
-        }
         if (state.screenContext.phase != EtaScreenContextPhase.CONSUMED) {
             Spacer(Modifier.height(8.dp))
         }
@@ -998,137 +984,183 @@ private fun AssistantComposer(
 }
 
 /**
- * 当前屏幕的快捷预设：横向可滚动，避免窄屏或大字号把最后一枚 chip 挤出屏幕。
- * 外观全部交给官方 [SuggestionChip]，与聊天里的建议语保持一致。
+ * 屏幕上下文操作行：「添加当前屏幕」与快捷预设排在同一行，横向滚动避免窄屏或大字号
+ * 把最后一枚 chip 挤出屏幕。所有 chip 共用 [ScreenContextActionChip] 的外观。
  */
 @Composable
-private fun ScreenContextPresets(
+private fun ScreenContextActionRow(
+    state: EtaScreenContextUiState,
     enabled: Boolean,
+    showPresets: Boolean,
+    showAddChip: Boolean,
+    onSelect: () -> Unit,
     onPreset: (ScreenContextPreset) -> Unit,
-    modifier: Modifier = Modifier,
 ) {
+    // 展开 / 收起是尺寸变化，走 Spatial；淡入淡出走 Effects。规格在组合期先读好。
+    val fadeEnterSpec: FiniteAnimationSpec<Float> = MaterialTheme.motionScheme.defaultEffectsSpec()
+    val fadeExitSpec: FiniteAnimationSpec<Float> = MaterialTheme.motionScheme.fastEffectsSpec()
+    val sizeSpec: FiniteAnimationSpec<IntSize> = MaterialTheme.motionScheme.defaultSpatialSpec()
     Row(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        ScreenContextPreset.entries.forEach { preset ->
-            SuggestionChip(
-                onClick = { onPreset(preset) },
+        AnimatedVisibility(
+            visible = showAddChip,
+            enter = fadeIn(fadeEnterSpec) + expandHorizontally(sizeSpec),
+            exit = fadeOut(fadeExitSpec) + shrinkHorizontally(sizeSpec),
+        ) {
+            AddScreenContextChip(
+                state = state,
                 enabled = enabled,
-                // Chip 家族默认不合并子节点语义，显式合并后读屏才能把提示语当按钮名播报。
-                modifier = Modifier.semantics(mergeDescendants = true) { },
-                icon = {
-                    Icon(
-                        imageVector = preset.icon,
-                        contentDescription = null,
-                        modifier = Modifier.size(SuggestionChipDefaults.IconSize),
-                    )
-                },
-                label = {
-                    M3Text(
-                        text = stringResource(preset.labelRes),
-                        maxLines = 1,
-                        softWrap = false,
-                    )
-                },
+                onSelect = onSelect,
             )
         }
-    }
-}
-
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun ScreenContextAttachment(
-    state: EtaScreenContextUiState,
-    enabled: Boolean,
-    onSelect: () -> Unit,
-    onRemove: () -> Unit,
-) {
-    // 屏幕上下文 chip ⇄ 预览是一处 chip 级的小范围替换：透明度走 Effects、位移走 Spatial，
-    // 都取 fast 档。规格要在组合期先读好，transitionSpec 里不能读 CompositionLocal。
-    val contextFadeSpec = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
-    val contextSlideSpec = MaterialTheme.motionScheme.fastSpatialSpec<IntOffset>()
-    AnimatedContent(
-        targetState = state,
-        transitionSpec = {
-            (fadeIn(contextFadeSpec) + slideInVertically(contextSlideSpec) { it / 5 })
-                .togetherWith(
-                    fadeOut(contextFadeSpec) +
-                        slideOutVertically(contextSlideSpec) { -it / 6 },
-                )
-        },
-        contentKey = { it.phase to it.selected },
-        label = "assistant_screen_context",
-    ) { screenContext ->
-        when {
-            screenContext.phase == EtaScreenContextPhase.CONSUMED -> Unit
-            screenContext.phase == EtaScreenContextPhase.AVAILABLE && screenContext.selected -> {
-                SelectedScreenContext(
-                    previewDataUrl = screenContext.previewDataUrl,
-                    enabled = enabled,
-                    onRemove = onRemove,
-                )
-            }
-            else -> {
-                val available = screenContext.phase == EtaScreenContextPhase.AVAILABLE && enabled
-                // 与应用内「新建对话 / 管理聊天」同一套 M3E 按钮：官方 FilledTonalButton，
-                // 形状取 ButtonDefaults.shapes()，可用态容器 tertiaryContainer / onTertiaryContainer。
-                //
-                // 禁用态（采集中 / 当前屏幕不可用 / 生成中）一律靠**颜色**区分，不允许半透明：
-                // 官方默认 disabledContainerColor 是 `onTertiaryContainer.copy(alpha = 0.12)`
-                // 这样的裸 alpha 色（Material3 Button.kt 直接选它做容器填充，不再合成底色），
-                // 铺在透明浮窗上就会把用户界面透出来。这里禁用态改用 secondaryContainer 实色底，
-                // 前景配 onSecondaryContainer（再合成一次，兜住自定义配色里可能残留的 alpha）。
-                val scheme = MaterialTheme.colorScheme
-                val chipContainer = scheme.tertiaryContainer
-                val chipOnContainer = scheme.onTertiaryContainer
-                val chipDisabledContainer = scheme.secondaryContainer
-                val chipDisabledContent = scheme.onSecondaryContainer
-                    .compositeOver(chipDisabledContainer)
-                FilledTonalButton(
-                    onClick = onSelect,
-                    enabled = available,
-                    shapes = ButtonDefaults.shapes(),
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = chipContainer,
-                        contentColor = chipOnContainer,
-                        disabledContainerColor = chipDisabledContainer,
-                        disabledContentColor = chipDisabledContent,
-                    ),
-                ) {
-                    when (screenContext.phase) {
-                        EtaScreenContextPhase.CAPTURING -> LoadingIndicator(
-                            modifier = Modifier.size(ButtonDefaults.IconSize),
-                            color = LocalContentColor.current,
-                        )
-                        EtaScreenContextPhase.AVAILABLE -> Icon(
-                            imageVector = Icons.Rounded.DesktopWindows,
-                            contentDescription = null,
-                            modifier = Modifier.size(ButtonDefaults.IconSize),
-                        )
-                        EtaScreenContextPhase.UNAVAILABLE -> Icon(
-                            imageVector = Icons.Rounded.CancelPresentation,
-                            contentDescription = null,
-                            modifier = Modifier.size(ButtonDefaults.IconSize),
-                        )
-                        EtaScreenContextPhase.CONSUMED -> Unit
-                    }
-                    M3Text(
-                        text = when (screenContext.phase) {
-                            EtaScreenContextPhase.CAPTURING -> stringResource(R.string.voice_screen_preparing)
-                            EtaScreenContextPhase.AVAILABLE -> stringResource(R.string.voice_screen_add)
-                            EtaScreenContextPhase.UNAVAILABLE -> stringResource(R.string.voice_screen_unavailable)
-                            EtaScreenContextPhase.CONSUMED -> ""
+        AnimatedVisibility(
+            visible = showPresets,
+            enter = fadeIn(fadeEnterSpec) + expandHorizontally(sizeSpec),
+            exit = fadeOut(fadeExitSpec) + shrinkHorizontally(sizeSpec),
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ScreenContextPreset.entries.forEach { preset ->
+                    ScreenContextActionChip(
+                        label = stringResource(preset.labelRes),
+                        enabled = enabled,
+                        onClick = { onPreset(preset) },
+                        icon = {
+                            Icon(
+                                imageVector = preset.icon,
+                                contentDescription = null,
+                                modifier = Modifier.size(SuggestionChipDefaults.IconSize),
+                            )
                         },
-                        maxLines = 1,
-                        softWrap = false,
-                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
         }
+    }
+}
+
+/** 「添加当前屏幕」chip：文案与图标随采集进度变化，外观与快捷预设完全一致。 */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun AddScreenContextChip(
+    state: EtaScreenContextUiState,
+    enabled: Boolean,
+    onSelect: () -> Unit,
+) {
+    ScreenContextActionChip(
+        label = when (state.phase) {
+            EtaScreenContextPhase.CAPTURING -> stringResource(R.string.voice_screen_preparing)
+            EtaScreenContextPhase.AVAILABLE -> stringResource(R.string.voice_screen_add)
+            EtaScreenContextPhase.UNAVAILABLE -> stringResource(R.string.voice_screen_unavailable)
+            EtaScreenContextPhase.CONSUMED -> ""
+        },
+        enabled = state.phase == EtaScreenContextPhase.AVAILABLE && enabled,
+        onClick = onSelect,
+        icon = {
+            when (state.phase) {
+                EtaScreenContextPhase.CAPTURING -> LoadingIndicator(
+                    modifier = Modifier.size(SuggestionChipDefaults.IconSize),
+                    color = LocalContentColor.current,
+                )
+                EtaScreenContextPhase.AVAILABLE -> Icon(
+                    imageVector = Icons.Rounded.DesktopWindows,
+                    contentDescription = null,
+                    modifier = Modifier.size(SuggestionChipDefaults.IconSize),
+                )
+                EtaScreenContextPhase.UNAVAILABLE -> Icon(
+                    imageVector = Icons.Rounded.CancelPresentation,
+                    contentDescription = null,
+                    modifier = Modifier.size(SuggestionChipDefaults.IconSize),
+                )
+                EtaScreenContextPhase.CONSUMED -> Unit
+            }
+        },
+    )
+}
+
+/**
+ * 屏幕上下文 chip 的统一外观：官方 [SuggestionChip]，但把默认透明底换成实色容器。
+ *
+ * 浮窗外层是透明的，官方默认的透明底、以及禁用态 `onSurface.copy(alpha = 0.38f)`
+ * 都会把下层用户界面透出来；这里容器与前景都用实色（禁用态前景再合成一次底色兜底）。
+ */
+@Composable
+private fun ScreenContextActionChip(
+    label: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    icon: @Composable () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val disabledContainer = scheme.surfaceContainerHigh
+    val disabledContent = scheme.onSurfaceVariant.compositeOver(disabledContainer)
+    SuggestionChip(
+        onClick = onClick,
+        enabled = enabled,
+        // 实色底不需要描边，去掉官方默认的 outline 边线。
+        border = null,
+        colors = SuggestionChipDefaults.suggestionChipColors(
+            containerColor = scheme.secondaryContainer,
+            labelColor = scheme.onSecondaryContainer,
+            iconContentColor = scheme.onSecondaryContainer,
+            disabledContainerColor = disabledContainer,
+            disabledLabelColor = disabledContent,
+            disabledIconContentColor = disabledContent,
+        ),
+        // Chip 家族默认不合并子节点语义，显式合并后读屏才能把提示语当按钮名播报。
+        modifier = Modifier.semantics(mergeDescendants = true) { },
+        icon = icon,
+        label = {
+            M3Text(
+                text = label,
+                maxLines = 1,
+                softWrap = false,
+            )
+        },
+    )
+}
+
+@Composable
+private fun ScreenContextAttachment(
+    state: EtaScreenContextUiState,
+    enabled: Boolean,
+    showPresets: Boolean,
+    onSelect: () -> Unit,
+    onRemove: () -> Unit,
+    onPreset: (ScreenContextPreset) -> Unit,
+) {
+    if (state.phase == EtaScreenContextPhase.CONSUMED) return
+    // 选中后预览卡从操作行上方展开：高度变化走 Spatial，透明度走 Effects。
+    val fadeSpec = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
+    val sizeSpec = MaterialTheme.motionScheme.defaultSpatialSpec<IntSize>()
+    Column {
+        AnimatedVisibility(
+            visible = state.selected,
+            enter = fadeIn(fadeSpec) + expandVertically(sizeSpec),
+            exit = fadeOut(fadeSpec) + shrinkVertically(sizeSpec),
+        ) {
+            Column {
+                SelectedScreenContext(
+                    previewDataUrl = state.previewDataUrl,
+                    enabled = enabled,
+                    onRemove = onRemove,
+                )
+                // 有预设行跟在下面时才需要这一档间距，避免收起预设后多出一段留白。
+                if (showPresets) Spacer(Modifier.height(8.dp))
+            }
+        }
+        ScreenContextActionRow(
+            state = state,
+            enabled = enabled,
+            showPresets = showPresets,
+            // 选中屏幕后 chip 让位给上面的预览卡，操作行只剩快捷预设。
+            showAddChip = !state.selected,
+            onSelect = onSelect,
+            onPreset = onPreset,
+        )
     }
 }
 
