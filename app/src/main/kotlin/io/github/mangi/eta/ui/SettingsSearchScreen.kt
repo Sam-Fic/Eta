@@ -227,7 +227,7 @@ private fun settingsSearchEntries(taskBackendInstalled: Boolean?): List<Settings
         add(
             SettingsSearchEntry(
                 title = stringResource(R.string.ui_memory_b55ff5),
-                summary = stringResource(R.string.settings_memory_summary),
+                summary = null,
                 icon = Icons.Rounded.Psychology,
                 group = groupContextExtensions,
                 action = SettingsSearchAction.Route(AppRoute.Memory),
@@ -310,7 +310,7 @@ private fun settingsSearchEntries(taskBackendInstalled: Boolean?): List<Settings
         add(
             SettingsSearchEntry(
                 title = stringResource(R.string.haptics_list),
-                summary = stringResource(R.string.haptics_entry_summary),
+                summary = null,
                 icon = Icons.Rounded.Vibration,
                 group = groupGeneral,
                 action = SettingsSearchAction.Route(AppRoute.Haptics),
@@ -375,7 +375,7 @@ private fun settingsSearchEntries(taskBackendInstalled: Boolean?): List<Settings
         add(
             SettingsSearchEntry(
                 title = stringResource(R.string.ui_permission_health_3048bb),
-                summary = stringResource(R.string.ui_permissions_and_status_35f368),
+                summary = null,
                 icon = Icons.Rounded.HealthAndSafety,
                 group = groupPermissions,
                 action = SettingsSearchAction.Route(AppRoute.Permissions),
@@ -384,7 +384,7 @@ private fun settingsSearchEntries(taskBackendInstalled: Boolean?): List<Settings
         add(
             SettingsSearchEntry(
                 title = stringResource(R.string.capability_enhancements),
-                summary = stringResource(R.string.capability_enhancements_summary),
+                summary = null,
                 icon = Icons.Rounded.Security,
                 group = groupPermissions,
                 action = SettingsSearchAction.Route(AppRoute.SystemEnhance),

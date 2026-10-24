@@ -88,8 +88,7 @@
   <string name="haptics_group_interface">界面震动</string>
   <string name="haptics_group_generation">生成震动</string>
   <string name="haptics_group_background">后台震动</string>
-  <string name="haptics_list">震动列表</string>
-  <string name="haptics_entry_summary">触控反馈与消息生成震动</string>
+  <string name="haptics_list">震动反馈</string>
   <string name="haptics_touch_feedback">触控反馈</string>
   <string name="haptics_touch_feedback_summary">下面所有界面触感项的总开关</string>
   <string name="haptics_tap">点按与控件反馈</string>
@@ -215,7 +214,6 @@
   <string name="settings_file_logging">记录诊断日志</string>
   <string name="settings_file_logging_summary">开启后记录运行日志和脱敏工具调用诊断到本机。工具诊断仅记录结构与指纹，不记录命令、参数值或密钥。关闭后停止写入，已有日志保留。</string>
   <string name="settings_export_logs">导出日志</string>
-  <string name="settings_export_logs_summary">导出软件日志（含脱敏语音诊断）为 ZIP 文件</string>
   <string name="settings_search_hint">搜索设置项</string>
   <string name="settings_search_no_matches">没有匹配的设置项</string>
   <string name="settings_export_logs_working">处理中……</string>
@@ -224,7 +222,6 @@
   <string name="settings_export_logs_failed">导出日志失败</string>
   <string name="settings_export_logs_open_failed">无法打开所选文件</string>
   <string name="settings_clear_logs">清除日志</string>
-  <string name="settings_clear_logs_summary">删除本地已保存的诊断日志</string>
   <string name="settings_clear_logs_done">日志已清除</string>
   <string name="settings_clear_logs_confirm_title">清除诊断日志？</string>
   <string name="settings_clear_logs_confirm_summary">已保存的日志文件将被删除，此操作无法撤销。</string>
@@ -2006,7 +2003,6 @@
   <string name="stt_desc_set_for">设置%1$s任务分工</string>
   <string name="stt_set_short">设置分工</string>
   <string name="stt_unset">未设置分工</string>
-  <string name="settings_memory_summary">全局总开关与各助手 MEMORY.md 管理</string>
   <string name="memory_editor_title">记忆 · %1$s</string>
   <string name="memory_overview_note">全局总开关控制所有助手；具体记忆内容仍按助手分别保存在各自的 MEMORY.md。</string>
   <string name="memory_global_group">全局记忆</string>
@@ -2823,7 +2819,6 @@
   <string name="drawer_search_folder">搜索文件夹</string>
   <!-- 端侧设备动作模型（FunctionGemma 270M Mobile Actions） -->
   <string name="mobile_actions_settings_title">端侧动作模型</string>
-  <string name="mobile_actions_settings_summary">下载端侧函数调用模型</string>
   <string name="mobile_actions_intro">一次性下载后可完全离线运行，把自然语言指令转成真实的设备动作。</string>
   <string name="mobile_actions_group_model">模型</string>
   <string name="mobile_actions_model_title">FunctionGemma 270M Mobile Actions</string>

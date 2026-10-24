@@ -3,7 +3,6 @@
     <string name="capability_current_device">當前裝置</string>
     <string name="capability_all">全部能力</string>
     <string name="capability_enhancements">Root 與系統增強</string>
-    <string name="capability_enhancements_summary">Root 授權與框架狀態</string>
     <string name="capability_root_checking">正在檢查 Root 授權…</string>
     <string name="capability_root_granted">已獲得 Root 授權</string>
     <string name="capability_root_unavailable">未檢測到 Root，普通功能可正常使用</string>

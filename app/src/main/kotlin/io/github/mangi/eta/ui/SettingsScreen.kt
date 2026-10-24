@@ -261,7 +261,6 @@ internal fun SettingsScreen(
                 row {
                     EtaClickableRow(
                         title = stringResource(R.string.mobile_actions_settings_title),
-                        summary = stringResource(R.string.mobile_actions_settings_summary),
                         leading = {
                             PreferenceIcon(
                                 icon = Icons.Rounded.TouchApp,
@@ -351,7 +350,6 @@ internal fun SettingsScreen(
                 row {
                     EtaClickableRow(
                         title = stringResource(R.string.ui_memory_b55ff5),
-                        summary = stringResource(R.string.settings_memory_summary),
                         leading = { PreferenceIcon(icon = Icons.Rounded.Psychology) },
                         onClick = { onNavigate(AppRoute.Memory) },
                     )
@@ -461,7 +459,6 @@ internal fun SettingsScreen(
                 row {
                     EtaClickableRow(
                         title = stringResource(R.string.haptics_list),
-                        summary = stringResource(R.string.haptics_entry_summary),
                         leading = { PreferenceIcon(Icons.Rounded.Vibration) },
                         onClick = { onNavigate(AppRoute.Haptics) },
                     )
@@ -638,13 +635,11 @@ internal fun SettingsScreen(
                 row {
                     EtaClickableRow(
                         title = stringResource(R.string.settings_export_logs),
-                        summary = stringResource(
-                            if (exportingLogs) {
-                                R.string.settings_export_logs_working
-                            } else {
-                                R.string.settings_export_logs_summary
-                            },
-                        ),
+                        summary = if (exportingLogs) {
+                            stringResource(R.string.settings_export_logs_working)
+                        } else {
+                            null
+                        },
                         enabled = !exportingLogs && !clearingLogs,
                         leading = {
                             PreferenceIcon(icon = Icons.Rounded.Share)
@@ -667,7 +662,6 @@ internal fun SettingsScreen(
                 row {
                     EtaClickableRow(
                         title = stringResource(R.string.settings_clear_logs),
-                        summary = stringResource(R.string.settings_clear_logs_summary),
                         enabled = !exportingLogs && !clearingLogs,
                         leading = {
                             PreferenceIcon(icon = Icons.Rounded.DeleteSweep)
@@ -688,7 +682,6 @@ internal fun SettingsScreen(
                 row {
                     EtaClickableRow(
                         title = stringResource(R.string.ui_permission_health_3048bb),
-                        summary = stringResource(R.string.ui_permissions_and_status_35f368),
                         leading = {
                             PreferenceIcon(icon = Icons.Rounded.HealthAndSafety)
                         },
@@ -699,7 +692,6 @@ internal fun SettingsScreen(
                 row {
                     EtaClickableRow(
                         title = stringResource(R.string.capability_enhancements),
-                        summary = stringResource(R.string.capability_enhancements_summary),
                         leading = {
                             PreferenceIcon(icon = Icons.Rounded.Security)
                         },

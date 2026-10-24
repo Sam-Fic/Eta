@@ -94,8 +94,7 @@
   <string name="haptics_group_interface">介面震動</string>
   <string name="haptics_group_generation">生成震動</string>
   <string name="haptics_group_background">背景震動</string>
-  <string name="haptics_list">震動列表</string>
-  <string name="haptics_entry_summary">觸控回饋與訊息生成震動</string>
+  <string name="haptics_list">震動回饋</string>
   <string name="haptics_touch_feedback">觸控回饋</string>
   <string name="haptics_touch_feedback_summary">下面所有介面觸感項的總開關</string>
   <string name="haptics_tap">點按與控件回饋</string>
@@ -221,7 +220,6 @@
   <string name="settings_file_logging">記錄診斷日誌</string>
   <string name="settings_file_logging_summary">開啟後記錄執行日誌和去識別化工具呼叫診斷到本機。工具診斷僅記錄結構與指紋，不記錄命令、參數值或金鑰。關閉後停止寫入，既有日誌保留。</string>
   <string name="settings_export_logs">匯出日誌</string>
-  <string name="settings_export_logs_summary">匯出軟體日誌（含去識別化語音診斷）為 ZIP 檔案</string>
   <string name="settings_search_hint">搜尋設定項</string>
   <string name="settings_search_no_matches">沒有符合的設定項</string>
   <string name="settings_export_logs_working">處理中……</string>
@@ -230,7 +228,6 @@
   <string name="settings_export_logs_failed">匯出日誌失敗</string>
   <string name="settings_export_logs_open_failed">無法開啟所選檔案</string>
   <string name="settings_clear_logs">清除日誌</string>
-  <string name="settings_clear_logs_summary">刪除本機已儲存的診斷日誌</string>
   <string name="settings_clear_logs_done">日誌已清除</string>
   <string name="settings_clear_logs_confirm_title">清除診斷日誌？</string>
   <string name="settings_clear_logs_confirm_summary">已儲存的日誌檔案將被刪除，此操作無法復原。</string>
@@ -2014,7 +2011,6 @@
   <string name="spc_auto_on">自動委派已開啟</string>
   <string name="spc_auto_off">自動委派已關閉</string>
   <string name="spc_current_in_use">目前使用</string>
-  <string name="settings_memory_summary">全域總開關與各助手 MEMORY.md 管理</string>
   <string name="memory_editor_title">記憶 · %1$s</string>
   <string name="memory_overview_note">全域總開關控制所有助手；具體記憶內容仍依助手分別儲存在各自的 MEMORY.md。</string>
   <string name="memory_global_group">全域記憶</string>
@@ -2823,7 +2819,6 @@
   <string name="drawer_search_folder">搜尋資料夾</string>
   <!-- 端側裝置動作模型（FunctionGemma 270M Mobile Actions） -->
   <string name="mobile_actions_settings_title">端側動作模型</string>
-  <string name="mobile_actions_settings_summary">下載端側函式呼叫模型</string>
   <string name="mobile_actions_intro">一次性下載後可完全離線執行，把自然語言指令轉成真實的裝置動作。</string>
   <string name="mobile_actions_group_model">模型</string>
   <string name="mobile_actions_model_title">FunctionGemma 270M Mobile Actions</string>

@@ -59,8 +59,7 @@
   <string name="haptics_group_interface">Interface haptics</string>
   <string name="haptics_group_generation">Generation haptics</string>
   <string name="haptics_group_background">Background haptics</string>
-  <string name="haptics_list">Haptics list</string>
-  <string name="haptics_entry_summary">Touch feedback and generation vibration</string>
+  <string name="haptics_list">Vibration feedback</string>
   <string name="haptics_touch_feedback">Touch feedback</string>
   <string name="haptics_touch_feedback_summary">Master switch for every interface haptic listed below</string>
   <string name="haptics_tap">Taps and controls</string>
@@ -186,7 +185,6 @@
   <string name="settings_file_logging">Record diagnostic logs</string>
   <string name="settings_file_logging_summary">When enabled, runtime logs and redacted tool-call diagnostics are saved on-device. Tool diagnostics record structure and fingerprints, not commands, argument values or keys. Turning it off stops writing and keeps existing logs.</string>
   <string name="settings_export_logs">Export logs</string>
-  <string name="settings_export_logs_summary">Export app logs, including redacted voice diagnostics, as a ZIP file</string>
   <string name="settings_search_hint">Search settings</string>
   <string name="settings_search_no_matches">No matching settings</string>
   <string name="settings_export_logs_working">Working…</string>
@@ -195,7 +193,6 @@
   <string name="settings_export_logs_failed">Could not export logs</string>
   <string name="settings_export_logs_open_failed">Unable to open the selected file</string>
   <string name="settings_clear_logs">Clear logs</string>
-  <string name="settings_clear_logs_summary">Delete locally saved diagnostic logs</string>
   <string name="settings_clear_logs_done">Logs cleared</string>
   <string name="settings_clear_logs_confirm_title">Clear diagnostic logs?</string>
   <string name="settings_clear_logs_confirm_summary">Saved log files will be deleted. This cannot be undone.</string>
@@ -2037,7 +2034,6 @@
   <string name="dv_name_prefix">Voice name: %1$s</string>
   <string name="dv_using_voice">Using voice: %1$s</string>
   <string name="dv_postpaid_fee_note">Postpaid voice service must be enabled separately; previews are billed per the account rules, and the first official synthesis may incur a voice fee.</string>
-  <string name="settings_memory_summary">Global switch and per-assistant MEMORY.md</string>
   <string name="memory_editor_title">Memory · %1$s</string>
   <string name="memory_overview_note">The global switch controls all assistants. Each assistant still keeps its own MEMORY.md.</string>
   <string name="memory_global_group">Global memory</string>
@@ -2857,7 +2853,6 @@
   <string name="drawer_search_folder">Search folder</string>
   <!-- 端侧设备动作模型（FunctionGemma 270M Mobile Actions） -->
   <string name="mobile_actions_settings_title">Device actions model</string>
-  <string name="mobile_actions_settings_summary">Download the on-device function-calling model</string>
   <string name="mobile_actions_intro">Runs fully offline after a one-time download and turns natural-language instructions into real device actions.</string>
   <string name="mobile_actions_group_model">Model</string>
   <string name="mobile_actions_model_title">FunctionGemma 270M Mobile Actions</string>

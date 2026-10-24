@@ -3,7 +3,6 @@
     <string name="capability_current_device">Current Device</string>
     <string name="capability_all">All Capabilities</string>
     <string name="capability_enhancements">Root and System Enhancements</string>
-    <string name="capability_enhancements_summary">Root Authorization and Framework Status</string>
     <string name="capability_root_checking">Checking Root Authorization…</string>
     <string name="capability_root_granted">Root Authorization Granted</string>
     <string name="capability_root_unavailable">Root Not Detected, Normal Features Still Work</string>
