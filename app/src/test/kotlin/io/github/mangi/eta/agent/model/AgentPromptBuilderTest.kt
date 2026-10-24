@@ -281,7 +281,11 @@ class AgentPromptBuilderTest {
             skillContext = SkillContext(installedSkills = listOf(skill)),
         )
 
-        assertEquals(listOf("system", "system", "system", "system", "user"), messages.roles())
+        // 系统提示的条数随工具族增加而变（网页搜索/正文读取是一段独立提示），
+        // 这里只钉住「除最后一条 user 外全是 system」这一结构约束。
+        assertEquals("user", messages.roles().last())
+        assertTrue(messages.roles().dropLast(1).all { it == "system" })
+        assertTrue(messages.roles().size >= 4)
         val systemContents = messages.systemContents()
         assertTrue(systemContents.any { it.contains("browser_use") })
         assertTrue(systemContents.any { it.contains("desktop_chrome") })
@@ -293,7 +297,7 @@ class AgentPromptBuilderTest {
         assertTrue(skillMessage.contains("capabilities=scripts, assets"))
         assertTrue(skillMessage.contains("description=检查屏幕 并输出 结论"))
         assertTrue(skillMessage.contains("先调用 skills_read"))
-        assertEquals("读取网页", messages.getJSONObject(4).getString("content"))
+        assertEquals("读取网页", messages.getJSONObject(messages.length() - 1).getString("content"))
     }
 
     @Test

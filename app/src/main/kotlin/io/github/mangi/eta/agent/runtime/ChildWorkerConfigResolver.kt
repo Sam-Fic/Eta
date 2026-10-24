@@ -4,6 +4,7 @@ import io.github.mangi.eta.agent.delegation.ConversationSubAgentConfig
 import io.github.mangi.eta.agent.delegation.SubAgentPreferences
 import io.github.mangi.eta.agent.delegation.SubAgentProfile
 import io.github.mangi.eta.agent.model.AgentModelClient
+import io.github.mangi.eta.data.model.ProviderAuthModes
 import io.github.mangi.eta.data.model.ProviderSetting
 import io.github.mangi.eta.data.model.isGptSpeedModel
 import io.github.mangi.eta.data.model.supportsGptSpeedBinding
@@ -89,7 +90,11 @@ internal object ChildWorkerConfigResolver {
                 it.copy(customHeaders = it.customHeaders.toList(), customBody = it.customBody.toList(),
                     errorReconnectPolicy = parentConfig?.errorReconnectPolicy ?: it.errorReconnectPolicy)
             }
-            if (configured.apiKey.isBlank()) return unavailable(ChildTaskConfigPolicy.Availability.CREDENTIALS_MISSING)
+            // 订阅连接（Codex / Grok）不用 apiKey：凭据由运行时按 providerId 解析并注入，
+            // 这里要求它非空会把可用的订阅子代理误判成缺凭据。
+            if (!ProviderAuthModes.isOAuth(configured.authMode) && configured.apiKey.isBlank()) {
+                return unavailable(ChildTaskConfigPolicy.Availability.CREDENTIALS_MISSING)
+            }
             if (configured.baseUrl.isBlank()) return unavailable(ChildTaskConfigPolicy.Availability.ENDPOINT_MISSING)
             if (configured.model.isBlank()) return unavailable(ChildTaskConfigPolicy.Availability.MODEL_NAME_MISSING)
             if (configured.reasoningCapabilities?.mandatory == true && !configured.effectiveReasoningEffort.enablesReasoning)

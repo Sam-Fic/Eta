@@ -63,7 +63,12 @@ class ChildWorkerGptSpeedTest {
     }
 
     @Test fun oauthCodexChildUsesSubscriptionSpeedWireValues() = runBlocking {
-        val oauth = provider.copy(baseUrl = "https://chatgpt.com/backend-api/codex", endpointMode = OpenAiEndpointMode.RESPONSES)
+        // Codex 由订阅认证方式识别，光把 baseUrl 设成官方域名已经不够了。
+        val oauth = provider.copy(
+            baseUrl = "https://chatgpt.com/backend-api/codex",
+            endpointMode = OpenAiEndpointMode.RESPONSES,
+            authMode = ProviderAuthModes.OPENAI_CHATGPT,
+        )
         val expected = mapOf(GptSpeedMode.NORMAL to null, GptSpeedMode.FAST to "priority")
         for ((mode, tier) in expected) {
             val result = resolve(speed(mode), oauth)
@@ -78,7 +83,12 @@ class ChildWorkerGptSpeedTest {
     }
 
     @Test fun oauthCodexChildRejectsUltraFastWithoutSilentDowngrade() = runBlocking {
-        val oauth = provider.copy(baseUrl = "https://chatgpt.com/backend-api/codex", endpointMode = OpenAiEndpointMode.RESPONSES)
+        // Codex 由订阅认证方式识别，光把 baseUrl 设成官方域名已经不够了。
+        val oauth = provider.copy(
+            baseUrl = "https://chatgpt.com/backend-api/codex",
+            endpointMode = OpenAiEndpointMode.RESPONSES,
+            authMode = ProviderAuthModes.OPENAI_CHATGPT,
+        )
         val result = resolve(speed(GptSpeedMode.ULTRA_FAST), oauth)
         assertEquals(Policy.Availability.AVAILABLE, result.availability)
         val config = requireNotNull(result.configuration).model

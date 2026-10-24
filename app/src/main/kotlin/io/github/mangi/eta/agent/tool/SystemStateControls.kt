@@ -50,9 +50,19 @@ internal class SystemStateControls(
             null
         }
 
-    @Suppress("DEPRECATION")
+    /**
+     * 移动数据开关。isDataEnabled 需要 READ_BASIC_PHONE_STATE（不是 READ_PHONE_STATE），
+     * Manifest 没声明时恒为拒绝 —— 先 checkPermission 再读，不要让 SecurityException 变成
+     * 静默的 null（也不能直接调，否则 lint MissingPermission 会拦）。
+     * 与 AgentStructuredDeviceTools.verifyRadioState 的 mobile_data 分支同一套门禁。
+     */
     private fun mobileDataEnabled(): Boolean? =
         runCatching {
+            if (context.checkSelfPermission(android.Manifest.permission.READ_BASIC_PHONE_STATE) !=
+                android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) {
+                return null
+            }
             val subscription = android.telephony.SubscriptionManager.getDefaultDataSubscriptionId()
             if (!android.telephony.SubscriptionManager.isValidSubscriptionId(subscription)) return null
             context

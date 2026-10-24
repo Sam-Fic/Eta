@@ -438,8 +438,10 @@ class AgentCompressionBoundaryTest {
     }
 
     @Test fun compressionEndpointDoesNotOverrideCodexOrRemovedBackend() {
+        // Codex 由订阅认证方式识别（不是 baseUrl 长得像官方域名）。
         val codex = config().copy(
             baseUrl = "https://chatgpt.com/backend-api/codex",
+            authMode = io.github.mangi.eta.data.model.ProviderAuthModes.OPENAI_CHATGPT,
             openAiEndpointMode = io.github.mangi.eta.data.model.OpenAiEndpointMode.RESPONSES,
         )
         assertEquals(codex, AgentCompressionEndpoint.apply(codex, io.github.mangi.eta.data.model.OpenAiEndpointMode.CHAT_COMPLETIONS))

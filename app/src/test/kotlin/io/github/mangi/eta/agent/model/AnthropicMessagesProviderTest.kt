@@ -345,7 +345,9 @@ class AnthropicMessagesProviderTest {
                 )
             }
         }
-        assertEquals(listOf("conv-restored", "conv-restored"), headerSessions)
+        // session-id 请求头现在只发给订阅连接；Anthropic 走 API Key，
+        // 它的会话亲和由 metadata.user_id 承载（下面断言两次一致且不含原文）。
+        assertEquals(listOf(null, null), headerSessions)
         assertEquals(2, bodies.size)
         val first = JSONObject(bodies[0])
         val second = JSONObject(bodies[1])

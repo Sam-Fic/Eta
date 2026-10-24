@@ -16,9 +16,21 @@ import java.util.concurrent.atomic.AtomicReference
 /**
  * 个人热点：状态读取走 TetheringManager 回调；开启/关闭需要系统特权，
  * 普通应用被拒时打开热点设置面板让用户手动完成，不伪装成已生效。
+ *
+ * TetheringManager 这整套（含 TetheringInterface / TetheringRequest / 各类回调）
+ * 都是 API 36 才有的，而 minSdk 是 34：低版本必须整条路短接，不能只把写操作
+ * 包在版本判断里，否则读路径一样会在旧系统上找不到类。
  */
 internal class HotspotControls(private val context: Context) {
     fun read(): JSONObject {
+        // 版本判断必须是 Build.VERSION.SDK_INT 的裸形式：
+        // lint 的 NewApi 只认这个形状，包成辅助函数再靠返回值推断它认不出来。
+        if (Build.VERSION.SDK_INT < 36) {
+            return DeviceToolContract.failure(
+                "HOTSPOT_UNAVAILABLE",
+                "当前系统版本不支持读取热点状态（需 Android 16 及以上）",
+            )
+        }
         val manager = context.getSystemService(TetheringManager::class.java)
             ?: return DeviceToolContract.failure("HOTSPOT_UNAVAILABLE", "热点服务不可用")
         return try {
@@ -35,8 +47,10 @@ internal class HotspotControls(private val context: Context) {
     }
 
     fun set(enabled: Boolean): JSONObject {
+        // 低版本连读都读不了（TetheringManager 整体 API 36），直接走设置面板。
+        if (Build.VERSION.SDK_INT < 36) return openPanel(enabled)
         val manager = context.getSystemService(TetheringManager::class.java)
-            ?: return DeviceToolContract.failure("HOTSPOT_UNAVAILABLE", "热点服务不可用")
+            ?: return openPanel(enabled)
         val before = runCatching { observe(manager, 2_000L) }.getOrNull()
         if (before == enabled) {
             return DeviceMutationResult.observed(
@@ -88,6 +102,10 @@ internal class HotspotControls(private val context: Context) {
         }
     }
 
+    // 下面两个方法直接摸 API 36 的类型（TetheringEventCallback / TetheringRequest 等），
+    // 两个调用点都已经过了 Build.VERSION.SDK_INT 的版本门禁，所以用 @RequiresApi 把这条
+    // 约束交给 lint 静态执行，而不是靠读代码的人自己追。
+    @androidx.annotation.RequiresApi(36)
     private fun observe(manager: TetheringManager, timeoutMs: Long): Boolean? {
         val executor = Executor { it.run() }
         val state = AtomicReference<Boolean?>(null)
@@ -108,6 +126,7 @@ internal class HotspotControls(private val context: Context) {
         }
     }
 
+    @androidx.annotation.RequiresApi(36)
     private fun requestTethering(manager: TetheringManager, enabled: Boolean): Boolean? {
         val executor = Executor { it.run() }
         val done = CountDownLatch(1)

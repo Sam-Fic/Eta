@@ -33,8 +33,16 @@ class AgentInteractiveModePromptTest {
                             delegationAvailable = delegation,
                         )
                         assertEquals(off.toString(), defaults.toString())
-                        val expectedCount = 3 + (if (persona.isNotBlank()) 1 else 0) +
-                            (if (delegation) 1 else 0) + (if (terminal) 1 else 0) + (if (browser) 1 else 0)
+                        // 基线条数随内置工具族增长（例如网页搜索/正文读取），
+                        // 用关掉所有可选族时的条数当基线，测试只关心「交互模式开关不改条数」。
+                        val baseline = AgentPromptBuilder.buildSystemMessages(
+                            config.copy(systemPrompt = "", terminalTools = false, browserTools = false),
+                            SkillContext.EMPTY, AgentMemoryContext.DISABLED, rootAvailable = false,
+                            delegationAvailable = false,
+                        ).length()
+                        // browserTools 现在贡献两段提示（fetch_url/web_search 一段 + browser_use 一段）。
+                        val expectedCount = baseline + (if (persona.isNotBlank()) 1 else 0) +
+                            (if (delegation) 1 else 0) + (if (terminal) 1 else 0) + (if (browser) 2 else 0)
                         assertEquals(expectedCount, off.length())
                         assertEquals(off.length(), on.length())
                         val baseIndex = (if (persona.isNotBlank()) 1 else 0) + (if (delegation) 1 else 0)

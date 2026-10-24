@@ -17,7 +17,9 @@ class AgentRequestOverheadTest {
         val silent = AgentRequestOverhead.estimate(c, onProtocolPreview = { withoutHosted = it })
         val silentWithHosted = AgentRequestOverhead.estimate(c.copy(hostedWebSearchEnabled = true),
             onProtocolPreview = { withHosted = it })
-        org.junit.Assert.assertEquals(silent, silentWithHosted)
+        // 开启托管搜索会多出一条系统提示（web_search 由服务端执行），静默开销随之变大；
+        // 这里钉住的是「协议预览单独统计，且放大的那部分确实来自托管工具」。
+        assertTrue(silentWithHosted > silent)
         assertTrue(withoutHosted > 0)
         assertTrue(withHosted > withoutHosted)
     }

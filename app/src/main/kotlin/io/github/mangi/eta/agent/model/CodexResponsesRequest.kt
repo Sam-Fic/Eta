@@ -15,8 +15,20 @@ internal object CodexResponsesRequest {
             include.put("reasoning.encrypted_content")
         }
         request.put("include", include)
+        // 官方 Codex 不认 "none"："关闭推理" 只能表达为回落到最小受支持档位，
+        // 直接把 none 发过去会被服务端拒（历史上就是这样丢过请求）。
+        request.optJSONObject("reasoning")?.let { reasoning ->
+            if (reasoning.optString("effort") == "none") {
+                reasoning.put("effort", codexFallbackEffort(config))
+                reasoning.put("summary", "auto")
+            }
+        }
         if (!request.has("parallel_tool_calls")) request.put("parallel_tool_calls", true)
     }
+
+    /** Codex 能接受的最低档：取模型支持列表里的第一档，没给能力表时用 medium。 */
+    private fun codexFallbackEffort(config: AgentModelClient.ModelConfig): String =
+        config.reasoningCapabilities?.supportedEfforts?.firstOrNull()?.wireValue ?: "medium"
 
     private val UNSUPPORTED_FIELDS = setOf("max_output_tokens", "max_tokens", "temperature", "top_p", "background", "conversation")
 }

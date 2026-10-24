@@ -3,6 +3,7 @@ package io.github.mangi.eta.agent.model
 import com.sun.net.httpserver.HttpServer
 import io.github.mangi.eta.agent.runtime.AgentRunController
 import io.github.mangi.eta.data.model.CustomBody
+import io.github.mangi.eta.data.model.ProviderAuthModes
 import io.github.mangi.eta.data.model.ModelReasoningCapabilities
 import io.github.mangi.eta.data.model.OpenAiEndpointMode
 import io.github.mangi.eta.data.model.ReasoningEffort
@@ -229,6 +230,8 @@ class OpenAiResponsesProviderTest {
     fun codexRequestIncludesEncryptedReasoningAndDropsMaxTokens() {
         val request = OpenAiResponsesProvider.buildRequestJson(
             config = config("https://chatgpt.com/backend-api/codex").copy(
+                // Codex 的请求约束只在订阅认证下生效。
+                authMode = ProviderAuthModes.OPENAI_CHATGPT,
                 summaryOutputLimit = 128000,
                 reasoningCapabilities = ModelReasoningCapabilities(
                     supportedEfforts = listOf(ReasoningEffort.MEDIUM),
@@ -243,7 +246,8 @@ class OpenAiResponsesProviderTest {
         assertEquals("reasoning.encrypted_content", request.getJSONArray("include").getString(0))
         assertFalse(request.has("max_output_tokens"))
         assertEquals("session-1", request.getString("prompt_cache_key"))
-        assertFalse(request.has("parallel_tool_calls"))
+        // 官方 Codex CLI 显式开并行调用；这里补齐后不再依赖服务端默认。
+        assertTrue(request.getBoolean("parallel_tool_calls"))
         assertFalse(request.getBoolean("store"))
         assertEquals("medium", request.getJSONObject("reasoning").getString("effort"))
         assertEquals("auto", request.getJSONObject("reasoning").getString("summary"))
@@ -272,6 +276,7 @@ class OpenAiResponsesProviderTest {
     fun codexRequestDoesNotSendNoneEffort() {
         val request = OpenAiResponsesProvider.buildRequestJson(
             config = config("https://chatgpt.com/backend-api/codex").copy(
+                authMode = ProviderAuthModes.OPENAI_CHATGPT,
                 reasoningCapabilities = ModelReasoningCapabilities(
                     supportedEfforts = listOf(ReasoningEffort.MEDIUM),
                     canDisable = true,

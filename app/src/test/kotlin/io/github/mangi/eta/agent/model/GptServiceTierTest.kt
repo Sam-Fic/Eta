@@ -3,6 +3,7 @@ package io.github.mangi.eta.agent.model
 import io.github.mangi.eta.data.model.CustomBody
 import io.github.mangi.eta.data.model.GptSpeedMode
 import io.github.mangi.eta.data.model.OpenAiEndpointMode
+import io.github.mangi.eta.data.model.ProviderAuthModes
 import io.github.mangi.eta.data.model.ProviderTypes
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -65,10 +66,12 @@ class GptServiceTierTest {
     }
 
     @Test fun codexUsesOfficialFastWireValueAndOmitsNormalAfterCustomBodyMerge() {
+        // Codex 判定现在看认证方式（订阅连接），不再看 baseUrl 是否像官方域名。
         for (baseUrl in listOf("https://chatgpt.com/backend-api/codex", "https://auth.openai.com")) {
             for (responses in listOf(false, true)) {
                 val original = config(GptSpeedMode.FAST).copy(
                     baseUrl = baseUrl,
+                    authMode = ProviderAuthModes.OPENAI_CHATGPT,
                     extraBodyJson = "{\"service_tier\":\"ultrafast\"}",
                     customBody = listOf(CustomBody("service_tier", JsonPrimitive("fast"))),
                 )
@@ -89,6 +92,7 @@ class GptServiceTierTest {
             val failure = runCatching {
                 build(config(GptSpeedMode.ULTRA_FAST).copy(
                     baseUrl = "https://chatgpt.com/backend-api/codex",
+                    authMode = ProviderAuthModes.OPENAI_CHATGPT,
                 ), responses)
             }.exceptionOrNull()
             assertTrue(failure is AgentModelFailure)
@@ -102,7 +106,13 @@ class GptServiceTierTest {
             val request = JSONObject("{\"model\":\"gpt-5\",\"reasoning\":{\"effort\":\"high\"},\"reasoning_effort\":\"high\"}")
             val before = request.toString()
             val outcome = runCatching {
-                GptServiceTier.apply(request, config(mode).copy(baseUrl = "https://chatgpt.com/backend-api/codex"))
+                GptServiceTier.apply(
+                    request,
+                    config(mode).copy(
+                        baseUrl = "https://chatgpt.com/backend-api/codex",
+                        authMode = ProviderAuthModes.OPENAI_CHATGPT,
+                    ),
+                )
             }
             if (mode == GptSpeedMode.ULTRA_FAST) {
                 assertTrue(outcome.exceptionOrNull() is AgentModelFailure)
@@ -117,6 +127,7 @@ class GptServiceTierTest {
     }
 
     @Test fun relayHostContainingCodexDoesNotReceiveOfficialMapping() {
+        // 判定依据是认证方式：API Key 走中转时，即使 baseUrl 长成官方 Codex 样子也不套官方档位。
         for (baseUrl in listOf("https://chatgpt.com.relay.example.invalid/backend-api/codex",
             "https://relay.example.invalid/backend-api/codex")) {
             assertEquals("fast", build(config(GptSpeedMode.FAST).copy(baseUrl = baseUrl), true)

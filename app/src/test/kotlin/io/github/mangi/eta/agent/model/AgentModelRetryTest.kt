@@ -31,6 +31,8 @@ class AgentModelRetryTest {
                         ResponsesRequestBuilder.build(AgentModelClient.ModelConfig(
                             baseUrl = "https://chatgpt.com/backend-api/codex", apiKey = "", model = "gpt-5",
                             systemPrompt = "", gptSpeedMode = io.github.mangi.eta.data.model.GptSpeedMode.ULTRA_FAST,
+                            // Codex 档位约束按认证方式判定。
+                            authMode = io.github.mangi.eta.data.model.ProviderAuthModes.OPENAI_CHATGPT,
                         ), JSONArray(), JSONArray())
                         fail("unsupported tier must fail before a request can be sent")
                         response()

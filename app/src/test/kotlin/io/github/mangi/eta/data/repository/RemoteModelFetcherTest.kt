@@ -48,7 +48,8 @@ class RemoteModelFetcherTest {
 
     @Test
     fun parsesCodexModelsCatalog() {
-        val models = RemoteModelFetcher.parseOpenAiModels(
+        // Codex 订阅目录用 models 字段（不是 OpenAI 兼容的 data）。
+        val models = RemoteModelFetcher.parseCodexModels(
             """
             {
               "models":[
@@ -56,16 +57,27 @@ class RemoteModelFetcherTest {
                   "slug":"gpt-5.4",
                   "display_name":"GPT-5.4",
                   "context_window":400000,
-                  "supported_in_api":true
+                  "supported_in_api":true,
+                  "visibility":"list",
+                  "supported_reasoning_levels":[{"effort":"low"},{"effort":"medium"},{"effort":"high"}],
+                  "default_reasoning_level":"medium"
                 },
                 {
                   "slug":"gpt-5.4-mini",
-                  "display_name":"GPT-5.4 Mini"
+                  "display_name":"GPT-5.4 Mini",
+                  "visibility":"list",
+                  "supported_reasoning_levels":[{"effort":"medium"}]
+                },
+                {
+                  "slug":"gpt-5.4-hidden",
+                  "display_name":"Hidden",
+                  "visibility":"hide"
                 }
               ]
             }
             """.trimIndent()
         )
+        // visibility=hide 的模型不进目录。
         assertEquals(listOf("gpt-5.4", "gpt-5.4-mini"), models.map { it.modelId })
         assertEquals("GPT-5.4", models.first().displayName)
         assertEquals(400000, models.first().contextWindow)
@@ -431,7 +443,7 @@ class RemoteModelFetcherTest {
         Model(id = modelId, modelId = modelId, displayName = modelId)
 
     @Test
-    fun parsesModelsDevReasoningOptionsEffortValues() {
+    fun parsesDeclaredReasoningEffortValues() {
         val model = RemoteModelFetcher.parseOpenAiModels(
             """
             {
@@ -439,9 +451,9 @@ class RemoteModelFetcherTest {
                 {
                   "id":"zhipuai/glm-5.2",
                   "reasoning": true,
-                  "reasoning_options":[
-                    {"type":"effort","values":["high","max"]}
-                  ]
+                  "reasoning":{
+                    "supported_efforts":["high","max"]
+                  }
                 }
               ]
             }

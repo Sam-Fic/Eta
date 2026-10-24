@@ -69,13 +69,15 @@ class ProviderReasoningTest {
     }
 
     @Test
-    fun openAiRejectsUnsupportedMaxEffort() {
-        assertThrows(IllegalArgumentException::class.java) {
-            ProviderReasoning.applyOpenAiCompatibleRequest(
-                JSONObject(),
-                config(source = ProviderSourceTypes.OPENAI, effort = ReasoningEffort.MAX),
-            )
-        }
+    fun openAiMaxEffortFollowsDeclaredCapabilities() {
+        // 档位是否可用由模型能力解析决定（ReasoningCapabilityResolver 统一放开全部档位），
+        // 请求编码层不再按 sourceType 硬拒 max —— 这里只验证「能力允许时原样下发」。
+        val request = JSONObject()
+        ProviderReasoning.applyOpenAiCompatibleRequest(
+            request,
+            config(source = ProviderSourceTypes.OPENAI, effort = ReasoningEffort.MAX),
+        )
+        assertEquals("max", request.getString("reasoning_effort"))
     }
 
     @Test
