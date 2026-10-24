@@ -131,6 +131,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
     private var activeRunId: String? = null
     private var entryGeneration = 0L
     private var presentedEntryGeneration = -1L
+    private var lastEntryPresentedAt = 0L
     private var screenContextAttachment: EtaScreenContextAttachment? = null
     private var hiddenForForegroundOperation = false
     private var handoffInProgress = false
@@ -223,6 +224,18 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
             return
         }
         performWakeHaptic()
+        // 系统助理会话在首帧附近可能重复回调 onShow。重复 SHOW 不能重新走入口流程：
+        // removeWindow + addView 会重建 Compose 组合，入场弹簧从头再播一遍，看起来
+        // 就是弹出动画播放了两遍。采集尚未结束时直接忽略；浮窗刚展示时只在入场动画
+        // 尚未结束的短窗口内忽略，之后仍允许用户再次唤起重置会话。
+        val now = SystemClock.uptimeMillis()
+        val entryInFlight = entryCaptureJob != null
+        val entryVisible = windowView != null
+        if (!exitAnimationRequested &&
+            (entryInFlight || (entryVisible && now - lastEntryPresentedAt < WAKE_ENTRY_DEDUPE_MS))
+        ) {
+            return
+        }
         cancelCurrentRun()
         entryCaptureJob?.cancel()
         removeWindow()
@@ -312,6 +325,8 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
             stopSelf()
             return
         }
+        // 记录入口浮窗展示时刻，供 [showEntry] 忽略紧随其后的重复 SHOW（入场弹簧还没播完）。
+        lastEntryPresentedAt = SystemClock.uptimeMillis()
         // 语音入口不弹键盘：两者同时出现会把系统 IME 的入场动画和语音条打架。
         if (Prefs.assistantEntryMode() == AssistantEntryMode.VOICE && startVoiceEntry()) return
         showKeyboard()
@@ -1295,6 +1310,12 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
          */
         private const val EXIT_ANIMATION_DURATION_MS = 240L
         private const val WAKE_HAPTIC_DEDUPE_MS = 500L
+
+        /**
+         * 入口浮窗展示后的动画保护窗口：系统助理会话在 onShow 附近可能重复下发 SHOW，
+         * 若直接重建浮窗会让入场弹簧重播一遍。此窗口内忽略重复 SHOW（略大于入场弹簧时长）。
+         */
+        private const val WAKE_ENTRY_DEDUPE_MS = 1_000L
         private const val HANDOFF_REQUEST_CODE = 0x455441
         private const val LEGACY_STOPPED_ERROR = "已停止"
         private const val SYNTHETIC_STOPPED = "eta_status:stopped"
