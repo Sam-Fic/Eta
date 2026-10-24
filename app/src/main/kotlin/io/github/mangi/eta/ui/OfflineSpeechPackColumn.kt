@@ -10,7 +10,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -22,7 +21,7 @@ import io.github.mangi.eta.agent.voice.offline.SpeechModelCatalog
 import io.github.mangi.eta.ui.adaptive.EtaClickableRow
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
-import io.github.mangi.eta.ui.adaptive.EtaExpressiveDialog
+import io.github.mangi.eta.ui.adaptive.EtaPickerSheet
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedDropdownRow
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedItemContainer
@@ -118,36 +117,32 @@ internal fun OfflineSpeechPackColumn(modifier: Modifier = Modifier) {
     }
 
     // 选中即提交（与相邻的资源选择弹窗一致），不再多一次「确认」。
-    // EtaExpressiveDialog 自身没有 show 开关（不同于 EtaDialog 的 `if (!show) return`），
-    // 必须由调用方用 modelPicker 控制是否组合，否则点「关闭」/系统返回键都无法移除它。
+    // 换用与模型选择面板同款的 EtaPickerSheet：底部弹层、下拉/点遮罩/返回键均可关闭，
+    // 因此不再需要右上角或底部的「关闭」按钮。
     if (modelPicker) {
-        EtaExpressiveDialog(
-            onDismissRequest = { modelPicker = false },
-            title = { Text(stringResource(R.string.speech_model)) },
-            confirmButton = {
-                TextButton(onClick = { modelPicker = false }) { Text(stringResource(R.string.action_close)) }
-            },
-            text = {
-                Column(
-                    modifier = Modifier.fillMaxWidth().heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
-                ) {
-                    EtaSegmentedColumn(modifier = Modifier.fillMaxWidth()) {
-                        SpeechModelCatalog.models.forEach { model ->
-                            item(key = model.id) {
-                                EtaSegmentedRadioRow(
-                                    title = speechModelLabel(model.id),
-                                    selected = model.id == state.model.id,
-                                    onClick = {
-                                        modelPicker = false
-                                        OfflineSpeechPack.select(context, model.id, state.source.id)
-                                    },
-                                )
-                            }
+        EtaPickerSheet(
+            title = stringResource(R.string.speech_model),
+            onDismiss = { modelPicker = false },
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth().heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
+            ) {
+                EtaSegmentedColumn(modifier = Modifier.fillMaxWidth()) {
+                    SpeechModelCatalog.models.forEach { model ->
+                        item(key = model.id) {
+                            EtaSegmentedRadioRow(
+                                title = speechModelLabel(model.id),
+                                selected = model.id == state.model.id,
+                                onClick = {
+                                    modelPicker = false
+                                    OfflineSpeechPack.select(context, model.id, state.source.id)
+                                },
+                            )
                         }
                     }
                 }
-            },
-        )
+            }
+        }
     }
     EtaDialog(
         show = confirmDownload,
