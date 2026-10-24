@@ -13,8 +13,11 @@ import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.rememberTransition
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -110,6 +113,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.asImageBitmap
@@ -453,6 +457,7 @@ internal fun ChatMessageItem(
     messageActionsEnabled: Boolean = true,
     branchEnabled: Boolean = true,
     isEditing: Boolean = false,
+    justSent: Boolean = false,
     isPaused: Boolean = false,
     enableLivePreview: Boolean = true,
     speechPreface: String = "",
@@ -468,6 +473,7 @@ internal fun ChatMessageItem(
             actionsEnabled = messageActionsEnabled,
             branchEnabled = branchEnabled,
             isEditing = isEditing,
+            justSent = justSent,
             position = userBubblePosition,
             onEdit = { actions.onEditMessage(message.id) },
             onDelete = { actions.onDeleteMessage(message.id) },
@@ -769,6 +775,13 @@ internal fun userBubbleNeedsFold(lineCount: Int): Boolean = lineCount > UserBubb
 internal fun userBubbleBodyMaxLines(collapsed: Boolean): Int =
     if (collapsed) UserBubbleFoldLineLimit else Int.MAX_VALUE
 
+/**
+ * 发送入场：气泡从输入框方向轻上浮 10dp 并放大 0.96→1。
+ * 只动绘制层（透明度 / 缩放 / 位移），不改高度——列表跟底锚定，高度一动就会推走滚动位置。
+ */
+private val UserBubbleEntranceRise = 10.dp
+private const val UserBubbleEntranceScale = 0.96f
+
 /** 图片附件单张边长（正方形）；一组图里每张一样大。 */
 private val UserBubbleImageSide = 100.dp
 
@@ -976,6 +989,7 @@ private fun UserMessageBubble(
     actionsEnabled: Boolean,
     branchEnabled: Boolean,
     isEditing: Boolean,
+    justSent: Boolean,
     position: UserBubblePosition,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -1008,6 +1022,24 @@ private fun UserMessageBubble(
     }
     val view = LocalView.current
 
+    // 发送入场：首帧停在「未落定」，随后按官方规格落定；历史消息一开始就是落定态，不播。
+    val entrance = remember { MutableTransitionState(initialState = !justSent) }
+    SideEffect { entrance.targetState = true }
+    val entranceTransition = rememberTransition(entrance, label = "user_bubble_entrance")
+    // 淡化属 Effects（无过冲），缩放与上浮属 Spatial（轻微过冲）。
+    val entranceAlpha by entranceTransition.animateFloat(
+        transitionSpec = { MaterialTheme.motionScheme.defaultEffectsSpec() },
+        label = "user_bubble_entrance_alpha",
+    ) { landed -> if (landed) 1f else 0f }
+    val entranceScale by entranceTransition.animateFloat(
+        transitionSpec = { MaterialTheme.motionScheme.defaultSpatialSpec() },
+        label = "user_bubble_entrance_scale",
+    ) { landed -> if (landed) 1f else UserBubbleEntranceScale }
+    val entranceRise by entranceTransition.animateDp(
+        transitionSpec = { MaterialTheme.motionScheme.defaultSpatialSpec() },
+        label = "user_bubble_entrance_rise",
+    ) { landed -> if (landed) 0.dp else UserBubbleEntranceRise }
+
     // 组尾（含单条）承载右下角尾巴，并独占可展开的操作行；避免多个空操作行常驻。
     val isGroupTail = position == UserBubblePosition.Single || position == UserBubblePosition.GroupLast
     var actionsRevealed by rememberSaveable(message.id) { mutableStateOf(false) }
@@ -1025,6 +1057,17 @@ private fun UserMessageBubble(
 
     Column(
         modifier = modifier
+            // 入场只动绘制层：高度不参与，跟底锚定的滚动位置因此不会被推走。
+            // 这层必须包住外圈留白：气泡尾巴是按「节点比本体宽一段」画到内容右缘之外的，
+            // 半透明合成会给该层开离屏缓冲，缓冲尺寸只到内容右缘，尾巴就在动画期间被裁掉。
+            .graphicsLayer {
+                alpha = entranceAlpha
+                scaleX = entranceScale
+                scaleY = entranceScale
+                translationY = entranceRise.toPx()
+                // 缩放锚在气泡右下角（尾巴那一侧），放大量正好朝发送方向展开。
+                transformOrigin = TransformOrigin(1f, 1f)
+            }
             .streamDiagnosticMeasure("render.userBubble.measure", diagnosticRow)
             .streamDiagnosticDraw("render.userBubble.draw", diagnosticRow)
             .fillMaxWidth()
@@ -1295,36 +1338,49 @@ private fun UserMessageBubble(
                             )
                         }
                     }
-                    if (bodyFoldable) {
-                        // 展开 / 收起：官方 TextButton 自带最小触控高度、涟漪与主色标签。
-                        // 展开会往下长出正文，先解除跟底锚定，尾部才不会被静止线裁掉。
-                        TextButton(
-                            onClick = {
-                                TouchHaptics.click(view)
-                                if (!userTextExpanded) releaseAnchor()
-                                userTextExpanded = !userTextExpanded
+                    // 折叠入口与「已编辑」提示同排：提示贴左、展开/收起贴右，垂直居中对齐，
+                    // 两者同时出现时不额外占一行。只有提示时仍按原来的说明位（窄行 + 顶部留白）。
+                    if (bodyFoldable || message.isEdited) {
+                        Row(
+                            modifier = if (bodyFoldable) {
+                                // 折叠态正文本来就顶到宽度上限，铺满才能把按钮推到气泡右缘。
+                                Modifier.fillMaxWidth()
+                            } else {
+                                Modifier.padding(top = 4.dp)
                             },
-                            modifier = Modifier.align(Alignment.End),
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(
-                                text = stringResource(
-                                    if (userTextExpanded) {
-                                        R.string.cmi_fold_collapse
-                                    } else {
-                                        R.string.cmi_fold_expand
+                            if (message.isEdited) {
+                                Text(
+                                    text = stringResource(R.string.ui_edited_c36776),
+                                    style = chatTertiaryStyle(),
+                                    color = etaOnSurfaceVariant(),
+                                )
+                            }
+                            if (bodyFoldable) {
+                                Spacer(Modifier.weight(1f))
+                                // 展开 / 收起：官方 TextButton 自带最小触控高度、涟漪与主色标签。
+                                // 展开会往下长出正文，先解除跟底锚定，尾部才不会被静止线裁掉。
+                                TextButton(
+                                    onClick = {
+                                        TouchHaptics.click(view)
+                                        if (!userTextExpanded) releaseAnchor()
+                                        userTextExpanded = !userTextExpanded
                                     },
-                                ),
-                                style = chatSecondaryStyle(),
-                            )
+                                ) {
+                                    Text(
+                                        text = stringResource(
+                                            if (userTextExpanded) {
+                                                R.string.cmi_fold_collapse
+                                            } else {
+                                                R.string.cmi_fold_expand
+                                            },
+                                        ),
+                                        style = chatSecondaryStyle(),
+                                    )
+                                }
+                            }
                         }
-                    }
-                    if (message.isEdited) {
-                        Text(
-                            text = stringResource(R.string.ui_edited_c36776),
-                            style = chatTertiaryStyle(),
-                            color = etaOnSurfaceVariant(),
-                            modifier = Modifier.padding(top = 4.dp),
-                        )
                     }
                 }
             }

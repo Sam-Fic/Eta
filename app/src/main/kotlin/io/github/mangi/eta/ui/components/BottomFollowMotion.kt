@@ -3,11 +3,18 @@ package io.github.mangi.eta.ui.components
 import kotlin.math.min
 import kotlin.math.sqrt
 
-/** Stateful follow motion: target jumps do not become velocity jumps. Units are px/s. */
+/**
+ * Stateful follow motion: target jumps do not become velocity jumps. Units are px/s.
+ *
+ * The target speed is `remaining / durationSeconds`, so the curve speeds up while the
+ * gap is wide and lets go as it closes: new content starts from rest and lands softly
+ * instead of being pushed at one constant rate. The speed ceiling only matters for
+ * whole-screen gaps; a line height never reaches it.
+ */
 internal class BottomFollowMotion(
-    private val maxSpeedPxPerSecond: Float = 720f,
+    private val maxSpeedPxPerSecond: Float = 1600f,
     private val accelerationPxPerSecondSquared: Float = 2400f,
-    private val durationSeconds: Float = 0.16f,
+    private val durationSeconds: Float = 0.24f,
     private val finishEpsilonPx: Float = 0.5f,
 ) {
     var velocityPxPerSecond = 0f

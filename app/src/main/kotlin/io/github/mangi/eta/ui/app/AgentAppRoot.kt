@@ -695,6 +695,8 @@ fun AgentAppRoot(
                         isDrawerOpen = conversationPaneOpen,
                         scrollToMessageId = agentState.pendingScrollToMessageId,
                         onScrollToMessageConsumed = agentState::consumePendingScrollToMessage,
+                        sentUserMessageEntranceId = agentState.sentUserMessageEntranceId,
+                        onSentUserMessageEntranceConsumed = agentState::consumeSentUserMessageEntrance,
                     )
                 }
             }
@@ -768,6 +770,8 @@ fun AgentAppRoot(
                         },
                         scrollToMessageId = agentState.pendingScrollToMessageId,
                         onScrollToMessageConsumed = agentState::consumePendingScrollToMessage,
+                        sentUserMessageEntranceId = agentState.sentUserMessageEntranceId,
+                        onSentUserMessageEntranceConsumed = agentState::consumeSentUserMessageEntrance,
                     )
                 }
             }

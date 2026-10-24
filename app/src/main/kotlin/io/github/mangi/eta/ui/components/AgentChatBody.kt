@@ -1,9 +1,12 @@
 package io.github.mangi.eta.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -289,6 +292,9 @@ internal fun AgentChatBody(
     isDrawerOpen: Boolean = false,
     scrollToMessageId: String? = null,
     onScrollToMessageConsumed: () -> Unit = {},
+    /** 本机刚发出的用户消息 id：该气泡首帧自己播入场，播完由 [onSentUserMessageEntranceConsumed] 作废。 */
+    sentUserMessageEntranceId: String? = null,
+    onSentUserMessageEntranceConsumed: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val chatComposeStartedNs = if (StreamPerformanceDiagnostics.enabled) System.nanoTime() else 0L
@@ -502,7 +508,11 @@ internal fun AgentChatBody(
                         val last = scrollState.layoutInfo.totalItemsCount - 1
                         // 回到底部走平滑动画：跨项用翻页曲线赶路，可见差额用弹簧逐像素收拢，
                         // 末尾仍由 settle 内的精修收在精确贴底，替换原来的瞬跳定位。
-                        if (last >= 0) settleListToBottom(scrollState, last)
+                        if (last >= 0) settleListToBottom(
+                            scrollState,
+                            last,
+                            scrollSpec = ChatSendSettleSpec,
+                        )
                     }
                 },
                 onReasoningEffortChange = onReasoningEffortChange,
@@ -536,6 +546,8 @@ internal fun AgentChatBody(
                 currentBrowserMessageId = currentBrowserMessageId,
                 scrollToMessageId = scrollToMessageId,
                 onScrollToMessageConsumed = onScrollToMessageConsumed,
+                sentUserMessageEntranceId = sentUserMessageEntranceId,
+                onSentUserMessageEntranceConsumed = onSentUserMessageEntranceConsumed,
                 modifier = modifier,
             )
         }
@@ -612,6 +624,8 @@ internal fun AgentChatScaffold(
     currentBrowserMessageId: String?,
     scrollToMessageId: String? = null,
     onScrollToMessageConsumed: () -> Unit = {},
+    sentUserMessageEntranceId: String? = null,
+    onSentUserMessageEntranceConsumed: (String) -> Unit = {},
     gptSpeedMode: io.github.mangi.eta.data.model.GptSpeedMode = io.github.mangi.eta.data.model.GptSpeedMode.NORMAL,
     onCycleGptSpeedMode: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -758,6 +772,8 @@ internal fun AgentChatScaffold(
                 currentBrowserMessageId = currentBrowserMessageId,
                 scrollToMessageId = scrollToMessageId,
                 onScrollToMessageConsumed = onScrollToMessageConsumed,
+                sentUserMessageEntranceId = sentUserMessageEntranceId,
+                onSentUserMessageEntranceConsumed = onSentUserMessageEntranceConsumed,
                 modifier = Modifier
                     .fillMaxSize(),
             )
@@ -795,6 +811,8 @@ internal fun AgentConversationMessages(
     currentBrowserMessageId: String? = null,
     scrollToMessageId: String? = null,
     onScrollToMessageConsumed: () -> Unit = {},
+    sentUserMessageEntranceId: String? = null,
+    onSentUserMessageEntranceConsumed: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -1440,10 +1458,9 @@ internal fun AgentConversationMessages(
             }
             if (remainingDistancePx <= 0f) continue
             val frameNanos = withFrameNanos { it }
-            val frameGapSeconds = previousFrameNanos?.let { previous ->
+            previousFrameNanos?.let { previous ->
                 StreamPerformanceDiagnostics.record("follow.frameGap", frameNanos - previous)
-                (frameNanos - previous) / 1_000_000_000f
-            } ?: 0f
+            }
             previousFrameNanos = frameNanos
             while (true) {
                 accept(bottomFollowDecisions.tryReceive().getOrNull() ?: break)
@@ -1453,7 +1470,8 @@ internal fun AgentConversationMessages(
                 continue
             }
             val snapping = System.nanoTime() < bottomSnapUntilNanos
-            val latestOverflow = scrollState.layoutInfo.measuredTailOverflow()
+            val layout = scrollState.layoutInfo
+            val latestOverflow = layout.measuredTailOverflow()
             val expansionOwnsViewport = viewportRecovery.hasActiveExpansion(canOwnWorkExpansionViewport())
             if (expansionOwnsViewport && latestOverflow == null) {
                 // The measured-anchor owner recovers unknown-tail expansion. Do not let the
@@ -1469,24 +1487,19 @@ internal fun AgentConversationMessages(
                 motion.reset()
                 remainingDistancePx
             } else {
-                val smoothStep = motion.step(remainingDistancePx, frameNanos, densityScale)
-                val layout = scrollState.layoutInfo
-                // 绘制上提不能超过列表底部留白。超出缓冲的差额按本帧追赶预算逐步补掉，
-                // 不再一帧滚完：新内容一次性长高时视口平滑追上而不是瞬跳；其余仍由原
-                // 速度控制器平滑追赶；工作展开期间仍由展开的所有权整段回收，不受预算限制。
-                // 再收成整像素，避免小数滚动和整数上提把卡片底边顶开 1 像素。
+                // 超出绘制缓冲的差额也并进同一个速度控制器：一次性长高（工具卡片、
+                // 整段正文）同样从静止起步、按加速度先快后慢地追上，收尾时速度随
+                // 剩余距离一起回落。以前这段按固定速度逐帧推，长得越多越像匀速硬推。
+                val catchUpPx = latestOverflow
+                    ?.let { (it - layout.afterContentPadding).coerceAtLeast(0) }
+                    ?: 0
+                val followDistancePx = maxOf(remainingDistancePx, catchUpPx.toFloat())
+                val smoothStep = motion.step(followDistancePx, frameNanos, densityScale)
                 snapFollowScrollStep(
-                    resolveBottomFollowViewportStep(
-                        smoothStepPx = smoothStep,
-                        measuredOverflowPx = layout.measuredTailOverflow(),
-                        afterContentPaddingPx = layout.afterContentPadding,
-                        maxCatchUpPx = if (expansionOwnsViewport) {
-                            Float.MAX_VALUE
-                        } else {
-                            followCatchUpBudgetPx(frameGapSeconds, densityScale)
-                        },
-                    ),
-                    remainingDistancePx,
+                    // 实测溢出优先：追赶永远不滚过尾部的真实差额。
+                    latestOverflow?.let { minOf(smoothStep, it.coerceAtLeast(0).toFloat()) }
+                        ?: smoothStep,
+                    followDistancePx,
                 )
             }
             // Within the draw buffer, the first frame still only establishes timing.
@@ -1754,6 +1767,13 @@ internal fun AgentConversationMessages(
                     // New message keys still get the normal fade; work height animation is unchanged.
                     remember(entry.key, workExpansionOverrides) { appearedMessageKeys.add(entry.key) }
                 } else false
+                // 刚发出的用户气泡：入场交给气泡自己演（轻上浮 + 淡入），列表层不再叠一遍淡入。
+                // 记在行内：入场作废后这行不重算，避免透明度被两段动画相乘。
+                val sentEntrance = remember(entry.key) {
+                    entry is AgentTimelineRow.Message &&
+                        entry.message is UserMessageUi &&
+                        entry.message.id == sentUserMessageEntranceId
+                }
                 Column(
                     modifier = Modifier
                         .streamDiagnosticMeasure("row.measure", diagnosticRow)
@@ -1761,7 +1781,7 @@ internal fun AgentConversationMessages(
                         .streamDiagnosticDraw("row.draw", diagnosticRow)
                         .fillMaxWidth().then(
                         if (entry is AgentTimelineRow.Message) Modifier.animateItem(
-                            fadeInSpec = if (firstMessageAppearance) chatMessageFadeInSpec() else null,
+                            fadeInSpec = if (firstMessageAppearance && !sentEntrance) chatMessageFadeInSpec() else null,
                             placementSpec = null,
                             fadeOutSpec = null,
                         ) else Modifier,
@@ -1770,6 +1790,10 @@ internal fun AgentConversationMessages(
                 when (entry) {
                     is AgentTimelineRow.Message -> {
                         val message = entry.message
+                        if (sentEntrance) {
+                            // 播过即作废：滚动回收后重新组合不再重播。
+                            LaunchedEffect(message.id) { onSentUserMessageEntranceConsumed(message.id) }
+                        }
                         ChatMessageItem(
                             message = message,
                             speechPreface = "",
@@ -1799,6 +1823,7 @@ internal fun AgentConversationMessages(
                             messageActionsEnabled = message is UserMessageUi && messageActionsEnabled && !isStreaming && !isPaused,
                             branchEnabled = message is UserMessageUi && branchEnabled,
                             isEditing = message is UserMessageUi && message.id == editTargetMessageId,
+                            justSent = sentEntrance,
                             userBubblePosition = userBubblePositions[message.id]
                                 ?: UserBubblePosition.Single,
                             isPaused = isPaused,
@@ -2410,6 +2435,15 @@ private const val CHAT_CACHE_BEHIND_VIEWPORTS = 1f
 private const val ChatBottomSentinelKey = "agent-chat-bottom-sentinel"
 private const val ChatContextCompressingKey = "agent-chat-context-compressing"
 
+/**
+ * 发送后回底：差额通常只有一个气泡高，默认 spring() 刚度很高（1500），几十毫秒就顶到位，
+ * 和气泡自己的入场节奏对不上，看起来是页面被硬推了一下。这里换成同档位的软弹簧，仍无过冲。
+ */
+private val ChatSendSettleSpec = spring<Float>(
+    dampingRatio = Spring.DampingRatioNoBouncy,
+    stiffness = 700f,
+)
+
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ContextCompressingIndicator(waiting: Boolean = false, modelName: String = "", modifier: Modifier = Modifier) {
@@ -2547,6 +2581,7 @@ internal fun AnchorChatTailOnViewportChange(
 private suspend fun settleListToBottom(
     scrollState: LazyListState,
     bottomItemIndex: Int,
+    scrollSpec: AnimationSpec<Float> = spring(),
     canPosition: () -> Boolean = { true },
 ) {
     if (!canPosition()) return
@@ -2562,7 +2597,10 @@ private suspend fun settleListToBottom(
     )
     when {
         decision.requestIndex != null -> scrollState.animateToConversationTurn(decision.requestIndex)
-        decision.scrollByPx != 0 -> scrollState.animateScrollBy(decision.scrollByPx.toFloat())
+        decision.scrollByPx != 0 -> scrollState.animateScrollBy(
+            decision.scrollByPx.toFloat(),
+            animationSpec = scrollSpec,
+        )
     }
     if (canPosition()) snapListToBottom(scrollState, bottomItemIndex, canPosition)
 }

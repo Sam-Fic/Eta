@@ -16,13 +16,16 @@ class ChatTailRecoveryContractTest(unittest.TestCase):
 
     def test_recovery_uses_fresh_uncapped_layout_before_real_scroll(self):
         code = self.controller
-        self.assertEqual(1, code.count('resolveBottomFollowViewportStep('))
         anchors = ['withFrameNanos', 'val layout = scrollState.layoutInfo',
-                   'resolveBottomFollowViewportStep(', 'scrollState.scroll {', 'scrollBy(currentStep)']
+                   'layout.measuredTailOverflow()', 'snapFollowScrollStep(',
+                   'scrollState.scroll {', 'scrollBy(currentStep)']
         positions = [code.index(anchor) for anchor in anchors]
         self.assertEqual(sorted(positions), positions)
-        self.assertIn('measuredOverflowPx = layout.measuredTailOverflow()', code)
-        self.assertIn('afterContentPaddingPx = layout.afterContentPadding', code)
+        # 超出绘制缓冲的差额并进同一条速度曲线，追赶本身也是先加速后减速。
+        self.assertIn('catchUpPx = latestOverflow', code)
+        self.assertIn('(it - layout.afterContentPadding).coerceAtLeast(0)', code)
+        self.assertIn('val followDistancePx = maxOf(remainingDistancePx, catchUpPx.toFloat())', code)
+        self.assertIn('motion.step(followDistancePx, frameNanos, densityScale)', code)
         self.assertNotIn('followTailOverflow()', code)
 
     def test_recovery_keeps_user_and_navigation_interrupt_guards(self):
@@ -62,9 +65,8 @@ class ChatTailRecoveryContractTest(unittest.TestCase):
     def test_follow_step_is_snapped_to_whole_pixels_and_card_ink_stays_inside(self):
         code = self.controller
         call = code.index('snapFollowScrollStep(')
-        inner = code.index('resolveBottomFollowViewportStep(', call)
-        self.assertLess(call, inner)
-        self.assertLess(inner, code.index('scrollBy(currentStep)', inner))
+        self.assertLess(call, code.index('scrollState.scroll {', call))
+        self.assertLess(call, code.index('scrollBy(currentStep)', call))
         reveal = (COMPONENTS / 'SmoothTextReveal.kt').read_text()
         draw = reveal.split('override fun ContentDrawScope.draw() {', 1)[1].split('private fun ContentDrawScope.drawInsideMeasuredHeight', 1)[0]
         self.assertIn('clipRect(left = 0f, top = 0f, right = size.width, bottom = size.height)', draw)

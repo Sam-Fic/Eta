@@ -64,6 +64,11 @@ class UserBubbleFoldTest {
         .size
         .height
 
+    private fun textBounds(text: String) = compose
+        .onNodeWithText(text)
+        .fetchSemanticsNode()
+        .boundsInRoot
+
     @Test
     fun longMessageStartsFoldedAndExpandsOnDemand() {
         // 16 行：折叠到 6 行是明显变矮，展开后又仍在 1000dp 的测试视口内，
@@ -106,6 +111,24 @@ class UserBubbleFoldTest {
         assertEquals(content, UserMessageUi(id = "long", content = content).content)
         host(UserMessageUi(id = "long", content = content))
         compose.onNodeWithText(strings().getString(R.string.cmi_fold_expand)).assertIsDisplayed()
+    }
+
+    @Test
+    fun editedBadgeSharesTheFoldRowWithTheExpandToggle() {
+        // 已编辑 + 折叠入口同时出现时排在同一行：纵向居中对齐，提示在左、按钮在右。
+        host(UserMessageUi(id = "long", content = longMessage(16), isEdited = true))
+
+        val edited = textBounds(strings().getString(R.string.ui_edited_c36776))
+        val expand = textBounds(strings().getString(R.string.cmi_fold_expand))
+
+        assertTrue(
+            "两者纵向区间应重叠：edited=$edited expand=$expand",
+            edited.top < expand.bottom && edited.bottom > expand.top,
+        )
+        assertTrue(
+            "提示应落在按钮左侧：edited=$edited expand=$expand",
+            edited.right <= expand.left,
+        )
     }
 
     @Test

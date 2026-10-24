@@ -37,6 +37,8 @@ internal fun AgentChatScreen(
     onAction: (AgentChatAction) -> Unit,
     scrollToMessageId: String? = null,
     onScrollToMessageConsumed: () -> Unit = {},
+    sentUserMessageEntranceId: String? = null,
+    onSentUserMessageEntranceConsumed: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val voiceController = rememberChatVoiceController(conversationKey) { text ->
@@ -115,6 +117,8 @@ internal fun AgentChatScreen(
             onCycleGptSpeedMode = { onAction(AgentChatAction.CycleGptSpeedMode) },
             scrollToMessageId = scrollToMessageId,
             onScrollToMessageConsumed = onScrollToMessageConsumed,
+            sentUserMessageEntranceId = sentUserMessageEntranceId,
+            onSentUserMessageEntranceConsumed = onSentUserMessageEntranceConsumed,
             modifier = modifier,
         )
     }

@@ -40,6 +40,8 @@ internal fun AgentHomeScreen(
     isDrawerOpen: Boolean = false,
     scrollToMessageId: String? = null,
     onScrollToMessageConsumed: () -> Unit = {},
+    sentUserMessageEntranceId: String? = null,
+    onSentUserMessageEntranceConsumed: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val voiceController = rememberChatVoiceController(conversationKey) { text ->
@@ -121,6 +123,8 @@ internal fun AgentHomeScreen(
             isDrawerOpen = isDrawerOpen,
             scrollToMessageId = scrollToMessageId,
             onScrollToMessageConsumed = onScrollToMessageConsumed,
+            sentUserMessageEntranceId = sentUserMessageEntranceId,
+            onSentUserMessageEntranceConsumed = onSentUserMessageEntranceConsumed,
             modifier = modifier,
         )
     }

@@ -218,6 +218,17 @@ internal class AgentAppState(
     val queuedMessages: List<QueuedMessageUi>
         get() = selectedConversationId?.let { queuedMessagesByConversation[it] }.orEmpty()
 
+    /**
+     * 最近一次本机发送的用户消息 id：气泡入场只播一次，播过由界面消费清空。
+     * 新会话首条发送会重建聊天舞台的组合边界，靠列表比对判断「刚追加」会漏掉这条。
+     */
+    var sentUserMessageEntranceId by mutableStateOf<String?>(null)
+        private set
+
+    fun consumeSentUserMessageEntrance(id: String) {
+        if (sentUserMessageEntranceId == id) sentUserMessageEntranceId = null
+    }
+
     private val skillZipImportGateway = skillZipImportGateway ?: CoreSkillZipImportGateway(appContext)
     private val runConversationIds = mutableMapOf<String, String>()
     private val runUsageResumeRounds = mutableMapOf<String, Int>()
@@ -2867,6 +2878,8 @@ internal class AgentAppState(
             imageDurationsMs = uiImages.map { it.durationMs },
         )
         val messages = if (editBoundary == null) {
+            // 编辑保存沿用原气泡、原位替换，不算「新发出的一条」；只有全新发送才标记入场。
+            sentUserMessageEntranceId = userMessage.id
             homeState.messages + userMessage
         } else {
             homeState.messages.take(editBoundary.userMessageIndex) + userMessage

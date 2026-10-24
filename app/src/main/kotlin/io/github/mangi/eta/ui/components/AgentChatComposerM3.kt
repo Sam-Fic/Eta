@@ -113,6 +113,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -1169,6 +1170,9 @@ private data class ComposerMenuEntry(
 /** 「+」菜单的分组数（对话操作 / 附件来源）。 */
 private const val COMPOSER_MENU_GROUP_COUNT = 2
 
+/** 发送按钮按下时的绘制缩放：只收视觉，不缩触控区。 */
+private const val ComposerSendPressScale = 0.9f
+
 /**
  * 发送 / 停止 / 继续 按钮：按状态直接选用官方图标按钮
  * （停止＝`FilledTonalIconButton`、发送/继续＝`FilledIconButton`、
@@ -1194,6 +1198,15 @@ private fun M3ComposerSendButton(
         "continue" -> stringResource(R.string.chat_continue)
         else -> stringResource(R.string.chat_send)
     }
+    // 按压收缩：只叠一层绘制期缩放，交出去时有「按下去」的手感；
+    // 形状、容器色、水波纹与按压形变仍取官方默认值。
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(
+        targetValue = if (pressed) ComposerSendPressScale else 1f,
+        animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+        label = "composer_send_press_scale",
+    )
     val content: @Composable () -> Unit = {
         Icon(
             imageVector = when (sendMode) {
@@ -1227,13 +1240,38 @@ private fun M3ComposerSendButton(
     }
     val modifier = Modifier
         .size(IconButtonDefaults.smallContainerSize())
+        .graphicsLayer {
+            scaleX = pressScale
+            scaleY = pressScale
+        }
         .then(abortModifier)
 
     when (sendMode) {
-        "stop" -> FilledTonalIconButton(onClick = click, modifier = modifier, content = content)
-        "continue", "send" -> FilledIconButton(onClick = click, modifier = modifier, content = content)
-        "blocked" -> OutlinedIconButton(onClick = click, modifier = modifier, content = content)
-        else -> IconButton(onClick = click, modifier = modifier, enabled = false, content = content)
+        "stop" -> FilledTonalIconButton(
+            onClick = click,
+            modifier = modifier,
+            interactionSource = interactionSource,
+            content = content,
+        )
+        "continue", "send" -> FilledIconButton(
+            onClick = click,
+            modifier = modifier,
+            interactionSource = interactionSource,
+            content = content,
+        )
+        "blocked" -> OutlinedIconButton(
+            onClick = click,
+            modifier = modifier,
+            interactionSource = interactionSource,
+            content = content,
+        )
+        else -> IconButton(
+            onClick = click,
+            modifier = modifier,
+            enabled = false,
+            interactionSource = interactionSource,
+            content = content,
+        )
     }
 }
 
