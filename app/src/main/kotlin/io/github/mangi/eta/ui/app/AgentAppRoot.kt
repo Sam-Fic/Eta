@@ -689,6 +689,8 @@ fun AgentAppRoot(
                                 is AgentHomeAction.EditAssistant -> pushRoute(AppRoute.AssistantEdit(action.id))
                                 AgentHomeAction.OpenModelProviders -> pushRoute(AppRoute.ModelProviders)
                                 AgentHomeAction.OpenAssistants -> pushRoute(AppRoute.Assistants())
+                                // 长按「助手与模型」入口复用设置页的子代理配置页，不单独做页面。
+                                AgentHomeAction.OpenSubAgentSettings -> pushRoute(AppRoute.SubAgents)
                                 AgentHomeAction.ExpandRunTrace -> Unit
                             }
                         },
@@ -738,6 +740,8 @@ fun AgentAppRoot(
                                 is AgentChatAction.EditAssistant -> pushRoute(AppRoute.AssistantEdit(action.id))
                                 AgentChatAction.OpenModelProviders -> pushRoute(AppRoute.ModelProviders)
                                 AgentChatAction.OpenAssistants -> pushRoute(AppRoute.Assistants())
+                                // 长按「助手与模型」入口复用设置页的子代理配置页，不单独做页面。
+                                AgentChatAction.OpenSubAgentSettings -> pushRoute(AppRoute.SubAgents)
                                 is AgentChatAction.ImageAttached -> agentState.attachImage(action.uri)
                                 is AgentChatAction.VideoAttached -> agentState.attachVideo(action.uri)
                                 is AgentChatAction.RemoveImage -> agentState.removePendingImage(action.id)

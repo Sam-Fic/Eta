@@ -15,7 +15,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -453,6 +455,20 @@ class M3ComposerToolbarLayoutTest {
     }
 
     /**
+     * 长按「助手与模型」入口：进入设置页的子代理配置页（预设组列表 / 预设详情）。
+     *
+     * 子代理配置只保留设置页一套页面，输入栏不再单独承载一套会话协作页。
+     */
+    @Test fun longPressOnModelPickerEntryOpensSubAgentSettingsPage() {
+        val field = TextFieldState()
+        val voiceStateHolder = mutableStateOf(VoiceModeState())
+        var opened = 0
+        compose.setComposerContent(field, voiceStateHolder, onOpenSubAgentSettings = { opened++ })
+        compose.onNodeWithContentDescription("Model & assistant").performTouchInput { longClick() }
+        compose.runOnIdle { assertEquals("长按应进入设置页的子代理配置页", 1, opened) }
+    }
+
+    /**
      * 只统计停止圆钮容器色（[stopColor]）像素的横向跨度（px，@mdpi 下 1dp = 1px）。
      *
      * 透明度是整圆均匀的，因此纯淡入淡出只会给出 0 或满宽；带缩放才能给出中间宽度。
@@ -493,6 +509,7 @@ class M3ComposerToolbarLayoutTest {
         voiceStateHolder: MutableState<VoiceModeState>,
         imeVisible: MutableState<Boolean> = mutableStateOf(false),
         colorScheme: androidx.compose.material3.ColorScheme = lightColorScheme(),
+        onOpenSubAgentSettings: () -> Unit = {},
     ) {
         setContent {
             MaterialExpressiveTheme(
@@ -535,6 +552,7 @@ class M3ComposerToolbarLayoutTest {
                     onAttachFolder = {},
                     onAttachFilePath = {},
                     onEditAssistant = {},
+                    onOpenSubAgentSettings = onOpenSubAgentSettings,
                     onAssistantSelected = {},
                     onModelSelected = { _, _ -> },
                     onReasoningEffortChange = {},
