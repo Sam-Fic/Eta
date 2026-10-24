@@ -313,6 +313,7 @@ internal fun AssistantRow(
     var menuExpanded by remember { mutableStateOf(false) }
     EtaSegmentedRow(
         selected = selected,
+        choiceRow = true,
         onClick = onOpen,
         modifier = modifier.fillMaxWidth(),
         leadingContent = { AssistantAvatar(assistant = profile, size = 32.dp) },

@@ -1,10 +1,7 @@
 package io.github.mangi.eta.ui.app
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountTree
 import androidx.compose.material.icons.rounded.Compress
@@ -20,11 +17,9 @@ import androidx.compose.material.icons.rounded.Summarize
 import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -32,29 +27,26 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.DpOffset
-import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.config.InteractiveModePreference
+import io.github.mangi.eta.ui.adaptive.EtaExpressiveSwitch
+import io.github.mangi.eta.ui.adaptive.EtaMenuDivider
+import io.github.mangi.eta.ui.adaptive.EtaMenuGroup
 import io.github.mangi.eta.ui.adaptive.EtaMenuItemShape
-import io.github.mangi.eta.ui.components.EtaDropdownMenu
-import io.github.mangi.eta.ui.components.rememberEtaMenuState
+import io.github.mangi.eta.ui.adaptive.EtaMenuPopup
+import io.github.mangi.eta.ui.adaptive.EtaSwitch
 import io.github.mangi.eta.ui.components.rememberInteractiveModeEnabled
 import io.github.mangi.eta.ui.haptics.TouchHaptics
-
-private val TopBarMenuIconSize = 24.dp
-private val CompactMenuItemModifier = Modifier.height(40.dp)
-private val CompactMenuItemPadding = PaddingValues(horizontal = 12.dp)
 
 /**
  * 顶栏溢出菜单（more 图标 + 菜单）。
  *
- * 菜单项本身由 [TopBarMenuItems] 提供，首页的 M3 Expressive 拆分按钮菜单复用同一套条目。
+ * 与首页 M3 拆分按钮菜单共用 [TopBarMenuItems]；弹层统一走 [EtaMenuPopup]，
+ * 条目排版、分组圆角与组间距全部取官方 Expressive 令牌（与「模型自建工具」的溢出菜单同款）。
  */
 @Composable
 internal fun TopBarOverflowMenu(
@@ -77,7 +69,7 @@ internal fun TopBarOverflowMenu(
     canDeleteCurrentConversation: Boolean = false,
     onDeleteCurrentConversation: () -> Unit = {},
 ) {
-    val menuState = rememberEtaMenuState()
+    var menuExpanded by remember { mutableStateOf(false) }
     val view = LocalView.current
 
     Box {
@@ -85,7 +77,7 @@ internal fun TopBarOverflowMenu(
             onClick = {
                 TouchHaptics.click(view)
                 onRefreshKimiWeb()
-                menuState.onAnchorClick()
+                menuExpanded = true
             },
         ) {
             Icon(
@@ -94,14 +86,12 @@ internal fun TopBarOverflowMenu(
             )
         }
 
-        EtaDropdownMenu(
-            expanded = menuState.expanded,
-            onDismissRequest = menuState::dismiss,
-            offset = DpOffset(x = (-2).dp, y = 10.dp),
-            alignEnd = true,
+        EtaMenuPopup(
+            expanded = menuExpanded,
+            onDismissRequest = { menuExpanded = false },
         ) {
             TopBarMenuItems(
-                dismiss = menuState::dismiss,
+                dismiss = { menuExpanded = false },
                 onOpenTerminal = onOpenTerminal,
                 onLaunchKimiWeb = onLaunchKimiWeb,
                 kimiWebLabel = kimiWebLabel,
@@ -125,7 +115,10 @@ internal fun TopBarOverflowMenu(
 }
 
 /**
- * 顶栏菜单项集合（不含触发按钮与菜单容器），供普通溢出菜单与首页 M3 拆分按钮共用。
+ * 顶栏菜单项集合（不含触发按钮与弹层容器），供普通溢出菜单与首页 M3 拆分按钮共用。
+ *
+ * 整张菜单只用一个官方 [EtaMenuGroup] 容器，条目按语义分段，段与段之间用
+ * [EtaMenuDivider] 分开，不再拆成多个组靠组间距分区。
  *
  * @param dismiss 关闭外层菜单容器。
  */
@@ -154,233 +147,222 @@ internal fun TopBarMenuItems(
     val interactiveModeEnabled by rememberInteractiveModeEnabled(interactiveModePreference)
     val view = LocalView.current
 
-    DropdownMenuItem(
-        modifier = CompactMenuItemModifier,
-        contentPadding = CompactMenuItemPadding,
-        shape = EtaMenuItemShape(index = 0, count = 2),
-        text = { Text(stringResource(R.string.action_search_history)) },
-        leadingIcon = {
-            Icon(
-                imageVector = Icons.Rounded.Search,
-                contentDescription = null,
-                modifier = Modifier.size(TopBarMenuIconSize),
-            )
-        },
-        onClick = { TouchHaptics.click(view); dismiss(); onOpenSearchHistory() },
-    )
-    // 语音设置快捷入口：识别 / 朗读 / 语音对话都在一页，顶栏一步直达，不必翻设置列表。
-    DropdownMenuItem(
-        modifier = CompactMenuItemModifier,
-        contentPadding = CompactMenuItemPadding,
-        shape = EtaMenuItemShape(index = 1, count = 2),
-        text = { Text(stringResource(R.string.action_voice_settings)) },
-        leadingIcon = {
-            Icon(
-                imageVector = Icons.Rounded.RecordVoiceOver,
-                contentDescription = null,
-                modifier = Modifier.size(TopBarMenuIconSize),
-            )
-        },
-        onClick = { TouchHaptics.click(view); dismiss(); onOpenVoiceSettings() },
-    )
-    MenuSectionDivider()
-    DropdownMenuItem(
-        modifier = CompactMenuItemModifier.testTag("top-bar-interactive-mode-row"),
-        contentPadding = CompactMenuItemPadding,
-        shape = EtaMenuItemShape(index = 0, count = 1),
-        text = { Text(stringResource(R.string.action_interactive_mode)) },
-        leadingIcon = {
-            Icon(
-                imageVector = Icons.Rounded.TouchApp,
-                contentDescription = null,
-                modifier = Modifier.size(TopBarMenuIconSize),
-            )
-        },
-        trailingContent = {
-            Switch(
-                checked = interactiveModeEnabled,
-                onCheckedChange = { enabled ->
-                    TouchHaptics.click(view)
-                    interactiveModePreference.setEnabled(enabled)
+    // 整张菜单是一个连续的条目列表：分段只决定分割线，行形状按全局位置取首行 / 末行，
+    // 末行按下的高亮才会和容器底角同心。
+    val itemCount = if (canStopKimiWeb) 13 else 12
+    val firstSectionStart = 0
+    val secondSectionStart = firstSectionStart + 2
+    val thirdSectionStart = secondSectionStart + 1
+    val fourthSectionStart = thirdSectionStart + 5
+    val fifthSectionStart = fourthSectionStart + 3
+    val sixthSectionStart = fifthSectionStart + 1
+
+    // 整张菜单只用一个圆角容器，段落之间用分割线分开。
+    EtaMenuGroup(index = 0, count = 1) {
+        TopBarMenuSection(first = true) {
+            TopBarMenuItem(
+                text = stringResource(R.string.action_search_history),
+                index = firstSectionStart,
+                count = itemCount,
+                onClick = { dismiss(); onOpenSearchHistory() },
+            ) {
+                Icon(Icons.Rounded.Search, contentDescription = null)
+            }
+            // 语音设置快捷入口：识别 / 朗读 / 语音对话都在一页，顶栏一步直达，不必翻设置列表。
+            TopBarMenuItem(
+                text = stringResource(R.string.action_voice_settings),
+                index = firstSectionStart + 1,
+                count = itemCount,
+                onClick = { dismiss(); onOpenVoiceSettings() },
+            ) {
+                Icon(Icons.Rounded.RecordVoiceOver, contentDescription = null)
+            }
+        }
+
+        TopBarMenuSection {
+            TopBarMenuItem(
+                text = stringResource(R.string.action_interactive_mode),
+                index = secondSectionStart,
+                count = itemCount,
+                modifier = Modifier.testTag("top-bar-interactive-mode-row"),
+                onClick = {
+                    interactiveModePreference.setEnabled(!interactiveModeEnabled)
                 },
-                modifier = Modifier.scale(0.72f).testTag("top-bar-interactive-mode-switch"),
-            )
-        },
-        onClick = {
-            TouchHaptics.click(view)
-            interactiveModePreference.setEnabled(!interactiveModeEnabled)
-        },
-    )
-    MenuSectionDivider()
-    DropdownMenuItem(
-        modifier = CompactMenuItemModifier,
-        contentPadding = CompactMenuItemPadding,
-        shape = EtaMenuItemShape(index = 0, count = 5),
-        text = { Text(stringResource(R.string.action_open_terminal)) },
-        leadingIcon = {
-            Icon(
-                imageVector = Icons.Rounded.Terminal,
-                contentDescription = null,
-                modifier = Modifier.size(TopBarMenuIconSize),
-            )
-        },
-        onClick = { TouchHaptics.click(view); dismiss(); onOpenTerminal() },
-    )
-    DropdownMenuItem(
-        modifier = CompactMenuItemModifier,
-        contentPadding = CompactMenuItemPadding,
-        shape = EtaMenuItemShape(index = 1, count = 5),
-        text = { Text(stringResource(R.string.action_open_browser)) },
-        leadingIcon = {
-            Icon(
-                imageVector = Icons.Rounded.Language,
-                contentDescription = null,
-                modifier = Modifier.size(TopBarMenuIconSize),
-            )
-        },
-        onClick = { TouchHaptics.click(view); dismiss(); onOpenBrowser() },
-    )
-    DropdownMenuItem(
-        modifier = CompactMenuItemModifier,
-        contentPadding = CompactMenuItemPadding,
-        shape = EtaMenuItemShape(index = 2, count = 5),
-        text = { Text(stringResource(R.string.action_browse_workspace_files)) },
-        leadingIcon = {
-            Icon(
-                imageVector = Icons.Rounded.Description,
-                contentDescription = null,
-                modifier = Modifier.size(TopBarMenuIconSize),
-            )
-        },
-        onClick = { TouchHaptics.click(view); dismiss(); onOpenWorkspace() },
-    )
-    DropdownMenuItem(
-        modifier = CompactMenuItemModifier,
-        contentPadding = CompactMenuItemPadding,
-        shape = EtaMenuItemShape(index = 3, count = 5),
-        text = { Text(stringResource(R.string.action_sub_agent_status)) },
-        leadingIcon = {
-            Icon(
-                imageVector = Icons.Rounded.AccountTree,
-                contentDescription = null,
-                modifier = Modifier.size(TopBarMenuIconSize),
-            )
-        },
-        onClick = { TouchHaptics.click(view); dismiss(); onOpenSubAgentStatus() },
-    )
-    DropdownMenuItem(
-        modifier = CompactMenuItemModifier,
-        contentPadding = CompactMenuItemPadding,
-        shape = EtaMenuItemShape(index = 4, count = 5),
-        text = { Text(kimiWebLabel) },
-        leadingIcon = {
-            Icon(
-                painter = painterResource(R.drawable.ic_kimi_code),
-                contentDescription = null,
-                modifier = Modifier.size(TopBarMenuIconSize),
-            )
-        },
-        onClick = { TouchHaptics.click(view); dismiss(); onLaunchKimiWeb() },
-    )
-    MenuSectionDivider()
-    DropdownMenuItem(
-        modifier = CompactMenuItemModifier,
-        contentPadding = CompactMenuItemPadding,
-        shape = EtaMenuItemShape(index = 0, count = 3),
-        text = { Text(stringResource(R.string.action_token_usage)) },
-        leadingIcon = {
-            Icon(
-                imageVector = Icons.Rounded.DataUsage,
-                contentDescription = null,
-                modifier = Modifier.size(TopBarMenuIconSize),
-            )
-        },
-        onClick = { TouchHaptics.click(view); dismiss(); onOpenTokenUsage() },
-    )
-    DropdownMenuItem(
-        modifier = CompactMenuItemModifier,
-        contentPadding = CompactMenuItemPadding,
-        shape = EtaMenuItemShape(index = 1, count = 3),
-        enabled = !isCompressingContext,
-        text = { Text(stringResource(R.string.action_compress_conversation)) },
-        leadingIcon = {
-            Icon(
-                imageVector = Icons.Rounded.Summarize,
-                contentDescription = null,
-                modifier = Modifier.size(TopBarMenuIconSize),
-            )
-        },
-        onClick = { TouchHaptics.click(view); dismiss(); onOpenCompressConversation() },
-    )
-    DropdownMenuItem(
-        modifier = CompactMenuItemModifier,
-        contentPadding = CompactMenuItemPadding,
-        shape = EtaMenuItemShape(index = 2, count = 3),
-        text = { Text(stringResource(R.string.action_auto_compress_context)) },
-        leadingIcon = {
-            Icon(
-                imageVector = Icons.Rounded.Compress,
-                contentDescription = null,
-                modifier = Modifier.size(TopBarMenuIconSize),
-            )
-        },
-        trailingContent = {
-            Switch(
-                checked = autoCompressEnabled,
-                onCheckedChange = null,
-                modifier = Modifier.scale(0.72f),
-            )
-        },
-        onClick = {
-            TouchHaptics.click(view)
-            onToggleAutoCompress(!autoCompressEnabled)
-        },
-    )
-    MenuSectionDivider()
-    DropdownMenuItem(
-        modifier = CompactMenuItemModifier,
-        contentPadding = CompactMenuItemPadding,
-        shape = EtaMenuItemShape(index = 0, count = 1),
-        enabled = canDeleteCurrentConversation,
-        text = {
-            Text(
-                stringResource(R.string.action_delete_current_conversation),
-                color = MaterialTheme.colorScheme.error,
-            )
-        },
-        leadingIcon = {
-            Icon(
-                imageVector = Icons.Rounded.Delete,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.error,
-                modifier = Modifier.size(TopBarMenuIconSize),
-            )
-        },
-        onClick = { TouchHaptics.click(view); dismiss(); onDeleteCurrentConversation() },
-    )
-    if (canStopKimiWeb) {
-        MenuSectionDivider()
-        DropdownMenuItem(
-            modifier = CompactMenuItemModifier,
-            contentPadding = CompactMenuItemPadding,
-            shape = EtaMenuItemShape(index = 0, count = 1),
-            text = { Text(stringResource(R.string.capability_kimi_stop)) },
-            leadingIcon = {
+                trailingContent = {
+                    EtaSwitch(
+                        checked = interactiveModeEnabled,
+                        onCheckedChange = { enabled ->
+                            TouchHaptics.click(view)
+                            interactiveModePreference.setEnabled(enabled)
+                        },
+                        modifier = Modifier.testTag("top-bar-interactive-mode-switch"),
+                    )
+                },
+            ) {
+                Icon(Icons.Rounded.TouchApp, contentDescription = null)
+            }
+        }
+
+        TopBarMenuSection {
+            TopBarMenuItem(
+                text = stringResource(R.string.action_open_terminal),
+                index = thirdSectionStart,
+                count = itemCount,
+                onClick = { dismiss(); onOpenTerminal() },
+            ) {
+                Icon(Icons.Rounded.Terminal, contentDescription = null)
+            }
+            TopBarMenuItem(
+                text = stringResource(R.string.action_open_browser),
+                index = thirdSectionStart + 1,
+                count = itemCount,
+                onClick = { dismiss(); onOpenBrowser() },
+            ) {
+                Icon(Icons.Rounded.Language, contentDescription = null)
+            }
+            TopBarMenuItem(
+                text = stringResource(R.string.action_browse_workspace_files),
+                index = thirdSectionStart + 2,
+                count = itemCount,
+                onClick = { dismiss(); onOpenWorkspace() },
+            ) {
+                Icon(Icons.Rounded.Description, contentDescription = null)
+            }
+            TopBarMenuItem(
+                text = stringResource(R.string.action_sub_agent_status),
+                index = thirdSectionStart + 3,
+                count = itemCount,
+                onClick = { dismiss(); onOpenSubAgentStatus() },
+            ) {
+                Icon(Icons.Rounded.AccountTree, contentDescription = null)
+            }
+            TopBarMenuItem(
+                text = kimiWebLabel,
+                index = thirdSectionStart + 4,
+                count = itemCount,
+                onClick = { dismiss(); onLaunchKimiWeb() },
+            ) {
                 Icon(
-                    imageVector = Icons.Rounded.Stop,
+                    painter = painterResource(R.drawable.ic_kimi_code),
                     contentDescription = null,
-                    modifier = Modifier.size(TopBarMenuIconSize),
                 )
-            },
-            onClick = { TouchHaptics.click(view); dismiss(); onStopKimiWeb() },
-        )
+            }
+        }
+
+        TopBarMenuSection {
+            TopBarMenuItem(
+                text = stringResource(R.string.action_token_usage),
+                index = fourthSectionStart,
+                count = itemCount,
+                onClick = { dismiss(); onOpenTokenUsage() },
+            ) {
+                Icon(Icons.Rounded.DataUsage, contentDescription = null)
+            }
+            TopBarMenuItem(
+                text = stringResource(R.string.action_compress_conversation),
+                index = fourthSectionStart + 1,
+                count = itemCount,
+                enabled = !isCompressingContext,
+                onClick = { dismiss(); onOpenCompressConversation() },
+            ) {
+                Icon(Icons.Rounded.Summarize, contentDescription = null)
+            }
+            // 开关只做状态显示（点击由整行承担），与官方菜单里的「仅展示」开关一致。
+            TopBarMenuItem(
+                text = stringResource(R.string.action_auto_compress_context),
+                index = fourthSectionStart + 2,
+                count = itemCount,
+                onClick = { onToggleAutoCompress(!autoCompressEnabled) },
+                trailingContent = {
+                    EtaExpressiveSwitch(checked = autoCompressEnabled, onCheckedChange = null)
+                },
+            ) {
+                Icon(Icons.Rounded.Compress, contentDescription = null)
+            }
+        }
+
+        TopBarMenuSection {
+            TopBarMenuItem(
+                text = stringResource(R.string.action_delete_current_conversation),
+                index = fifthSectionStart,
+                count = itemCount,
+                enabled = canDeleteCurrentConversation,
+                emphasizeError = true,
+                onClick = { dismiss(); onDeleteCurrentConversation() },
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Delete,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                )
+            }
+        }
+
+        if (canStopKimiWeb) {
+            TopBarMenuSection {
+                TopBarMenuItem(
+                    text = stringResource(R.string.capability_kimi_stop),
+                    index = sixthSectionStart,
+                    count = itemCount,
+                    onClick = { dismiss(); onStopKimiWeb() },
+                ) {
+                    Icon(Icons.Rounded.Stop, contentDescription = null)
+                }
+            }
+        }
     }
 }
 
+/**
+ * 菜单段落：整张菜单共用一个 [EtaMenuGroup] 容器，段落之间用 [EtaMenuDivider] 分隔
+ * （首段之前不加分割线）。
+ */
 @Composable
-private fun MenuSectionDivider() {
-    // 官方 HorizontalDivider 默认取 outlineVariant，这里保持官方默认，不再自绘透明度。
-    HorizontalDivider(
-        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+private fun ColumnScope.TopBarMenuSection(
+    first: Boolean = false,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    if (!first) EtaMenuDivider()
+    content()
+}
+
+/**
+ * 顶栏菜单行：文案 + 前置图标 + 可选尾部内容，形状取官方 [EtaMenuItemShape]。
+ *
+ * 容器的内边距、行高、涟漪与禁用态沿用官方 [DropdownMenuItem] 默认值；
+ * 点击统一带一次触感反馈，然后执行调用方动作（关闭菜单由调用方在 [onClick] 里负责）。
+ */
+@Composable
+private fun TopBarMenuItem(
+    text: String,
+    index: Int,
+    count: Int,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    emphasizeError: Boolean = false,
+    trailingContent: (@Composable () -> Unit)? = null,
+    leadingIcon: @Composable () -> Unit,
+) {
+    val view = LocalView.current
+    DropdownMenuItem(
+        modifier = modifier,
+        shape = EtaMenuItemShape(index = index, count = count),
+        enabled = enabled,
+        text = {
+            // 仅在「危险操作」上显式取 error；其余交给官方条目默认色，
+            // 这样禁用态仍能按官方降透明处理，不会被写死的颜色盖掉。
+            if (emphasizeError) {
+                Text(text = text, color = MaterialTheme.colorScheme.error)
+            } else {
+                Text(text = text)
+            }
+        },
+        leadingIcon = leadingIcon,
+        trailingContent = trailingContent,
+        onClick = {
+            TouchHaptics.click(view)
+            onClick()
+        },
     )
 }

@@ -1000,6 +1000,8 @@ private fun MediaHitRow(
         onClick = onClick,
         onLongClick = onLongClick,
         selected = selectionMode && checked,
+        // 多选勾选行：上下保持官方内边距，不参与动作行的纵向补偿。
+        choiceRow = true,
         leadingContent = {
             if (selectionMode) {
                 Row(verticalAlignment = Alignment.CenterVertically) {

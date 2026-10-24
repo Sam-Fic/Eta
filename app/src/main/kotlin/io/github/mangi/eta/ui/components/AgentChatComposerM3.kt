@@ -125,8 +125,8 @@ import io.github.mangi.eta.agent.voice.VoiceModeState
 import io.github.mangi.eta.data.model.GptSpeedMode
 import io.github.mangi.eta.data.model.ReasoningEffort
 import io.github.mangi.eta.data.repository.ComposerQueueStore
+import io.github.mangi.eta.ui.adaptive.EtaMenuDivider
 import io.github.mangi.eta.ui.adaptive.EtaMenuGroup
-import io.github.mangi.eta.ui.adaptive.EtaMenuGroupSpacing
 import io.github.mangi.eta.ui.adaptive.EtaMenuItemShape
 import io.github.mangi.eta.ui.adaptive.EtaMenuPopup
 import io.github.mangi.eta.ui.adaptive.EtaType
@@ -993,9 +993,9 @@ private fun M3ComposerCancelButton(onClick: () -> Unit, modifier: Modifier = Mod
  * 菜单展开时「+」同时旋转 45° 成为「×」（关闭语义），收起时转回，旋转取官方 Expressive
  * 弹簧规格；图标本身是同一个 `Icons.Rounded.Add`，旋转由 `graphicsLayer` 承担。
  *
- * 菜单用 Material 3 Expressive 写法：官方 `DropdownMenuPopup` 承载弹层，菜单内容按
- * 「对话操作」「附件来源」拆成两个官方 `DropdownMenuGroup`，组形状取 `MenuDefaults.groupShape`，
- * 组间留官方 `MenuDefaults.GroupSpacing`；行形状仍取官方 `MenuDefaults` 令牌。
+ * 菜单用 Material 3 Expressive 写法：官方 `DropdownMenuPopup` 承载弹层，整张菜单只用一个
+ * 官方分组，按「对话操作」「附件来源」分两段、中间用 [EtaMenuDivider] 分开；
+ * 行形状仍取官方 `MenuDefaults` 令牌。
  */
 @Composable
 private fun M3ComposerAddButton(
@@ -1014,7 +1014,7 @@ private fun M3ComposerAddButton(
     )
     val view = LocalView.current
     val context = LocalContext.current
-    // 菜单分两组：对话操作 / 附件来源。条目用「文案资源 + 前置图标 + 动作」描述，
+    // 菜单分两段：对话操作 / 附件来源，中间用分割线。条目用「文案资源 + 前置图标 + 动作」描述，
     // 渲染时行形状按官方 `MenuDefaults` 令牌取（首项 leading、末项 trailing）。
     val conversationEntries = listOf(
         ComposerMenuEntry(R.string.composer_schedule_send, Icons.Rounded.Schedule, onScheduleSend),
@@ -1062,29 +1062,28 @@ private fun M3ComposerAddButton(
             expanded = expanded,
             onDismissRequest = { onExpandedChange(false) },
         ) {
-            // 第一组：对话操作（定时发送 / 保存草稿 / 分享）。
-            EtaMenuGroup(index = 0, count = COMPOSER_MENU_GROUP_COUNT) {
+            // 整张菜单共用一个圆角容器：对话操作与附件来源之间用分割线分开。
+            // 行形状按整张菜单的全局位置取（首行 leading、末行 trailing），
+            // 分割线不重新起一段，末行的按下高亮才会和容器底角同心。
+            val itemCount = conversationEntries.size + attachmentEntries.size
+            EtaMenuGroup(index = 0, count = 1) {
                 conversationEntries.forEachIndexed { index, entry ->
                     DropdownMenuItem(
                         text = { Text(stringResource(entry.labelRes)) },
                         leadingIcon = { Icon(entry.icon, contentDescription = null) },
-                        shape = EtaMenuItemShape(index, conversationEntries.size),
+                        shape = EtaMenuItemShape(index, itemCount),
                         onClick = {
                             onExpandedChange(false)
                             entry.action()
                         },
                     )
                 }
-            }
-            // 组与组之间是官方留白，不再是同一个容器里的一条分割线。
-            Spacer(Modifier.height(EtaMenuGroupSpacing))
-            // 第二组：附件来源（拍照 / 视频 / 文件 / 文件夹 / 输入路径）。
-            EtaMenuGroup(index = 1, count = COMPOSER_MENU_GROUP_COUNT) {
+                EtaMenuDivider()
                 attachmentEntries.forEachIndexed { index, entry ->
                     DropdownMenuItem(
                         text = { Text(stringResource(entry.labelRes)) },
                         leadingIcon = { Icon(entry.icon, contentDescription = null) },
-                        shape = EtaMenuItemShape(index, attachmentEntries.size),
+                        shape = EtaMenuItemShape(conversationEntries.size + index, itemCount),
                         onClick = {
                             onExpandedChange(false)
                             entry.action()
@@ -1150,9 +1149,6 @@ private data class ComposerMenuEntry(
     val icon: ImageVector,
     val action: () -> Unit,
 )
-
-/** 「+」菜单的分组数（对话操作 / 附件来源）。 */
-private const val COMPOSER_MENU_GROUP_COUNT = 2
 
 /** 发送按钮按下时的绘制缩放：只收视觉，不缩触控区。 */
 private const val ComposerSendPressScale = 0.9f

@@ -3,15 +3,19 @@ package io.github.mangi.eta.ui.screens.skills
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.DesignServices
 import androidx.compose.material.icons.rounded.Extension
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -114,7 +118,7 @@ internal fun SkillSwitchRow(
 
 /**
  * 技能行尾的官方溢出菜单：图标按钮 + 官方 M3E 弹出窗口，与「模型自建工具」配方行同款——
- * 圆角分组容器、内缩药丸条目、纯文案项，破坏性的「删除」取官方 error 角色色。
+ * 圆角分组容器、内缩药丸条目、前导图标 + 文案，破坏性的「删除」图标与文案同取 error 角色色。
  */
 @Composable
 private fun SkillOverflowMenu(
@@ -138,10 +142,18 @@ private fun SkillOverflowMenu(
         }
         EtaMenuPopup(expanded = expanded, onDismissRequest = { expanded = false }) {
             EtaMenuGroup(index = 0, count = 1) {
+                // 与工具配方、助手行同一套菜单条目：前导图标 + 文案，破坏性项图标与文案同取 error 色。
                 DropdownMenuItem(
                     text = {
                         androidx.compose.material3.Text(
                             text = stringResource(R.string.ui_view_description),
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Rounded.Info,
+                            contentDescription = null,
+                            modifier = Modifier.size(MenuDefaults.LeadingIconSize),
                         )
                     },
                     shape = EtaMenuItemShape(index = 0, count = itemCount),
@@ -156,6 +168,14 @@ private fun SkillOverflowMenu(
                             androidx.compose.material3.Text(
                                 text = stringResource(R.string.ui_delete_3755f5),
                                 color = MaterialTheme.colorScheme.error,
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Rounded.DeleteOutline,
+                                contentDescription = null,
+                                modifier = Modifier.size(MenuDefaults.LeadingIconSize),
+                                tint = MaterialTheme.colorScheme.error,
                             )
                         },
                         enabled = enabled,

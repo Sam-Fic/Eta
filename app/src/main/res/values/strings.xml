@@ -1624,6 +1624,8 @@
   <string name="recipe_notice_title">Your own tools</string>
   <string name="recipe_share_section">Share and migrate</string>
   <string name="recipe_share_one">Share this recipe</string>
+  <string name="recipe_more_named">More actions for %1$s</string>
+  <string name="recipe_share">Share</string>
   <string name="recipe_import">Import recipes</string>
   <string name="recipe_import_summary">Import a shared recipe file. Imported recipes start disabled, so you can review them before the model calls them.</string>
   <string name="recipe_imported">Imported %1$d recipes. They are disabled for now.</string>

@@ -66,9 +66,11 @@ internal fun SubAgentChoiceField(
 }
 
 /**
- * 子代理下拉菜单：官方 Expressive 弹层 + 官方分组（上下 2dp 紧凑边距的圆角容器）。
+ * 子代理下拉菜单：官方 Expressive 弹层 + 官方分组。
  *
  * [itemCount] 供条目推导自身形状，调用方需与实际条目数一致。
+ * [selectableMenu] 表示条目带单选勾选：保持官方紧凑纵向边距；动作菜单（重命名/删除）
+ * 默认补到上下 4dp。
  */
 @Composable
 internal fun SubAgentDropdownMenu(
@@ -76,6 +78,7 @@ internal fun SubAgentDropdownMenu(
     onDismissRequest: () -> Unit,
     itemCount: Int,
     modifier: Modifier = Modifier,
+    selectableMenu: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     EtaMenuPopup(
@@ -83,7 +86,7 @@ internal fun SubAgentDropdownMenu(
         onDismissRequest = onDismissRequest,
         modifier = modifier,
     ) {
-        EtaMenuGroup(index = 0, count = 1) {
+        EtaMenuGroup(index = 0, count = 1, selectableMenu = selectableMenu) {
             content()
         }
     }
@@ -169,6 +172,8 @@ internal fun SubAgentTaskTierButton(
             onDismissRequest = { expanded = false },
             itemCount = SubAgentTaskTier.entries.size,
             modifier = Modifier.selectableGroup(),
+            // 选中项带 Check：保持官方紧凑纵向边距。
+            selectableMenu = true,
         ) {
             SubAgentTaskTier.entries.forEachIndexed { index, option ->
                 SubAgentSelectionItem(

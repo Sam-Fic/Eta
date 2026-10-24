@@ -146,6 +146,7 @@ internal fun AgentTaskPreferenceScreen(
                                 val canSelect = AgentTaskSurface.allowsPersist(mode)
                                 EtaSegmentedItem(index = index, count = AgentTaskSurfaceMode.entries.size) {
                                     EtaSegmentedRow(
+                                        choiceRow = true,
                                         modifier = Modifier.selectable(
                                             selected = selected == mode,
                                             enabled = canSelect,

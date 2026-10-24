@@ -38,8 +38,10 @@ import androidx.compose.ui.unit.round
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 
 /**
- * 默认内容内边距直接用官方 [ListItemDefaults.ContentPadding]
+ * 开关行的内容内边距：直接用官方 [ListItemDefaults.ContentPadding]
  * （左右 16dp、上下取自官方 ItemTopSpace/ItemBottomSpace），不再手写 20/14。
+ *
+ * 开关行属于「勾选 / 开关」类，不参与 [EtaActionRowPadding] 的纵向补偿。
  */
 private val DefaultRowPadding get() = ListItemDefaults.ContentPadding
 
@@ -103,9 +105,11 @@ fun EtaSwitchRow(
 /**
  * 可点击 / 可展开的设置行。
  *
+ * 默认内边距走 [EtaActionRowPadding]：跳转 / 展开属于动作行，纵向补一档留白。
+ *
  * @param showChevron 是否在尾部显示箭头（展开型条目通常自带尾部图标，可置 false）。
  * @param leading 前导内容（图标等）；走分段行的 `leadingContent`。
- * @param contentPadding 覆盖默认内边距。
+ * @param contentPadding 覆盖默认内边距（如展开项内部的紧凑行）。
  * @param highlight 命中词（如搜索关键词）；标题与摘要里的命中片段会被标色加粗，
  *        没有命中时按原文渲染。
  *
@@ -163,7 +167,7 @@ fun EtaClickableRow(
                 content = { Text(text = titleText) },
                 supportingContent = summaryText?.let { { Text(text = it) } },
                 trailingContent = trailingContent,
-                contentPadding = contentPadding ?: ListItemDefaults.ContentPadding,
+                contentPadding = contentPadding ?: EtaActionRowPadding,
             )
         } else {
             SegmentedListItem(
@@ -176,7 +180,7 @@ fun EtaClickableRow(
                 content = { Text(text = titleText) },
                 supportingContent = summaryText?.let { { Text(text = it) } },
                 trailingContent = trailingContent,
-                contentPadding = contentPadding ?: ListItemDefaults.ContentPadding,
+                contentPadding = contentPadding ?: EtaActionRowPadding,
             )
         }
         bottomAction?.invoke()
@@ -234,6 +238,8 @@ fun EtaSegmentedDropdownRow(
             } else {
                 Modifier
             },
+            // 单选型行：菜单里带勾选项，属于「勾选类」，不参与动作行的纵向补偿。
+            choiceRow = true,
             onClick = rowClick,
             enabled = enabled,
             // 前导图标对齐 PreferenceIcon：24dp + 尾部 8dp，保证标题起点与其它设置行一致。
@@ -265,6 +271,8 @@ fun EtaSegmentedDropdownRow(
             expanded = expanded,
             onDismissRequest = { expanded = false },
             anchorOffset = anchorOffset,
+            // 条目带 Check 的单选弹层：保持官方紧凑纵向边距。
+            selectableMenu = true,
         ) {
             items.forEachIndexed { index, text ->
                 SelectableDropdownMenuItem(
@@ -277,7 +285,7 @@ fun EtaSegmentedDropdownRow(
                         }
                         expanded = false
                     },
-                    shapes = MenuDefaults.itemShape(index = index, count = items.size),
+                    shapes = EtaMenuItemShapes(index = index, count = items.size),
                     selectedLeadingIcon = {
                         Icon(
                             Icons.Filled.Check,

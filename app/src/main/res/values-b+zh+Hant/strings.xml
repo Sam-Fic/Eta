@@ -1641,6 +1641,8 @@
   <string name="recipe_notice_title">模型自建工具</string>
   <string name="recipe_share_section">分享與遷移</string>
   <string name="recipe_share_one">分享這份配方</string>
+  <string name="recipe_more_named">%1$s 的更多操作</string>
+  <string name="recipe_share">分享</string>
   <string name="recipe_import">匯入配方</string>
   <string name="recipe_import_summary">匯入別人分享的配方檔案。匯入的配方一律先停用，你確認過之後模型才能呼叫。</string>
   <string name="recipe_imported">已匯入 %1$d 份配方，目前均為停用狀態。</string>

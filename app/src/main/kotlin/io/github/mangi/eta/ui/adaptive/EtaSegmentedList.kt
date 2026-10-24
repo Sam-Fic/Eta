@@ -153,6 +153,29 @@ internal val EtaSegmentedGroupSpacing = 13.dp
 /** 设置页分组容器的水平页边距。 */
 internal val EtaGroupHorizontalPadding = 16.dp
 
+/** 动作行在官方内边距之上补的纵向留白。 */
+private val ActionRowVerticalCompensation = 4.dp
+
+/**
+ * 动作行（菜单 / 跳转 / 展开）的内容内边距：官方 [ListItemDefaults.ContentPadding]
+ * 的纵向值各补 [ActionRowVerticalCompensation]。
+ *
+ * 官方上下 10dp（精确指针 12dp）是给「带勾选控件 / 开关」的行调的：右侧控件撑起
+ * 视觉重量，10dp 刚好；动作行只有文案与行尾图标，同样的留白会显得贴边。这里只补
+ * 纵向，左右仍取官方 16dp——否则动作行的文字起点会和勾选行错开。
+ *
+ * 取值随官方内边距一起走，精确指针模式下同样成立，不写死 14dp。
+ */
+internal val EtaActionRowPadding: PaddingValues
+    get() = with(ListItemDefaults.ContentPadding) {
+        PaddingValues(
+            start = calculateLeftPadding(LayoutDirection.Ltr),
+            top = calculateTopPadding() + ActionRowVerticalCompensation,
+            end = calculateRightPadding(LayoutDirection.Ltr),
+            bottom = calculateBottomPadding() + ActionRowVerticalCompensation,
+        )
+    }
+
 /**
  * 一组分段列表：KernelSU 式分段条目 + `titleSmallEmphasized` primary 组标题。
  *
@@ -374,6 +397,10 @@ internal val EtaSegmentedGap: Dp = ListItemDefaults.SegmentedGap
  * 供需要自定义 leading/trailing/headline 的页面直接使用，避免各处重复写
  * `SegmentedListItem(shapes = …, colors = …)` 样板。
  *
+ * 内边距按行类型默认分档：动作行（菜单、跳转、展开）用 [EtaActionRowPadding]；
+ * 勾选 / 开关行（`choiceRow = true`）保持官方 [ListItemDefaults.ContentPadding]，
+ * 不再额外补纵向留白。
+ *
  * 轻触反馈由本行自己触发，调用方**不要**在 `onClick` 里再写 `TouchHaptics.click`。
  */
 @Composable
@@ -390,7 +417,10 @@ fun EtaSegmentedRow(
     trailingContent: @Composable (() -> Unit)? = null,
     overlineContent: @Composable (() -> Unit)? = null,
     supportingContent: @Composable (() -> Unit)? = null,
-    contentPadding: PaddingValues = ListItemDefaults.ContentPadding,
+    // 勾选 / 开关行：保持官方内边距；动作行默认补一档上下留白。
+    choiceRow: Boolean = false,
+    contentPadding: PaddingValues =
+        if (choiceRow) ListItemDefaults.ContentPadding else EtaActionRowPadding,
     content: @Composable () -> Unit,
 ) {
     val shapes = etaSegmentedRowShapes()
@@ -476,6 +506,7 @@ fun EtaSegmentedItem(
  *
  * 整行切换：`SegmentedListItem(checked = …)` 自带 Checkbox 语义、涟漪与按压形变；
  * 前导勾选框仅作视觉呈现（`onCheckedChange = null`），避免两次回调。
+ * 内边距保持官方值——勾选行不属于动作行，不做纵向补偿。
  * 轻触反馈由本行自己触发，调用方**不要**在 `onCheckedChange` 里再写 `TouchHaptics.click`。
  */
 @Composable
@@ -526,7 +557,7 @@ fun EtaSegmentedCheckboxRow(
 
 /**
  * 带单选按钮的分段行（KernelSU 参考实现的 `SegmentedRadioItem`）。
- * 整行可选；`selected` 决定官方选中态配色。
+ * 整行可选；`selected` 决定官方选中态配色。内边距保持官方值（同勾选行）。
  *
  * 轻触反馈由本行自己触发，调用方**不要**在 `onClick` 里再写 `TouchHaptics.click`。
  */

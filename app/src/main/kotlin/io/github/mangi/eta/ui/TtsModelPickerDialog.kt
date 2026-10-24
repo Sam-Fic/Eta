@@ -172,6 +172,7 @@ internal fun ModelPickerCheckRow(
     }
     EtaSegmentedRow(
         selected = selected,
+        choiceRow = true,
         onClick = onClick,
         trailingContent = trailing,
         content = { Text(text = title) },

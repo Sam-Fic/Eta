@@ -1633,6 +1633,8 @@
   <string name="recipe_notice_title">模型自建工具</string>
   <string name="recipe_share_section">分享与迁移</string>
   <string name="recipe_share_one">分享这份配方</string>
+  <string name="recipe_more_named">%1$s 的更多操作</string>
+  <string name="recipe_share">分享</string>
   <string name="recipe_import">导入配方</string>
   <string name="recipe_import_summary">导入别人分享的配方文件。导入的配方一律先停用，你确认过之后模型才能调用。</string>
   <string name="recipe_imported">已导入 %1$d 份配方，当前均为停用状态。</string>

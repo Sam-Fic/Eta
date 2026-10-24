@@ -98,6 +98,8 @@ internal fun EtaDropdownMenu(
     maxWidth: Dp = MenuMaxWidth,
     maxHeight: Dp? = null,
     focusable: Boolean = true,
+    /** 条目带单选勾选时置 true：保持官方紧凑纵向边距；动作菜单默认补到上下 4dp。 */
+    selectableMenu: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     var mounted by remember { mutableStateOf(expanded) }
@@ -197,7 +199,7 @@ internal fun EtaDropdownMenu(
                         cornerRadius = MenuCornerRadius,
                     ),
             ) {
-                EtaMenuGroupSurface(scrollable = true) {
+                EtaMenuGroupSurface(scrollable = true, selectableMenu = selectableMenu) {
                     content()
                 }
             }

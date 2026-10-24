@@ -362,6 +362,7 @@ internal fun SubAgentProfileConfigDialog(
                             item(key = "enable") {
                                 // 官方 Switch 只呈现状态，整行切换由分段行的点击承载。
                                 EtaSegmentedRow(
+                                    choiceRow = true,
                                     modifier = Modifier.fillMaxWidth(),
                                     enabled = usable,
                                     onClick = { session.edit { it.copy(enabled = !draft.enabled) } },

@@ -1678,6 +1678,7 @@ private fun Material3ConversationRow(
             Box(modifier = Modifier.fillMaxWidth()) {
                 EtaSegmentedRow(
                     selected = selected,
+                    choiceRow = true,
                     // 选中行用 tertiaryContainer（与页面按钮的强调档一致），不覆盖时走官方默认。
                     selectedContainerColor = if (selected) {
                         MaterialTheme.colorScheme.tertiaryContainer

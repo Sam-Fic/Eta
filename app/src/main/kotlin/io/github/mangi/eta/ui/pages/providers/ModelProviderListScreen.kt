@@ -512,6 +512,7 @@ private fun ProviderListItem(
 
     EtaSegmentedRow(
         selected = isCurrent,
+        choiceRow = true,
         onClick = {
             when {
                 selectionMode && selectable -> onToggleChecked()

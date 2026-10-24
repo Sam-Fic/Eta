@@ -39,7 +39,6 @@ import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.adaptive.EtaButtonStyle
 import io.github.mangi.eta.ui.adaptive.EtaIconButton
 import io.github.mangi.eta.ui.adaptive.EtaIconSize
-import io.github.mangi.eta.ui.adaptive.EtaMenuGroup
 import io.github.mangi.eta.ui.adaptive.EtaMenuPopup
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 
@@ -153,28 +152,28 @@ internal fun Material3HomeTopBar(
                             expanded = menuExpanded,
                             onDismissRequest = { menuExpanded = false },
                         ) {
-                            EtaMenuGroup(index = 0, count = 1) {
-                                TopBarMenuItems(
-                                    dismiss = { menuExpanded = false },
-                                    onOpenTerminal = onOpenTerminal,
-                                    onLaunchKimiWeb = onLaunchKimiWeb,
-                                    kimiWebLabel = kimiWebLabel,
-                                    canStopKimiWeb = canStopKimiWeb,
-                                    onStopKimiWeb = onStopKimiWeb,
-                                    onOpenBrowser = onOpenBrowser,
-                                    onOpenWorkspace = onOpenWorkspace,
-                                    onOpenVoiceSettings = onOpenVoiceSettings,
-                                    autoCompressEnabled = autoCompressEnabled,
-                                    isCompressingContext = isCompressingContext,
-                                    onToggleAutoCompress = onToggleAutoCompress,
-                                    onOpenCompressConversation = onOpenCompressConversation,
-                                    onOpenSearchHistory = onOpenSearchHistory,
-                                    onOpenTokenUsage = onOpenTokenUsage,
-                                    onOpenSubAgentStatus = onOpenSubAgentStatus,
-                                    canDeleteCurrentConversation = canDeleteCurrentConversation,
-                                    onDeleteCurrentConversation = onDeleteCurrentConversation,
-                                )
-                            }
+                            // TopBarMenuItems 自己输出单个官方分组容器（段落用分割线分开），
+                            // 这里不再套一层 EtaMenuGroup。
+                            TopBarMenuItems(
+                                dismiss = { menuExpanded = false },
+                                onOpenTerminal = onOpenTerminal,
+                                onLaunchKimiWeb = onLaunchKimiWeb,
+                                kimiWebLabel = kimiWebLabel,
+                                canStopKimiWeb = canStopKimiWeb,
+                                onStopKimiWeb = onStopKimiWeb,
+                                onOpenBrowser = onOpenBrowser,
+                                onOpenWorkspace = onOpenWorkspace,
+                                onOpenVoiceSettings = onOpenVoiceSettings,
+                                autoCompressEnabled = autoCompressEnabled,
+                                isCompressingContext = isCompressingContext,
+                                onToggleAutoCompress = onToggleAutoCompress,
+                                onOpenCompressConversation = onOpenCompressConversation,
+                                onOpenSearchHistory = onOpenSearchHistory,
+                                onOpenTokenUsage = onOpenTokenUsage,
+                                onOpenSubAgentStatus = onOpenSubAgentStatus,
+                                canDeleteCurrentConversation = canDeleteCurrentConversation,
+                                onDeleteCurrentConversation = onDeleteCurrentConversation,
+                            )
                         }
                     }
                 },
