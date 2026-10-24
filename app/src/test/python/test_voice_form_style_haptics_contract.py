@@ -49,7 +49,8 @@ class VoiceFormStyleHapticsContractTest(unittest.TestCase):
         voice = composer.split('private fun M3VoiceBar(', 1)[1]
         self.assertIn('.clip(MaterialTheme.shapes.extraLarge)', voice)
         self.assertIn('.background(MaterialTheme.colorScheme.surfaceContainer)', voice)
-        self.assertIn('M3VoiceBar(state = voiceState)', composer)
+        self.assertIn('M3VoiceBar(', composer)
+        self.assertIn('onTranscriptTap =', composer)
         self.assertIn('Material3ComposerBody(', chat)
 
     def test_shared_field_keeps_line_limits_password_and_disabled_state(self):

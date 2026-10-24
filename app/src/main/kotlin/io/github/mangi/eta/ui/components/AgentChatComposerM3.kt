@@ -83,6 +83,7 @@ import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -102,6 +103,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -318,6 +320,18 @@ internal fun Material3ComposerBody(
     // 有内容时让位给发送按钮；没有内容但生成 / 压缩中时保留停止按钮。
     val trailingShowsSend = hasContent || sendMode != "idle"
 
+    // 「点按转写接管输入」的两段式：点击当帧先落字并停掉语音，等下一步重组把输入框换回来后
+    // 再请求焦点 / 拉起键盘。若在点击当帧直接 requestFocus，胶囊里还是聆听条，
+    // FocusRequester 尚未挂到输入框上，请求会落空。
+    // 用自增令牌而不是布尔值作 key：effect 内部不再回写 key，避免写到一半被自身重启取消。
+    val keyboard = LocalSoftwareKeyboardController.current
+    val view = LocalView.current
+    var transcriptTakeOverToken by remember { mutableIntStateOf(0) }
+    LaunchedEffect(transcriptTakeOverToken) {
+        if (transcriptTakeOverToken == 0) return@LaunchedEffect
+        showChatInputIme(focusRequester, keyboard, view)
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -462,7 +476,22 @@ internal fun Material3ComposerBody(
                     if (listening) {
                         // 聆听条：麦克风状态圆钮 + 实时转写与阶段文案（末端停止圆钮由下面的
                         // 尾部按钮槽提供，见 composer_trailing）。
-                        M3VoiceBar(state = voiceState)
+                        // 转写可点按：识别出文字但还没提交时，一点就退出语音、把这段话原样放进
+                        // 输入框并拉起键盘，用户可以在识别结果上接着改，而不是重新说一遍。
+                        // 只在 Listening 阶段放行：进入 Thinking / Speaking 后这句话已经送给模型
+                        // （实时语音模式的转写还会挂到本轮结束），再点回输入框会变成重复发送。
+                        M3VoiceBar(
+                            state = voiceState,
+                            onTranscriptTap = if (voiceState.phase == VoiceModePhase.Listening) {
+                                {
+                                    textFieldState.setTextAndPlaceCursorAtEnd(voiceState.transcript)
+                                    onStopVoiceMode()
+                                    transcriptTakeOverToken++
+                                }
+                            } else {
+                                null
+                            },
+                        )
                     } else {
                         M3ComposerTextField(
                             textFieldState = textFieldState,
@@ -714,7 +743,15 @@ private fun M3ComposerTextField(
  * 从而能与“输入文字 Call→Send”走同一条弹簧形变。这里只预留出同宽的尾部内边距。
  */
 @Composable
-private fun M3VoiceBar(state: VoiceModeState) {
+private fun M3VoiceBar(
+    state: VoiceModeState,
+    /**
+     * 已识别但尚未提交的转写被点按时的接管动作：调用方负责停掉语音、把转写原样放进
+     * 输入框并把键盘焦点交还用户继续编辑。传 null 时转写不可点按。
+     */
+    onTranscriptTap: (() -> Unit)? = null,
+) {
+    val view = LocalView.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -771,12 +808,24 @@ private fun M3VoiceBar(state: VoiceModeState) {
         }
         val transcript = state.transcript.takeIf { it.isNotBlank() }
         if (transcript != null) {
+            // 转写本身可点按：识别出文字但还没提交时，一点就把这段话交给键盘接着改。
+            // 语音未识别出内容时（只有阶段文案）没有可编辑的东西，不做成可点。
             VoiceLiveTranscript(
                 text = transcript,
                 color = textColor,
                 modifier = Modifier
                     .weight(1f)
-                    .padding(horizontal = 12.dp),
+                    .padding(horizontal = 12.dp)
+                    .then(
+                        if (onTranscriptTap != null) {
+                            Modifier.clickable {
+                                TouchHaptics.click(view)
+                                onTranscriptTap()
+                            }
+                        } else {
+                            Modifier
+                        },
+                    ),
             )
         } else {
             Text(
