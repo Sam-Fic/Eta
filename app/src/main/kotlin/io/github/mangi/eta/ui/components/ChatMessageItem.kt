@@ -12,6 +12,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.animateDp
@@ -1254,6 +1255,21 @@ private fun UserMessageBubble(
                     ).lineCount.let(::userBubbleNeedsFold)
                 }
                 val bodyCollapsed = bodyFoldable && !userTextExpanded
+                // 展开 / 收起的高度动画：Text 一帧就切到目标行数，外层按动画高度裁剪，
+                // 行是逐段露出来的。展开取 spatial 默认规格（与工具卡同款轻过冲），收起更快一档。
+                val foldHeightSpec = if (userTextExpanded) {
+                    MaterialTheme.motionScheme.defaultSpatialSpec<androidx.compose.ui.unit.IntSize>()
+                } else {
+                    MaterialTheme.motionScheme.fastSpatialSpec<androidx.compose.ui.unit.IntSize>()
+                }
+                // 裁切要挂在动画外层，动画期间才能按当前可见高度截断正文；非折叠正文不参与。
+                val foldMotion = if (bodyFoldable) {
+                    Modifier
+                        .clipToBounds()
+                        .animateContentSize(animationSpec = foldHeightSpec)
+                } else {
+                    Modifier
+                }
                 // 渐隐带要落在气泡的实际底色上：气泡底是 primary 18% 的半透明色，
                 // 直接叠同色会把底部压深一道；先合成到页面底色上再渐隐才不留边。
                 val bubbleFill = remember(bubbleBg, pageBackground) {
@@ -1329,6 +1345,7 @@ private fun UserMessageBubble(
                                 modifier = Modifier
                                     .streamDiagnosticMeasure("render.userText.measure", diagnosticRow)
                                     .streamDiagnosticDraw("render.userText.draw", diagnosticRow)
+                                    .then(foldMotion)
                                     .then(foldFade),
                                 style = bodyStyle,
                                 color = MaterialTheme.colorScheme.onSurface,
