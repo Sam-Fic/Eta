@@ -45,13 +45,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Bolt
-import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -566,11 +566,11 @@ internal fun Material3ComposerBody(
                                 voiceState = voiceState,
                                 onStartVoiceMode = onStartVoiceMode,
                                 onStopVoiceMode = onStopVoiceMode,
-                                // 设计稿：尾部是 call 图标的填充圆形按钮，属于主要动作。
-                                icon = Icons.Rounded.Call,
+                                // 尾部是麦克风图标的填充圆形按钮，直接对应「语音对话」入口。
+                                icon = Icons.Rounded.Mic,
                                 idleFilled = true,
                                 // 进入语音时本入口会被换成上面的停止钮（同一槽位形变）；形变期间
-                                // 它仍以 Call 外观缩放淡出。若跟着 voiceState.active 换成挂断图标，
+                                // 它仍以麦克风外观缩放淡出。若跟着 voiceState.active 换成挂断图标，
                                 // 退场瞬间会先闪一下“躺平的电话”。点击行为不受影响。
                                 swapIconWhenActive = false,
                             )
