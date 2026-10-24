@@ -1572,9 +1572,22 @@ internal fun AgentConversationMessages(
             },
     ) {
         val speechPrefaceProjection = remember { AgentSpeechPrefaceCache() }
-        val speechPrefaces = remember(visibleMessages, finalResultMessageIds) {
+        // 朗读范围与界面展示一致：激进折叠收进工作卡片且未展开的中间回复不可见，
+        // 朗读 preface 同步剔除。展开卡片后这些回复重新可见，preface 随之恢复。
+        val foldedReplyIds = remember(timelineRows) {
+            buildSet {
+                timelineRows.forEach { row ->
+                    if (row is AgentTimelineRow.WorkHeader && !row.expanded) {
+                        row.group.messages.forEach { message ->
+                            if (message is AgentMessageUi) add(message.id)
+                        }
+                    }
+                }
+            }
+        }
+        val speechPrefaces = remember(visibleMessages, finalResultMessageIds, foldedReplyIds) {
             StreamPerformanceDiagnostics.measure("timeline.prefaces", visibleMessages.size.toLong()) {
-                speechPrefaceProjection.project(visibleMessages, finalResultMessageIds)
+                speechPrefaceProjection.project(visibleMessages, finalResultMessageIds, foldedReplyIds)
             }
         }
         val messageActions = remember { ChatMessageActions() }
@@ -2148,6 +2161,7 @@ internal fun resolveFinalResultMessageIds(
 internal fun visibleTurnSpeechPrefaces(
     messages: List<AgentChatMessageUi>,
     finalIds: Set<String>,
+    hiddenIds: Set<String> = emptySet(),
 ): Map<String, String> {
     if (finalIds.isEmpty()) return emptyMap()
     val result = HashMap<String, String>(finalIds.size)
@@ -2156,7 +2170,10 @@ internal fun visibleTurnSpeechPrefaces(
         if (message.id in finalIds) result[message.id] = parts.joinToString("\n\n")
         when (message) {
             is UserMessageUi -> if (!message.isSteerSupplement()) parts.clear()
-            is AgentMessageUi -> message.content.trim().takeIf { it.isNotBlank() }?.let(parts::add)
+            // 被折叠隐藏的中间回复界面上看不到，朗读也不该带上。
+            is AgentMessageUi -> if (message.id !in hiddenIds) {
+                message.content.trim().takeIf { it.isNotBlank() }?.let(parts::add)
+            }
             else -> Unit
         }
     }

@@ -209,20 +209,30 @@ internal class AgentTimelineProjectionCache(
  * A selected owner depends on all earlier assistant bodies since its ordinary
  * user boundary. Precompute those dependency slots after each full traversal.
  * Unlike the entry projection, historical body edits are NOT a compatible delta.
+ *
+ * [hiddenIds] 是当前时间线上不可见的回复 id（激进折叠收进未展开工作卡片的中间回复）：
+ * 朗读范围必须与界面展示一致，这些回复不进 preface。隐藏集合翻转视为结构变化，走全量投影。
  */
 internal class AgentSpeechPrefaceCache(
-    private val fullProjection: (List<AgentChatMessageUi>, Set<String>) -> Map<String, String> =
+    private val fullProjection: (List<AgentChatMessageUi>, Set<String>, Set<String>) -> Map<String, String> =
         ::visibleTurnSpeechPrefaces,
 ) {
     private var source: List<AgentChatMessageUi>? = null
     private var finalIds: Set<String> = emptySet()
+    private var hiddenIds: Set<String> = emptySet()
     private var ownerDependentSlots: BooleanArray? = null
     private var prefaces: Map<String, String> = emptyMap()
 
-    fun project(messages: List<AgentChatMessageUi>, selectedIds: Set<String>): Map<String, String> {
+    fun project(
+        messages: List<AgentChatMessageUi>,
+        selectedIds: Set<String>,
+        hiddenIds: Set<String> = emptySet(),
+    ): Map<String, String> {
         val previous = source
         val dependent = ownerDependentSlots
-        if (previous != null && dependent != null && previous.size == messages.size && finalIds == selectedIds) {
+        if (previous != null && dependent != null && previous.size == messages.size &&
+            finalIds == selectedIds && this.hiddenIds == hiddenIds
+        ) {
             // A live transcript replaces one slot at a time. Without this hint the
             // scan below and the snapshot copy both walk every historical message.
             val single = (messages as? AgentIncrementalList<AgentChatMessageUi>)?.singleReplacementFrom(previous)
@@ -258,9 +268,11 @@ internal class AgentSpeechPrefaceCache(
         }
         val input = messages.incrementalSnapshot()
         val ids = selectedIds.toSet()
-        val result = fullProjection(input, ids)
+        val hidden = hiddenIds.toSet()
+        val result = fullProjection(input, ids, hidden)
         source = input
         finalIds = ids
+        this.hiddenIds = hidden
         prefaces = result
         ownerDependentSlots = ownerDependencies(input, ids)
         return result
