@@ -336,12 +336,12 @@ class M3ComposerToolbarLayoutTest {
 
     /**
      * 「无输入框 → 聆听条」的衔接期间，胶囊必须**全程不透明**：底衬始终是不透明的实心胶囊，
-     * 只允许在输入框底色（`surfaceContainer`）与聆听条底色（`surfaceContainerHigh`）之间平滑插值，
-     * 绝不能把外层 vibrant 工具栏的 `primaryContainer` 透出来。
+     * 输入框与聆听条共用 `surfaceContainer` 底色，绝不能把外层 vibrant 工具栏的
+     * `primaryContainer` 透出来。
      *
      * 回归背景：交叉淡化时输入框与聆听条同时只有部分 alpha，两层半透明源叠加后整体不满不透明，
      * 外层工具栏底色就会从中间透出，观感是"胶囊中间变色 / 发虚"。修复方式是在该槽位铺一层
-     * 同形的实心底衬，底色随语音态在两种胶囊色之间同步渐变。这里对槽位像素取样验证。
+     * 同形的实心底衬。这里对槽位像素取样验证。
      */
     @Test
     fun pillBackdropStaysOpaqueThroughVoiceCrossfade() {
@@ -350,14 +350,12 @@ class M3ComposerToolbarLayoutTest {
         // 三色互不相同且对比强烈，任何混入工具栏底色的像素都会在 red 通道上暴露。
         val toolbarColor = Color(0xFFE80000)
         val inputPillColor = Color(0xFF0000E8)
-        val voicePillColor = Color(0xFF00E800)
         compose.setComposerContent(
             field = field,
             voiceStateHolder = voiceStateHolder,
             colorScheme = lightColorScheme(
                 primaryContainer = toolbarColor,
                 surfaceContainer = inputPillColor,
-                surfaceContainerHigh = voicePillColor,
             ),
         )
         val slot = compose.onNodeWithTag("composer-pill-slot", useUnmergedTree = true)
@@ -389,10 +387,10 @@ class M3ComposerToolbarLayoutTest {
             )
         }
 
-        // 过渡结束后应落到聆听条底色。
+        // 过渡结束后应落到聆听条底色（与输入框同为 surfaceContainer）。
         compose.mainClock.advanceTimeBy(2_000)
         compose.mainClock.autoAdvance = true
-        assertEquals("语音态胶囊底色应为 surfaceContainerHigh", voicePillColor, pillSample())
+        assertEquals("语音态胶囊底色应为 surfaceContainer", inputPillColor, pillSample())
     }
 
     /**

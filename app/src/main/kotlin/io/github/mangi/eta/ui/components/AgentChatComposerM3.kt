@@ -435,22 +435,12 @@ internal fun Material3ComposerBody(
             // weight 槽位的真实宽度，内容于是被塞进一个更窄的矩形里——两端 28dp 圆角就是这样
             // 被切成平口的（“展开过程中两头有裁切”）。宽度改由布局驱动后不再有任何裁切。
             //
-            // 槽位底衬（关键）：交叉淡化期间两份内容（输入框 surfaceContainer ⇄ 聆听条
-            // surfaceContainerHigh）同时只有部分 alpha，两层半透明源叠加后整体仍不满不透明，
-            // 外层 vibrant 工具栏的 primaryContainer 会从中间透出来——就是"胶囊衔接中间出现
-            // 透明度变化、看着发虚/变色"。这里在本槽位先铺一层同形（28dp 圆角）不透明底，
-            // 底色随语音态在两种胶囊色之间同步渐变：前景怎么交叉淡化，下面始终是一块实心底，
-            // 胶囊全程不透明（中间只会是两种胶囊色之间的平滑插值，不再混入工具栏底色）。
-            val pillBackdropColor by animateColorAsState(
-                targetValue = if (voiceActive) {
-                    MaterialTheme.colorScheme.surfaceContainerHigh
-                } else {
-                    MaterialTheme.colorScheme.surfaceContainer
-                },
-                // 槽位底衬只做颜色插值，属 Effects，不能拿 Spatial 的过冲。
-                animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
-                label = "composer_pill_backdrop",
-            )
+            // 槽位底衬（关键）：交叉淡化期间两份内容（输入框 ⇄ 聆听条，同为 surfaceContainer）
+            // 同时只有部分 alpha，两层半透明源叠加后整体仍不满不透明，外层 vibrant 工具栏的
+            // primaryContainer 会从中间透出来——就是"胶囊衔接中间出现透明度变化、看着发虚/变色"。
+            // 这里在本槽位先铺一层同形（28dp 圆角）不透明底，前景怎么交叉淡化，下面始终是一块
+            // 实心底，胶囊全程不透明，不会混入工具栏底色。
+            val pillBackdropColor = MaterialTheme.colorScheme.surfaceContainer
             // 胶囊与尾部按钮的共享容器：胶囊内容（输入框 ⇄ 聆听条）只做交叉淡化，
             // 尾部按钮（Call ⇄ 发送 ⇄ 停止）单独用同一条弹簧形变——两者互不牵连。
             Box(modifier = Modifier.weight(1f)) {
@@ -730,7 +720,7 @@ private fun M3VoiceBar(state: VoiceModeState) {
             .fillMaxWidth()
             .heightIn(min = TextFieldDefaults.MinHeight)
             .clip(MaterialTheme.shapes.extraLarge)
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
             .padding(horizontal = ComposerConcentricGap),
         verticalAlignment = Alignment.CenterVertically,
     ) {

@@ -48,7 +48,7 @@ class VoiceFormStyleHapticsContractTest(unittest.TestCase):
             self.assertNotIn(gone, composer)
         voice = composer.split('private fun M3VoiceBar(', 1)[1]
         self.assertIn('.clip(MaterialTheme.shapes.extraLarge)', voice)
-        self.assertIn('.background(MaterialTheme.colorScheme.surfaceContainerHigh)', voice)
+        self.assertIn('.background(MaterialTheme.colorScheme.surfaceContainer)', voice)
         self.assertIn('M3VoiceBar(state = voiceState)', composer)
         self.assertIn('Material3ComposerBody(', chat)
 
