@@ -18,6 +18,7 @@ import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -88,6 +89,9 @@ internal fun SubAgentPresetDetailScreen(
 ) {
     val repository = remember(presetId) { repositoryFactory() }
     val directory = rememberSubAgentPresetDirectory(repository)
+    // 先取 App 级会话编辑器，再向下提供预设作用域的编辑器：子组件读到的仍是预设副本，
+    // 而「应用此组到本会话」要写的是会话作用域，两者互不越界。
+    val conversationEditor = LocalConversationSubAgentEditor.current
     val preset = directory.entries.firstOrNull { it.id == presetId }
     if (preset == null) {
         PresetDetailUnavailable(directory, onBack)
@@ -107,7 +111,7 @@ internal fun SubAgentPresetDetailScreen(
         }
         DisposableEffect(editor) { onDispose { editor.dispose() } }
         CompositionLocalProvider(LocalConversationSubAgentEditor provides editor) {
-            SubAgentPresetDetail(editor, preset.name, onBack, isCurrentRoute)
+            SubAgentPresetDetail(editor, preset.id, preset.name, onBack, isCurrentRoute, conversationEditor)
         }
     }
 }
@@ -155,9 +159,11 @@ private fun PresetDetailUnavailable(directory: SubAgentPresetDirectory, onBack: 
 @Composable
 private fun SubAgentPresetDetail(
     editor: ConversationSubAgentEditor,
+    presetId: String,
     groupName: String,
     onBack: () -> Unit,
     isCurrentRoute: Boolean,
+    conversationEditor: ConversationSubAgentEditor?,
 ) {
     val state = editor.observe()
     val lastLoadedConfig = remember(editor) { arrayOfNulls<ConversationSubAgentConfig>(1) }
@@ -221,6 +227,12 @@ private fun SubAgentPresetDetail(
                         )
                         if (state is SubAgentEditorState.Error) TextButton(onClick = { editor.retry() }) { Text(stringResource(R.string.sas_retry_restore)) }
                     }
+                }
+                item(key = "apply") {
+                    SubAgentPresetApplySection(
+                        presetId = presetId,
+                        conversationEditor = conversationEditor,
+                    )
                 }
                 if (config != null) {
                     item(key = "profiles") {
@@ -298,6 +310,64 @@ private fun SubAgentPresetDetail(
                             delete = null
                     }) { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) } })
             }
+        }
+    }
+}
+
+/**
+ * 「应用此组到本会话」：把预设组复制进当前会话作用域——写会话，不写预设。
+ *
+ * 应用结果（已应用哪个组、自动委派开关、会话级代理行）由列表页的「本会话」区块呈现，
+ * 两边经 App 级会话编辑器（owner=当前会话/草稿）读写同一份配置；重新应用会以预设
+ * 覆盖会话级改动，与旧选组入口的行为一致。
+ */
+@Composable
+private fun SubAgentPresetApplySection(
+    presetId: String,
+    conversationEditor: ConversationSubAgentEditor?,
+) {
+    if (conversationEditor == null) return
+    val context = LocalContext.current
+    val state = conversationEditor.observe()
+    val applied = (state as? SubAgentEditorState.Loaded)?.config?.appliedPresetId == presetId
+    var error by remember(conversationEditor, presetId) { mutableStateOf<String?>(null) }
+    val editable = conversationEditor.enabled
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = EtaGroupHorizontalPadding, end = EtaGroupHorizontalPadding, bottom = EtaSegmentedGroupSpacing),
+    ) {
+        if (applied) {
+            Text(
+                text = stringResource(R.string.sas_applied_to_conversation),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (!editable) {
+            Text(
+                text = stringResource(R.string.sas_conversation_readonly),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        error?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+        Button(
+            onClick = {
+                val result = conversationEditor.applyPreset(presetId)
+                error = if (result is ConversationSubAgentPreferences.WriteResult.Saved) null
+                else context.getString(R.string.sas_apply_failed)
+            },
+            enabled = editable,
+            modifier = Modifier.padding(top = 8.dp),
+        ) {
+            Text(stringResource(R.string.sas_apply_to_conversation))
         }
     }
 }

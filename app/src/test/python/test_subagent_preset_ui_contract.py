@@ -12,7 +12,10 @@ class SubAgentPresetUiContractTest(unittest.TestCase):
     def test_list_shell_owns_catalog_while_detail_screen_owns_the_preset_editor(self):
         shell = self.source('ui/SubAgentSettingsScreen.kt')
         detail = self.source('ui/SubAgentPresetDetailScreen.kt')
-        self.assertNotIn('LocalConversationSubAgentEditor.current', shell)
+        # 列表页新增「本会话」区块：只消费 App 级会话编辑器（默认参数取 CompositionLocal），
+        # 仍不自行创建任何编辑器；预设 editor 依旧只归详情页。
+        self.assertIn('conversationEditor: ConversationSubAgentEditor? = LocalConversationSubAgentEditor.current', shell)
+        self.assertIn('conversationEditor?.scoped(', shell)
         for needle in ('ConversationSubAgentPreferences()', 'remember { repositoryFactory() }',
                        'rememberSubAgentPresetDirectory(repository)', 'onOpenPreset(preset.id)'):
             self.assertIn(needle, shell)
@@ -41,52 +44,52 @@ class SubAgentPresetUiContractTest(unittest.TestCase):
     def test_catalog_supports_named_empty_add_rename_delete_and_explicit_retry(self):
         settings = self.source('ui/SubAgentSettingsScreen.kt')
         # 组列表已改为 KernelSU 式分段列表（EtaScaffoldPage + EtaSegmentedColumn + FAB），
-        # 共享的 SubAgentPresetCard 只保留给会话协作面板使用。
+        # 预设目录的读取/重试状态由共享的 SubAgentPresetDirectory 承载。
         for needle in ('repository.addPreset(name.trim())', 'repository.renamePreset(', 'repository.removePreset(',
                        'EtaScaffoldPage(', 'EtaSegmentedColumn(', 'SubAgentPresetDirectoryStatus(directory)'):
             self.assertIn(needle, settings)
-        cards = self.source('ui/components/SubAgentPresetCard.kt')
+        directory = self.source('ui/components/SubAgentPresetDirectory.kt')
         for needle in ('repository.presets()', 'repository.presetsFlow().collect', 'recoverDurability()',
                        'if (error != null) return@LaunchedEffect', 'TouchHaptics.click(view); directory.retry()'):
-            self.assertIn(needle, cards)
-
-    def test_shared_card_is_an_official_container_with_shared_ripple_suppression(self):
-        cards = self.source('ui/components/SubAgentPresetCard.kt')
-        # 官方填充 Card 承担形状/容器色，行交给官方可交互 ListItem（命中区、涟漪、Role 语义）。
-        for needle in ('Card(', 'CardDefaults.cardColors(',
-                       'containerColor = MaterialTheme.colorScheme.primaryContainer',
-                       'ListItem(', 'onClick = { TouchHaptics.click(view); onClick() }'):
-            self.assertIn(needle, cards)
-        # 不再手写圆角/叠透明度，也不再逐处把指示器置空（比对前先剔除注释）。
-        code = '\n'.join(line.split('//')[0] for line in cards.splitlines())
+            self.assertIn(needle, directory)
+        # 目录状态不手写圆角/叠透明度：读取失败保持可点重试，不伪装成空目录。
+        code = '\n'.join(line.split('//')[0] for line in directory.splitlines())
         for gone in ('RoundedCornerShape', 'primaryContainer.copy(alpha', 'indication = null'):
             self.assertNotIn(gone, code)
-        for path in ('ui/SubAgentSettingsScreen.kt', 'ui/components/ConversationCollaborationDialog.kt'):
+        for path in ('ui/SubAgentSettingsScreen.kt', 'ui/SubAgentPresetDetailScreen.kt'):
             self.assertIn('WithoutPressRipple', self.source(path))
             self.assertIn('LocalRippleConfiguration provides etaRippleConfiguration()', self.source(path))
             self.assertNotIn('LocalRippleConfiguration provides null', self.source(path))
 
-    def test_legacy_dialog_is_non_writing_and_saved_only_enters_original_panel(self):
-        text = self.source('ui/components/ConversationCollaborationDialog.kt')
-        for needle in ('current?.appliedPresetId == null', 'R.string.ccd_use_current_config',
-                       'R.string.ccd_switch_group',
-                       'val editor = LocalConversationSubAgentEditor.current', 'editor.applyPreset(preset.id)',
-                       'result is ConversationSubAgentPreferences.WriteResult.Saved',
-                       'R.string.ccd_apply_failed', 'popup.isCurrent(ticket, popup)',
-                       'DisposableEffect(popup)', 'popup.dismiss()'):
-            self.assertIn(needle, text)
-        self.assertNotIn('SubAgentConfigKey.Preset', text)
-        self.assertNotIn('LaunchedEffect', text)  # Opening never auto-applies or replaces the old owner config.
-        use_current = text.split('Text(stringResource(R.string.ccd_use_current_config))', 1)[0].rsplit('TextButton(enabled = canChange', 1)[1]
-        self.assertNotIn('applyPreset', use_current)
-        self.assertNotIn('setEnabled', use_current)
+    def test_composer_long_press_reuses_settings_subagent_pages(self):
+        # 子代理配置只保留设置页一套页面（列表 + 详情两条独立路由）：
+        # 输入栏长按「助手与模型」入口改为派发导航动作，不再单独承载一套会话协作页。
+        actions = self.source('ui/model/AgentUiActions.kt')
+        self.assertIn('data object OpenSubAgentSettings : AgentHomeAction', actions)
+        self.assertIn('data object OpenSubAgentSettings : AgentChatAction', actions)
+        root = self.source('ui/app/AgentAppRoot.kt')
+        self.assertIn('AgentHomeAction.OpenSubAgentSettings -> pushRoute(AppRoute.SubAgents)', root)
+        self.assertIn('AgentChatAction.OpenSubAgentSettings -> pushRoute(AppRoute.SubAgents)', root)
+        composer = self.source('ui/components/AgentChatComposerM3.kt')
+        self.assertIn('onOpenSubAgentSettings: () -> Unit = {}', composer)
+        self.assertIn('onOpenSubAgentSettings = onOpenSubAgentSettings', composer)
+        self.assertIn('onLongClick = onOpenSubAgentSettings', composer)
+        screen = self.source('ui/screens/chat/AgentChatScreen.kt')
+        self.assertIn('onOpenSubAgentSettings = { onAction(AgentChatAction.OpenSubAgentSettings) }', screen)
+        home = self.source('ui/screens/home/AgentHomeScreen.kt')
+        self.assertIn('onOpenSubAgentSettings = { onAction(AgentHomeAction.OpenSubAgentSettings) }', home)
+        # 独立页面已删除：主源码里不得再出现协作页或其宿主弹窗围栏。
+        for path in ROOT.rglob('*.kt'):
+            text = path.read_text()
+            self.assertNotIn('ConversationCollaborationDialog', text, path)
+            self.assertNotIn('OwnerBoundPopup', text, path)
+        # 长按入口的行为由 Compose 测试守住。
+        tests = Path(__file__).resolve().parents[1] / 'kotlin/io/github/mangi/eta/ui/components'
+        toolbar = (tests / 'M3ComposerToolbarLayoutTest.kt').read_text()
+        self.assertIn('longPressOnModelPickerEntryOpensSubAgentSettingsPage', toolbar)
+        self.assertIn('onOpenSubAgentSettings = { opened++ }', toolbar)
 
-    def test_rows_capture_application_and_dispose_instead_of_trusting_root_state(self):
-        dialog = self.source('ui/components/ConversationCollaborationDialog.kt')
-        for needle in ('key(editor, current.presetApplicationToken)', 'editor.scoped(current.presetApplicationToken)',
-                       'latestOwnerMatches() && !latestTaskRunning && !latestChoosing',
-                       'LocalConversationSubAgentEditor provides panelEditor', 'DisposableEffect(scoped)', 'onDispose { scoped.dispose() }'):
-            self.assertIn(needle, dialog)
+    def test_editor_rows_capture_application_and_dispose_instead_of_trusting_root_state(self):
         editor = self.source('ui/components/ConversationSubAgentEditor.kt')
         for needle in ('fun dispose() { disposed = true }', '!disposed && state is SubAgentEditorState.Loaded',
                        'root.enabled && gate() && root.applicationMatches(applicationToken)',
@@ -101,22 +104,6 @@ class SubAgentPresetUiContractTest(unittest.TestCase):
         self.assertLess(speed.index('providerLookup('), speed.index('confirmedUpdate(id, binding)'))
         self.assertLess(speed.index('confirmedUpdate(id, binding)'),
                         speed.index('if (config.presetApplicationToken != capturedToken) throw LostOwner()'))
-
-    def test_scoped_panel_observes_and_displays_explicit_error_recovery(self):
-        dialog = self.source('ui/components/ConversationCollaborationDialog.kt')
-        self.assertIn('val panelEditor = if (!choosing && current != null && editor != null)', dialog)
-        panel = dialog.split('val panelState = panelEditor?.observe()', 1)[1]
-        for needle in ('val panelConfig = (panelState as? SubAgentEditorState.Loaded)?.config',
-                       'val panelEnabled = canChange && panelEditor?.enabled == true && panelConfig != null',
-                       'when (panelState)', 'R.string.ccd_panel_config_failed', 'R.string.ccd_retry_panel_config',
-                       'editor.retry()', 'panelEditor.retry()',
-                       '(panelConfig ?: current).profiles.forEach',
-                       'SubAgentProfileRow(profile, providers, enabled = panelEnabled,',
-                       'SubAgentProfileDraftSession.open(panelEditor)',
-                       'SubAgentProfileConfigDialog(session, panelEditor, providers',
-                       'Switch(checked = panelConfig?.enabled ?: current.enabled, enabled = panelEnabled'):
-            self.assertIn(needle, panel)
-        self.assertNotIn('SubAgentProfileRow(profile, providers, enabled = canChange)', panel)
 
     def test_catalog_actions_use_anchored_menu_and_do_not_replace_profile_config(self):
         shell = self.source('ui/SubAgentSettingsScreen.kt')
@@ -141,58 +128,20 @@ class SubAgentPresetUiContractTest(unittest.TestCase):
         self.assertNotIn('TouchHaptics.longPress', row)
         self.assertNotIn('SubAgentPresetActionsSheet(', row)
 
-    def test_dialog_has_adaptive_body_and_one_state_dependent_left_action_in_fixed_footer(self):
-        dialog = self.source('ui/components/ConversationCollaborationDialog.kt')
-        # 页面结构：固定动作区在 bottomBar，正文在脚手架内容区并单独滚动。
-        _, rest = dialog.split('bottomBar = {', 1)
-        footer, body = rest.split(') { padding, scrollConnection, _ ->', 1)
-        for resource in ('R.string.ccd_use_current_config', 'R.string.ccd_switch_group'):
-            with self.subTest(resource=resource):
-                self.assertNotIn(f'stringResource({resource})', body)
-                self.assertEqual(footer.count(f'stringResource({resource})'), 1)
-        for needle in ('Modifier.fillMaxWidth()', 'heightIn(min = 48.dp)',
-                       'verticalAlignment = Alignment.CenterVertically',
-                       'horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)',
-                       'if (choosing && current != null', 'else if (!choosing && panelEditor != null)',
-                       'popup.isCurrent(ticket, popup)', 'latestCanChange && latestChoosing && editor.enabled',
-                       'panelEnabled && panelEditor.enabled', '!latestChoosing',
-                       'Text(stringResource(R.string.action_done))', 'TouchHaptics.click(view)',
-                       'testTag("subagent-collaboration-footer")'):
-            self.assertIn(needle, footer)
-        self.assertNotIn('verticalScroll(', footer)
-        self.assertNotIn('applyPreset(', footer)
-        self.assertNotIn('setEnabled(', footer)
-        for needle in ('.nestedScroll(scrollConnection)', '.verticalScroll(',
-                       'appliedPresetName?.let', 'panelEditor.setEnabled(it)',
-                       'Text(stringResource(R.string.ccd_auto_delegation))', 'Switch(checked = panelConfig?.enabled',
-                       'testTag("subagent-collaboration-body")'):
-            self.assertIn(needle, body)
-        # 整页承载：外壳与顶栏交给官方页面组件，不再手写上限或屏幕高度算术。
-        self.assertIn('EtaPageSurface(onDismissRequest = onDismiss)', dialog)
-        self.assertIn('EtaScaffold(', dialog)
-        for gone in ('widthIn(max = 480.dp)', 'heightIn(max =', 'LocalConfiguration.current.screenHeightDp',
-                     'ModalBottomSheet('):
-            self.assertNotIn(gone, dialog)
-        for forbidden in ('OverlayDialog(', 'requiredHeight(', 'fillMaxHeight('):
-            self.assertNotIn(forbidden, dialog)
-
     def test_small_viewport_alignment_scroll_and_retained_callback_tests_are_present(self):
         tests = Path(__file__).resolve().parents[1] / 'kotlin/io/github/mangi/eta/ui/components'
-        collaboration = (tests / 'ConversationCollaborationDialogTest.kt').read_text()
-        for needle in ('@Config(qualifiers = "zh-rCN-w320dp-h480dp")', 'assertFooterAligned(',
-                       'body.bottom <= footer.top', 'left.center.y - done.center.y',
-                       'emptyChooserAndEmptyCurrentConfigWrapHeightAndAlignFooterWithoutWrites',
-                       'longChooserAndAppliedPanelKeepBothFooterActionsFixedDuringScroll',
-                       'retainedFooterCallbacksCannotOperateAReopenedChooserOrReappliedPanel',
-                       'lockedDialogKeepsDisabledDoneButtonInsideSmallViewport',
-                       'compactConfigKeepsAccessibleTouchTargetAndDoneStaysVisible'):
-            self.assertIn(needle, collaboration)
+        toolbar = (tests / 'M3ComposerToolbarLayoutTest.kt').read_text()
+        # 长按入口改用导航后，输入栏仍保留一套覆盖工具栏布局与长按手势的回归测试。
+        for needle in ('@Config(application = Application::class, sdk = [34], qualifiers = "w480dp-h900dp-mdpi")',
+                       'longPressOnModelPickerEntryOpensSubAgentSettingsPage'):
+            self.assertIn(needle, toolbar)
         settings = (tests / 'SubAgentPresetSettingsTest.kt').read_text()
         # 该测试断言中文资源字符串，需固定中文 locale，否则 Robolectric 默认 en-rUS 会让
         # stringResource 解析成英文而断言失败。
         for needle in ('@Config(qualifiers = "zh-rCN-w320dp-h480dp")',
                        'presetMoreOpensActionMenuOnSmallScreenWithoutEditingOrCopyAction',
                        'presetDetailHidesGlobalSwitchesAndProfileEditsPreserveAutomaticDelegation',
+                       'conversationScopeAppliesFromDetailAndTogglesDelegationWithoutTouchingPreset',
                        '重命名组', 'assertFalse("removing the switch must not replace the stored enabled value", saved.enabled)'):
             self.assertIn(needle, settings)
 
@@ -228,6 +177,34 @@ class SubAgentPresetUiContractTest(unittest.TestCase):
         note = next(line for line in strings.splitlines() if 'name="sap_parallel_shared_note"' in line)
         self.assertIn('within this config', note)
         self.assertNotIn('conversation', note)
+
+    def test_conversation_scope_is_editable_from_the_settings_pages(self):
+        # 会话级配置（应用预设组、自动委派开关、会话级代理行）收进设置页两跳：
+        # 列表页「本会话」区块 + 详情页「应用此组到本会话」，不再有独立协作页。
+        shell = self.source('ui/SubAgentSettingsScreen.kt')
+        detail = self.source('ui/SubAgentPresetDetailScreen.kt')
+        for needle in ('LocalConversationSubAgentEditor.current', 'conversationEditor?.scoped(',
+                       'R.string.sas_conversation_title', 'R.string.sas_applied_prefix',
+                       'R.string.sas_conversation_unapplied', 'R.string.sas_conversation_unapplied_hint',
+                       'panelEditor?.setEnabled(', 'SubAgentProfileRow(',
+                       'SubAgentProfileConfigDialog(', 'R.string.sas_conversation_tap_hint',
+                       'R.string.sas_applied_marker'):
+            self.assertIn(needle, shell)
+        for needle in ('conversationEditor = LocalConversationSubAgentEditor.current',
+                       'applyPreset(presetId)', 'R.string.sas_apply_to_conversation',
+                       'R.string.sas_applied_to_conversation', 'R.string.sas_apply_failed'):
+            self.assertIn(needle, detail)
+        # 自动委派开关只属于列表页的本会话区块：详情页仍然不承载任何开关。
+        self.assertNotIn('setEnabled(', detail)
+        # 会话级编辑不新建编辑器：写入口只有 App 级编辑器及其应用绑定副本。
+        self.assertNotIn('ConversationSubAgentEditor(', shell)
+        strings = (ROOT.parents[4] / 'res/values/strings.xml').read_text()
+        for key in ('sas_conversation_title', 'sas_applied_prefix', 'sas_applied_marker',
+                    'sas_conversation_unapplied', 'sas_conversation_unapplied_hint',
+                    'sas_conversation_readonly', 'sas_auto_delegation', 'sas_auto_delegation_desc',
+                    'sas_conversation_tap_hint', 'sas_apply_to_conversation',
+                    'sas_applied_to_conversation', 'sas_apply_failed'):
+            self.assertIn('name="%s"' % key, strings)
 
 
 if __name__ == '__main__':

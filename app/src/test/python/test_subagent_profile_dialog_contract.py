@@ -107,12 +107,7 @@ class SubAgentProfileDialogContractTest(unittest.TestCase):
         self.assertIn('Icon(Icons.Rounded.MoreVert, stringResource(R.string.spr_config_for, profile.name)', row)
         self.assertIn('SubAgentProfileDraftSession.open(editor, profile)', row)
         self.assertIn('onLongClickLabel = stringResource(R.string.spr_adjust_thinking_for, profile.name)', row)
-        conversation = self.source('ui/components/ConversationCollaborationDialog.kt')
-        hint = conversation.split('Text(stringResource(R.string.ccd_tap_hint)', 1)[1]
-        self.assertIn('Icon(Icons.Rounded.Add, stringResource(R.string.sap_add_profile))', hint)
-        self.assertIn('SubAgentProfileDraftSession.open(panelEditor)', hint)
-        hint_row = conversation.split('Row(Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 4.dp),', 1)[1].split('{', 1)[0]
-        self.assertIn('verticalAlignment = Alignment.CenterVertically', hint_row)
+        # 新增入口只在预设详情页（FAB）与行内溢出菜单；任何入口都不得预落一条代理。
         settings = self.source('ui/SubAgentPresetDetailScreen.kt')
         self.assertNotIn('editor.add()', settings)
         self.assertIn('SubAgentProfileDraftSession.open(editor)', settings)
@@ -141,8 +136,9 @@ class SubAgentProfileDialogContractTest(unittest.TestCase):
         # 官方 IconButton 内部已 minimumInteractiveComponentSize()，48dp 触摸目标不再手写。
         self.assertIn('IconButton(enabled = usable, onClick =', row)
         self.assertNotIn('Modifier.size(48.dp)', row)
-        dialog = self.source('ui/components/ConversationCollaborationDialog.kt')
-        self.assertIn('IconButton(modifier = Modifier.size(48.dp), enabled = panelEnabled', dialog)
+        # 详情页的新增 FAB 同样走官方容器尺寸，不手写 48dp 魔法数。
+        detail = self.source('ui/SubAgentPresetDetailScreen.kt')
+        self.assertNotIn('Modifier.size(48.dp)', detail)
 
     def test_ui_fixture_uses_production_theme_without_overlay_host_workaround(self):
         fixture = (Path(__file__).resolve().parents[1] / 'kotlin/io/github/mangi/eta/ui/components/SubAgentUiFixture.kt').read_text()

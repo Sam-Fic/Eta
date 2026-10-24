@@ -1,30 +1,36 @@
 package io.github.mangi.eta.ui
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.AccountTree
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Hub
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,12 +40,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.agent.delegation.ConversationSubAgentConfig
 import io.github.mangi.eta.agent.delegation.ConversationSubAgentPreferences
 import io.github.mangi.eta.agent.delegation.SubAgentPreset
+import io.github.mangi.eta.data.model.ProviderSetting
+import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.ui.adaptive.EtaExtendedFab
 import io.github.mangi.eta.ui.adaptive.EtaGroupHorizontalPadding
 import io.github.mangi.eta.ui.adaptive.EtaMenuItemShape
@@ -49,10 +59,16 @@ import io.github.mangi.eta.ui.adaptive.EtaSegmentedGroupSpacing
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedItemContainer
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 import io.github.mangi.eta.ui.adaptive.rememberFabExpandedState
+import io.github.mangi.eta.ui.components.ConversationSubAgentEditor
 import io.github.mangi.eta.ui.components.ListEmptyState
+import io.github.mangi.eta.ui.components.LocalConversationSubAgentEditor
 import io.github.mangi.eta.ui.components.SubAgentDropdownMenu
+import io.github.mangi.eta.ui.components.SubAgentEditorState
 import io.github.mangi.eta.ui.components.SubAgentPresetDirectoryStatus
 import io.github.mangi.eta.ui.components.SubAgentPresetNameDialog
+import io.github.mangi.eta.ui.components.SubAgentProfileConfigDialog
+import io.github.mangi.eta.ui.components.SubAgentProfileDraftSession
+import io.github.mangi.eta.ui.components.SubAgentProfileRow
 import io.github.mangi.eta.ui.components.WithoutPressRipple
 import io.github.mangi.eta.ui.components.etaRippleConfiguration
 import io.github.mangi.eta.ui.components.rememberSubAgentPresetDirectory
@@ -66,12 +82,18 @@ import io.github.mangi.eta.ui.haptics.TouchHaptics
  *
  * 详情是同级的独立导航目标（[io.github.mangi.eta.ui.navigation.AppRoute.SubAgentPresetDetail]），
  * 不在本页内部切换——这样入栈/出栈由 NavHost 统一转场，返回手势也能走预测性返回。
+ *
+ * 页面同时承载「本会话」区块：应用了哪个预设组、自动委派开关与会话级代理行都经
+ * [conversationEditor]（App 级，owner=当前会话/草稿）及其应用绑定副本编辑，与预设
+ * 目录互不影响——编辑预设不会改写任何会话，编辑本会话也不会改写预设。
  */
 @Composable
 internal fun SubAgentSettingsScreen(
     onBack: () -> Unit,
     onOpenPreset: (String) -> Unit,
     repositoryFactory: () -> ConversationSubAgentPreferences = { ConversationSubAgentPreferences() },
+    // 由 AgentAppRoot 按当前会话/草稿提供；列表页只消费，不另行创建编辑器。
+    conversationEditor: ConversationSubAgentEditor? = LocalConversationSubAgentEditor.current,
 ) {
     // Deliberately independent of the app's conversation editor (and its running-task lock).
     val repository = remember { repositoryFactory() }
@@ -85,6 +107,19 @@ internal fun SubAgentSettingsScreen(
     val editable = !directory.loading && directory.error == null
     val listState = rememberLazyListState()
     val fabExpanded by rememberFabExpandedState(listState)
+    // —— 本会话：应用绑定副本承载行内编辑，切换组后旧 token 的编辑全部失效。
+    val conversationState = conversationEditor?.observe()
+    val conversationConfig = (conversationState as? SubAgentEditorState.Loaded)?.config
+    val appliedPresetId = conversationConfig?.appliedPresetId
+    val panelEditor = remember(conversationEditor, conversationConfig?.presetApplicationToken) {
+        conversationEditor?.scoped(conversationConfig?.presetApplicationToken)
+    }
+    val panelState = panelEditor?.observe()
+    val panelConfig = (panelState as? SubAgentEditorState.Loaded)?.config
+    val panelEnabled = conversationEditor?.enabled == true && panelEditor?.enabled == true && panelConfig != null
+    val providers by remember { ProviderRepository.providersFlow() }.collectAsState(initial = emptyList())
+    var addedDraft by remember(panelEditor) { mutableStateOf<SubAgentProfileDraftSession?>(null) }
+    LaunchedEffect(panelEditor, panelEnabled) { if (!panelEnabled && addedDraft != null) addedDraft = null }
     CompositionLocalProvider(LocalRippleConfiguration provides etaRippleConfiguration()) {
         WithoutPressRipple {
             EtaScaffoldPage(
@@ -104,6 +139,31 @@ internal fun SubAgentSettingsScreen(
                     null
                 },
             ) {
+                item(key = "conversation") {
+                    SubAgentConversationSection(
+                        conversationEditor = conversationEditor,
+                        panelEditor = panelEditor,
+                        panelConfig = panelConfig,
+                        panelEnabled = panelEnabled,
+                        providers = providers,
+                        appliedPresetId = appliedPresetId,
+                        appliedPresetName = conversationConfig?.appliedPresetName,
+                        conversationError = (conversationState as? SubAgentEditorState.Error)?.reason,
+                        onAddProfile = {
+                            if (panelEditor != null && panelEditor.enabled) {
+                                SubAgentProfileDraftSession.open(panelEditor)?.let {
+                                    TouchHaptics.click(view)
+                                    addedDraft = it
+                                }
+                            }
+                        },
+                        onRetry = {
+                            TouchHaptics.click(view)
+                            conversationEditor?.retry()
+                            panelEditor?.retry()
+                        },
+                    )
+                }
                 item(key = "hint") {
                     Text(
                         text = stringResource(R.string.sas_group_hint),
@@ -165,7 +225,8 @@ internal fun SubAgentSettingsScreen(
                                     supportingContent = {
                                         Text(
                                             text = stringResource(R.string.sas_profiles_count, preset.config.profiles.size) + " · " +
-                                                if (preset.config.enabled) stringResource(R.string.sas_auto_delegation_on) else stringResource(R.string.sas_auto_delegation_off),
+                                                if (preset.config.enabled) stringResource(R.string.sas_auto_delegation_on) else stringResource(R.string.sas_auto_delegation_off) +
+                                                if (preset.id == appliedPresetId) " · " + stringResource(R.string.sas_applied_marker) else "",
                                         )
                                     },
                                     trailingContent = {
@@ -239,6 +300,160 @@ internal fun SubAgentSettingsScreen(
                     confirmButton = { TextButton(enabled = editable, onClick = {
                         if (directory.change { check(repository.removePreset(preset.id)) { context.getString(R.string.sas_group_missing) } }) delete = null
                     }) { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) } })
+            }
+            // 会话级新增草稿的配置弹窗挂在屏幕级（而非懒列表条目内）：滚动不应收起弹窗。
+            addedDraft?.let { session ->
+                SubAgentProfileConfigDialog(
+                    session = session,
+                    currentEditor = panelEditor,
+                    providers = providers,
+                    enabled = panelEnabled,
+                    onDismiss = {
+                        session.dismiss()
+                        if (addedDraft === session) addedDraft = null
+                    },
+                    onRetry = {
+                        TouchHaptics.click(view)
+                        conversationEditor?.retry()
+                        panelEditor?.retry()
+                    },
+                )
+            }
+        }
+    }
+}
+
+/**
+ * 「本会话」区块：当前会话应用了哪个预设组、自动委派开关与会话级代理行。
+ *
+ * 未应用时只说明现状与下一步（选组即下方分组列表）；已应用后经应用绑定副本
+ * （[ConversationSubAgentEditor.scoped]）编辑， token 不匹配的旧编辑全部失效，
+ * 与预设目录形成两道互不越界的写入口。
+ */
+@Composable
+private fun SubAgentConversationSection(
+    conversationEditor: ConversationSubAgentEditor?,
+    panelEditor: ConversationSubAgentEditor?,
+    panelConfig: ConversationSubAgentConfig?,
+    panelEnabled: Boolean,
+    providers: List<ProviderSetting>,
+    appliedPresetId: String?,
+    appliedPresetName: String?,
+    conversationError: String?,
+    onAddProfile: () -> Unit,
+    onRetry: () -> Unit,
+) {
+    // 行内编辑器改绑应用副本：模型/思考档位/并行上限都写会话作用域。
+    // Provider 必须包住整个 EtaSegmentedColumn 调用——条目内容由列内部的 Layout 延迟调用，
+    // 写在 scope lambda 里会变成兄弟节点而完全不生效（与已删除的协作页同一结构）。
+    CompositionLocalProvider(LocalConversationSubAgentEditor provides panelEditor) {
+        EtaSegmentedColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = EtaGroupHorizontalPadding,
+                    end = EtaGroupHorizontalPadding,
+                    bottom = EtaSegmentedGroupSpacing,
+                ),
+            title = if (appliedPresetId != null && appliedPresetName != null) {
+                stringResource(R.string.sas_applied_prefix, appliedPresetName)
+            } else {
+                stringResource(R.string.sas_conversation_title)
+            },
+        ) {
+            when {
+                conversationError != null -> item(key = "error") {
+                    EtaSegmentedItemContainer {
+                        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                            Text(
+                                text = stringResource(R.string.sas_read_error, conversationError),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                            TextButton(onClick = onRetry) { Text(stringResource(R.string.sas_retry_restore)) }
+                        }
+                    }
+                }
+                appliedPresetId == null -> item(key = "unapplied") {
+                    EtaSegmentedItemContainer {
+                        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                            Text(
+                                text = stringResource(R.string.sas_conversation_unapplied),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                text = stringResource(R.string.sas_conversation_unapplied_hint),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+                else -> {
+                    if (!panelEnabled) {
+                        // 运行中/恢复中：开关与代理行照旧呈现但置灰，配置本身保持可见。
+                        item(key = "readonly") {
+                            EtaSegmentedItemContainer {
+                                Text(
+                                    text = stringResource(R.string.sas_conversation_readonly),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                )
+                            }
+                        }
+                    }
+                    item(key = "auto-delegation") {
+                        EtaSegmentedItemContainer {
+                            val autoDelegation = panelConfig?.enabled == true
+                            ListItem(
+                                leadingContent = { Icon(Icons.Rounded.Hub, contentDescription = null) },
+                                supportingContent = { Text(stringResource(R.string.sas_auto_delegation_desc)) },
+                                trailingContent = {
+                                    Switch(checked = autoDelegation, enabled = panelEnabled, onCheckedChange = null)
+                                },
+                                modifier = Modifier.toggleable(
+                                    value = autoDelegation,
+                                    enabled = panelEnabled,
+                                    role = Role.Switch,
+                                    onValueChange = { if (panelEnabled) panelEditor?.setEnabled(it) },
+                                ),
+                            ) {
+                                Text(stringResource(R.string.sas_auto_delegation))
+                            }
+                        }
+                    }
+                    panelConfig?.profiles.orEmpty().forEach { profile ->
+                        item(key = profile.id) {
+                            EtaSegmentedItemContainer {
+                                SubAgentProfileRow(
+                                    profile = profile,
+                                    providers = providers,
+                                    enabled = panelEnabled,
+                                    draftAllowed = panelEnabled,
+                                    draftRetry = onRetry,
+                                )
+                            }
+                        }
+                    }
+                    item(key = "add", surface = false) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                stringResource(R.string.sas_conversation_tap_hint),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f),
+                            )
+                            IconButton(enabled = panelEnabled, onClick = onAddProfile) {
+                                Icon(Icons.Rounded.Add, stringResource(R.string.sap_add_profile))
+                            }
+                        }
+                    }
+                }
             }
         }
     }

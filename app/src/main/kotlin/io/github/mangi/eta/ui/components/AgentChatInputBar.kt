@@ -228,6 +228,8 @@ internal fun AgentChatInputBar(
     onEditAssistant: (String) -> Unit,
     onOpenModelProviders: () -> Unit,
     onOpenAssistants: () -> Unit,
+    /** 长按「助手与模型」按钮：进入设置页的子代理配置页（预设组列表 / 预设详情）。 */
+    onOpenSubAgentSettings: () -> Unit = {},
     onAssistantSelected: (String) -> Unit = {},
     /** GPT 速度档位（真值来自 owner 的 uiState，UI 不本地记忆）。 */
     gptSpeedMode: GptSpeedMode = GptSpeedMode.NORMAL,
@@ -504,6 +506,7 @@ internal fun AgentChatInputBar(
             onEditAssistant = onEditAssistant,
             onOpenModelProviders = onOpenModelProviders,
             onOpenAssistants = onOpenAssistants,
+            onOpenSubAgentSettings = onOpenSubAgentSettings,
             onAssistantSelected = onAssistantSelected,
             onModelSelected = onModelSelected,
             onReasoningEffortChange = onReasoningEffortChange,

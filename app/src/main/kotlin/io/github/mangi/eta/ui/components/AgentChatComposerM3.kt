@@ -87,7 +87,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
@@ -255,6 +254,13 @@ internal fun Material3ComposerBody(
     onOpenModelProviders: () -> Unit = {},
     /** 从「模型与助手」弹窗进入助手管理页；入口浮层不显示该弹窗，默认空实现。 */
     onOpenAssistants: () -> Unit = {},
+    /**
+     * 长按「助手与模型」按钮：进入设置页的子代理配置页（预设组列表 / 预设详情）。
+     *
+     * 子代理配置只保留设置页一套页面（列表 + 详情两条独立路由），输入栏不再单独承载
+     * 一套会话协作页；入口浮层没有设置页可去，默认空实现。
+     */
+    onOpenSubAgentSettings: () -> Unit = {},
     onAssistantSelected: (String) -> Unit,
     onModelSelected: (String, String) -> Unit,
     onReasoningEffortChange: (ReasoningEffort) -> Unit,
@@ -447,8 +453,8 @@ internal fun Material3ComposerBody(
                             Spacer(modifier = Modifier.width(ComposerToolbarGap))
                             M3ComposerPickerButton(
                                 enabled = pickerEnabled,
-                                collaborationTaskRunning = isStreaming || isPaused || isCompressingContext,
                                 onClick = { showPickerSheet = true },
+                                onOpenSubAgentSettings = onOpenSubAgentSettings,
                             )
                         }
                         // 组尾间距放进动画组：收起后输入框左右各贴工具栏 8dp 内边距
@@ -1114,41 +1120,19 @@ private fun M3ComposerPickImageButton(actions: AgentAttachmentActions) {
  * 「助手与模型」二合一入口：官方 Standard 图标按钮，点击打开合并选择弹窗
  * （助手 / 模型两个页签，底部为思考档位与上下文用量）。
  *
- * 子代理编辑器里长按沿用原模型按钮的行为：打开「协作设置」对话框。
+ * 长按进入设置页的子代理配置页（预设组列表 / 预设详情）：子代理配置只保留设置页
+ * 一套页面，输入栏不再单独承载一套协作页。
  */
 @Composable
 private fun M3ComposerPickerButton(
     enabled: Boolean,
-    collaborationTaskRunning: Boolean,
     onClick: () -> Unit,
+    onOpenSubAgentSettings: () -> Unit,
 ) {
-    val owner = LocalConversationSubAgentEditor.current?.owner
-    val popup = remember(owner) { OwnerBoundPopup(owner) }
-    var dialogTicket by remember(popup) { mutableStateOf<Any?>(null) }
-    val currentPopup by rememberUpdatedState(popup)
-    val capturedDialogTicket = dialogTicket
-    ConversationCollaborationDialog(
-        show = popup.isCurrent(capturedDialogTicket, currentPopup),
-        enabled = false, // The dialog reads the scoped repository, never this legacy argument.
-        taskRunning = collaborationTaskRunning,
-        ownerMatches = { popup.isCurrent(capturedDialogTicket, currentPopup) },
-        onEnabledChange = {},
-        onDismiss = {
-            popup.dispatch(capturedDialogTicket, currentPopup) {
-                popup.dismiss()
-                dialogTicket = null
-            }
-        },
-    )
-    val openCollaborationDialog: (() -> Unit)? = if (owner != null) {
-        { dialogTicket = popup.open() }
-    } else {
-        null
-    }
     ChatInputNonFocusableIconButton(
         onClick = onClick,
         contentDescription = stringResource(R.string.composer_picker_title),
-        onLongClick = openCollaborationDialog,
+        onLongClick = onOpenSubAgentSettings,
         enabled = enabled,
         containerSize = IconButtonDefaults.smallContainerSize().width,
     ) {

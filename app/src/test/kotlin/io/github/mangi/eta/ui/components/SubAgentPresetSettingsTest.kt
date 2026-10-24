@@ -124,6 +124,42 @@ class SubAgentPresetSettingsTest {
         }
     }
 
+    @Test fun conversationScopeAppliesFromDetailAndTogglesDelegationWithoutTouchingPreset() {
+        val fixture = SubAgentUiFixture(profiles = listOf(SubAgentProfile("conv-0", "会话代理")))
+        val group = fixture.createPreset()
+        val conversation = fixture.owner
+        val presetOwner = SubAgentConfigKey.Preset(group.id)
+        compose.setSubAgentContent(fixture) {
+            MaterialTheme(colorScheme = lightColorScheme()) { SubAgentPresetRouteHost(fixture) }
+        }
+        // 未应用：本会话区块只说明现状，选组即下方分组列表。
+        compose.onNodeWithText("本会话尚未应用预设组").assertIsDisplayed()
+        compose.onNodeWithText("自动委派").assertDoesNotExist()
+        compose.onNodeWithContentDescription("编辑子代理组 ${group.name}").performClick()
+        // 应用入口只在详情页：写会话作用域，预设本身不被改写。
+        compose.onNodeWithText("应用此组到本会话").assertIsEnabled().performClick()
+        compose.runOnIdle {
+            val applied = fixture.repository.snapshot(conversation)
+            assertEquals(group.id, applied.appliedPresetId)
+            assertEquals(group.name, applied.appliedPresetName)
+            assertEquals(listOf("会话代理"), applied.profiles.map { it.name })
+            assertEquals(listOf("会话代理"), fixture.repository.snapshot(presetOwner).profiles.map { it.name })
+        }
+        compose.onNodeWithContentDescription("返回").performClick()
+        // 已应用：区块标题切到「已应用：X」，组卡片带标记，代理行来自会话副本。
+        compose.onNodeWithText("已应用：${group.name}").assertIsDisplayed()
+        compose.onNodeWithText("会话代理").assertIsDisplayed()
+        compose.onNodeWithText("本会话已应用", substring = true).performScrollTo().assertIsDisplayed()
+        // 自动委派开关写会话作用域；预设组的开关不随会话改动。
+        compose.onNodeWithText("自动委派").assertIsDisplayed().performClick()
+        compose.runOnIdle {
+            val after = fixture.repository.snapshot(conversation)
+            assertFalse("the switch must write the conversation scope", after.enabled)
+            assertTrue("the preset switch must not follow the conversation", fixture.repository.snapshot(presetOwner).enabled)
+            assertEquals(group.id, after.appliedPresetId)
+        }
+    }
+
     @Test fun presetTaskTierSavesReopensAndCanBeClearedWithoutChangingConversation() {
         val agent = SubAgentProfile("tier-agent", "分工代理")
         val fixture = SubAgentUiFixture(profiles = listOf(agent))

@@ -45,6 +45,11 @@ sealed interface AgentHomeAction {
     data class EditAssistant(val id: String) : AgentHomeAction
     data object OpenModelProviders : AgentHomeAction
     data object OpenAssistants : AgentHomeAction
+    /**
+     * 长按输入栏「助手与模型」按钮：进入设置页的子代理配置页（预设组列表 / 预设详情），
+     * 不再单独承载一套会话协作页。
+     */
+    data object OpenSubAgentSettings : AgentHomeAction
     data object ExpandRunTrace : AgentHomeAction
 }
 
@@ -70,6 +75,11 @@ sealed interface AgentChatAction {
     data class EditAssistant(val id: String) : AgentChatAction
     data object OpenModelProviders : AgentChatAction
     data object OpenAssistants : AgentChatAction
+    /**
+     * 长按输入栏「助手与模型」按钮：进入设置页的子代理配置页（预设组列表 / 预设详情），
+     * 不再单独承载一套会话协作页。
+     */
+    data object OpenSubAgentSettings : AgentChatAction
     data class ImageAttached(val uri: String) : AgentChatAction
     data class VideoAttached(val uri: String) : AgentChatAction
     data class RemoveImage(val id: String) : AgentChatAction
