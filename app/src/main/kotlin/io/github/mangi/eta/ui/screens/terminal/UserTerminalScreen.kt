@@ -497,9 +497,9 @@ private fun blockHeader(block: TerminalBlockUi): AnnotatedString {
 /**
  * 命令块动作菜单。
  *
- * M3E：官方弹出窗口（[EtaMenuPopup]）锚定在所挂的 Box（命令块）展开；容器用官方
- * [DropdownMenuGroup]，条目用官方 [DropdownMenuItem] + `MenuDefaults.itemShape` 分段形状，
- * 行高 / 字阶 / 颜色全用官方默认值。
+ * M3E：官方弹出窗口（[EtaMenuPopup]）锚定在所挂的 Box（命令块）展开；容器用官方的
+ * [EtaMenuGroup]（动作菜单补档纵向留白），条目用官方 [DropdownMenuItem] + `EtaMenuItemShape`
+ * 分段形状，行高 / 字阶 / 颜色全用官方默认值。
  */
 @Composable
 private fun BlockActionMenu(

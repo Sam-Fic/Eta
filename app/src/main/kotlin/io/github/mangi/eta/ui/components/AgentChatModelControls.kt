@@ -47,9 +47,9 @@ import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text as M3Text
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import io.github.mangi.eta.ui.adaptive.EtaMenuGroup
+import io.github.mangi.eta.ui.adaptive.EtaMenuGroupSurface
+import io.github.mangi.eta.ui.adaptive.EtaMenuItemShape
+import io.github.mangi.eta.ui.adaptive.EtaMenuItemShapes
 import io.github.mangi.eta.ui.adaptive.EtaMenuPopup
 
 /**
@@ -115,7 +115,7 @@ private fun List<ModelMenuRow>.firstItemInRunAt(index: Int): Int {
     return first
 }
 
-/** 连续菜单项段的长度，供官方 `MenuDefaults.itemShape(index, count)` 使用。 */
+/** 连续菜单项段的长度，供 `EtaMenuItemShapes(index, count)` 使用。 */
 private fun List<ModelMenuRow>.itemRunLengthAt(index: Int): Int {
     val first = firstItemInRunAt(index)
     var last = index
@@ -212,8 +212,9 @@ internal fun ModelPickerMenuContentM3(
                         overflow = TextOverflow.Ellipsis,
                     )
                 },
-                // 形状段以「服务商标题」为界，首/末项各自拿到官方 leading/trailing 形状。
-                shapes = MenuDefaults.itemShape(
+                // 形状段以「服务商标题」为界，首/末项各自拿到官方 leading/trailing 形状；
+                // 段内只有一项时取 medium 圆角，与单条目气泡同档。
+                shapes = EtaMenuItemShapes(
                     index = index - rows.firstItemInRunAt(index),
                     count = rows.itemRunLengthAt(index),
                 ),
@@ -231,7 +232,7 @@ internal fun ModelPickerMenuContentM3(
                 onClick = {},
                 text = { M3Text(text = stringResource(R.string.model_search_empty)) },
                 enabled = false,
-                shape = MenuDefaults.standaloneItemShape,
+                shape = EtaMenuItemShape(index = 0, count = 1),
             )
         }
     }
@@ -304,10 +305,9 @@ internal fun ContextTargetSelectorMenu(
         modifier = Modifier.heightIn(max = popupMaxHeight()),
     ) {
         // 组内容可滚动：弹层高度受限，条目多时在组内滚动而不是把弹层撑高。
-        EtaMenuGroup(
-            index = 0,
-            count = 1,
-            modifier = Modifier.verticalScroll(rememberScrollState()),
+        // 滚动必须落在内层 Column（EtaMenuGroupSurface），挂在组 Surface 上会把圆角一起滚掉。
+        EtaMenuGroupSurface(
+            scrollable = true,
             // 条目带 Check 的单选弹层：保持官方紧凑纵向边距。
             selectableMenu = true,
         ) {
@@ -326,7 +326,7 @@ internal fun ContextTargetSelectorMenu(
                             overflow = TextOverflow.Ellipsis,
                         )
                     },
-                    shapes = MenuDefaults.itemShape(index, targets.size),
+                    shapes = EtaMenuItemShapes(index = index, count = targets.size),
                     // 选中项带 Check 前导图标，与「请求接口」那个下拉同款。
                     selectedLeadingIcon = {
                         Icon(

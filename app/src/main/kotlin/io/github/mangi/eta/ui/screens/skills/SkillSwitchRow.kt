@@ -52,6 +52,8 @@ internal fun SkillSwitchRow(
     EtaSegmentedRow(
         modifier = Modifier.fillMaxWidth(),
         enabled = enabled,
+        // 行尾带开关时属于「开关类」，保持官方内边距；没有开关（只有溢出菜单）时按动作行补留白。
+        choiceRow = showSwitch,
         leadingContent = {
             Icon(
                 imageVector = iconForSkill(skill.id),

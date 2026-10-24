@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -14,6 +15,9 @@ import androidx.compose.material3.DropdownMenuGroup
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DropdownMenuPopup
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.MenuItemShapes
 import androidx.compose.material3.Surface
@@ -23,6 +27,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.Constraints
@@ -213,7 +218,7 @@ fun EtaMenuItemShape(index: Int, count: Int): Shape =
     }
 
 /**
- * 可选中条目形状：未选中态用 [EtaMenuItemShape]（单项时与容器同心），选中态用官方
+ * 可选中条目形状：未选中态用 [EtaMenuItemShape]（单项时取 medium 圆角），选中态用官方
  * medium 全圆角药丸（与「上下文压缩 → 请求接口」那个下拉同款）。
  */
 @Composable
@@ -226,16 +231,23 @@ fun EtaMenuItemShapes(index: Int, count: Int): MenuItemShapes {
     }
 }
 
-/** 纯文案菜单条目：文案 + 可用态 + 点击回调。 */
+/**
+ * 文案型菜单条目：前导图标 + 文案 + 可用态 + 点击回调。
+ *
+ * 与其它菜单一致，条目一律带前导图标（左侧 Icon、右侧名字）；`icon` 为空时才退化为纯文案。
+ * [destructive] 让图标与文案同取 error 色（删除、移除等不可逆操作）。
+ */
 @Immutable
 data class EtaMenuEntry(
     val text: String,
+    val icon: ImageVector? = null,
     val enabled: Boolean = true,
+    val destructive: Boolean = false,
     val onClick: () -> Unit,
 )
 
 /**
- * 纯文案下拉菜单：官方 Expressive 弹层 + 官方分组，条目形状按位置取官方 leading / middle / trailing。
+ * 文案型下拉菜单：官方 Expressive 弹层 + 官方分组，条目形状按位置取官方 leading / middle / trailing。
  *
  * 条目数固定后形状由 [EtaMenuItemShape] 按位置推导，调用方不必自己算圆角。
  */
@@ -254,8 +266,29 @@ fun EtaTextMenu(
         EtaMenuGroup(index = 0, count = 1) {
             entries.forEachIndexed { index, entry ->
                 DropdownMenuItem(
-                    text = { Text(text = entry.text) },
+                    text = {
+                        if (entry.destructive) {
+                            Text(text = entry.text, color = MaterialTheme.colorScheme.error)
+                        } else {
+                            Text(text = entry.text)
+                        }
+                    },
                     enabled = entry.enabled,
+                    leadingIcon = entry.icon?.let { icon ->
+                        {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                modifier = Modifier.size(MenuDefaults.LeadingIconSize),
+                                // 前导槽位自带内容色，非破坏性项不要再写死颜色。
+                                tint = if (entry.destructive) {
+                                    MaterialTheme.colorScheme.error
+                                } else {
+                                    LocalContentColor.current
+                                },
+                            )
+                        }
+                    },
                     shape = EtaMenuItemShape(index, entries.size),
                     onClick = entry.onClick,
                 )
@@ -263,15 +296,6 @@ fun EtaTextMenu(
         }
     }
 }
-
-/**
- * Expressive 菜单分组之间的官方留白（组与组之间是间距，不是分割线）。
- *
- * 官方 `DropdownMenuPopup` 的内容列不自带组间距，`MenuDefaults.GroupSpacing`
- * 需要调用方自己插入，因此统一从这里取，避免各处写死数值。
- */
-val EtaMenuGroupSpacing: androidx.compose.ui.unit.Dp
-    get() = MenuDefaults.GroupSpacing
 
 /** Expressive 菜单宽度下限：够放下「前置图标 + 四字中文」，与旧版平台默认弹窗宽度接近。 */
 val EtaMenuMinWidth: androidx.compose.ui.unit.Dp = 140.dp

@@ -6,6 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.RecordVoiceOver
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -120,7 +121,7 @@ internal fun MimoVoicesScreen(onBack: () -> Unit) {
                         expanded = providerMenu,
                         onDismissRequest = { providerMenu = false },
                         entries = available.map { item ->
-                            EtaMenuEntry(text = item.name) {
+                            EtaMenuEntry(text = item.name, icon = Icons.Rounded.Cloud) {
                                 TouchHaptics.click(view); selectedProvider = item.id; providerMenu = false
                             }
                         },

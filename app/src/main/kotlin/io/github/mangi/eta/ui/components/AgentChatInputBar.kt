@@ -1278,7 +1278,7 @@ private fun VoiceEntryPickerDialog(
                 Triple(VoiceEntryMode.DOUBAO_DUPLEX, Icons.Rounded.GraphicEq, R.string.voice_mode_doubao),
             ).filter { it.first in modes }
             entries.forEachIndexed { index, (mode, icon, label) ->
-                // 形状取官方 MenuDefaults：单项用 standalone，多项按位置取 leading/middle/trailing。
+                // 形状走 EtaMenuItemShape：多项按位置取 leading/middle/trailing，单项取 medium。
                 DropdownMenuItem(
                     text = { M3Text(stringResource(label)) },
                     leadingIcon = { Icon(icon, contentDescription = null) },

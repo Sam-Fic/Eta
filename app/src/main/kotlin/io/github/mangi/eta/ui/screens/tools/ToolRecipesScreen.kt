@@ -379,6 +379,8 @@ private fun RecipeRow(
         modifier = Modifier.fillMaxWidth(),
         // 整行不承接点击：编辑入口只剩行尾溢出菜单，避免误触直接进编辑页。
         onClick = null,
+        // 行尾开关属于「开关类」，保持官方内边距，不参与动作行的纵向补偿。
+        choiceRow = true,
         leadingContent = {
             Icon(
                 imageVector = Icons.Rounded.Build,

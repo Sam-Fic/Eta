@@ -19,10 +19,15 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Stop
+import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -168,11 +173,15 @@ internal fun DoubaoVoiceSettings(onBack: () -> Unit) {
                     expanded = settingsMenu,
                     onDismissRequest = { settingsMenu = false },
                     entries = listOf(
-                        EtaMenuEntry(text = stringResource(R.string.dv_account_title)) {
+                        EtaMenuEntry(
+                            text = stringResource(R.string.dv_account_title),
+                            icon = Icons.Rounded.AccountCircle,
+                        ) {
                             TouchHaptics.click(view); settingsMenu = false; showAccount = true; notice = ""
                         },
                         EtaMenuEntry(
                             text = stringResource(R.string.dv_sync_title),
+                            icon = Icons.Rounded.Sync,
                             enabled = config.cloneKey.isNotBlank(),
                         ) {
                             TouchHaptics.click(view); settingsMenu = false; showSync = true; notice = ""
@@ -783,19 +792,30 @@ private fun PersonalVoiceRow(
                     onDismissRequest = { menu = false },
                     entries = buildList {
                         add(
-                            EtaMenuEntry(text = stringResource(R.string.dv_refresh_status)) {
+                            EtaMenuEntry(
+                                text = stringResource(R.string.dv_refresh_status),
+                                icon = Icons.Rounded.Refresh,
+                            ) {
                                 TouchHaptics.click(view); menu = false; onRefresh()
                             },
                         )
                         if (voice.error.isNotBlank()) {
                             add(
-                                EtaMenuEntry(text = stringResource(R.string.dv_error_details)) {
+                                EtaMenuEntry(
+                                    text = stringResource(R.string.dv_error_details),
+                                    icon = Icons.Rounded.ErrorOutline,
+                                ) {
                                     TouchHaptics.click(view); menu = false; showError = true
                                 },
                             )
                         }
                         add(
-                            EtaMenuEntry(text = stringResource(R.string.dv_remove_local), enabled = enabled) {
+                            EtaMenuEntry(
+                                text = stringResource(R.string.dv_remove_local),
+                                icon = Icons.Rounded.DeleteOutline,
+                                enabled = enabled,
+                                destructive = true,
+                            ) {
                                 TouchHaptics.click(view); menu = false; onDelete()
                             },
                         )

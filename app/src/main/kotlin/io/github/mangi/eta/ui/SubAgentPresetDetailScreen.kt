@@ -394,6 +394,8 @@ private fun SubAgentProfileHeaderRow(
     EtaSegmentedRow(
         modifier = Modifier.fillMaxWidth(),
         enabled = editable,
+        // 行尾带启用开关：按「开关类」保持官方内边距。
+        choiceRow = true,
         leadingContent = {
             // 不显式 tint：让官方行内容色在禁用态把图标一并压暗。
             Icon(

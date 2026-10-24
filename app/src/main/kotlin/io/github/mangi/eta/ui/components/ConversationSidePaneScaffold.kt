@@ -1565,7 +1565,7 @@ private fun Material3DrawerToolbarButton(
     }
 }
 
-/** 官方下拉菜单项：形状取官方 `MenuDefaults.itemShape`，行高 / 字阶 / 颜色全用官方默认值。 */
+/** 官方下拉菜单项：形状走统一的 `EtaMenuItemShape`，行高 / 字阶 / 颜色全用官方默认值。 */
 @Composable
 private fun DrawerActionMenuItem(
     index: Int,
