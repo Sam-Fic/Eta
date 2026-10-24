@@ -136,7 +136,9 @@ internal fun AgentMemoryOverviewScreen(
                                 else R.string.memory_assistant_row_disabled,
                             ),
                             leading = { AssistantAvatar(assistant = profile, size = 32.dp) },
-                            showChevron = false,
+                            // 行本体点进助手记忆子页；箭头用来暗示「这一行可进入下一级」，
+                            // 避免开关成了唯一可辨认的行尾元素。
+                            showChevron = true,
                             onClick = { onOpenAssistant(profile.id) },
                             endActions = {
                                 EtaSwitch(
@@ -145,6 +147,8 @@ internal fun AgentMemoryOverviewScreen(
                                         TouchHaptics.toggle(view, enabled)
                                         persistAssistant(profile.id, enabled)
                                     },
+                                    // 行尾现在是「开关 + 箭头」两个元素，补一点间距免得贴在一起。
+                                    modifier = Modifier.padding(end = 4.dp),
                                 )
                             },
                         )
