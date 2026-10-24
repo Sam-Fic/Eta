@@ -141,6 +141,7 @@ import io.github.mangi.eta.ui.model.QueuedMessageUi
 import java.time.LocalTime
 import java.util.Calendar
 import kotlin.math.abs
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
@@ -332,6 +333,22 @@ internal fun Material3ComposerBody(
         showChatInputIme(focusRequester, keyboard, view)
     }
 
+    // 「转写接管」到键盘真正弹出之间的空窗：此时 imeVisible 还是 false，若照常按
+    // “键盘未弹出”判据展开左侧动作组，胶囊会先冒出一排入口按钮、等键盘弹出后再收起，
+    // 出现两段宽度跳变。这段窗口内直接按“已进入输入态”排版（动作组保持收起），
+    // 键盘可见后立刻归还给常规判据——此后的收起 / 展开行为完全不变。
+    var transcriptTakeOverAwaitingIme by remember { mutableStateOf(false) }
+    LaunchedEffect(imeVisible, transcriptTakeOverAwaitingIme) {
+        if (transcriptTakeOverAwaitingIme && imeVisible) transcriptTakeOverAwaitingIme = false
+    }
+    // 兜底：极少数键盘最终没弹出来的场景（无软键盘、浮层窗口拿不到 IME inset），
+    // 不能让动作组一直缺席，超时后归还常规判据。
+    LaunchedEffect(transcriptTakeOverAwaitingIme) {
+        if (!transcriptTakeOverAwaitingIme) return@LaunchedEffect
+        delay(1_200)
+        transcriptTakeOverAwaitingIme = false
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -385,7 +402,9 @@ internal fun Material3ComposerBody(
                 // 语音进行中时左侧动作组收起；键盘弹出且已有输入内容（文字 / 图片 / 文件 / 引用）时
                 // 也收起，把宽度让给胶囊；键盘收起（未进入输入焦点）时动作组始终展开可见。
                 AnimatedVisibility(
-                    visible = !voiceActive && (!hasContent || !imeVisible),
+                    visible = !voiceActive &&
+                        !transcriptTakeOverAwaitingIme &&
+                        (!hasContent || !imeVisible),
                     // 同上：整组圆钮贴底，与尾部发送按钮同一条基线（距底端 8dp）。
                     // 单行时与竖直居中等价；多行输入框长高后整组跟随下沉贴底，不再停在中间。
                     modifier = Modifier
@@ -485,6 +504,8 @@ internal fun Material3ComposerBody(
                             onTranscriptTap = if (voiceState.phase == VoiceModePhase.Listening) {
                                 {
                                     textFieldState.setTextAndPlaceCursorAtEnd(voiceState.transcript)
+                                    // 先按输入态排版，等键盘真正可见再恢复常规判据（见上方 awaiting 标记）。
+                                    transcriptTakeOverAwaitingIme = true
                                     onStopVoiceMode()
                                     transcriptTakeOverToken++
                                 }
