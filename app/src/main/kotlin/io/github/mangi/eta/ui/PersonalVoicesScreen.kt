@@ -227,6 +227,11 @@ internal fun MimoVoicesScreen(onBack: () -> Unit) {
                                     ) { Text(stringResource(R.string.pv_use_for_read_aloud)) }
                                     TextButton(
                                         enabled = !busy,
+                                        colors = ButtonDefaults.textButtonColors(
+                                            contentColor = MaterialTheme.colorScheme.error,
+                                            disabledContentColor =
+                                                MaterialTheme.colorScheme.error.copy(alpha = 0.38f),
+                                        ),
                                         onClick = { TouchHaptics.click(view); deleting = voice },
                                     ) { Text(stringResource(R.string.action_delete)) }
                                 }
@@ -247,7 +252,7 @@ internal fun MimoVoicesScreen(onBack: () -> Unit) {
                     catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e; notice = context.getString(R.string.pv_delete_failed) }
                     finally { busy = false }
                 }
-            }) { Text(stringResource(R.string.action_delete)) } }, dismissButton = { TextButton(onClick = { TouchHaptics.click(view); deleting = null }) { Text(stringResource(R.string.action_cancel)) } })
+            }) { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton(onClick = { TouchHaptics.click(view); deleting = null }) { Text(stringResource(R.string.action_cancel)) } })
     }
 }
 

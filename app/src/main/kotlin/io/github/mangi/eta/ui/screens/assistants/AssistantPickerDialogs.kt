@@ -374,11 +374,17 @@ internal fun AssistantRow(
                                 },
                             )
                             DropdownMenuItem(
-                                text = { M3Text(text = stringResource(R.string.action_delete)) },
+                                text = {
+                                    M3Text(
+                                        text = stringResource(R.string.action_delete),
+                                        color = MaterialTheme.colorScheme.error,
+                                    )
+                                },
                                 leadingIcon = {
                                     Icon(
                                         imageVector = Icons.Rounded.Delete,
                                         contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error,
                                     )
                                 },
                                 shape = EtaMenuItemShape(index = 2, count = 3),

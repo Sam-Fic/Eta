@@ -147,6 +147,7 @@ internal fun SharedFoldersScreen(
                             endActions = {
                                 EtaTextButton(
                                     text = stringResource(R.string.action_delete),
+                                    destructive = true,
                                     onClick = { removeTarget = mount },
                                 )
                             },

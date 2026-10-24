@@ -17,11 +17,13 @@ fun EtaTextButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    destructive: Boolean = false,
 ) {
     AdaptiveEtaTextButton(
         text = text,
         onClick = onClick,
         modifier = modifier,
         enabled = enabled,
+        destructive = destructive,
     )
 }

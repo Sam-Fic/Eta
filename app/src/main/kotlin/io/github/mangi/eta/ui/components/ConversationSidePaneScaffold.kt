@@ -942,6 +942,7 @@ private fun Material3ConversationPane(
                                             count = 2,
                                             text = stringResource(R.string.action_delete),
                                             icon = Icons.Rounded.Delete,
+                                            destructive = true,
                                             onClick = {
                                                 showMenu = false
                                                 folderToDelete = folder
@@ -1572,14 +1573,17 @@ private fun DrawerActionMenuItem(
     text: String,
     icon: ImageVector,
     onClick: () -> Unit,
+    destructive: Boolean = false,
 ) {
+    val contentColor = if (destructive) MaterialTheme.colorScheme.error else Color.Unspecified
     DropdownMenuItem(
-        text = { M3Text(text = text) },
+        text = { M3Text(text = text, color = contentColor) },
         shape = EtaMenuItemShape(index = index, count = count),
         leadingIcon = {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
+                tint = contentColor,
             )
         },
         onClick = onClick,

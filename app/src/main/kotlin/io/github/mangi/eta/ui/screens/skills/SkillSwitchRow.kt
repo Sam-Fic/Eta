@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import io.github.mangi.eta.R
@@ -29,6 +30,7 @@ import io.github.mangi.eta.ui.adaptive.EtaMenuPopup
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
 import io.github.mangi.eta.ui.adaptive.EtaSwitch
 import io.github.mangi.eta.ui.components.ItemDescriptionDialog
+import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.model.SkillItemUi
 
 @Composable
@@ -110,7 +112,10 @@ internal fun SkillSwitchRow(
     }
 }
 
-/** 技能行尾的官方溢出菜单：图标按钮 + 官方 M3E 弹出窗口，形状、配色、行高与字阶全部使用官方默认值。 */
+/**
+ * 技能行尾的官方溢出菜单：图标按钮 + 官方 M3E 弹出窗口，与「模型自建工具」配方行同款——
+ * 圆角分组容器、内缩药丸条目、纯文案项，破坏性的「删除」取官方 error 角色色。
+ */
 @Composable
 private fun SkillOverflowMenu(
     contentDescription: String,
@@ -119,15 +124,26 @@ private fun SkillOverflowMenu(
     onDelete: (() -> Unit)?,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val view = LocalView.current
     val itemCount = if (onDelete != null) 2 else 1
     Box {
-        IconButton(onClick = { expanded = true }, enabled = enabled) {
+        IconButton(
+            onClick = {
+                TouchHaptics.click(view)
+                expanded = true
+            },
+            enabled = enabled,
+        ) {
             Icon(imageVector = Icons.Rounded.MoreHoriz, contentDescription = contentDescription)
         }
         EtaMenuPopup(expanded = expanded, onDismissRequest = { expanded = false }) {
             EtaMenuGroup(index = 0, count = 1) {
                 DropdownMenuItem(
-                    text = { androidx.compose.material3.Text(text = stringResource(R.string.ui_view_description)) },
+                    text = {
+                        androidx.compose.material3.Text(
+                            text = stringResource(R.string.ui_view_description),
+                        )
+                    },
                     shape = EtaMenuItemShape(index = 0, count = itemCount),
                     onClick = {
                         expanded = false
@@ -136,7 +152,12 @@ private fun SkillOverflowMenu(
                 )
                 onDelete?.let { delete ->
                     DropdownMenuItem(
-                        text = { androidx.compose.material3.Text(text = stringResource(R.string.ui_delete_3755f5)) },
+                        text = {
+                            androidx.compose.material3.Text(
+                                text = stringResource(R.string.ui_delete_3755f5),
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        },
                         enabled = enabled,
                         shape = EtaMenuItemShape(index = 1, count = itemCount),
                         onClick = {

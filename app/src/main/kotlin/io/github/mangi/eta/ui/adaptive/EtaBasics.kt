@@ -205,13 +205,22 @@ fun EtaTextButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    destructive: Boolean = false,
 ) {
     // 官方按钮默认形状为胶囊（shape style "full"），不额外覆盖。
     Button(
         onClick = onClick,
         modifier = modifier,
         enabled = enabled,
-        colors = M3ButtonDefaults.buttonColors(),
+        // 破坏性动作取官方 error 角色色，与各列表里的「删除」菜单项统一。
+        colors = if (destructive) {
+            M3ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.error,
+                contentColor = MaterialTheme.colorScheme.onError,
+            )
+        } else {
+            M3ButtonDefaults.buttonColors()
+        },
     ) {
         M3Text(text = text, style = MaterialTheme.typography.labelLarge)
     }
