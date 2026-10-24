@@ -218,7 +218,9 @@ private object DrawerMetrics {
     // 临界阻尼弹簧的初始速度超过 ω·剩余距离就会越过锚点；留 8% 余量，保证不露底。
     const val SettleVelocityHeadroom = 0.92f
     val PaneHorizontalPadding = 16.dp
-    val TopInset = 8.dp
+    // 首排（搜索框 + 管理会话）与首页顶栏同一水平中线：首页顶栏是 64dp 行高 + 4dp 纵向内边距，
+    // 40dp 图标按钮居中后中线在状态栏下 4 + 8 + 20 = 32dp；这里 12 + 20 = 32dp 与之对齐。
+    val TopInset = 12.dp
     val AfterSearch = 12.dp
     val SearchIconSize = 18.dp
     val SearchCornerRadius = 12.dp
