@@ -5,13 +5,16 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -20,6 +23,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Build
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.runtime.Composable
@@ -29,12 +33,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.tool.AgentToolRecipeStore
@@ -44,6 +50,9 @@ import io.github.mangi.eta.agent.tool.ToolRecipeShareFormat
 import io.github.mangi.eta.ui.adaptive.EtaDialog
 import io.github.mangi.eta.ui.adaptive.EtaDialogActions
 import io.github.mangi.eta.ui.adaptive.EtaGroupHorizontalPadding
+import io.github.mangi.eta.ui.adaptive.EtaMenuGroup
+import io.github.mangi.eta.ui.adaptive.EtaMenuItemShape
+import io.github.mangi.eta.ui.adaptive.EtaMenuPopup
 import io.github.mangi.eta.ui.adaptive.EtaNoticeText
 import io.github.mangi.eta.ui.adaptive.EtaPageSurface
 import io.github.mangi.eta.ui.adaptive.EtaScaffold
@@ -52,15 +61,17 @@ import io.github.mangi.eta.ui.adaptive.EtaSegmentedColumn
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedGroupSpacing
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedItemContainer
 import io.github.mangi.eta.ui.adaptive.EtaSegmentedRow
+import io.github.mangi.eta.ui.adaptive.EtaSwitch
 import io.github.mangi.eta.ui.adaptive.EtaSwitchRow
 import io.github.mangi.eta.ui.components.ListEmptyState
 import io.github.mangi.eta.ui.haptics.TouchHaptics
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton as M3IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text as M3Text
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -138,8 +149,8 @@ internal fun ToolRecipesScreen(
     val view = LocalView.current
     val runtime = remember(context) { ToolRecipeRuntime.get(context) }
     val recipes by runtime.recipes.collectAsState()
-    val rootDependent by runtime.recipes.collectAsState()
-    val rootNeeding = remember(rootDependent) { runtime.rootDependentNames() }
+    // Root 依赖要按完整配方图算，跟着同一份快照刷新即可，不必再 collect 一遍同一个 Flow。
+    val rootNeeding = remember(recipes) { runtime.rootDependentNames() }
     var editing by remember { mutableStateOf<ToolRecipe?>(null) }
     var deleteTarget by remember { mutableStateOf<ToolRecipe?>(null) }
     var shareTarget by remember { mutableStateOf<ToolRecipe?>(null) }
@@ -234,7 +245,6 @@ internal fun ToolRecipesScreen(
                         summary = stringResource(R.string.recipe_import_summary),
                         icon = Icons.Rounded.Add,
                         onClick = {
-                            TouchHaptics.click(view)
                             importLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
                         },
                     )
@@ -260,8 +270,9 @@ internal fun ToolRecipesScreen(
                         }
                     }
                 } else {
+                    // 按名字排序：启停会刷新 updatedAtMillis，按更新时间排会让行在切换开关后跳位。
                     recipes
-                        .sortedByDescending { it.updatedAtMillis }
+                        .sortedBy { it.name }
                         .forEach { recipe ->
                             item(key = recipe.name) {
                                 RecipeRow(
@@ -345,7 +356,16 @@ internal fun ToolRecipesScreen(
     }
 }
 
-/** 单条配方行：名称 + 描述 + 状态，行内可直接编辑 / 分享 / 删除。 */
+/**
+ * 单条配方行：与「技能」「MCP 工具」等兄弟页同款官方分段行——
+ * 前导图标 + 名称 + 描述/状态摘要 + 行尾（溢出菜单、开关）。
+ *
+ * 不再手搓内边距与最小行高：行距、左右留白、摘要缩进全交给
+ * [EtaSegmentedRow]（官方 `SegmentedListItem` 令牌），页面之间才对得齐。
+ *
+ * 行本体刻意不可点：进入编辑页只能走行尾溢出菜单的「编辑」。配方行只在「看一眼前三行」
+ * 之外没有别的语义，整行承担跳转容易在滑动或点开关时误触。
+ */
 @Composable
 private fun RecipeRow(
     recipe: ToolRecipe,
@@ -355,54 +375,155 @@ private fun RecipeRow(
     onShare: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    // 一条分段行承载整份配方：开关在 trailingContent 里，编辑/分享/删除用图标按钮。
-    // 不用第二条行——两条行会被分段列表渲染成两张卡片，一条配方就断了视觉。
     EtaSegmentedRow(
         modifier = Modifier.fillMaxWidth(),
-        leadingContent = { RecipeLeadingIcon(Icons.Rounded.Build) },
-        content = { M3Text(text = recipe.name) },
-        supportingContent = {
-            M3Text(
-                text = buildString {
-                    append(recipe.description)
-                    append("\n")
-                    append(
-                        stringResource(
-                            if (recipe.enabled) R.string.recipe_state_enabled else R.string.recipe_state_disabled,
-                        ),
-                    )
-                    if (rootNeeded) {
-                        append(" · ")
-                        append(stringResource(R.string.recipe_state_root))
-                    }
-                    append(" · ")
-                    append(stringResource(R.string.recipe_steps_count, recipe.steps.size))
+        // 整行不承接点击：编辑入口只剩行尾溢出菜单，避免误触直接进编辑页。
+        onClick = null,
+        leadingContent = {
+            Icon(
+                imageVector = Icons.Rounded.Build,
+                contentDescription = null,
+                tint = if (recipe.enabled) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
                 },
             )
         },
-        trailingContent = {
-            RecipeSwitch(
-                checked = recipe.enabled,
-                onToggle = onToggle,
-            )
-            RecipeRowIcon(
-                icon = Icons.Rounded.Edit,
-                contentDescription = stringResource(R.string.recipe_edit_one),
-                onClick = onEdit,
-            )
-            RecipeRowIcon(
-                icon = Icons.Rounded.Share,
-                contentDescription = stringResource(R.string.recipe_share_one),
-                onClick = onShare,
-            )
-            RecipeRowIcon(
-                icon = Icons.Rounded.DeleteOutline,
-                contentDescription = stringResource(R.string.recipe_delete_one),
-                onClick = onDelete,
-                tint = MaterialTheme.colorScheme.error,
+        content = {
+            M3Text(
+                text = recipe.name,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         },
+        supportingContent = {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                if (recipe.description.isNotBlank()) {
+                    // 与技能行一致：摘要最多两行，完整描述在编辑页里看。
+                    M3Text(
+                        text = recipe.description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                M3Text(
+                    text = recipeStateLine(recipe.steps.size, rootNeeded),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        trailingContent = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                RecipeOverflowMenu(
+                    recipeName = recipe.name,
+                    onEdit = onEdit,
+                    onShare = onShare,
+                    onDelete = onDelete,
+                )
+                RecipeSwitch(checked = recipe.enabled, onToggle = onToggle)
+            }
+        },
     )
+}
+
+/**
+ * 配方状态摘要：Root 依赖 · 步骤数。
+ *
+ * 启停状态不重复写成文字——行尾开关已经承载它，兄弟页的开关行也都不再复述。
+ */
+@Composable
+private fun recipeStateLine(stepCount: Int, rootNeeded: Boolean): String = buildString {
+    if (rootNeeded) {
+        append(stringResource(R.string.recipe_state_root))
+        append(" · ")
+    }
+    append(stringResource(R.string.recipe_steps_count, stepCount))
+}
+
+/** 配方行尾部溢出菜单：编辑 / 分享 / 删除收进一个菜单，避免与开关抢位置。 */
+@Composable
+private fun RecipeOverflowMenu(
+    recipeName: String,
+    onEdit: () -> Unit,
+    onShare: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val view = LocalView.current
+    Box {
+        M3IconButton(
+            onClick = {
+                TouchHaptics.click(view)
+                expanded = true
+            },
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.MoreHoriz,
+                contentDescription = stringResource(R.string.recipe_more_named, recipeName),
+            )
+        }
+        EtaMenuPopup(expanded = expanded, onDismissRequest = { expanded = false }) {
+            EtaMenuGroup(index = 0, count = 1) {
+                // 与助手行、文件操作菜单同一套：条目一律带前导图标，破坏性项图标与文案同取 error 色。
+                DropdownMenuItem(
+                    text = { M3Text(text = stringResource(R.string.action_edit)) },
+                    shape = EtaMenuItemShape(index = 0, count = 3),
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Rounded.Edit,
+                            contentDescription = null,
+                            modifier = Modifier.size(MenuDefaults.LeadingIconSize),
+                        )
+                    },
+                    onClick = {
+                        expanded = false
+                        onEdit()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { M3Text(text = stringResource(R.string.recipe_share)) },
+                    shape = EtaMenuItemShape(index = 1, count = 3),
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Rounded.Share,
+                            contentDescription = null,
+                            modifier = Modifier.size(MenuDefaults.LeadingIconSize),
+                        )
+                    },
+                    onClick = {
+                        expanded = false
+                        onShare()
+                    },
+                )
+                DropdownMenuItem(
+                    text = {
+                        M3Text(
+                            text = stringResource(R.string.action_delete),
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    },
+                    shape = EtaMenuItemShape(index = 2, count = 3),
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Rounded.DeleteOutline,
+                            contentDescription = null,
+                            modifier = Modifier.size(MenuDefaults.LeadingIconSize),
+                            tint = MaterialTheme.colorScheme.error,
+                        )
+                    },
+                    onClick = {
+                        expanded = false
+                        onDelete()
+                    },
+                )
+            }
+        }
+    }
 }
 
 /** 配方行的开关：停用/启用。开关本身不弹确认——它是可逆操作，且行内即时反映。 */
@@ -412,9 +533,12 @@ private fun RecipeSwitch(
     onToggle: (Boolean) -> Unit,
 ) {
     val view = LocalView.current
-    Switch(
+    EtaSwitch(
         checked = checked,
-        onCheckedChange = { enabled -> TouchHaptics.click(view); onToggle(enabled) },
+        onCheckedChange = { enabled ->
+            TouchHaptics.click(view)
+            onToggle(enabled)
+        },
     )
 }
 
@@ -531,7 +655,12 @@ private fun recipeShareFileName(name: String): String {
     return "$name-$stamp.${ToolRecipeShareFormat.FILE_SUFFIX}"
 }
 
-/** 管理页里的可点击动作行（导入 / 其它批量操作）。 */
+/**
+ * 管理页里的可点击动作行（导入 / 其它批量操作）。
+ *
+ * 与「技能」页的导入行同款：官方分段行承载图标 + 标题 + 摘要，
+ * 前导图标由行槽位负责与标题对齐，不再手写顶对齐补偿。
+ */
 @Composable
 private fun RecipeActionRow(
     title: String,
@@ -540,33 +669,16 @@ private fun RecipeActionRow(
     onClick: () -> Unit,
 ) {
     EtaSegmentedRow(
-        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
+        onClick = onClick,
         leadingContent = {
             Icon(imageVector = icon, contentDescription = null)
         },
-        content = { M3Text(text = title) },
-        supportingContent = { M3Text(text = summary) },
+        content = {
+            M3Text(text = title)
+        },
+        supportingContent = {
+            M3Text(text = summary)
+        },
     )
-}
-
-@Composable
-private fun RecipeLeadingIcon(icon: ImageVector) {
-    Icon(
-        imageVector = icon,
-        contentDescription = null,
-        tint = MaterialTheme.colorScheme.primary,
-    )
-}
-
-@Composable
-private fun RecipeRowIcon(
-    icon: ImageVector,
-    contentDescription: String,
-    onClick: () -> Unit,
-    tint: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurfaceVariant,
-) {
-    M3IconButton(onClick = onClick) {
-        Icon(imageVector = icon, contentDescription = contentDescription, tint = tint)
-    }
 }
