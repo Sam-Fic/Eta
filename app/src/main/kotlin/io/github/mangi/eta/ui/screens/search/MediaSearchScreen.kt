@@ -23,8 +23,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Checklist
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.MusicNote
@@ -122,7 +120,8 @@ private fun kindsForFilter(index: Int): Set<MediaKind> = when (index) {
  *
  * 版式沿用应用内其它搜索页（[EtaSearchScaffold]）：顶栏是「返回钮 + 透明底搜索框 +
  * 清除按钮 + 搜索按钮」，没有大标题页，搜索词就在顶栏里改；类型标签条常驻在顶栏下方，
- * 搜索前后都能切换范围。
+ * 搜索前后都能切换范围；多选入口是与「找到 X 项」同行的纯文字按钮（有结果时显示
+ * 「多选」，多选态变为「取消」）。
  *
  * 检索统一走 [MediaSearchService]（与 AI 工具 `search_media` 同一入口），全程离线；
  * 模型未下载或扫描源未确认时显示引导卡片跳设置页。
@@ -339,47 +338,16 @@ internal fun MediaSearchScreen(
             // IME 的搜索键与顶栏的「搜索」按钮走同一条路径。
             onSubmit = { runSearch() },
             actions = {
-                if (selectionMode) {
-                    // 多选模式：顶栏只留「退出多选」，单条「打开」入口随行点击语义一起收起。
-                    IconButton(
-                        onClick = {
-                            TouchHaptics.click(view)
-                            selectionMode = false
-                            selectedKeys = emptySet()
-                        },
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Close,
-                            contentDescription = stringResource(R.string.media_action_exit_select),
-                        )
-                    }
-                } else {
-                    // 有结果时才可进入多选（长按结果行同样可进入）。
-                    if (rawHits.isNotEmpty()) {
-                        IconButton(
-                            onClick = {
-                                TouchHaptics.click(view)
-                                selectionMode = true
-                                selectedKeys = emptySet()
-                            },
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Checklist,
-                                contentDescription = stringResource(R.string.media_action_multiselect),
-                            )
-                        }
-                    }
-                    // 语义检索每次都要跑嵌入模型，不能随输入实时触发，所以顶栏常驻一个显式按钮。
-                    // 用放大镜图标表示（与设置主页的搜索入口同一套图标）。
-                    IconButton(
-                        onClick = { runSearch() },
-                        enabled = query.trim().isNotEmpty() && ready && !searching,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Search,
-                            contentDescription = stringResource(R.string.media_action_search),
-                        )
-                    }
+                // 语义检索每次都要跑嵌入模型，不能随输入实时触发，所以顶栏常驻一个显式按钮。
+                // 用放大镜图标表示（与设置主页的搜索入口同一套图标）。
+                IconButton(
+                    onClick = { runSearch() },
+                    enabled = query.trim().isNotEmpty() && ready && !searching,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Search,
+                        contentDescription = stringResource(R.string.media_action_search),
+                    )
                 }
             },
             topContent = {
@@ -524,18 +492,44 @@ internal fun MediaSearchScreen(
                             },
                         )
                     }
-                    // 结果计数作组标题：与设置主页的分组标题同一套样式（primary + titleSmallEmphasized）。
+                    // 结果计数行：左侧「找到 X 项」组标题，右侧多选入口（纯文字按钮，
+                    // 原顶栏图标钮迁到这里）。非多选态显示「多选」，多选态变为「取消」，
+                    // 点按退出并清空勾选；长按结果行同样可进入多选。
                     item(key = "result-count") {
-                        Text(
-                            text = stringResource(R.string.media_search_result_count, hits.size),
-                            style = MaterialTheme.typography.titleSmallEmphasized,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(
-                                start = EtaGroupHorizontalPadding,
-                                end = EtaGroupHorizontalPadding,
-                                bottom = EtaSegmentedTitleSpacing,
-                            ),
-                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(
+                                    start = EtaGroupHorizontalPadding,
+                                    end = EtaGroupHorizontalPadding,
+                                    bottom = EtaSegmentedTitleSpacing,
+                                ),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = stringResource(R.string.media_search_result_count, hits.size),
+                                style = MaterialTheme.typography.titleSmallEmphasized,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.weight(1f),
+                            )
+                            TextButton(
+                                onClick = {
+                                    TouchHaptics.click(view)
+                                    selectionMode = !selectionMode
+                                    selectedKeys = emptySet()
+                                },
+                            ) {
+                                Text(
+                                    text = stringResource(
+                                        if (selectionMode) {
+                                            R.string.action_cancel
+                                        } else {
+                                            R.string.media_action_multiselect
+                                        },
+                                    ),
+                                )
+                            }
+                        }
                     }
                     // 结果行完全复用设置主页的分组列表：行距 2dp、组末 13dp、左右页边距 16dp，
                     // 分段形状由 [EtaSegmentedItem] 按 index/count 注入（首末项外圆角、中间内圆角）。
