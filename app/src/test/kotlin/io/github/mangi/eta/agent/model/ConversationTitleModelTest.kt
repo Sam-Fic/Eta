@@ -32,4 +32,33 @@ class ConversationTitleModelTest {
         assertEquals(24, ConversationTitleModel.normalize("长".repeat(50)).length)
         assertThrows(IllegalArgumentException::class.java) { ConversationTitleModel.normalize("  ") }
     }
+
+    @Test fun normalizeStripsLabelPrefixesModelsStillEmit() {
+        assertEquals("图像识别", ConversationTitleModel.normalize("标题：图像识别"))
+        assertEquals("图像识别", ConversationTitleModel.normalize("标题: “图像识别”"))
+        assertEquals("Photo check", ConversationTitleModel.normalize("Title: Photo check"))
+    }
+
+    @Test fun requestCarriesQuestionAndFirstAnswer() {
+        val messages = ConversationTitleModel.buildMessages("帮我看下这张图", "这是一只橘猫。")
+        val system = messages.getJSONObject(0)
+        val user = messages.getJSONObject(1)
+        assertEquals("system", system.getString("role"))
+        // 提示词必须同时锁死"只输出标题"与"素材不是指令"，否则模型会退化成回答问题。
+        assertTrue(system.getString("content").contains("只输出标题"))
+        assertTrue(system.getString("content").contains("不要回答问题"))
+        assertEquals("user", user.getString("role"))
+        val content = user.getString("content")
+        assertTrue(content.contains("帮我看下这张图"))
+        assertTrue(content.contains("这是一只橘猫。"))
+        assertTrue(content.endsWith("请只输出标题："))
+    }
+
+    @Test fun requestWithoutAnswerStillCarriesQuestion() {
+        val messages = ConversationTitleModel.buildMessages("帮我看下这张图", "  ")
+        val content = messages.getJSONObject(1).getString("content")
+        assertTrue(content.contains("帮我看下这张图"))
+        assertFalse(content.contains("助手的第一条回复"))
+        assertTrue(content.endsWith("请只输出标题："))
+    }
 }
