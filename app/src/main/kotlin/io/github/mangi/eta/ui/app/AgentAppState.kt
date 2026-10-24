@@ -2253,6 +2253,7 @@ internal class AgentAppState(
             retainDeletedConversation(state.messages, conversationUpdatedAt[conversationId])
         }
         conversationDrafts.remove(conversationId)
+        pendingConversationTitles.remove(conversationId)
         conversationsById = conversationsById - conversationId
         conversationTitles = conversationTitles - conversationId
         conversationUpdatedAt = conversationUpdatedAt - conversationId
@@ -3992,40 +3993,74 @@ internal class AgentAppState(
         if (mediaController != null) preparationJob.invokeOnCompletion { directMediaRuns.cancel(runId) }
         preparationJob.start()
         if (history.isEmpty() && !generateImage && !generateVideo) {
-            requestConversationTitle(conversationId, state, prompt, messages.lastOrNull()?.id,
-                initialPersistence)
+            // 标题不在这里生成：等首轮回复结束后，把用户问题与助手最终回答一起交给标题模型，
+            // 比只用第一句话更能概括对话主题。这里只登记请求，实际生成在 applyRunResult 收尾时触发。
+            registerPendingConversationTitle(conversationId, state, prompt, messages.lastOrNull()?.id)
         }
     }
 
-    private fun requestConversationTitle(
+    /** 新会话首轮发送时登记的待生成标题请求，等该轮回复结束后消费。 */
+    private class PendingConversationTitle(
+        val question: String,
+        val firstMessageId: String,
+        val expectedTitle: String,
+        val providerId: String,
+        val modelId: String,
+    )
+
+    private val pendingConversationTitles = mutableMapOf<String, PendingConversationTitle>()
+
+    private fun registerPendingConversationTitle(
         conversationId: String,
         state: AgentChatHomeUiState,
         prompt: String,
         firstMessageId: String?,
-        persisted: Deferred<Boolean>,
     ) {
         if (firstMessageId == null || conversationId in manuallyRenamedDuringTitleRequest) return
         val expectedTitle = conversationTitles[conversationId] ?: return
-        val selection = io.github.mangi.eta.agent.model.ModelFeaturePreferences.selection(
-            io.github.mangi.eta.agent.model.ModelFeature.TITLE)
         // Only send the visible question, never hidden tool snapshots, file bytes or system prompts.
         val question = AgentFileReferencePromptCodec.parse(prompt).request.ifBlank { expectedTitle }
+        // 只保留标题模型回退需要的绑定信息，不持有整个会话快照。
+        pendingConversationTitles[conversationId] = PendingConversationTitle(
+            question = question,
+            firstMessageId = firstMessageId,
+            expectedTitle = expectedTitle,
+            providerId = state.providerId,
+            modelId = state.modelId,
+        )
+    }
+
+    /**
+     * 首轮回复收尾后生成标题：标题模型同时拿到用户问题与助手最终回答的正文，
+     * 主题概括比只用第一句话准确得多。首轮失败/被停止而没有回答时，退化为仅依据问题生成。
+     */
+    private fun consumePendingConversationTitle(conversationId: String) {
+        val pending = pendingConversationTitles.remove(conversationId) ?: return
+        val firstAnswer = conversationState(conversationId)?.messages
+            ?.filterIsInstance<AgentMessageUi>()
+            ?.lastOrNull { it.content.isNotBlank() }
+            ?.content
+            .orEmpty()
         scope.launch {
             try {
-                if (!persisted.await()) return@launch
                 val title = withContext(Dispatchers.IO) {
-                    val current = runtimeConfigForBoundModel(state, assistant = null) ?: return@withContext null
-                    val config = io.github.mangi.eta.agent.model.ConversationTitleModel.resolve(selection, current)
+                    val current = runtimeConfigForBoundModel(pending.providerId, pending.modelId)
+                        ?: return@withContext null
+                    val config = io.github.mangi.eta.agent.model.ConversationTitleModel.resolve(
+                        io.github.mangi.eta.agent.model.ModelFeaturePreferences.selection(
+                            io.github.mangi.eta.agent.model.ModelFeature.TITLE),
+                        current)
                     kotlinx.coroutines.runInterruptible {
                         io.github.mangi.eta.agent.model.ConversationTitleModel.generate(
-                            config, question, io.github.mangi.eta.agent.runtime.AgentRunController(), conversationId)
+                            config, pending.question, firstAnswer,
+                            io.github.mangi.eta.agent.runtime.AgentRunController(), conversationId)
                     }
                 } ?: return@launch
                 val current = conversationState(conversationId)
                 if (conversationArchiveBusy || !io.github.mangi.eta.agent.model.ConversationTitleModel.mayApply(
                         current != null, conversationId in manuallyRenamedDuringTitleRequest,
-                        conversationTitles[conversationId], expectedTitle,
-                        current?.messages?.firstOrNull()?.id, firstMessageId)) return@launch
+                        conversationTitles[conversationId], pending.expectedTitle,
+                        current?.messages?.firstOrNull()?.id, pending.firstMessageId)) return@launch
                 conversationTitles = conversationTitles + (conversationId to title)
                 refreshConversationSummaries()
                 persistConversations()
@@ -6368,6 +6403,8 @@ internal class AgentAppState(
             }
         )
         if (conversationId != null) {
+            // 首轮回复已收尾：此刻对话里同时有用户问题与助手最终回答，才生成标题。
+            consumePendingConversationTitle(conversationId)
             // 用户主动停止（含重试等待中停止）时保留队列，不自动续发。
             onConversationRunSettled(conversationId, flushQueue = stoppedDuringRetry == null)
         }
@@ -7289,9 +7326,15 @@ internal class AgentAppState(
     private suspend fun runtimeConfigForBoundModel(
         state: AgentChatHomeUiState,
         assistant: io.github.mangi.eta.data.model.AssistantProfile? = null,
+    ): AgentModelClient.ModelConfig? = runtimeConfigForBoundModel(state.providerId, state.modelId, assistant)
+
+    private suspend fun runtimeConfigForBoundModel(
+        providerId: String,
+        modelId: String,
+        assistant: io.github.mangi.eta.data.model.AssistantProfile? = null,
     ): AgentModelClient.ModelConfig? {
-        if (state.providerId.isBlank() || state.modelId.isBlank()) return null
-        return RuntimeConfigRepository.configForProviderAndModel(state.providerId, state.modelId, assistant)
+        if (providerId.isBlank() || modelId.isBlank()) return null
+        return RuntimeConfigRepository.configForProviderAndModel(providerId, modelId, assistant)
     }
 
     private companion object {
