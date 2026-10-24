@@ -9,6 +9,7 @@ import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.expandVertically
@@ -76,12 +77,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -230,6 +234,9 @@ private const val AssistantHalfSheetFraction = 0.5f
 
 /** 官方底部面板顶部圆角（M3 `BottomSheetDefaults` 同款 28dp）。 */
 private val AssistantSheetTopCorner = 28.dp
+
+/** 屏幕上下文 chip 行两端淡出带的宽度，与抽屉胶囊行同档（24dp）。 */
+private val ScreenContextChipEdgeFadeWidth = 24.dp
 
 /**
  * 入口弹出时的上移距离：内容面板从下方这个距离平移到位（M3E 弹簧）。
@@ -884,11 +891,9 @@ private fun AssistantComposer(
     val fadeEnterSpec: FiniteAnimationSpec<Float> = MaterialTheme.motionScheme.defaultEffectsSpec()
     val fadeExitSpec: FiniteAnimationSpec<Float> = MaterialTheme.motionScheme.fastEffectsSpec()
     val shrinkTallSpec: FiniteAnimationSpec<IntSize> = MaterialTheme.motionScheme.defaultSpatialSpec()
-    // 快捷预设只在屏幕已采好、且输入区还是空的时候出现：一点即发，不抢用户正在打的草稿；
-    // 语音进行中输入区整块被聆听条替代，预设也一起收起。
-    // 预设与「添加当前屏幕」共用同一行，见 [ScreenContextAttachment]。
+    // 快捷预设只在屏幕已采好、且输入区还是空的时候出现：一点即发，不抢用户正在打的草稿。
+    // 语音进行中也保留（点预设会先退出语音再发送），与「添加当前屏幕」同排常驻。
     val showScreenPresets = state.screenContext.phase == EtaScreenContextPhase.AVAILABLE &&
-        !voiceState.active &&
         !hasDraftContent
     Column(modifier = modifier) {
         ScreenContextAttachment(
@@ -1000,10 +1005,52 @@ private fun ScreenContextActionRow(
     val fadeEnterSpec: FiniteAnimationSpec<Float> = MaterialTheme.motionScheme.defaultEffectsSpec()
     val fadeExitSpec: FiniteAnimationSpec<Float> = MaterialTheme.motionScheme.fastEffectsSpec()
     val sizeSpec: FiniteAnimationSpec<IntSize> = MaterialTheme.motionScheme.defaultSpatialSpec()
+    val scrollState = rememberScrollState()
+    // 两端淡出带：滚动到中间时，被视口切一半的 chip 会留下硬切边。浮窗背景是透明的，
+    // 不能像抽屉那样盖一层同色渐变，这里用 DstIn 蒙版直接淡化内容本身（见下方 drawWithContent）。
+    // 只在对应方向真的还有内容可滚时才出现，停在两端时不会把完整可见的 chip 罩暗。
+    val edgeFadeSpec = MaterialTheme.motionScheme.fastSpatialSpec<Dp>()
+    val startFadeWidth by animateDpAsState(
+        targetValue = if (scrollState.canScrollBackward) ScreenContextChipEdgeFadeWidth else 0.dp,
+        animationSpec = edgeFadeSpec,
+        label = "screenContextChipFadeStart",
+    )
+    val endFadeWidth by animateDpAsState(
+        targetValue = if (scrollState.canScrollForward) ScreenContextChipEdgeFadeWidth else 0.dp,
+        animationSpec = edgeFadeSpec,
+        label = "screenContextChipFadeEnd",
+    )
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
+            // DstIn 蒙版只应作用在这一行的内容上，先隔离到自己的离屏层，别擦到下层压暗或用户界面。
+            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+            .drawWithContent {
+                drawContent()
+                val start = startFadeWidth.toPx()
+                if (start > 0f) {
+                    drawRect(
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(Color.Transparent, Color.Black),
+                            startX = 0f,
+                            endX = start,
+                        ),
+                        blendMode = BlendMode.DstIn,
+                    )
+                }
+                val end = endFadeWidth.toPx()
+                if (end > 0f) {
+                    drawRect(
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(Color.Black, Color.Transparent),
+                            startX = size.width - end,
+                            endX = size.width,
+                        ),
+                        blendMode = BlendMode.DstIn,
+                    )
+                }
+            }
+            .horizontalScroll(scrollState),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         AnimatedVisibility(

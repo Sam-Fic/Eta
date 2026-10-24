@@ -320,16 +320,39 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
     private fun presentEntry(generation: Long) {
         if (generation != entryGeneration || presentedEntryGeneration == generation) return
         presentedEntryGeneration = generation
-        showWindow()
-        if (windowView == null) {
-            stopSelf()
-            return
+        scope.launch {
+            // 外观设置来自 DataStore，首帧是异步的。若先用 [AppearanceSettings] 默认值（浅色）
+            // 挂窗，深色 / 自定义配色的用户会先看到一帧浅色胶囊，等设置回来再切成深色，
+            // 看起来就是「弹一下白」。先取一次真实外观再建窗，保证第一帧就是最终配色；
+            // 读取失败才退回默认值（宁可偶发闪白，也不能因为设置读不出来就唤不出浮窗）。
+            // 解析（toSettings）留在 IO：唤起路径上不能拿主线程做反序列化。
+            val appearance = try {
+                AppearanceSettingsRepository.settings()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Throwable) {
+                AndroidAgentLogger.warnThrottled("eta_assistant_overlay_appearance_failed") {
+                    "Eta assistant overlay appearance load failed: ${error.javaClass.simpleName}"
+                }
+                AppearanceSettings()
+            }
+            withContext(Dispatchers.Main.immediate) {
+                // 等待期间可能被重复 SHOW 重置或被关闭：过期的一代不再挂窗。
+                if (generation != entryGeneration || exitAnimationRequested) return@withContext
+                showWindow(appearance)
+                if (windowView == null) {
+                    stopSelf()
+                    return@withContext
+                }
+                // 记录入口浮窗展示时刻，供 [showEntry] 忽略紧随其后的重复 SHOW（入场弹簧还没播完）。
+                lastEntryPresentedAt = SystemClock.uptimeMillis()
+                // 语音入口不弹键盘：两者同时出现会把系统 IME 的入场动画和语音条打架。
+                if (Prefs.assistantEntryMode() == AssistantEntryMode.VOICE && startVoiceEntry()) {
+                    return@withContext
+                }
+                showKeyboard()
+            }
         }
-        // 记录入口浮窗展示时刻，供 [showEntry] 忽略紧随其后的重复 SHOW（入场弹簧还没播完）。
-        lastEntryPresentedAt = SystemClock.uptimeMillis()
-        // 语音入口不弹键盘：两者同时出现会把系统 IME 的入场动画和语音条打架。
-        if (Prefs.assistantEntryMode() == AssistantEntryMode.VOICE && startVoiceEntry()) return
-        showKeyboard()
     }
 
     /**
@@ -371,12 +394,13 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         AgentHapticFeedback.perform(this, AgentHapticFeedback.Type.ASSISTANT_WAKE)
     }
 
-    private fun showWindow() {
+    private fun showWindow(initialAppearance: AppearanceSettings) {
         if (windowView != null) return
         val wm = getSystemService(Context.WINDOW_SERVICE) as? WindowManager ?: return
         val view = createComposeView {
+            // 首帧必须直接是用户配色：外观已在挂窗前读取一次，这里只负责后续变更同步。
             val appearance by AppearanceSettingsRepository.settingsFlow()
-                .collectAsState(initial = AppearanceSettings())
+                .collectAsState(initial = initialAppearance)
             val voiceState by voiceController.state.collectAsState()
             AgentAppTheme(
                 appearance = appearance,
@@ -1129,6 +1153,9 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
             toast(getString(R.string.voice_screen_unavailable))
             return
         }
+        // 语音模式里预设同样常驻：先退出语音（含听写与播报），再把这句话连同屏幕截图发出去，
+        // 否则麦克风 / 播报会和这一轮 run 抢同一段音频。
+        voiceController.stop()
         // submitPrompt 按 selected 决定是否带图；预设本身就是带屏幕提问，直接选中再发。
         uiState = uiState.copy(
             screenContext = uiState.screenContext.copy(selected = true),
